@@ -35,8 +35,8 @@
     <PositionCountMax>5</PositionCountMax>
     <OrderPositionCountMean>1</OrderPositionCountMean>
     <OrderPositionCountStdDev>1</OrderPositionCountStdDev>
-    <OrderPositionCountMin>1</OrderPositionCountMin>
-    <OrderPositionCountMax>5</OrderPositionCountMax>
+    <OrderPositionCountMin>2</OrderPositionCountMin>
+    <OrderPositionCountMax>6</OrderPositionCountMax>
     <DueTimePriorityMode>true</DueTimePriorityMode>
     <DueTimePriorityOrderProbability>0.2</DueTimePriorityOrderProbability>
     <DueTimePriorityOrder>3600</DueTimePriorityOrder>

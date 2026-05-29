@@ -240,6 +240,9 @@ namespace RAWSimO.Core.Elements
                         foreach (var order in _assignedOrders)
                             if (order.Serve(item))
                             {
+                                // KPI: record this pod-visit served this order
+                                if (bot.CurrentTask is Control.ExtractTask _et0)
+                                    _et0.ServedOrdersThisVisit.Add(order);
                                 // Physically remove the item
                                 pod.Remove(item, request);
                                 // Block the station for the transfer
@@ -275,6 +278,9 @@ namespace RAWSimO.Core.Elements
                         // If it's at this station and the item can be added, then add it
                         if (_assignedOrders.Contains(request.Order) && request.Order.Serve(item))
                         {
+                            // KPI: record this pod-visit served this order
+                            if (bot.CurrentTask is Control.ExtractTask _et1)
+                                _et1.ServedOrdersThisVisit.Add(request.Order);
                             // Physically remove the item
                             pod.Remove(item, request);
                             // Block the station for the transfer
@@ -409,6 +415,55 @@ namespace RAWSimO.Core.Elements
         /// <param name="task">The task that was done or cancelled for this station.</param>
         internal void UnregisterExtractTask(ExtractTask task) { _activeExtractTasks.Remove(task); }
         /// <summary>
+        /// Read-only enumeration of all extract tasks currently registered for this station
+        /// (covers both "bot moving toward pod" and "bot carrying pod toward station").
+        /// Used by SlowStartController to compute T_starve.
+        /// </summary>
+        public IEnumerable<Control.ExtractTask> GetActiveExtractTasks() { return _activeExtractTasks; }
+
+        /// <summary>
+        /// Number of item-pick requests already queued at this station (bot+pod present, awaiting service).
+        /// Used by SlowStartController to compute T_starve.
+        /// </summary>
+        public int PendingItemRequestCount { get { return _requestsExtract.Count; } }
+
+        /// <summary>
+        /// Returns the station's blocked-until time as an absolute simulation timestamp.
+        /// Returns NaN when not currently blocked. Used by SlowStartController to compute
+        /// "station busy until" inside T_starve.
+        /// </summary>
+        public double GetBlockedUntilTime() { return BlockedUntil; }
+
+        private double GetIdleDuration(double lastTime, double currentTime)
+        {
+            if (currentTime <= lastTime)
+                return 0.0;
+            if (currentTime <= BlockedUntil)
+                return 0.0;
+            return currentTime - Math.Max(lastTime, BlockedUntil);
+        }
+
+        private bool HasReadyOrQueuedExtractPod()
+        {
+            if (_requestsExtract.Count > 0)
+                return true;
+
+            foreach (var task in _activeExtractTasks)
+            {
+                if (task == null || task.OutputStation != this || task.ReservedPod == null || task.Requests == null || !task.Requests.Any())
+                    continue;
+
+                var bot = task.Bot as RAWSimO.Core.Bots.BotNormal;
+                if (bot == null || bot.Pod != task.ReservedPod)
+                    continue;
+
+                if (bot.IsQueueing || bot.CurrentWaypoint == Waypoint || GetDistance(bot.Pod) < GetInfoRadius())
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
         /// All extract tasks that are registered for being done at this station.
         /// </summary>
         IEnumerable<ExtractTask> ActiveTasks { get { return _activeExtractTasks; } }
@@ -527,6 +582,9 @@ namespace RAWSimO.Core.Elements
         /// The time this station was shutdown.
         /// </summary>
         public double StatDownTime;
+        /// <summary>Cumulative time [s] this station was idle (not blocked) while still having
+        /// assigned orders (CapacityInUse &gt; 0). Proxy for "could be working but no pod here".</summary>
+        public double StatStarvationTimeSec;
         /// <summary>
         /// The timepoint at which the station completed its last order and may have moved to a rest state.
         /// </summary>
@@ -574,6 +632,7 @@ namespace RAWSimO.Core.Elements
             StatActiveTime = 0.0;
             _lastActiveMeasurement = Instance.Controller.CurrentTime;
             StatDownTime = 0.0;
+            StatStarvationTimeSec = 0.0;
         }
 
         #endregion
@@ -631,8 +690,14 @@ namespace RAWSimO.Core.Elements
             // Indicate change at instance
             Instance.Changed = true;
 
+            double idleDuration = GetIdleDuration(lastTime, currentTime);
+
             // Log idle time
-            StatIdleTime += currentTime - lastTime;
+            StatIdleTime += idleDuration;
+            // Log starvation time: idle with assigned demand and no processing/queued pod ready.
+            // Station-ready queued work and in-station pod handoff gaps are not starvation.
+            if (idleDuration > 0.0 && CapacityInUse > 0 && !HasReadyOrQueuedExtractPod())
+                StatStarvationTimeSec += idleDuration;
 
             // Log down time
             if (currentTime - _statDepletionTime > Instance.SettingConfig.StationShutdownThresholdTime)

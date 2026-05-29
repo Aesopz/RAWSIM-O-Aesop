@@ -73,6 +73,54 @@ namespace RAWSimO.Core.Control
         }
 
         /// <summary>
+        /// Reservation-aware ETA probe: estimates how long it would take the given bot
+        /// to travel from `from` to `to` starting at `startTime` with `startOrientationRad`,
+        /// considering the CURRENT reservation table. Pure read-only — does NOT modify
+        /// the reservation table. Returns NaN if no plan was found or the probe is not
+        /// implemented for this PathManager subclass.
+        /// Default implementation returns NaN; WHCA*-family subclasses override with a
+        /// SpaceTimeAStar dry-run.
+        /// </summary>
+        public virtual double EstimateReservationAwareEta(
+            BotNormal bot, Waypoint from, Waypoint to,
+            double startTime, double startOrientationRad)
+        {
+            return double.NaN;
+        }
+
+        /// <summary>
+        /// Ideal kinematic ETA: runs the same SpaceTimeAStar machinery the path planner uses
+        /// (same Graph, Physics, edge structure including direction constraints), but against
+        /// an EMPTY reservation table — no multi-bot conflict, no waits. Returns the pure
+        /// kinematic travel time from `from` to `to`. Used by SlowStart to estimate the
+        /// no-conflict travel time consistently with what WHCA*n would produce in a clear table.
+        /// Default returns NaN; WHCA* subclasses override.
+        /// </summary>
+        public virtual double EstimateIdealKinematicEta(
+            BotNormal bot, Waypoint from, Waypoint to,
+            double startTime, double startOrientationRad)
+        {
+            return double.NaN;
+        }
+
+        /// <summary>
+        /// Lookahead clearance check used by slow-start hold: walks the waypoint graph
+        /// from `from` greedily toward `to` for up to `lookAheadCells` steps, and checks
+        /// that each visited cell is reservation-free in the time window
+        /// [startTime, startTime + windowSeconds]. Reservations belonging to the calling
+        /// bot are NOT excluded — they shouldn't exist past the bot's current cell while
+        /// the bot is in slow-start hold.
+        /// Returns true when the immediate path forward is clear (bot can safely depart).
+        /// Default implementation returns true (no checking → hold releases immediately).
+        /// </summary>
+        public virtual bool IsPathClearForDeparture(
+            BotNormal bot, Waypoint to, double startTime,
+            int lookAheadCells, double windowSeconds)
+        {
+            return true;
+        }
+
+        /// <summary>
         /// ids of the elevators
         /// </summary>
         protected Dictionary<int, Elevator> _elevatorIds;
@@ -396,6 +444,7 @@ namespace RAWSimO.Core.Control
                     Physics = bot.Physics,
                     RequestReoptimization = bot.RequestReoptimization,
                     Queueing = bot.IsQueueing,
+                    TaskPriorityRank = GetWhcaPriorityRank(bot),
                     NextNodeObject = nextWaypoint,
                     DestinationNodeObject = destination,
                     CurrentEnergyState = new RAWSimO.MultiAgentPathFinding.Elements.Agent.EnergyState
@@ -412,6 +461,24 @@ namespace RAWSimO.Core.Control
 
                 Debug.Assert(nextWaypoint.Tier.ID == destination.Tier.ID);
             }
+        }
+
+        private static int GetWhcaPriorityRank(BotNormal bot)
+        {
+            var taskType = bot.CurrentTask != null ? bot.CurrentTask.Type : BotTaskType.None;
+
+            if (bot.Pod != null)
+            {
+                if (taskType == BotTaskType.Extract || taskType == BotTaskType.Insert)
+                    return 0; // delivery to station
+                if (taskType == BotTaskType.ParkPod || taskType == BotTaskType.RepositionPod)
+                    return 1; // return pod to storage
+            }
+
+            if (taskType == BotTaskType.Extract || taskType == BotTaskType.Insert || taskType == BotTaskType.RepositionPod)
+                return 2; // pickup / approach pod
+
+            return 3; // rest, no task, and other low-priority movement
         }
 
         /// <summary>
@@ -457,6 +524,15 @@ namespace RAWSimO.Core.Control
             //manage queues
             foreach (var queueManager in _queueManagers.Values)
                 queueManager.Update();
+
+            // Centralized slow-start release scheduling (one decision per station per tick).
+            if (Instance.SettingConfig != null && Instance.SettingConfig.SlowStartEnabled)
+            {
+                double buffer = Instance.SettingConfig.SlowStartEtaSafetyBuffer;
+                if (buffer <= 0.0) buffer = 0;  // default; see SlowStartController history
+                foreach (var os in Instance.OutputStations)
+                    StationReleaseScheduler.Schedule(os, this, currentTime, buffer);
+            }
 
             //reorganize table
             if (_reservationTable == null)

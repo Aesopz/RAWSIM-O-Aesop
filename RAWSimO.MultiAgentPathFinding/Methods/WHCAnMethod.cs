@@ -48,6 +48,19 @@ namespace RAWSimO.MultiAgentPathFinding.Methods
         public ReservationTable _reservationTable;
 
         /// <summary>
+        /// Returns the live reservation list for the given bot id (or null when missing).
+        /// Used by SlowStartController's ETA probe to temporarily remove the probing bot's
+        /// own reservations before a SpaceTimeAStar dry-run, so that the bot is not blocked
+        /// by its own existing reservations at the start cell. The caller MUST call
+        /// _reservationTable.Add(...) to restore after the dry-run.
+        /// </summary>
+        public List<ReservationTable.Interval> GetBotReservations(int botId)
+        {
+            if (_calculatedReservations == null) return null;
+            return _calculatedReservations.TryGetValue(botId, out var list) ? list : null;
+        }
+
+        /// <summary>
         /// The calculated reservations
         /// </summary>
         private Dictionary<int, List<ReservationTable.Interval>> _calculatedReservations;
@@ -104,7 +117,7 @@ namespace RAWSimO.MultiAgentPathFinding.Methods
                 _reservationTable.Remove(_calculatedReservations[missingAgentId]);
 
             //sort Agents
-            agents = SortAgents(agents);
+            agents = SortAgents(agents, currentTime);
 
             Dictionary<int, double> bias = new Dictionary<int, double>();
 
@@ -265,14 +278,15 @@ namespace RAWSimO.MultiAgentPathFinding.Methods
 
         }
 
-        private List<Agent> SortAgents(List<Agent> agents)
+        private List<Agent> SortAgents(List<Agent> agents, double currentTime)
         {
             IOrderedEnumerable<Agent> sorted;
             if (UseRulePriority)
             {
+                var reachesGoalInWindow = agents.ToDictionary(a => a.ID, a => CanReachDestinationWithinWindow(a, currentTime));
                 sorted = agents
-                    .OrderByDescending(a => a.CurrentEnergyState.TotalWeight)
-                    .ThenBy(a => IsVerticalHeading(a) ? 0 : 1);
+                    .OrderBy(a => reachesGoalInWindow[a.ID] ? 0 : 1)
+                    .ThenBy(a => a.TaskPriorityRank);
             }
             else
             {
@@ -286,9 +300,17 @@ namespace RAWSimO.MultiAgentPathFinding.Methods
                 .ToList();
         }
 
-        private static bool IsVerticalHeading(Agent agent)
+        private bool CanReachDestinationWithinWindow(Agent agent, double currentTime)
         {
-            return Math.Abs(Math.Sin(agent.OrientationAtNextNode)) >= Math.Abs(Math.Cos(agent.OrientationAtNextNode));
+            if (agent.FixedPosition || agent.NextNode == agent.DestinationNode)
+                return true;
+
+            var reservationTable = new ReservationTable(Graph, true, false, false);
+            var rraStar = new ReverseResumableAStar(Graph, agent, agent.Physics, agent.DestinationNode);
+            var aStar = new SpaceTimeAStar(Graph, LengthOfAWaitStep, currentTime + LengthOfAWindow, reservationTable, agent, rraStar);
+            aStar.FinalReservation = true;
+            var found = aStar.Search();
+            return found && aStar.GoalNode >= 0 && aStar.NodeTo2D(aStar.GoalNode) == agent.DestinationNode;
         }
     }
 }

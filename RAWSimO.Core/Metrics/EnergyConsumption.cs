@@ -21,8 +21,11 @@ namespace RAWSimO.Core.Metrics
         /// <summary>Rolling friction coefficient (straight-line movement).</summary>
         public static double FRICTION = 0.02;
 
-        /// <summary>Drivetrain inertia equivalent coefficient (rotational → translational).</summary>
-        public static double INERTIA = 0.15;
+        /// <summary>Drivetrain inertia equivalent coefficient (rotational → translational).
+        /// Raised from 0.15 → 0.25 so that decel·η > g·μ_r at d=1 m/s², making E2 (decel energy)
+        /// non-zero. Without this, friction alone absorbs all decel and E2 = 0 for every leg,
+        /// which hides the real braking cost of conflict-induced stops.</summary>
+        public static double INERTIA = 0.25;
 
         /// <summary>AGV body width [m]. From xinst EnergyParameters.RobotWidth.</summary>
         public static double ROBOT_WIDTH = 0.6;
@@ -44,12 +47,24 @@ namespace RAWSimO.Core.Metrics
         public static double POD_FRAME_MASS = 50.0;
 
         /// <summary>
-        /// Fixed support power draw [W] — background electronics drain while a task is active.
-        /// Zero when bot has no task assigned (standby = powered down for accounting).
-        /// Must match EnergyModel.P_SUPPORT in MultiAgentPathFinding so that
-        /// statistics-side support energy aligns with planner-side cost.
+        /// Support power draw [W] when the bot is NOT carrying a pod (Pod == null).
+        /// Background electronics/standby drain. Accrued every tick for every bot
+        /// (no task gate): idle, resting, moving, and waiting all count.
         /// </summary>
-        public const double P_SUPPORT = 90;
+        public static double SUPPORT_POWER_EMPTY = 20.0;
+
+        /// <summary>
+        /// Support power draw [W] when the bot IS carrying a pod (Pod != null).
+        /// Higher than empty because the lift actuator / heavier control load is engaged.
+        /// </summary>
+        public static double SUPPORT_POWER_LOADED = 50.0;
+
+        /// <summary>
+        /// Load-dependent support power [W] for the given carried pod.
+        /// Single source of truth for all support-energy accounting.
+        /// </summary>
+        public static double SupportPower(Elements.Pod pod)
+            => pod != null ? SUPPORT_POWER_LOADED : SUPPORT_POWER_EMPTY;
 
         #endregion
 
@@ -68,7 +83,9 @@ namespace RAWSimO.Core.Metrics
             double rollingFriction,
             double inertiaCoeff,
             double liftHeight,
-            double podFrameMass)
+            double podFrameMass,
+            double supportPowerEmpty = 20.0,
+            double supportPowerLoaded = 50.0)
         {
             ROBOT_MASS          = robotMass;
             ROBOT_WIDTH         = robotWidth;
@@ -78,10 +95,13 @@ namespace RAWSimO.Core.Metrics
             INERTIA             = inertiaCoeff;
             LIFT_HEIGHT         = liftHeight;
             POD_FRAME_MASS      = podFrameMass;
+            SUPPORT_POWER_EMPTY  = supportPowerEmpty;
+            SUPPORT_POWER_LOADED = supportPowerLoaded;
 
             // DEBUG: Log energy config to verify xlayo was loaded correctly
             System.Diagnostics.Debug.WriteLine(
-                $"[EnergyConsumption.Configure] RobotMass={robotMass}, PodFrameMass={podFrameMass}");
+                $"[EnergyConsumption.Configure] RobotMass={robotMass}, PodFrameMass={podFrameMass}, " +
+                $"SupportEmpty={supportPowerEmpty}, SupportLoaded={supportPowerLoaded}");
         }
 
         #endregion

@@ -16,12 +16,21 @@ namespace RAWSimO.MultiAgentPathFinding.Elements
         public static double ROBOT_LENGTH = 0.75;
         public static double ROBOT_RADIUS = 0.3;
 
+        /// <summary>Support power draw [W] when empty (no pod). Mirror of EnergyConsumption.SUPPORT_POWER_EMPTY.</summary>
+        public static double SUPPORT_POWER_EMPTY = 20.0;
+
+        /// <summary>Support power draw [W] when carrying a pod. Mirror of EnergyConsumption.SUPPORT_POWER_LOADED.</summary>
+        public static double SUPPORT_POWER_LOADED = 50.0;
+
+        /// <summary>Load-dependent support power [W].</summary>
+        public static double SupportPower(bool loaded) => loaded ? SUPPORT_POWER_LOADED : SUPPORT_POWER_EMPTY;
+
         /// <summary>
-        /// Fixed support power draw [W] — background electronics drain while a task is active.
-        /// E_wait = P_SUPPORT × waitDuration [J] (congestion/CBS hold).
-        /// Independent of mass (control system / motor standby draw).
+        /// DEPRECATED compat alias for the dead-code energy planner (ESpaceTimeAStar/ECBSMethod),
+        /// which is NOT used by WHCA*n-P experiments. Set to the loaded rate so that file still
+        /// compiles unchanged. Live accounting uses SupportPower(bool) / EnergyConsumption.SupportPower(Pod).
         /// </summary>
-        public static double P_SUPPORT = 90;
+        public static double P_SUPPORT = SUPPORT_POWER_LOADED;
 
         /// <summary>
         /// Synchronizes physical constants with EnergyConsumption (Core).
@@ -41,7 +50,7 @@ namespace RAWSimO.MultiAgentPathFinding.Elements
         }
 
         public static double ComputeWaitEnergy(double mTotal, double waitDuration)
-            => P_SUPPORT * waitDuration;
+            => SupportPower(mTotal > ROBOT_MASS + 1e-6) * waitDuration;
 
         /// <summary>
         /// Real transition cost (E1+E2+E3) — mirrors EnergyConsumption.ComputeSegmentEnergy.

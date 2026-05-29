@@ -890,6 +890,35 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // If not initialized, do it now
             if (_bestCandidateSelectNormal == null)
                 Initialize();
+            // KPI: snapshot per-station inbound-pod count at the moment of decision trigger
+            // (one sample per station per trigger). Used to characterize queue congestion at OB decisions.
+            foreach (var _kpiStation in Instance.OutputStations)
+                Instance.StatDecisionTriggerQueueDepthSamples.Add(_kpiStation.InboundPods.Count());
+            // KPI: Decision-space snapshots — one sample per trigger.
+            //   slots          = Σ over stations of (Capacity − CapacityReserved − CapacityInUse)
+            //                  = max #orders this trigger can admit
+            //   unusedPods     = #pods currently free to be fresh-assigned (Pa pool)
+            //   pendingOrders  = backlog size
+            //   combos         = slots × unusedPods × pendingOrders (proxy decision-space size)
+            int _kpiSlots = Instance.OutputStations
+                .Sum(s => Math.Max(0, s.Capacity - s.CapacityReserved - s.CapacityInUse));
+            int _kpiUnusedPods = Instance.ResourceManager.UnusedPods.Count();
+            int _kpiPending = _pendingOrders.Count;
+            long _kpiCombos = (long)_kpiSlots * (long)_kpiUnusedPods * (long)_kpiPending;
+            Instance.StatDecisionAvailableStationSlotsSamples.Add(_kpiSlots);
+            Instance.StatDecisionUnusedPodsSamples.Add(_kpiUnusedPods);
+            Instance.StatDecisionPendingOrdersSamples.Add(_kpiPending);
+            Instance.StatDecisionCandidateCombosSamples.Add(_kpiCombos);
+            // KPI D: count bots currently in Rest / Idle (truly unproductive) at this decision trigger
+            int _kpiBotsInRest = 0, _kpiBotsIdleOrRest = 0;
+            foreach (var _kpiBot in Instance.Bots)
+            {
+                var _t = _kpiBot.CurrentTask;
+                if (_t == null || _t.Type == BotTaskType.None) { _kpiBotsIdleOrRest++; continue; }
+                if (_t.Type == BotTaskType.Rest) { _kpiBotsInRest++; _kpiBotsIdleOrRest++; }
+            }
+            Instance.StatDecisionBotsInRestSamples.Add(_kpiBotsInRest);
+            Instance.StatDecisionBotsIdleOrRestSamples.Add(_kpiBotsIdleOrRest);
             // Init
             InitPodSelection();
             _inboundPodsPerStation.Clear();

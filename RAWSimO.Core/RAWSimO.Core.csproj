@@ -96,6 +96,7 @@
     <Compile Include="Control\BotTask.cs" />
     <Compile Include="Control\Allocator.cs" />
     <Compile Include="Control\BotManagerCore.cs" />
+    <Compile Include="Control\StationReleaseScheduler.cs" />
     <Compile Include="Control\Defaults\ItemStorage\EmptiestStorageManager.cs" />
     <Compile Include="Control\Defaults\ItemStorage\LeastDemandStorageManager.cs" />
     <Compile Include="Control\Defaults\ItemStorage\ReactiveStorageManager.cs" />
@@ -199,6 +200,9 @@
     <Compile Include="Geometrics\QuadNode.cs" />
     <Compile Include="Geometrics\QuadTree.cs" />
     <Compile Include="Control\PathManager.cs" />
+    <Compile Include="Control\SlowStartController.cs" />
+    <Compile Include="Control\JIT\IdealTravelTime.cs" />
+    <Compile Include="Control\JIT\JITArrivalETA.cs" />
     <Compile Include="Info\IElevatorInfo.cs" />
     <Compile Include="Info\IGeneralObjectInfo.cs" />
     <Compile Include="Info\IItemInfo.cs" />

@@ -22,6 +22,11 @@ namespace RAWSimO.Playground
     {
         static void Main(string[] args)
         {
+            if (args.Length == 1 && args[0] == "selftest")
+            {
+                Environment.Exit(RAWSimO.Playground.Tests.StationReleaseSchedulerSelfTest.RunAll());
+                return;
+            }
             // If arguments given in the right length handle the jenkins call
             if (args.Length == JenkinsHandler.CliArgs.Length)
             {

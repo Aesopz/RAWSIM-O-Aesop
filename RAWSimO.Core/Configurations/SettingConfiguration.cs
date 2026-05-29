@@ -7,6 +7,13 @@ using System.Xml.Serialization;
 
 namespace RAWSimO.Core.Configurations
 {
+    public enum SlowStartReleasePolicy
+    {
+        StationSlack,
+        ReservationEtaImprovement,
+        QueueBudgetEtaImprovement
+    }
+
     /// <summary>
     /// The base configuration.
     /// </summary>
@@ -118,6 +125,47 @@ namespace RAWSimO.Core.Configurations
         /// Indicates whether to use or ignore queues in the waypoint-system.
         /// </summary>
         public bool QueueHandlingEnabled = true;
+        /// <summary>
+        /// PP-aware slow-start: hold bot at pod cell after pickup for a duration that
+        /// preserves station-busy continuity (T_starve − ETA), to convert station-queue
+        /// premature wait into upstream controlled hold and reduce stop-and-go.
+        /// </summary>
+        public bool SlowStartEnabled = false;
+        /// <summary>
+        /// Slow-start release rule. StationSlack preserves the current baseline.
+        /// ReservationEtaImprovement keeps holding when a short delay is predicted to
+        /// produce a better reservation-aware ETA while station safety remains feasible.
+        /// </summary>
+        public SlowStartReleasePolicy SlowStartReleasePolicy = SlowStartReleasePolicy.StationSlack;
+        /// <summary>
+        /// Explicit ETA uncertainty buffer [s] used by non-baseline slow-start policies.
+        /// This reserves station slack against pod-to-station travel-time underestimation.
+        /// </summary>
+        public double SlowStartEtaSafetyBuffer = 0.0;
+        /// <summary>
+        /// Number of future seconds to probe when testing reservation ETA improvement.
+        /// </summary>
+        public int SlowStartEtaImprovementLookaheadSec = 5;
+        /// <summary>
+        /// Release margin [s] for the reservation ETA improvement policy. A current ETA
+        /// within this margin of the best future ETA is good enough to depart.
+        /// </summary>
+        public double SlowStartEtaImprovementReleaseMargin = 1.0;
+        /// <summary>
+        /// Max additional queue-conversion hold budget [s] for QueueBudgetEtaImprovement.
+        /// This cap prevents inferred station-queue budget from cascading into long holds.
+        /// </summary>
+        public double SlowStartQueueBudgetMaxSec = 0.0;
+        /// <summary>
+        /// Multiplier applied to same-station active extract work when estimating queue
+        /// budget. Values below 1 are conservative.
+        /// </summary>
+        public double SlowStartQueueBudgetWorkMultiplier = 1.0;
+        /// <summary>
+        /// Minimum number of other active extract tasks heading to the same station before
+        /// QueueBudgetEtaImprovement may add queue-conversion budget.
+        /// </summary>
+        public int SlowStartQueueBudgetMinOtherExtractTasks = 1;
 
         #endregion
 

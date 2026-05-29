@@ -1,0 +1,12 @@
+#TimeStamp;BotsQueueing;TaskBotCounts
+0;0;None/20,ParkPod/0,RepositionPod/0,Insert/0,Extract/0,Rest/0
+59.94;3;None/0,ParkPod/0,RepositionPod/0,Insert/7,Extract/13,Rest/0
+119.92;2;None/0,ParkPod/1,RepositionPod/0,Insert/7,Extract/12,Rest/0
+179.97;2;None/0,ParkPod/1,RepositionPod/0,Insert/8,Extract/11,Rest/0
+239.64;0;None/0,ParkPod/1,RepositionPod/0,Insert/8,Extract/11,Rest/0
+299.86;2;None/0,ParkPod/1,RepositionPod/0,Insert/9,Extract/10,Rest/0
+359.96;3;None/0,ParkPod/2,RepositionPod/0,Insert/9,Extract/9,Rest/0
+419.99;2;None/0,ParkPod/7,RepositionPod/0,Insert/6,Extract/7,Rest/0
+479.74;4;None/0,ParkPod/2,RepositionPod/0,Insert/8,Extract/10,Rest/0
+539.86;2;None/0,ParkPod/4,RepositionPod/0,Insert/7,Extract/9,Rest/0
+599.96;1;None/0,ParkPod/1,RepositionPod/0,Insert/9,Extract/10,Rest/0

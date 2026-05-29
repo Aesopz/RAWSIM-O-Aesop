@@ -18,7 +18,7 @@
   <ItemPickTime>3</ItemPickTime>
   <ItemBundleTransferTime>10</ItemBundleTransferTime>
   <IStationCapacity>1000</IStationCapacity>
-  <OStationCapacity>6</OStationCapacity>
+  <OStationCapacity>12</OStationCapacity>
   <ElevatorTransportationTimePerTier>10</ElevatorTransportationTimePerTier>
   <AisleLayoutType>Tim</AisleLayoutType>
   <AislesTwoDirectional>false</AislesTwoDirectional>

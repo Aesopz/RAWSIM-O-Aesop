@@ -1,0 +1,65 @@
+layer,metric,empty,loaded,total,unit
+L1,orders_completed,,,86,orders
+L1,orders_per_hour,,,43,orders/h
+L1,total_energy_with_support_kJ,,,462.191508164018,kJ
+L1,total_energy_mech_kJ,,,113.612058526593,kJ
+L1,energy_total_with_support_per_order_kJ,,,5.37431986237231,kJ/order
+L1,energy_mech_per_order_kJ,,,1.32107044798364,kJ/order
+L1,total_distance_m,,,939.000000000001,m
+L1,order_distance_m,,,10.9186046511628,m/order
+L1,system_order_pile_on,,,10.75,orders/output_station_arrival
+L1,input_station_arrivals,,,17,count
+L1,output_station_arrivals,,,8,count
+L1,station_arrivals_total,,,25,count
+L2,trip_count,31,50,81,trips
+L2,distance_m,242,697,939,m
+L2,total_time_sec,282.1477849707,800.365771910069,1082.51355688077,s
+L2,total_move_turn_energy_kJ,21.6648534953539,81.9070359791331,103.571889474487,kJ
+L2,move_turn_pct_of_mech,19.0691496803422,72.0936114012593,,%
+L2,avg_distance_per_trip_m,7.80645161290323,13.94,,m/trip
+L2,avg_time_per_trip_sec,9.10154145066773,16.0073154382014,,s/trip
+L2,avg_energy_per_trip_kJ,0.698866241785611,1.63814071958266,,kJ/trip
+L3,e1_accel_kJ,,,33.2995733775379,kJ
+L3,e2_decel_kJ,,,4.03178691118171,kJ
+L3,e3_cruise_kJ,,,39.9083403784247,kJ
+L3,e4_rotation_kJ,,,26.3321888073428,kJ
+L3,e5_lift_kJ,,,10.0401690521058,kJ
+L3,e1_pct_of_mech,,,29.3098935178113,%
+L3,e2_pct_of_mech,,,3.54873150215653,%
+L3,e3_pct_of_mech,,,35.1268526386954,%
+L3,e4_pct_of_mech,,,23.1772834229381,%
+L3,e5_pct_of_mech,,,8.83723891839854,%
+L4,turn_count,57,154,211,events
+L4,turn_energy_kJ,5.54795349535395,20.7842353119888,26.3321888073428,kJ
+L4,turn_pct_of_total,1.20035816265693,4.4968881826823,,%
+L4,turn_pct_of_state,25.6080822173282,25.3753967086343,,%
+L4,turn_per_trip,1.83870967741935,3.08,,per trip
+L4,turn_per_m,0.235537190082645,0.220946915351506,,per m
+L4,stop_and_go_count,,,2,events
+L4,stop_and_go_energy_kJ,,,0.365625,kJ
+L4,stop_and_go_pct_of_e1e2,,,0.97940443951752,%
+L4,stop_and_go_per_order,,,0.0232558139534884,per order
+L4,queue_stop_and_go_count,,,0,events
+L4,queue_stop_and_go_energy_kJ,,,0,kJ
+L4,queue_stop_and_go_pct_of_e1e2,,,0,%
+L4,queue_stop_and_go_per_order,,,0,per order
+L4,queue_holding_time_sec,,,205.023795097481,s
+L4,queue_holding_energy_kJ,,,10.2511897548741,kJ
+L4,queue_holding_pct_of_support,,,2.94084742102176,%
+L4,queue_holding_per_order_kJ,,,0.119199880870629,per order
+L5,wait_time_sec,4.01777777777837,6.15555555555773,10.1733333333361,s
+L5,wait_energy_kJ,0.0803555555555675,0.307777777777887,0.388133333333454,kJ
+L5,wait_pct_of_total,0.017385770646191,0.0665909633434168,,%
+L5,wait_ratio_mean,0.0134861104947779,0.00717555423385695,0.00956333227852972,ratio
+L5,wait_ratio_median,0.00805821806022158,0.00541546167112155,0.00658730092669023,ratio
+L5,wait_ratio_p95,0.0435077378264326,0.0117635931395864,0.0255413692964735,ratio
+L6,composition_move_pct,,,16.7116226288896,%
+L6,composition_turn_pct,,,5.69724634533923,%
+L6,composition_lift_pct,,,2.17229630461813,%
+L6,composition_wait_pct,,,0.0839767339896078,%
+L6,composition_support_pct,,,75.3348579871634,%
+L6,energy_empty_to_loaded_ratio,,,0.264505402208344,ratio
+L6,effective_motion_ratio,,,0.99060211923567,ratio
+L6,wait_energy_per_order_kJ,,,0.00451317829457505,kJ/order
+L6,energy_per_m_empty_J,89.5241879973304,,,J/m
+L6,energy_per_m_loaded_J,,117.513681462171,,J/m

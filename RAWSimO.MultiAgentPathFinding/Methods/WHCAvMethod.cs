@@ -121,11 +121,11 @@ namespace RAWSimO.MultiAgentPathFinding.Methods
             _reservationTable.Clear();
             var fixedBlockage = AgentInfoExtractor.getStartBlockage(agents, currentTime);
 
-            SortAgents(ref agents, agentPrios);
-
             //set fixed blockage
             foreach (var interval in fixedBlockage.Values.SelectMany(d => d))
                 _reservationTable.Add(interval);
+
+            SortAgents(ref agents, agentPrios, currentTime);
 
             //deadlock handling
             if (UseDeadlockHandler)
@@ -216,15 +216,16 @@ namespace RAWSimO.MultiAgentPathFinding.Methods
         /// </summary>
         /// <param name="agents">The agents.</param>
         /// <param name="queues">The queues.</param>
-        private void SortAgents(ref List<Agent> agents, Dictionary<int, int> agentPrios)
+        private void SortAgents(ref List<Agent> agents, Dictionary<int, int> agentPrios, double currentTime)
         {
             if (UseRulePriority)
             {
+                var reachesGoalInWindow = agents.ToDictionary(a => a.ID, a => CanReachDestinationWithinWindow(a, currentTime));
                 agents = agents
-                    .OrderByDescending(a => a.CurrentEnergyState.TotalWeight)
-                    .ThenBy(a => IsVerticalHeading(a) ? 0 : 1)
+                    .OrderByDescending(a => agentPrios[a.ID])
+                    .ThenBy(a => reachesGoalInWindow[a.ID] ? 0 : 1)
+                    .ThenBy(a => a.TaskPriorityRank)
                     .ThenBy(a => Graph.getDistance(a.NextNode, a.DestinationNode))
-                    .ThenByDescending(a => agentPrios[a.ID])
                     .ThenBy(a => a.ID)
                     .ToList();
                 return;
@@ -238,9 +239,15 @@ namespace RAWSimO.MultiAgentPathFinding.Methods
                 .ToList();
         }
 
-        private static bool IsVerticalHeading(Agent agent)
+        private bool CanReachDestinationWithinWindow(Agent agent, double currentTime)
         {
-            return Math.Abs(Math.Sin(agent.OrientationAtNextNode)) >= Math.Abs(Math.Cos(agent.OrientationAtNextNode));
+            if (agent.FixedPosition || agent.NextNode == agent.DestinationNode)
+                return true;
+
+            var rraStar = new ReverseResumableAStar(Graph, agent, agent.Physics, agent.DestinationNode);
+            var aStar = new SpaceTimeAStar(Graph, LengthOfAWaitStep, currentTime + LengthOfAWindow, _reservationTable, agent, rraStar);
+            var found = aStar.Search();
+            return found && aStar.GoalNode >= 0 && aStar.NodeTo2D(aStar.GoalNode) == agent.DestinationNode;
         }
     }
 }
