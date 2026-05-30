@@ -428,7 +428,7 @@ git commit -m "Add InputStationReleaseScheduler (reuses Decide + PipelineNextFre
 ```powershell
 $vswhere = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
 $msbuild = & $vswhere -latest -requires Microsoft.Component.MSBuild -find "MSBuild\**\Bin\MSBuild.exe" | Select-Object -First 1
-& $msbuild RAWSimO.sln /p:Platform=x64 /p:Configuration=Release /m /v:minimal
+& $msbuild RAWSimOWithSolverWrapping.sln /p:Platform=x64 /p:Configuration=Release /m /v:minimal
 ```
 Expected: `Build succeeded.`（0 errors）
 
