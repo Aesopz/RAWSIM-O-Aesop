@@ -132,6 +132,15 @@ namespace RAWSimO.Core.Configurations
         /// </summary>
         public bool SlowStartEnabled = false;
         /// <summary>
+        /// Replenishment (input-station) slow-start. Holds the bot at the pod cell before a
+        /// store/InsertTask travels to the input station, releasing per
+        /// InputStationReleaseScheduler so the pod arrives JIT and reduces input-station pod
+        /// queue energy. Lower-half only — replenishment pod selection stays native.
+        /// Independent of SlowStartEnabled (output). See
+        /// docs/superpowers/plans/2026-05-30-input-station-slow-start.md.
+        /// </summary>
+        public bool SlowStartInputEnabled = false;
+        /// <summary>
         /// Slow-start release rule. StationSlack preserves the current baseline.
         /// ReservationEtaImprovement keeps holding when a short delay is predicted to
         /// produce a better reservation-aware ETA while station safety remains feasible.
