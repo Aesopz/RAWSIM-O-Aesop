@@ -93,9 +93,11 @@
     <Compile Include="Configurations\LayoutConfiguration.cs" />
     <Compile Include="Configurations\MethodConfiguration.cs" />
     <Compile Include="Control\BotManagerPodSelection.cs" />
+    <Compile Include="Control\BotManagerJointPodSelection.cs" />
     <Compile Include="Control\BotTask.cs" />
     <Compile Include="Control\Allocator.cs" />
     <Compile Include="Control\BotManagerCore.cs" />
+    <Compile Include="Control\InputStationReleaseScheduler.cs" />
     <Compile Include="Control\StationReleaseScheduler.cs" />
     <Compile Include="Control\Defaults\ItemStorage\EmptiestStorageManager.cs" />
     <Compile Include="Control\Defaults\ItemStorage\LeastDemandStorageManager.cs" />
