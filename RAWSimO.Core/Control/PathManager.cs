@@ -533,6 +533,14 @@ namespace RAWSimO.Core.Control
                 foreach (var os in Instance.OutputStations)
                     StationReleaseScheduler.Schedule(os, this, currentTime, buffer);
             }
+            // Replenishment (input-station) slow-start — independent flag, lower-half only.
+            if (Instance.SettingConfig != null && Instance.SettingConfig.SlowStartInputEnabled)
+            {
+                double bufferIn = Instance.SettingConfig.SlowStartEtaSafetyBuffer;
+                if (bufferIn <= 0.0) bufferIn = 0;
+                foreach (var ins in Instance.InputStations)
+                    InputStationReleaseScheduler.Schedule(ins, this, currentTime, bufferIn);
+            }
 
             //reorganize table
             if (_reservationTable == null)
