@@ -25,6 +25,7 @@
 | `RAWSimO.Core/Bots/BotNormal.cs` | Modify | (a) 新增 `BotSlowStartHoldInput` 最小狀態；(b) `BotTaskType.Store` 分支注入 hold（旗標 gated） |
 | `RAWSimO.Core/Control/InputStationReleaseScheduler.cs` | **Create** | per-input-station per-tick：收集 InsertTask holders、算 input EST、重用 `Decide`、寫 release deadline |
 | `RAWSimO.Core/Control/PathManager.cs` | Modify | `Update` 中依 `SlowStartInputEnabled` 對每個 input station 呼叫排程器 |
+| `RAWSimO.Visualization/Rendering/VisualizationConstants.cs` | Modify | 註冊 `"SlowStartHoldInput"` → 白色 brush（避免 3D 視圖直接索引時 KeyNotFoundException） |
 
 重用（不改）：`StationReleaseScheduler.Decide`、`SlowStartController.PipelineNextFreeTime`、`SlowStartController.ComputeIdealEta`、`PathManager.EstimateIdealKinematicEta`、`bot._slowStartReleaseDeadline` 等既有欄位。
 
@@ -214,11 +215,31 @@ git commit -m "Add SlowStartInputEnabled config flag (replenishment slow-start)"
                     StateQueueEnqueue(new BotGetItems(storeTask));
 ```
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: 註冊白色 brush 給 input hold**
+
+`BotSlowStartHoldInput.ToString()` 回傳 `"SlowStartHoldInput"`，會成為視覺化的 state-brush
+查表 key（`BotNormal._currentInfoStateName = state.ToString()`）。`SimulationVisual3D.cs:281`
+是**直接索引** `StateBrushes[Bot.GetInfoState()]`，缺 key 會丟 `KeyNotFoundException`。
+故必須註冊（同時給 input hold 白色，與 output hold 的 Orange 區分）。
+
+把 `RAWSimO.Visualization/Rendering/VisualizationConstants.cs:50`：
+
+```csharp
+            { "SlowStartHold", new SolidColorBrush(Colors.Orange) },
+```
+
+改為（其後新增一行）：
+
+```csharp
+            { "SlowStartHold", new SolidColorBrush(Colors.Orange) },
+            { "SlowStartHoldInput", new SolidColorBrush(Colors.White) },
+```
+
+- [ ] **Step 4: Commit**
 
 ```powershell
-git add RAWSimO.Core/Bots/BotNormal.cs
-git commit -m "Add BotSlowStartHoldInput state + inject into store task (flag-gated)"
+git add RAWSimO.Core/Bots/BotNormal.cs RAWSimO.Visualization/Rendering/VisualizationConstants.cs
+git commit -m "Add BotSlowStartHoldInput state + inject into store task + white viz brush"
 ```
 
 ---
