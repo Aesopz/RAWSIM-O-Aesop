@@ -48,6 +48,7 @@ namespace RAWSimO.Visualization.Rendering
             { "Rest", new SolidColorBrush(Colors.DarkBlue) },
             { "UseElevator", new SolidColorBrush(Colors.Teal) },
             { "SlowStartHold", new SolidColorBrush(Colors.Orange) },
+            { "SlowStartHoldInput", new SolidColorBrush(Colors.White) },
             { "Debug", new SolidColorBrush(Colors.Red) }
         };
 
