@@ -1116,6 +1116,10 @@ namespace RAWSimO.Core.Bots
         internal double _lastTripInitialOrientation = double.NaN;
         /// <summary>Time [s] when the bot+pod entered the OS queue zone (start of queue wait).</summary>
         internal double _potQueueArrivalTime = double.NaN;
+        /// <summary>Input-station analog of _potQueueArrivalTime: queue-zone arrival time for a
+        /// store/InsertTask pod, consumed in BotGetItems to measure input-station per-pod queue
+        /// wait (previously unmeasured — only output BotPutItems recorded queue wait).</summary>
+        internal double _potInputQueueArrivalTime = double.NaN;
         /// <summary>Time [s] when BotPutItems first initialized (station begins picking from this pod).</summary>
         internal double _potPickingStartTime = double.NaN;
         /// <summary>
@@ -1548,7 +1552,11 @@ namespace RAWSimO.Core.Bots
                 if (DestinationWaypoint.InputStation != null)
                     if (IsInStationQueueZone(DestinationWaypoint.InputStation))
                     {
-                        Instance.NotifyTripCompleted(this, Statistics.StationTripDatapoint.StationTripType.I, Instance.Controller.CurrentTime - _queueTripStartTime);
+                        double inQueueArrival = Instance.Controller.CurrentTime;
+                        Instance.NotifyTripCompleted(this, Statistics.StationTripDatapoint.StationTripType.I, inQueueArrival - _queueTripStartTime);
+                        // Per-pod input-station queue-wait clock starts now (pod entered queue zone).
+                        if (double.IsNaN(_potInputQueueArrivalTime))
+                            _potInputQueueArrivalTime = inQueueArrival;
                         _queueTripStartTime = double.NaN;
                     }
             }
@@ -2279,6 +2287,12 @@ namespace RAWSimO.Core.Bots
                     self.StatTotalStateCounts[Type]++;
                     _initialized = true;
                     bot.CloseCurrentTrip(currentTime);
+                    // Per-pod input-station queue wait: from queue-zone arrival to storing start.
+                    if (!double.IsNaN(bot._potInputQueueArrivalTime))
+                    {
+                        bot.Instance.StatInputPodQueueWaitSamples.Add(currentTime - bot._potInputQueueArrivalTime);
+                        bot._potInputQueueArrivalTime = double.NaN;
+                    }
                 }
 
                 //#RealWorldIntegration.start
@@ -2461,6 +2475,8 @@ namespace RAWSimO.Core.Bots
                                     bot.Instance.StatPodPickingTimeSamples.Add(currentTime - bot._potPickingStartTime);
                                     bot._potPickingStartTime = double.NaN;
                                 }
+                                // Pure-observation: snapshot backfill potential at the pod-release moment.
+                                Control.BackfillProbe.OnExtractRelease(bot, _extractTask, currentTime);
                                 bot.DequeueState(lastTime, currentTime);
                                 return;
                             }
@@ -2485,6 +2501,8 @@ namespace RAWSimO.Core.Bots
                                     bot.Instance.StatPodPickingTimeSamples.Add(currentTime - bot._potPickingStartTime);
                                     bot._potPickingStartTime = double.NaN;
                                 }
+                                // Pure-observation: snapshot backfill potential at the pod-release moment.
+                                Control.BackfillProbe.OnExtractRelease(bot, _extractTask, currentTime);
                                 bot.DequeueState(lastTime, currentTime);
                                 return;
                             }

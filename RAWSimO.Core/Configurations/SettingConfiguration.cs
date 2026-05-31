@@ -141,6 +141,32 @@ namespace RAWSimO.Core.Configurations
         /// </summary>
         public bool SlowStartInputEnabled = false;
         /// <summary>
+        /// A/B switch: when true, the release schedulers estimate pod→station ETA via the
+        /// reservation-aware probe (PathManager.EstimateReservationAwareEta — a SpaceTimeAStar
+        /// dry-run against the live WHCA* reservation table that accounts for current congestion)
+        /// instead of the empty-table ideal-kinematic lower bound. Aims to remove the systematic
+        /// ETA under-estimation that causes late arrival / starvation. Falls back to ideal on NaN.
+        /// </summary>
+        public bool SlowStartUseReservationEta = false;
+        /// <summary>
+        /// Input slow-start: include the station's KNOWN-but-unassigned store backlog
+        /// (InputStation.GetInfoOpenRequests — store requests not yet bound to any InsertTask) as
+        /// deterministic work in the holder's release horizon. Without this the input EST counts
+        /// only already-dispatched pods, so holders release in a committed-work "trough" and arrive
+        /// into the queue refilled by the pending backlog. The backlog count is exact (no congestion
+        /// prediction) and does not double-count committed work (assigned requests are already
+        /// removed from the available pool). Default false; A/B knob for the input scheduler.
+        /// </summary>
+        public bool InputBacklogAwareHold = false;
+        /// <summary>
+        /// Pure-observation probe (changes NO decision). When true, BackfillProbe runs once per
+        /// tick per output station: at the onset of a projected starvation gap it measures, for the
+        /// pod physically docked at the station, how many backlog (unassigned) orders that pod could
+        /// fully / partially satisfy — i.e. the "deferred-binding + opportunistic backfill" hit rate.
+        /// Writes backfill_probe.csv. Default false; independent of all slow-start flags.
+        /// </summary>
+        public bool BackfillProbeEnabled = false;
+        /// <summary>
         /// Slow-start release rule. StationSlack preserves the current baseline.
         /// ReservationEtaImprovement keeps holding when a short delay is predicted to
         /// produce a better reservation-aware ETA while station safety remains feasible.

@@ -30,6 +30,26 @@ namespace RAWSimO.Core.Control
             public double Arrival;
             public int BaseItems;
             public Pod Pod;
+            public bool ArrivalConfirmed;
+        }
+
+        internal struct StationWorkJob
+        {
+            public double ArrivalAbs;
+            public int BaseItems;
+            public Pod Pod;
+            public bool ArrivalConfirmed;
+        }
+
+        internal struct StationWorkProjection
+        {
+            public double FirstStarveSec;
+            public double WorkHorizonSec;
+            public double StarvationGapSec;
+            public int JobCount;
+            public int LateJobCount;
+            public int ConfirmedJobCount;
+            public int UncertainJobCount;
         }
 
         /// <summary>
@@ -230,14 +250,15 @@ namespace RAWSimO.Core.Control
                 if (atStation && stationActive)
                     itemsRemaining = Math.Max(0, itemsRemaining - 1);
                 if (itemsRemaining == 0) continue;
-                double arrival = ResolveTaskArrival(t, station, other, currentTime, ref missingArrivalCount);
-                jobs.Add(new StarveJob { Arrival = arrival, BaseItems = itemsRemaining, Pod = t.ReservedPod });
+                bool arrivalConfirmed;
+                double arrival = ResolveTaskArrival(t, station, other, currentTime, ref missingArrivalCount, out arrivalConfirmed);
+                jobs.Add(new StarveJob { Arrival = arrival, BaseItems = itemsRemaining, Pod = t.ReservedPod, ArrivalConfirmed = arrivalConfirmed });
             }
 
             // 3. Sequential pipeline. Sort by arrival; for each job, serve when both
             //    station-free and bot-arrived.
-            double t0 = PipelineNextFreeTimeWithPotential(station, stationFreeAt, jobs, currentTime);
-            return Math.Max(0.0, t0 - currentTime);
+            var projection = PipelineWorkProjectionWithPotential(station, stationFreeAt, jobs, currentTime);
+            return projection.FirstStarveSec;
         }
 
         /// <summary>
@@ -248,7 +269,12 @@ namespace RAWSimO.Core.Control
         /// </summary>
         internal static double ComputeStationStarvation(OutputStation station, double currentTime)
         {
-            if (station == null) return 0.0;
+            return ComputeStationWorkProjection(station, currentTime).FirstStarveSec;
+        }
+
+        internal static StationWorkProjection ComputeStationWorkProjection(OutputStation station, double currentTime, IEnumerable<StationWorkJob> additionalJobs = null)
+        {
+            if (station == null) return new StationWorkProjection();
 
             double blockedUntilAbs = station.GetBlockedUntilTime();
             bool stationActive = !double.IsNaN(blockedUntilAbs) && blockedUntilAbs > currentTime;
@@ -268,12 +294,27 @@ namespace RAWSimO.Core.Control
                     itemsRemaining = Math.Max(0, itemsRemaining - 1);
                 if (itemsRemaining == 0) continue;
                 int ignoredMissingCount = 0;
-                double arrival = ResolveTaskArrival(t, station, other, currentTime, ref ignoredMissingCount);
-                jobs.Add(new StarveJob { Arrival = arrival, BaseItems = itemsRemaining, Pod = t.ReservedPod });
+                bool arrivalConfirmed;
+                double arrival = ResolveTaskArrival(t, station, other, currentTime, ref ignoredMissingCount, out arrivalConfirmed);
+                jobs.Add(new StarveJob { Arrival = arrival, BaseItems = itemsRemaining, Pod = t.ReservedPod, ArrivalConfirmed = arrivalConfirmed });
             }
 
-            double t0 = PipelineNextFreeTimeWithPotential(station, stationFreeAt, jobs, currentTime);
-            return Math.Max(0.0, t0 - currentTime);
+            if (additionalJobs != null)
+            {
+                foreach (var job in additionalJobs)
+                {
+                    if (job.BaseItems <= 0 && job.Pod == null) continue;
+                    jobs.Add(new StarveJob
+                    {
+                        Arrival = job.ArrivalAbs,
+                        BaseItems = Math.Max(0, job.BaseItems),
+                        Pod = job.Pod,
+                        ArrivalConfirmed = job.ArrivalConfirmed
+                    });
+                }
+            }
+
+            return PipelineWorkProjectionWithPotential(station, stationFreeAt, jobs, currentTime);
         }
 
         /// <summary>
@@ -300,29 +341,118 @@ namespace RAWSimO.Core.Control
         private static double PipelineNextFreeTimeWithPotential(
             OutputStation station, double stationFreeAt, IEnumerable<StarveJob> jobs, double now)
         {
+            return now + PipelineWorkProjectionWithPotential(station, stationFreeAt, jobs, now).FirstStarveSec;
+        }
+
+        /// <summary>
+        /// Generic single-server projection over plain (arrival, work) jobs. Returns BOTH the
+        /// earliest-starvation time (first arrival gap) and the FULL work horizon (time until ALL
+        /// jobs clear, NOT truncated at the first gap). Mirrors PipelineWorkProjectionWithPotential
+        /// but without pod-potential enrichment — used by the input scheduler, where store work is
+        /// deterministic. WorkHorizon is what the non-chosen holders' cascade budget needs so a
+        /// released pod's work extends the others' allowable hold (matching the output scheduler).
+        /// </summary>
+        internal static void PipelineFirstStarveAndHorizon(
+            double stationFreeAt, IEnumerable<(double arrival, double work)> jobs, double now,
+            out double firstStarveSec, out double workHorizonSec)
+        {
+            var ordered = jobs.OrderBy(j => j.arrival).ToList();
+            double horizon = stationFreeAt;
+            double firstStarve = double.NaN;
+            foreach (var job in ordered)
+            {
+                if (job.work <= 0.0)
+                    continue;
+                if (job.arrival > horizon)
+                {
+                    if (double.IsNaN(firstStarve))
+                        firstStarve = horizon;
+                    horizon = job.arrival + job.work;
+                }
+                else
+                {
+                    horizon += job.work;
+                }
+            }
+            if (double.IsNaN(firstStarve))
+                firstStarve = horizon;
+            firstStarveSec = Math.Max(0.0, firstStarve - now);
+            workHorizonSec = Math.Max(0.0, horizon - now);
+        }
+
+        private static StationWorkProjection PipelineWorkProjectionWithPotential(
+            OutputStation station, double stationFreeAt, IEnumerable<StarveJob> jobs, double now)
+        {
             var openDemand = IsOnTheFlyExtractEnabled(station?.Instance)
                 ? BuildOpenDemandByItem(station)
                 : new Dictionary<ItemDescription, int>();
             var ordered = jobs.OrderBy(j => j.Arrival).ToList();
-            double t0 = stationFreeAt;
+            double horizon = stationFreeAt;
+            double firstStarve = double.NaN;
+            double starvationGap = 0.0;
+            int jobCount = 0;
+            int lateJobCount = 0;
+            int confirmedJobCount = 0;
+            int uncertainJobCount = 0;
+
             foreach (var job in ordered)
             {
-                if (job.Arrival > t0)
-                    return t0;
                 int extraItems = ReservePotentialPicks(job.Pod, openDemand);
                 double work = (job.BaseItems + extraItems) * station.ItemTransferTime;
-                t0 += work;
+                if (work <= 0.0)
+                    continue;
+
+                jobCount++;
+                if (job.ArrivalConfirmed) confirmedJobCount++;
+                else uncertainJobCount++;
+
+                if (job.Arrival > horizon)
+                {
+                    if (double.IsNaN(firstStarve))
+                        firstStarve = horizon;
+                    starvationGap += job.Arrival - horizon;
+                    lateJobCount++;
+                    horizon = job.Arrival + work;
+                }
+                else
+                {
+                    horizon += work;
+                }
             }
-            return t0;
+
+            if (double.IsNaN(firstStarve))
+                firstStarve = horizon;
+
+            return new StationWorkProjection
+            {
+                FirstStarveSec = Math.Max(0.0, firstStarve - now),
+                WorkHorizonSec = Math.Max(0.0, horizon - now),
+                StarvationGapSec = Math.Max(0.0, starvationGap),
+                JobCount = jobCount,
+                LateJobCount = lateJobCount,
+                ConfirmedJobCount = confirmedJobCount,
+                UncertainJobCount = uncertainJobCount
+            };
         }
 
         private static double ResolveTaskArrival(
             ExtractTask task, OutputStation station, BotNormal bot, double currentTime, ref int missingArrivalCount)
         {
+            bool ignoredConfirmed;
+            return ResolveTaskArrival(task, station, bot, currentTime, ref missingArrivalCount, out ignoredConfirmed);
+        }
+
+        private static double ResolveTaskArrival(
+            ExtractTask task, OutputStation station, BotNormal bot, double currentTime, ref int missingArrivalCount, out bool arrivalConfirmed)
+        {
+            arrivalConfirmed = false;
             if (bot == null || task == null || station == null)
                 return currentTime;
             if (bot.CurrentWaypoint == station.Waypoint || bot.IsQueueing)
+            {
+                arrivalConfirmed = true;
                 return currentTime;
+            }
             if (!double.IsNaN(task.ExpectedArrivalAtStation) && task.ExpectedArrivalAtStation > currentTime)
                 return task.ExpectedArrivalAtStation;
 

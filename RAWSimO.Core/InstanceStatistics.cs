@@ -174,6 +174,21 @@ namespace RAWSimO.Core
         public List<int> StatJITEtaSourceIds = new List<int>();
         /// <summary>JIT validation diagnostic: destination waypoint ID per trip (queue rear or fallback).</summary>
         public List<int> StatJITEtaDestIds = new List<int>();
+        public List<int> StatJITEtaBotIds = new List<int>();
+        public List<string> StatJITEtaTaskIds = new List<string>();
+        public List<int> StatJITEtaTripIds = new List<int>();
+        public List<int> StatJITEtaStopGoCounts = new List<int>();
+        public List<int> StatJITEtaQueueStopGoCounts = new List<int>();
+        public List<double> StatJITEtaWaitSecs = new List<double>();
+        /// <summary>Backfill-potential probe rows (BackfillProbeEnabled). One row per projected
+        /// starvation-gap onset per station; written to backfill_probe.csv at finish.</summary>
+        public List<string> StatBackfillProbeRows = new List<string>();
+        /// <summary>Input-scheduler diagnostic rows (one per Schedule call with >=1 holder);
+        /// written to input_sched_probe.csv at finish. For diagnosing input EST under-estimation.</summary>
+        public List<string> StatInputSchedRows = new List<string>();
+        /// <summary>Per-pod INPUT-station queue wait [s]: queue-zone arrival → storing start. One
+        /// sample per pod visit to an InputStation. Previously unmeasured (only output was tracked).</summary>
+        public List<double> StatInputPodQueueWaitSamples = new List<double>();
         /// <summary>Fleet starvation time: sum across stations of ticks where station is idle but has assigned orders [s].</summary>
         public double StatOverallStationStarvationTimeSec { get { return OutputStations.Sum(s => s.StatStarvationTimeSec); } }
         /// <summary>Per-pod queue wait [s]: time from bot+pod entering queue zone until station begins picking.
@@ -550,6 +565,21 @@ namespace RAWSimO.Core
             _statOrderLatenessTimes.Clear();
             _statBundleThroughputTimes.Clear();
             _statBundleTurnoverTimes.Clear();
+            StatJITEtaExpectedSamples.Clear();
+            StatJITEtaActualSamples.Clear();
+            StatJITEtaPathNodeCounts.Clear();
+            StatJITEtaPathLengths.Clear();
+            StatJITEtaSourceIds.Clear();
+            StatJITEtaDestIds.Clear();
+            StatJITEtaBotIds.Clear();
+            StatJITEtaTaskIds.Clear();
+            StatJITEtaTripIds.Clear();
+            StatJITEtaStopGoCounts.Clear();
+            StatJITEtaQueueStopGoCounts.Clear();
+            StatJITEtaWaitSecs.Clear();
+            StatBackfillProbeRows.Clear();
+            StatInputSchedRows.Clear();
+            StatInputPodQueueWaitSamples.Clear();
             StatSlowStartDecisionTraces.Clear();
             StatSlowStartHoldingDecisionTraces.Clear();
 
@@ -1215,6 +1245,10 @@ namespace RAWSimO.Core
             ExtractTask task,
             double currentTime,
             double stationEst,
+            double stationWorkHorizon,
+            double stationStarvationGap,
+            int stationLateJobs,
+            int stationUncertainJobs,
             double buffer,
             double lift,
             double travel,
@@ -1246,6 +1280,10 @@ namespace RAWSimO.Core
                 PodId = task != null && task.ReservedPod != null ? task.ReservedPod.GetIdentfierString() : "",
                 StationId = station != null ? station.GetIdentfierString() : "",
                 StationEst = stationEst,
+                StationWorkHorizon = stationWorkHorizon,
+                StationStarvationGap = stationStarvationGap,
+                StationLateJobs = stationLateJobs,
+                StationUncertainJobs = stationUncertainJobs,
                 Buffer = buffer,
                 Lift = lift,
                 Travel = travel,
@@ -1694,6 +1732,47 @@ namespace RAWSimO.Core
             sb.AppendLine("StatQueueStopAndGoCountPerOrder: " + (StatOverallOrdersHandled > 0 ? ((double)StatOverallQueueStopAndGoCount / StatOverallOrdersHandled).ToString(IOConstants.FORMATTER) : "0"));
             sb.AppendLine("StatQueueStopAndGoEnergyPerOrderKJ: " + (StatOverallOrdersHandled > 0 ? (StatOverallQueueStopAndGoEnergyJ / 1000.0 / StatOverallOrdersHandled).ToString(IOConstants.FORMATTER) : "0"));
 
+            // ─── Backfill-potential probe (deferred-binding + opportunistic backfill hit rate) ───
+            sb.AppendLine("StatBackfillProbeRowCount: " + StatBackfillProbeRows.Count.ToString(IOConstants.FORMATTER));
+            if (StatBackfillProbeRows.Count > 0 && Directory.Exists(SettingConfig.StatisticsDirectory))
+            {
+                string backfillCsvPath = Path.Combine(SettingConfig.StatisticsDirectory, "backfill_probe.csv");
+                using (var sw = new StreamWriter(backfillCsvPath))
+                {
+                    sw.WriteLine("time_sec;station_id;cap_in_use;cap;free_slot;other_present_pods;inbound_pods;pod_id;pod_remaining_units;assigned_match;backlog_size;full_match_orders;partial_match_orders;max_match_units;best_full_demand");
+                    foreach (var row in StatBackfillProbeRows)
+                        sw.WriteLine(row);
+                }
+            }
+
+            // ─── Input-station per-pod queue wait (previously unmeasured) ───
+            int inWaitN = StatInputPodQueueWaitSamples.Count;
+            sb.AppendLine("StatInputPodQueueWaitSampleCount: " + inWaitN.ToString(IOConstants.FORMATTER));
+            if (inWaitN > 0)
+            {
+                var sorted = StatInputPodQueueWaitSamples.OrderBy(v => v).ToList();
+                double mean = sorted.Average();
+                double p50 = sorted[(int)(0.50 * (inWaitN - 1))];
+                double p95 = sorted[(int)(0.95 * (inWaitN - 1))];
+                sb.AppendLine("StatInputPodQueueWaitMeanSec: " + mean.ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatInputPodQueueWaitP50Sec: " + p50.ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatInputPodQueueWaitP95Sec: " + p95.ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatInputPodQueueWaitMaxSec: " + sorted[inWaitN - 1].ToString(IOConstants.FORMATTER));
+            }
+
+            // ─── Input-scheduler diagnostic (input EST under-estimation analysis) ───
+            sb.AppendLine("StatInputSchedRowCount: " + StatInputSchedRows.Count.ToString(IOConstants.FORMATTER));
+            if (StatInputSchedRows.Count > 0 && Directory.Exists(SettingConfig.StatisticsDirectory))
+            {
+                string inSchedCsv = Path.Combine(SettingConfig.StatisticsDirectory, "input_sched_probe.csv");
+                using (var sw = new StreamWriter(inSchedCsv))
+                {
+                    sw.WriteLine("time_sec;station_id;holders;queued_pods;intransit_pods;first_starve_sec;work_horizon_sec;cascade_starve_sec;chosen_delay_sec;release_now");
+                    foreach (var row in StatInputSchedRows)
+                        sw.WriteLine(row);
+                }
+            }
+
             // ─── JIT ETA validation (ideal kinematic vs measured trip duration) ───
             int jitN = StatJITEtaActualSamples.Count;
             sb.AppendLine("StatJITEtaSampleCount: " + jitN.ToString(IOConstants.FORMATTER));
@@ -1703,45 +1782,107 @@ namespace RAWSimO.Core
                 string csvPath = Path.Combine(SettingConfig.StatisticsDirectory, "jit_eta_samples.csv");
                 using (var sw = new StreamWriter(csvPath))
                 {
-                    sw.WriteLine("idx;src_id;dest_id;path_nodes;path_len_m;expected_sec;actual_sec;abs_err_sec;rel_err_pct");
+                    sw.WriteLine("idx;bot_id;task_id;trip_id;src_id;dest_id;path_nodes;path_len_m;expected_sec;actual_sec;gap_sec;abs_err_sec;rel_err_pct;stop_go_count;queue_stop_go_count;conflict_wait_sec");
                     for (int i = 0; i < jitN; i++)
                     {
                         double e = StatJITEtaExpectedSamples[i];
                         double a = StatJITEtaActualSamples[i];
+                        double gap = a - e;
                         double absErr = Math.Abs(a - e);
                         double rel = e > 1e-9 ? absErr / e * 100.0 : 0.0;
+                        int botId = i < StatJITEtaBotIds.Count ? StatJITEtaBotIds[i] : -1;
+                        string taskId = i < StatJITEtaTaskIds.Count ? (StatJITEtaTaskIds[i] ?? "").Replace(";", "_") : "";
+                        int tripId = i < StatJITEtaTripIds.Count ? StatJITEtaTripIds[i] : -1;
                         int srcId = i < StatJITEtaSourceIds.Count ? StatJITEtaSourceIds[i] : -1;
                         int destId = i < StatJITEtaDestIds.Count ? StatJITEtaDestIds[i] : -1;
                         int nodes = i < StatJITEtaPathNodeCounts.Count ? StatJITEtaPathNodeCounts[i] : 0;
                         double plen = i < StatJITEtaPathLengths.Count ? StatJITEtaPathLengths[i] : 0.0;
-                        sw.WriteLine(i + ";" + srcId + ";" + destId + ";" + nodes + ";" +
+                        int stopGo = i < StatJITEtaStopGoCounts.Count ? StatJITEtaStopGoCounts[i] : 0;
+                        int queueStopGo = i < StatJITEtaQueueStopGoCounts.Count ? StatJITEtaQueueStopGoCounts[i] : 0;
+                        double waitSec = i < StatJITEtaWaitSecs.Count ? StatJITEtaWaitSecs[i] : 0.0;
+                        sw.WriteLine(i + ";" + botId + ";" + taskId + ";" + tripId + ";" +
+                                     srcId + ";" + destId + ";" + nodes + ";" +
                                      plen.ToString(IOConstants.FORMATTER) + ";" +
                                      e.ToString(IOConstants.FORMATTER) + ";" +
                                      a.ToString(IOConstants.FORMATTER) + ";" +
+                                     gap.ToString(IOConstants.FORMATTER) + ";" +
                                      absErr.ToString(IOConstants.FORMATTER) + ";" +
-                                     rel.ToString(IOConstants.FORMATTER));
+                                     rel.ToString(IOConstants.FORMATTER) + ";" +
+                                     stopGo.ToString(IOConstants.FORMATTER) + ";" +
+                                     queueStopGo.ToString(IOConstants.FORMATTER) + ";" +
+                                     waitSec.ToString(IOConstants.FORMATTER));
+                    }
+                }
+                string botCsvPath = Path.Combine(SettingConfig.StatisticsDirectory, "jit_eta_by_bot.csv");
+                using (var sw = new StreamWriter(botCsvPath))
+                {
+                    sw.WriteLine("bot_id;sample_count;expected_mean_sec;actual_mean_sec;gap_mean_sec;gap_var_sec2;gap_std_sec;abs_err_mean_sec;stop_go_mean;queue_stop_go_mean;conflict_wait_mean_sec");
+                    foreach (var group in Enumerable.Range(0, jitN).GroupBy(i => i < StatJITEtaBotIds.Count ? StatJITEtaBotIds[i] : -1).OrderBy(g => g.Key))
+                    {
+                        int n = group.Count();
+                        double sumE = 0.0, sumA = 0.0, sumGap = 0.0, sumGap2 = 0.0, sumAbs = 0.0, sumStop = 0.0, sumQStop = 0.0, sumWait = 0.0;
+                        foreach (int i in group)
+                        {
+                            double e = StatJITEtaExpectedSamples[i];
+                            double a = StatJITEtaActualSamples[i];
+                            double gap = a - e;
+                            sumE += e;
+                            sumA += a;
+                            sumGap += gap;
+                            sumGap2 += gap * gap;
+                            sumAbs += Math.Abs(gap);
+                            sumStop += i < StatJITEtaStopGoCounts.Count ? StatJITEtaStopGoCounts[i] : 0;
+                            sumQStop += i < StatJITEtaQueueStopGoCounts.Count ? StatJITEtaQueueStopGoCounts[i] : 0;
+                            sumWait += i < StatJITEtaWaitSecs.Count ? StatJITEtaWaitSecs[i] : 0.0;
+                        }
+                        double meanGap = sumGap / n;
+                        double varGap = Math.Max(0.0, sumGap2 / n - meanGap * meanGap);
+                        sw.WriteLine(group.Key.ToString(IOConstants.FORMATTER) + ";" +
+                                     n.ToString(IOConstants.FORMATTER) + ";" +
+                                     (sumE / n).ToString(IOConstants.FORMATTER) + ";" +
+                                     (sumA / n).ToString(IOConstants.FORMATTER) + ";" +
+                                     meanGap.ToString(IOConstants.FORMATTER) + ";" +
+                                     varGap.ToString(IOConstants.FORMATTER) + ";" +
+                                     Math.Sqrt(varGap).ToString(IOConstants.FORMATTER) + ";" +
+                                     (sumAbs / n).ToString(IOConstants.FORMATTER) + ";" +
+                                     (sumStop / n).ToString(IOConstants.FORMATTER) + ";" +
+                                     (sumQStop / n).ToString(IOConstants.FORMATTER) + ";" +
+                                     (sumWait / n).ToString(IOConstants.FORMATTER));
                     }
                 }
             }
             if (jitN > 0)
             {
-                double sumE = 0, sumA = 0, sumAbsErr = 0, sumAbsRel = 0, maxRel = 0;
+                double sumE = 0, sumA = 0, sumSignedErr = 0, sumSignedErr2 = 0, sumAbsErr = 0, sumAbsRel = 0, maxRel = 0;
+                double sumStopGo = 0, sumQueueStopGo = 0, sumJitWait = 0;
                 for (int i = 0; i < jitN; i++)
                 {
                     double e = StatJITEtaExpectedSamples[i];
                     double a = StatJITEtaActualSamples[i];
-                    double absErr = Math.Abs(a - e);
+                    double signedErr = a - e;
+                    double absErr = Math.Abs(signedErr);
                     double rel = e > 1e-9 ? absErr / e : 0.0;
-                    sumE += e; sumA += a; sumAbsErr += absErr; sumAbsRel += rel;
+                    sumE += e; sumA += a; sumSignedErr += signedErr; sumSignedErr2 += signedErr * signedErr; sumAbsErr += absErr; sumAbsRel += rel;
+                    sumStopGo += i < StatJITEtaStopGoCounts.Count ? StatJITEtaStopGoCounts[i] : 0;
+                    sumQueueStopGo += i < StatJITEtaQueueStopGoCounts.Count ? StatJITEtaQueueStopGoCounts[i] : 0;
+                    sumJitWait += i < StatJITEtaWaitSecs.Count ? StatJITEtaWaitSecs[i] : 0.0;
                     if (rel > maxRel) maxRel = rel;
                 }
+                double meanSignedErr = sumSignedErr / jitN;
+                double varSignedErr = Math.Max(0.0, sumSignedErr2 / jitN - meanSignedErr * meanSignedErr);
                 sb.AppendLine("StatJITEtaExpectedMeanSec: " + (sumE / jitN).ToString(IOConstants.FORMATTER));
                 sb.AppendLine("StatJITEtaActualMeanSec: " + (sumA / jitN).ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatJITEtaMeanGapSec: " + meanSignedErr.ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatJITEtaGapVarianceSec2: " + varSignedErr.ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatJITEtaGapStdDevSec: " + Math.Sqrt(varSignedErr).ToString(IOConstants.FORMATTER));
                 sb.AppendLine("StatJITEtaMeanAbsErrSec: " + (sumAbsErr / jitN).ToString(IOConstants.FORMATTER));
                 sb.AppendLine("StatJITEtaMeanRelErrPct: " + (sumAbsRel / jitN * 100.0).ToString(IOConstants.FORMATTER));
                 sb.AppendLine("StatJITEtaMaxRelErrPct: " + (maxRel * 100.0).ToString(IOConstants.FORMATTER));
                 double aggregateBiasPct = sumE > 1e-9 ? (sumA - sumE) / sumE * 100.0 : 0.0;
                 sb.AppendLine("StatJITEtaAggregateBiasPct: " + aggregateBiasPct.ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatJITEtaStopGoMean: " + (sumStopGo / jitN).ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatJITEtaQueueStopGoMean: " + (sumQueueStopGo / jitN).ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatJITEtaConflictWaitMeanSec: " + (sumJitWait / jitN).ToString(IOConstants.FORMATTER));
             }
 
             // ─── Station starvation (idle while having assigned orders) ───
@@ -2193,6 +2334,10 @@ namespace RAWSimO.Core
         public string PodId;
         public string StationId;
         public double StationEst;
+        public double StationWorkHorizon;
+        public double StationStarvationGap;
+        public int StationLateJobs;
+        public int StationUncertainJobs;
         public double Buffer;
         public double Lift;
         public double Travel;
@@ -2231,7 +2376,7 @@ namespace RAWSimO.Core
 
         public static string GetHeader()
         {
-            return "decision_time,bot_id,task_id,pod_id,station_id,station_est,buffer,lift,travel,value,processing_budget,release_budget,holding_budget,hold_delay,deadline,hold_elapsed,feasible,chosen,chosen_release_now,holder_count,chosen_bot_id,station_pending_items,station_busy_remaining,station_queue_work,neighbor_count_at_decision,release_reason,release_time,actual_hold_time,eta_at_release,remaining_est_at_release,movement_start_time,queue_arrival_time,actual_arrival_time,actual_eta,release_to_queue_time,movement_time_to_queue,arrival_error,station_idle_at_arrival,queue_wait_at_station,processing_finish_time,processing_time";
+            return "decision_time,bot_id,task_id,pod_id,station_id,station_est,station_work_horizon,station_starvation_gap,station_late_jobs,station_uncertain_jobs,buffer,lift,travel,value,processing_budget,release_budget,holding_budget,hold_delay,deadline,hold_elapsed,feasible,chosen,chosen_release_now,holder_count,chosen_bot_id,station_pending_items,station_busy_remaining,station_queue_work,neighbor_count_at_decision,release_reason,release_time,actual_hold_time,eta_at_release,remaining_est_at_release,movement_start_time,queue_arrival_time,actual_arrival_time,actual_eta,release_to_queue_time,movement_time_to_queue,arrival_error,station_idle_at_arrival,queue_wait_at_station,processing_finish_time,processing_time";
         }
 
         public string GetLine()
@@ -2242,6 +2387,10 @@ namespace RAWSimO.Core
                 S(PodId) + "," +
                 S(StationId) + "," +
                 F(StationEst) + "," +
+                F(StationWorkHorizon) + "," +
+                F(StationStarvationGap) + "," +
+                StationLateJobs.ToString(IOConstants.FORMATTER) + "," +
+                StationUncertainJobs.ToString(IOConstants.FORMATTER) + "," +
                 F(Buffer) + "," +
                 F(Lift) + "," +
                 F(Travel) + "," +

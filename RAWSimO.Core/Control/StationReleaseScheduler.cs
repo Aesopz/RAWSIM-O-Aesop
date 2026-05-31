@@ -26,6 +26,8 @@ namespace RAWSimO.Core.Control
             public double Travel;  // ideal kinematic pod→station ETA, no conflicts [s]
             public double Value;   // live pod↔station demand match (selection score)
             public double Proc;    // committed pick work = Requests.Count × ItemTransferTime [s]
+            public int BaseItems;  // committed item count
+            public Pod Pod;        // pod used for on-the-fly potential work projection
         }
 
         /// <summary>Scheduler output: which holder releases, and each holder's hold delay from now.</summary>
@@ -40,7 +42,8 @@ namespace RAWSimO.Core.Control
         /// Pure decision. starveTime = time-to-starvation excluding ALL holders.
         /// budget_h = starveTime − lift_h − travel_h − buffer; feasible_h = budget_h ≥ 0.
         /// chosen = argmax value among feasible; if none feasible, argmin (lift+travel) and release now.
-        /// Cascade for others uses newStarve (single-server queue): see design §4.2.
+        /// Cascade for others is refined in Schedule with a full station work projection,
+        /// because late in-flight pods can extend the post-starvation work horizon.
         /// </summary>
         public static SchedulerResult Decide(double starveTime, IReadOnlyList<HolderInput> holders, double buffer)
         {
@@ -163,16 +166,24 @@ namespace RAWSimO.Core.Control
             }
             if (holderBots.Count == 0) return;
 
-            double starve = SlowStartController.ComputeStationStarvation(station, currentTime);
+            var projection = SlowStartController.ComputeStationWorkProjection(station, currentTime);
+            double starve = projection.FirstStarveSec;
             var openDemand = BuildStationOpenDemand(station);
+            bool useReservationEta = station.Instance.SettingConfig != null
+                && station.Instance.SettingConfig.SlowStartUseReservationEta;
 
             var inputs = new List<HolderInput>();
             var etaById = new Dictionary<int, double>();
             foreach (var bn in holderBots)
             {
                 var task = bn.CurrentTask as ExtractTask;
-                double eta = pathManager.EstimateIdealKinematicEta(
-                    bn, bn.CurrentWaypoint, station.Waypoint, currentTime, bn.GetTargetOrientation());
+                double eta = double.NaN;
+                if (useReservationEta)
+                    eta = pathManager.EstimateReservationAwareEta(
+                        bn, bn.CurrentWaypoint, station.Waypoint, currentTime, bn.GetTargetOrientation());
+                if (double.IsNaN(eta) || double.IsInfinity(eta))
+                    eta = pathManager.EstimateIdealKinematicEta(
+                        bn, bn.CurrentWaypoint, station.Waypoint, currentTime, bn.GetTargetOrientation());
                 if (double.IsNaN(eta) || double.IsInfinity(eta))
                     eta = SlowStartController.ComputeIdealEta(bn, bn.CurrentWaypoint, station.Waypoint);
                 if (double.IsNaN(eta) || double.IsInfinity(eta)) eta = 0.0;
@@ -183,7 +194,16 @@ namespace RAWSimO.Core.Control
                 double proc = committed * station.ItemTransferTime;
 
                 etaById[bn.ID] = eta;
-                inputs.Add(new HolderInput { BotId = bn.ID, Lift = lift, Travel = eta, Value = value, Proc = proc });
+                inputs.Add(new HolderInput
+                {
+                    BotId = bn.ID,
+                    Lift = lift,
+                    Travel = eta,
+                    Value = value,
+                    Proc = proc,
+                    BaseItems = committed,
+                    Pod = task.ReservedPod
+                });
             }
 
             var result = Decide(starve, inputs, buffer);
@@ -192,20 +212,33 @@ namespace RAWSimO.Core.Control
                 ? inputById[result.ChosenBotId]
                 : new HolderInput { BotId = -1 };
             double chosenArrival = chosenInput.BotId >= 0 ? chosenInput.Lift + chosenInput.Travel : 0.0;
-            double cascadeStarve = chosenInput.BotId >= 0
-                ? ((chosenArrival > starve) ? chosenArrival + chosenInput.Proc : starve + chosenInput.Proc)
-                : starve;
+            double cascadeStarve = projection.WorkHorizonSec;
+            if (chosenInput.BotId >= 0)
+            {
+                var chosenJob = new SlowStartController.StationWorkJob
+                {
+                    ArrivalAbs = currentTime + chosenArrival,
+                    BaseItems = chosenInput.BaseItems,
+                    Pod = chosenInput.Pod,
+                    ArrivalConfirmed = false
+                };
+                var chosenProjection = SlowStartController.ComputeStationWorkProjection(
+                    station, currentTime, new[] { chosenJob });
+                cascadeStarve = chosenProjection.WorkHorizonSec;
+            }
 
             foreach (var bn in holderBots)
             {
                 var input = inputById[bn.ID];
-                double delay = result.HoldDelayByBot.TryGetValue(bn.ID, out var d) ? d : 0.0;
-                bn._slowStartReleaseDeadline = currentTime + delay;
                 bn._slowStartIsChosen = (bn.ID == result.ChosenBotId);
+                double effectiveReleaseBudget = bn._slowStartIsChosen ? starve : cascadeStarve;
+                double delay = bn._slowStartIsChosen
+                    ? (result.HoldDelayByBot.TryGetValue(bn.ID, out var d) ? d : 0.0)
+                    : Math.Max(0.0, effectiveReleaseBudget - input.Lift - input.Travel - buffer);
+                bn._slowStartReleaseDeadline = currentTime + delay;
                 bn._slowStartEta = etaById[bn.ID];
                 bn._slowStartTStarve = starve;
                 double baseBudget = starve - input.Lift - input.Travel - buffer;
-                double effectiveReleaseBudget = bn._slowStartIsChosen ? starve : cascadeStarve;
                 double effectiveBudget = effectiveReleaseBudget - input.Lift - input.Travel - buffer;
                 instance.NotifySlowStartHoldingDecision(
                     station,
@@ -213,6 +246,10 @@ namespace RAWSimO.Core.Control
                     bn.CurrentTask as ExtractTask,
                     currentTime,
                     starve,
+                    projection.WorkHorizonSec,
+                    projection.StarvationGapSec,
+                    projection.LateJobCount,
+                    projection.UncertainJobCount,
                     buffer,
                     input.Lift,
                     input.Travel,

@@ -49,6 +49,13 @@ namespace RAWSimO.Core.Control
         /// </summary>
         protected HashSet<Order> _pendingOrders = new HashSet<Order>();
         /// <summary>
+        /// Read-only live view of the current backlog (orders not yet assigned to any station).
+        /// Exposed for the pure-observation backfill-potential probe (BackfillProbeEnabled).
+        /// The simulation is single-threaded during Update, so the probe enumerates it in-tick
+        /// without copying. Do NOT mutate.
+        /// </summary>
+        public IReadOnlyCollection<Order> BacklogSnapshot { get { return _pendingOrders; } }
+        /// <summary>
         ///已分配给工作站的Pods
         /// </summary>
         protected Dictionary<OutputStation, HashSet<Pod>> _inboundPodsPerStation = new Dictionary<OutputStation, HashSet<Pod>>();

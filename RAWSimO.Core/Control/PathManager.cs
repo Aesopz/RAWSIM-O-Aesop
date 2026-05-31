@@ -541,7 +541,6 @@ namespace RAWSimO.Core.Control
                 foreach (var ins in Instance.InputStations)
                     InputStationReleaseScheduler.Schedule(ins, this, currentTime, bufferIn);
             }
-
             //reorganize table
             if (_reservationTable == null)
                 _initReservationTable();

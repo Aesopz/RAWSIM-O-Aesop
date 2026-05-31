@@ -97,6 +97,7 @@
     <Compile Include="Control\BotTask.cs" />
     <Compile Include="Control\Allocator.cs" />
     <Compile Include="Control\BotManagerCore.cs" />
+    <Compile Include="Control\BackfillProbe.cs" />
     <Compile Include="Control\InputStationReleaseScheduler.cs" />
     <Compile Include="Control\StationReleaseScheduler.cs" />
     <Compile Include="Control\Defaults\ItemStorage\EmptiestStorageManager.cs" />
