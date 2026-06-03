@@ -10,10 +10,19 @@ namespace RAWSimO.Core.Metrics
     /// </summary>
     public static class EnergyConsumption
     {
-        #region Configurable Physical Parameters (defaults match Rizqi et al.)
+        #region Configurable Physical Parameters
 
-        /// <summary>AGV empty chassis mass [kg]. From xinst EnergyParameters.RobotMass.</summary>
-        public static double ROBOT_MASS = 300.0;
+        /// <summary>Default AGV empty chassis mass [kg].</summary>
+        public const double DEFAULT_ROBOT_MASS_KG = 115.0;
+
+        /// <summary>Default support power draw [W = J/s] when the bot is not carrying a pod.</summary>
+        public const double DEFAULT_SUPPORT_POWER_EMPTY_W = 1080.0;
+
+        /// <summary>Default support power draw [W = J/s] when the bot is carrying a pod.</summary>
+        public const double DEFAULT_SUPPORT_POWER_LOADED_W = 1080.0;
+
+        /// <summary>AGV empty chassis mass [kg]. Loaded from SettingConfiguration.</summary>
+        public static double ROBOT_MASS = DEFAULT_ROBOT_MASS_KG;
 
         /// <summary>Gravitational acceleration [m/s²].</summary>
         public static double GRAVITY = 9.8;
@@ -27,22 +36,21 @@ namespace RAWSimO.Core.Metrics
         /// which hides the real braking cost of conflict-induced stops.</summary>
         public static double INERTIA = 0.25;
 
-        /// <summary>AGV body width [m]. From xinst EnergyParameters.RobotWidth.</summary>
+        /// <summary>AGV body width [m].</summary>
         public static double ROBOT_WIDTH = 0.6;
 
-        /// <summary>AGV body length [m]. From xinst EnergyParameters.RobotLength.</summary>
+        /// <summary>AGV body length [m].</summary>
         public static double ROBOT_LENGTH = 0.75;
 
         /// <summary>AGV turning radius (= width/2) [m]. Auto-computed from ROBOT_WIDTH.</summary>
         public static double ROBOT_RADIUS = 0.3;
 
-        /// <summary>Pod lift/lower height [m]. From xinst EnergyParameters.LiftHeight.</summary>
+        /// <summary>Pod lift/lower height [m].</summary>
         public static double LIFT_HEIGHT = 0.2;
 
         /// <summary>
         /// Pod shelf/frame structural mass [kg] (excludes cargo).
         /// Added to mLoad for E5 even when pod carries no items.
-        /// From xinst EnergyParameters.PodFrameMass.
         /// </summary>
         public static double POD_FRAME_MASS = 50.0;
 
@@ -51,13 +59,13 @@ namespace RAWSimO.Core.Metrics
         /// Background electronics/standby drain. Accrued every tick for every bot
         /// (no task gate): idle, resting, moving, and waiting all count.
         /// </summary>
-        public static double SUPPORT_POWER_EMPTY = 20.0;
+        public static double SUPPORT_POWER_EMPTY = DEFAULT_SUPPORT_POWER_EMPTY_W;
 
         /// <summary>
         /// Support power draw [W] when the bot IS carrying a pod (Pod != null).
-        /// Higher than empty because the lift actuator / heavier control load is engaged.
+        /// Uses the configured loaded-pod support draw. Default is intentionally equal to empty.
         /// </summary>
-        public static double SUPPORT_POWER_LOADED = 50.0;
+        public static double SUPPORT_POWER_LOADED = DEFAULT_SUPPORT_POWER_LOADED_W;
 
         /// <summary>
         /// Load-dependent support power [W] for the given carried pod.
@@ -71,8 +79,8 @@ namespace RAWSimO.Core.Metrics
         #region Configuration
 
         /// <summary>
-        /// Applies energy parameters loaded from the xinst EnergyParameters block.
-        /// Call once after DTOInstance.Submit() completes.
+        /// Applies energy parameters loaded from the setting configuration.
+        /// Call once after SettingConfiguration is attached to the instance.
         /// Bot-specific kinematics (a, d, vMax, TurnSpeed, PodTransferTime) are NOT set here —
         /// they are already read per-call from Physics and Bot properties.
         /// </summary>
@@ -84,8 +92,8 @@ namespace RAWSimO.Core.Metrics
             double inertiaCoeff,
             double liftHeight,
             double podFrameMass,
-            double supportPowerEmpty = 20.0,
-            double supportPowerLoaded = 50.0)
+            double supportPowerEmpty = DEFAULT_SUPPORT_POWER_EMPTY_W,
+            double supportPowerLoaded = DEFAULT_SUPPORT_POWER_LOADED_W)
         {
             ROBOT_MASS          = robotMass;
             ROBOT_WIDTH         = robotWidth;
@@ -102,6 +110,24 @@ namespace RAWSimO.Core.Metrics
             System.Diagnostics.Debug.WriteLine(
                 $"[EnergyConsumption.Configure] RobotMass={robotMass}, PodFrameMass={podFrameMass}, " +
                 $"SupportEmpty={supportPowerEmpty}, SupportLoaded={supportPowerLoaded}");
+        }
+
+        /// <summary>
+        /// Applies the simulation-wide energy standard from SettingConfiguration.
+        /// Other physical constants keep their current defaults unless Configure() is called directly.
+        /// </summary>
+        public static void ConfigureFromSetting(RAWSimO.Core.Configurations.SettingConfiguration setting)
+        {
+            Configure(
+                setting != null ? setting.EnergyRobotMassKg : DEFAULT_ROBOT_MASS_KG,
+                ROBOT_WIDTH,
+                ROBOT_LENGTH,
+                FRICTION,
+                INERTIA,
+                LIFT_HEIGHT,
+                POD_FRAME_MASS,
+                setting != null ? setting.EnergySupportPowerEmptyW : DEFAULT_SUPPORT_POWER_EMPTY_W,
+                setting != null ? setting.EnergySupportPowerLoadedW : DEFAULT_SUPPORT_POWER_LOADED_W);
         }
 
         #endregion

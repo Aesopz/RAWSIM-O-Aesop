@@ -124,7 +124,7 @@ namespace RAWSimO.Core
         public double StatOverallEnergyE4J { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatEnergyE4RotationJ); } }
         /// <summary>Fleet pod lift/lower energy E5 [J].</summary>
         public double StatOverallEnergyE5J { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatEnergyE5LiftLowerJ); } }
-        /// <summary>Fleet support energy [J] = Σ SupportPower(Pod) × wall-clock time (always-on; 20 W empty / 50 W loaded).</summary>
+        /// <summary>Fleet support energy [J] = Sum SupportPower(Pod) x wall-clock time (always-on; configured by payload state).</summary>
         public double StatOverallEnergySupportJ { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatESupportJ); } }
         /// <summary>Fleet total energy including support [J] = E_mech + Σ SupportPower(Pod)×time.</summary>
         public double StatOverallEnergyTotalWithSupportJ { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatEnergyTotalWithSupportJ); } }
@@ -142,7 +142,7 @@ namespace RAWSimO.Core
         public int StatOverallEmptyTurningCount { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatEmptyTurningCount); } }
         /// <summary>Total wait time across all bots (stationary, not rotating) [s].</summary>
         public double StatOverallWaitTimeSec { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatWaitTimeSec); } }
-        /// <summary>Fleet E_support (always-on SupportPower(Pod) × wall-clock time; 20 W empty / 50 W loaded; includes moving) [J].</summary>
+        /// <summary>Fleet E_support (always-on SupportPower(Pod) x wall-clock time; configured by payload state; includes moving) [J].</summary>
         public double StatOverallESupportJ { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatESupportJ); } }
         /// <summary>Fleet E_wait (SupportPower(Pod) × congestion-wait subset; strict subset of E_support) [J].</summary>
         public double StatOverallEWaitJ { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatEWaitJ); } }
@@ -154,14 +154,18 @@ namespace RAWSimO.Core
         public double StatOverallQueueingAtStationTimeSec { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatQueueingAtStationTimeSec); } }
         /// <summary>Fleet premature-arrival queueing energy [J] = SupportPower(Pod) × StatOverallQueueingAtStationTimeSec. Strict subset of E_support.</summary>
         public double StatOverallEQueueingAtStationJ { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatEQueueingAtStationJ); } }
-        /// <summary>Fleet open-road conflict stop-and-go event count (excludes queue creep; queue counted separately).</summary>
+        /// <summary>Fleet WHCA*/reservation-table planned-wait stop-and-go event count (queue-manager creep counted separately).</summary>
         public int StatOverallStopAndGoCount { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatStopAndGoCount); } }
-        /// <summary>Fleet open-road conflict stop-and-go re-acceleration energy [J]. Strict subset of E1 accel energy; not additive to total.</summary>
+        /// <summary>Fleet planned-wait stop-and-go energy [J] = E2 into wait + E1 out of wait; not additive to total.</summary>
         public double StatOverallStopAndGoEnergyJ { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatStopAndGoEnergyJ); } }
-        /// <summary>Fleet in-queue (station queue zone) creep-conflict stop-and-go event count.</summary>
+        /// <summary>Fleet station-queue creep stop-and-go event count caused by QueueManager advancing stopped bots.</summary>
         public int StatOverallQueueStopAndGoCount { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatQueueStopAndGoCount); } }
-        /// <summary>Fleet in-queue creep-conflict re-acceleration energy [J]. Strict subset of E1 accel energy; not additive to total.</summary>
+        /// <summary>Fleet station-queue creep stop-and-go energy [J] = E2 into queue stop + E1 out of queue stop; not additive to total.</summary>
         public double StatOverallQueueStopAndGoEnergyJ { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatQueueStopAndGoEnergyJ); } }
+        /// <summary>Event-level stop-and-go rows for visualization; written to stop_and_go_events.csv.</summary>
+        public List<string> StatStopGoEventRows = new List<string>();
+        /// <summary>WHCA*/reservation-table planned-wait points in native RAWSim-O heatmap format; written to conflictwait.heat.</summary>
+        public List<LocationDatapoint> StatConflictWaitHeatPoints = new List<LocationDatapoint>();
         /// <summary>JIT validation: ideal-kinematic expected travel duration [s] per pod→station trip, captured at trip start.</summary>
         public List<double> StatJITEtaExpectedSamples = new List<double>();
         /// <summary>JIT validation: measured actual travel duration [s] per pod→station trip, captured at queue-zone arrival.</summary>
@@ -189,6 +193,10 @@ namespace RAWSimO.Core
         /// <summary>Per-pod INPUT-station queue wait [s]: queue-zone arrival → storing start. One
         /// sample per pod visit to an InputStation. Previously unmeasured (only output was tracked).</summary>
         public List<double> StatInputPodQueueWaitSamples = new List<double>();
+        /// <summary>Input slow-start release events (gated by BackfillProbeEnabled): one row per
+        /// holder release; written to input_release_probe.csv. For detecting synchronized releases
+        /// (two holders released within seconds at the same input station).</summary>
+        public List<string> StatInputReleaseRows = new List<string>();
         /// <summary>Fleet starvation time: sum across stations of ticks where station is idle but has assigned orders [s].</summary>
         public double StatOverallStationStarvationTimeSec { get { return OutputStations.Sum(s => s.StatStarvationTimeSec); } }
         /// <summary>Per-pod queue wait [s]: time from bot+pod entering queue zone until station begins picking.
@@ -577,9 +585,12 @@ namespace RAWSimO.Core
             StatJITEtaStopGoCounts.Clear();
             StatJITEtaQueueStopGoCounts.Clear();
             StatJITEtaWaitSecs.Clear();
+            StatStopGoEventRows.Clear();
+            StatConflictWaitHeatPoints.Clear();
             StatBackfillProbeRows.Clear();
             StatInputSchedRows.Clear();
             StatInputPodQueueWaitSamples.Clear();
+            StatInputReleaseRows.Clear();
             StatSlowStartDecisionTraces.Clear();
             StatSlowStartHoldingDecisionTraces.Clear();
 
@@ -1620,6 +1631,9 @@ namespace RAWSimO.Core
             sb.AppendLine("KPI_EOR: " + (StatOverallOrdersHandled > 0 ? (StatOverallEnergyTotalJ / 1000.0 / StatOverallOrdersHandled).ToString(IOConstants.FORMATTER) : "0"));
             // Energy statistics (Rizqi model)
             sb.AppendLine(">>> Energy (Rizqi model)");
+            sb.AppendLine("EnergyRobotMassKg: " + Metrics.EnergyConsumption.ROBOT_MASS.ToString(IOConstants.FORMATTER));
+            sb.AppendLine("EnergySupportPowerEmptyW: " + Metrics.EnergyConsumption.SUPPORT_POWER_EMPTY.ToString(IOConstants.FORMATTER));
+            sb.AppendLine("EnergySupportPowerLoadedW: " + Metrics.EnergyConsumption.SUPPORT_POWER_LOADED.ToString(IOConstants.FORMATTER));
             sb.AppendLine("StatEnergyTotalKJ: " + (StatOverallEnergyTotalJ / 1000.0).ToString(IOConstants.FORMATTER));
             sb.AppendLine("StatEnergyE1AccelKJ: " + (StatOverallEnergyE1J / 1000.0).ToString(IOConstants.FORMATTER));
             sb.AppendLine("StatEnergyE2DecelKJ: " + (StatOverallEnergyE2J / 1000.0).ToString(IOConstants.FORMATTER));
@@ -1702,8 +1716,8 @@ namespace RAWSimO.Core
             double utilization = (StatTime > 0 && botCount > 0)
                 ? 1.0 - (StatOverallTimeIdleSec / (StatTime * botCount))
                 : double.NaN;
-            // E_support = always-on background energy (SupportPower(Pod) × wall-clock time;
-            //             20 W empty / 50 W loaded; includes idle/moving/waiting, no task gate)
+            // E_support = always-on background energy (SupportPower(Pod) x wall-clock time;
+            //             configured by payload state; includes idle/moving/waiting, no task gate)
             sb.AppendLine("StatESupportKJ: " + (StatOverallESupportJ / 1000.0).ToString(IOConstants.FORMATTER));
             sb.AppendLine("StatESupportPerOrderKJ: " + (StatOverallOrdersHandled > 0 ? (StatOverallESupportJ / 1000.0 / StatOverallOrdersHandled).ToString(IOConstants.FORMATTER) : "0"));
             // E_wait = congestion-wait subset of E_support (stationary with active task)
@@ -1719,10 +1733,9 @@ namespace RAWSimO.Core
                 ? StatOverallEQueueingAtStationJ / StatOverallESupportJ : double.NaN;
             sb.AppendLine("StatEQueueingShareOfSupport: " + (double.IsNaN(queueingShareOfSupport) ? "NaN" : queueingShareOfSupport.ToString(IOConstants.FORMATTER)));
 
-            // Conflict stop-and-go = congestion-induced stop/restart cycles. Split by location:
-            //   Open-road bucket (excludes queue creep) — primary KPI for TA/PP congestion.
-            //   In-queue bucket  — creep-conflict cost inside station queue zone.
-            // Energy is a strict subset of E1 accel energy (re-classification; not additive to total).
+            // stop_and_go_* = WHCA*/reservation-table planned waits that split straight travel.
+            // queue_stop_and_go_* = QueueManager creep inside station queue zones.
+            // Energy is E2 into the stop + E1 out of the stop (re-classification; not additive to total).
             sb.AppendLine("StatStopAndGoCount: " + StatOverallStopAndGoCount.ToString(IOConstants.FORMATTER));
             sb.AppendLine("StatStopAndGoEnergyKJ: " + (StatOverallStopAndGoEnergyJ / 1000.0).ToString(IOConstants.FORMATTER));
             sb.AppendLine("StatStopAndGoCountPerOrder: " + (StatOverallOrdersHandled > 0 ? ((double)StatOverallStopAndGoCount / StatOverallOrdersHandled).ToString(IOConstants.FORMATTER) : "0"));
@@ -1745,6 +1758,26 @@ namespace RAWSimO.Core
                 }
             }
 
+            if (StatStopGoEventRows.Count > 0 && Directory.Exists(SettingConfig.StatisticsDirectory))
+            {
+                using (var sw = new StreamWriter(Path.Combine(SettingConfig.StatisticsDirectory, "stop_and_go_events.csv")))
+                {
+                    sw.WriteLine("time_sec;type;bot_id;from_node;stop_node;to_node;x;y;tier;energy_kJ;decel_kJ;accel_kJ;queue_terminal_node;destination_node;loaded");
+                    foreach (var row in StatStopGoEventRows)
+                        sw.WriteLine(row);
+                }
+            }
+
+            if (StatConflictWaitHeatPoints.Count > 0 && Directory.Exists(SettingConfig.StatisticsDirectory))
+            {
+                using (var sw = new StreamWriter(Path.Combine(SettingConfig.StatisticsDirectory, "conflictwait.heat")))
+                {
+                    sw.WriteLine(LocationDatapoint.GetCSVHeader());
+                    foreach (var point in StatConflictWaitHeatPoints)
+                        sw.WriteLine(point.ToCSV());
+                }
+            }
+
             // ─── Input-station per-pod queue wait (previously unmeasured) ───
             int inWaitN = StatInputPodQueueWaitSamples.Count;
             sb.AppendLine("StatInputPodQueueWaitSampleCount: " + inWaitN.ToString(IOConstants.FORMATTER));
@@ -1758,6 +1791,17 @@ namespace RAWSimO.Core
                 sb.AppendLine("StatInputPodQueueWaitP50Sec: " + p50.ToString(IOConstants.FORMATTER));
                 sb.AppendLine("StatInputPodQueueWaitP95Sec: " + p95.ToString(IOConstants.FORMATTER));
                 sb.AppendLine("StatInputPodQueueWaitMaxSec: " + sorted[inWaitN - 1].ToString(IOConstants.FORMATTER));
+            }
+
+            // ─── Input slow-start release events (synchronized-release detection) ───
+            if (StatInputReleaseRows.Count > 0 && Directory.Exists(SettingConfig.StatisticsDirectory))
+            {
+                using (var sw = new StreamWriter(Path.Combine(SettingConfig.StatisticsDirectory, "input_release_probe.csv")))
+                {
+                    sw.WriteLine("time_sec;station_id;bot_id;inbound_pods;bundles");
+                    foreach (var row in StatInputReleaseRows)
+                        sw.WriteLine(row);
+                }
             }
 
             // ─── Input-scheduler diagnostic (input EST under-estimation analysis) ───
@@ -2137,11 +2181,11 @@ namespace RAWSimO.Core
                 fmt(totalDistEmpty > 0 ? tnC_E / totalDistEmpty : 0.0),
                 fmt(totalDistLoad  > 0 ? tnC_L / totalDistLoad  : 0.0), "", "per m"));
 
-            // Conflict stop-and-go: congestion-induced stop/restart cycles. Split into:
-            //   stop_and_go_*       = open road (TA/PP congestion KPI)
-            //   queue_stop_and_go_* = inside station queue zone (creep conflict)
+            // Stop-and-go: congestion-induced stop/restart cycles. Split into:
+            //   stop_and_go_*       = WHCA*/reservation-table planned-wait stop/restart
+            //   queue_stop_and_go_* = QueueManager creep stop/restart inside station queue zones
             // Plus queue_holding_*  = stationary support energy while waiting in queue (already tracked).
-            // Not split by load state. Energy is a strict subset of E1 accel / E_support respectively.
+            // Not split by load state. Stop-and-go energy is a strict subset of E1+E2; queue holding is a strict subset of E_support.
             sw.WriteLine(row("L4", "stop_and_go_count", "", "", StatOverallStopAndGoCount.ToString(IOConstants.FORMATTER), "events"));
             sw.WriteLine(row("L4", "stop_and_go_energy_kJ", "", "", fmt(StatOverallStopAndGoEnergyJ / 1000.0), "kJ"));
             sw.WriteLine(row("L4", "stop_and_go_pct_of_e1e2", "", "",

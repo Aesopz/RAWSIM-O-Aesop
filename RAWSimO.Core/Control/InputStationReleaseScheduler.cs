@@ -50,6 +50,31 @@ namespace RAWSimO.Core.Control
             double starve, workHorizon;
             SlowStartController.PipelineFirstStarveAndHorizon(stationFreeAt, jobs, currentTime, out starve, out workHorizon);
 
+            // FCFS sequential serialization: order holders by hold-start time and time each to
+            // ARRIVE exactly when the previous finishes processing. Hard ≥proc separation between
+            // consecutive arrivals — eliminates the synchronized releases the single-cascade leaves.
+            if (station.Instance.SettingConfig != null && station.Instance.SettingConfig.InputSequentialRelease)
+            {
+                var ordered = holderBots
+                    .OrderBy(b => double.IsNaN(b._slowStartHoldStartTime) ? currentTime : b._slowStartHoldStartTime)
+                    .ThenBy(b => b.ID)
+                    .ToList();
+                double clearAbs = currentTime + workHorizon;   // station clears committed work, then serves holders in order
+                for (int i = 0; i < ordered.Count; i++)
+                {
+                    var bn = ordered[i];
+                    var t = bn.CurrentTask as InsertTask;
+                    double eta = IdealEta(pathManager, bn, station, currentTime);
+                    double lift = (bn.Pod == null) ? bn.PodTransferTime : 0.0;
+                    int bundles = (t != null && t.Requests != null) ? t.Requests.Count : 0;
+                    double deadline = clearAbs - eta - lift - buffer;
+                    bn._slowStartReleaseDeadline = Math.Max(currentTime, deadline);
+                    bn._slowStartIsChosen = (i == 0);
+                    clearAbs += bundles * station.ItemBundleTransferTime;   // next holder arrives after this one is processed
+                }
+                return;
+            }
+
             var inputs = new List<StationReleaseScheduler.HolderInput>();
             foreach (var bn in holderBots)
             {

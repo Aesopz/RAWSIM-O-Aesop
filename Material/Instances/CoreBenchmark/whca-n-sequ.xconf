@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ControlConfiguration xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <Name>sequ</Name>
+  <Name>whca-n-sequ</Name>
   <PathPlanningConfig xsi:type="WHCAnStarPathPlanningConfiguration">
     <Name />
     <AutoSetParameter>false</AutoSetParameter>
@@ -24,13 +24,15 @@
     <ExtendSearch>false</ExtendSearch>
     <ExtendedSearchRadius>8</ExtendedSearchRadius>
     <SearchAll>false</SearchAll>
-    <RepositionBeforeRest>true</RepositionBeforeRest>
+    <RepositionBeforeRest>false</RepositionBeforeRest>
     <PodSelectionConfig>
       <Name />
       <OnTheFlyExtract>true</OnTheFlyExtract>
       <OnTheFlyStore>true</OnTheFlyStore>
       <FilterForConsideration>AssignedAndCompleteQueued</FilterForConsideration>
       <FilterForReservation>AssignedAndCompleteQueued</FilterForReservation>
+      <StationBoundedJointTAPlusPS>false</StationBoundedJointTAPlusPS>
+      <StationBoundedJointCandidatePodLimit>32</StationBoundedJointCandidatePodLimit>
       <InputExtendedSearchScorer xsi:type="PCScorerIStationForBotWithPodWorkAmount">
         <IncludeAge>false</IncludeAge>
         <PreferSameTier>true</PreferSameTier>
@@ -103,7 +105,7 @@
   <OrderBatchingConfig xsi:type="PodMatchingOrderBatchingConfiguration">
     <Name />
     <TieBreaker>EarliestDueTime</TieBreaker>
-    <FastLane>false</FastLane>
+    <FastLane>true</FastLane>
     <LateBeforeMatch>false</LateBeforeMatch>
     <FastLaneTieBreaker>EarliestDueTime</FastLaneTieBreaker>
   </OrderBatchingConfig>

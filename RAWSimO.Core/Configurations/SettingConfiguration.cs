@@ -126,6 +126,18 @@ namespace RAWSimO.Core.Configurations
         /// </summary>
         public bool QueueHandlingEnabled = true;
         /// <summary>
+        /// Robot chassis mass [kg] used by the energy model.
+        /// </summary>
+        public double EnergyRobotMassKg = RAWSimO.Core.Metrics.EnergyConsumption.DEFAULT_ROBOT_MASS_KG;
+        /// <summary>
+        /// Support power [W = J/s] when a bot is not carrying a pod.
+        /// </summary>
+        public double EnergySupportPowerEmptyW = RAWSimO.Core.Metrics.EnergyConsumption.DEFAULT_SUPPORT_POWER_EMPTY_W;
+        /// <summary>
+        /// Support power [W = J/s] when a bot is carrying a pod.
+        /// </summary>
+        public double EnergySupportPowerLoadedW = RAWSimO.Core.Metrics.EnergyConsumption.DEFAULT_SUPPORT_POWER_LOADED_W;
+        /// <summary>
         /// PP-aware slow-start: hold bot at pod cell after pickup for a duration that
         /// preserves station-busy continuity (T_starve − ETA), to convert station-queue
         /// premature wait into upstream controlled hold and reduce stop-and-go.
@@ -158,6 +170,17 @@ namespace RAWSimO.Core.Configurations
         /// removed from the available pool). Default false; A/B knob for the input scheduler.
         /// </summary>
         public bool InputBacklogAwareHold = false;
+        /// <summary>
+        /// Input slow-start: replace the single-stage chosen/cascade release with explicit FCFS
+        /// SEQUENTIAL serialization. Holders are ordered by hold-start time; holder k is timed to
+        /// ARRIVE exactly when holder k−1 finishes processing (deadline_k = T_clear + Σ_{j&lt;k}
+        /// proc_j − travel_k − lift_k − buffer). This guarantees a ≥proc separation between
+        /// consecutive arrivals at the same input station, eliminating the synchronized
+        /// (gap&lt;2s) releases the single-cascade leaves in ~16% of cases. Default TRUE (validated:
+        /// synchronized releases 16.3%→0%, input pod wait 37.3→4.8s; cost +18% output starvation,
+        /// −1.5% throughput from robots held longer at input).
+        /// </summary>
+        public bool InputSequentialRelease = true;
         /// <summary>
         /// Pure-observation probe (changes NO decision). When true, BackfillProbe runs once per
         /// tick per output station: at the onset of a projected starvation gap it measures, for the

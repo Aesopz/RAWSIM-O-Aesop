@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <SettingConfiguration xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <Name>large_test_backfill_probe</Name>
+  <Name>300count-1000sku</Name>
   <SimulationWarmupTime>0</SimulationWarmupTime>
   <SimulationDuration>7200</SimulationDuration>
   <Seed>0</Seed>
@@ -15,7 +15,10 @@
   <QueueHandlingEnabled>true</QueueHandlingEnabled>
   <SlowStartEnabled>false</SlowStartEnabled>
   <SlowStartInputEnabled>false</SlowStartInputEnabled>
-  <BackfillProbeEnabled>true</BackfillProbeEnabled>
+  <SlowStartUseReservationEta>false</SlowStartUseReservationEta>
+  <InputBacklogAwareHold>false</InputBacklogAwareHold>
+  <InputSequentialRelease>true</InputSequentialRelease>
+  <BackfillProbeEnabled>false</BackfillProbeEnabled>
   <SlowStartReleasePolicy>StationSlack</SlowStartReleasePolicy>
   <SlowStartEtaSafetyBuffer>0</SlowStartEtaSafetyBuffer>
   <SlowStartEtaImprovementLookaheadSec>5</SlowStartEtaImprovementLookaheadSec>
@@ -56,7 +59,7 @@
     <DueTimeOffsetMin>7200</DueTimeOffsetMin>
     <DueTimeOffsetMax>14400</DueTimeOffsetMax>
     <DemandInventoryConfiguration>
-      <OrderCount>200</OrderCount>
+      <OrderCount>300</OrderCount>
       <BundleCount>200</BundleCount>
       <InventoryLevelDrivenBundleGeneration>true</InventoryLevelDrivenBundleGeneration>
       <InventoryLevelBundleStopThreshold>0.85</InventoryLevelBundleStopThreshold>

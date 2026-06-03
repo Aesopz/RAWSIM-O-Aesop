@@ -15,6 +15,7 @@ using System.Diagnostics;
 using System.Text;
 using RAWSimO.Core.IO;
 using RAWSimO.Core.Metrics;
+using RAWSimO.Core.Statistics;
 using RAWSimO.Toolbox;
 using RAWSimO.Core.Bots;
 
@@ -379,7 +380,7 @@ namespace RAWSimO.Core.Bots
         /// Background "support" energy [J] — the per-second overhead the robot draws
         /// whenever a task is active, regardless of whether it is moving or stationary.
         /// Formula: SupportPower(Pod) × wall-clock time, accrued every tick for every bot
-        /// (no task gate; idle/None/Rest included). 20 W empty, 50 W loaded.
+        /// (no task gate; idle/None/Rest included). Uses configured support power.
         /// This is the intuitive "E_support" in the energy literature: the cost of
         /// keeping the robot operational during mission time, electronics/sensors/etc.
         /// Planner-agnostic — identical accumulation rules for CBS / ECBS / WHCA*.
@@ -413,33 +414,35 @@ namespace RAWSimO.Core.Bots
         /// </summary>
         public double StatEQueueingAtStationJ;
 
-        // ── Conflict stop-and-go counters ──────────────────────────────────
+        // Planned-wait stop-and-go counters
         /// <summary>
-        /// Number of conflict-induced stop-and-go events on the open road (NOT in a station queue zone):
-        /// each time the bot resumes after a planned WaitTimeAfterStop > 0 or a RegisterNextWaypoint
-        /// failure. Excludes turns, pickup/setdown, slow-start (those do not raise the blocked flag).
+        /// Number of WHCA*/reservation-table planned waits on an otherwise straight pass-through
+        /// waypoint. Excludes turn waypoints, pickup/setdown stops, slow-start, and failed
+        /// RegisterNextWaypoint retries.
         /// </summary>
         public int StatStopAndGoCount;
         /// <summary>
-        /// Restart energy spent on conflict stops [J] — the E1 (accel) + E2 (decel) of the
-        /// first leg driven after each open-road block. Captures the FULL extra accel/decel pair
-        /// the conflict imposed (decel to stop + accel to resume). Strict subset of
-        /// StatEnergyE1AccelJ + StatEnergyE2DecelJ; adds nothing to total energy (re-classification).
+        /// Extra stop-and-go energy [J] for open-road planned waits: E2 from the segment into the
+        /// wait waypoint plus E1 from the segment leaving it. Strict subset of E1+E2 totals; adds
+        /// nothing to total energy because it is a re-classification.
         /// </summary>
         public double StatStopAndGoEnergyJ;
         /// <summary>
-        /// Same as <see cref="StatStopAndGoCount"/> but only events that occurred while the bot was
-        /// inside a station queue zone (IsQueueing=true). Captures creep-conflict cost separately
-        /// so open-road congestion KPI stays clean from queue dynamics.
+        /// Number of station-queue creep stop-and-go events caused by QueueManager advancing
+        /// a stopped bot from one queue waypoint to another.
         /// </summary>
         public int StatQueueStopAndGoCount;
         /// <summary>
-        /// Restart energy [J] for in-queue stop-and-go events (E1 + E2 of resume leg).
-        /// Strict subset of StatEnergyE1AccelJ + StatEnergyE2DecelJ.
+        /// Extra stop-and-go energy [J] for queue-manager creep: E2 into the stopped queue
+        /// waypoint plus E1 from the segment leaving it.
         /// </summary>
         public double StatQueueStopAndGoEnergyJ;
-        /// <summary>True while the bot has been reservation-blocked since its last successful waypoint commit.</summary>
-        private bool _conflictBlockedSinceCommit = false;
+        private Waypoint _lastCommittedSegmentStartWaypoint;
+        private Waypoint _lastCommittedSegmentEndWaypoint;
+        private double _lastCommittedSegmentE2DecelJ;
+        private bool _pendingPlannedWaitStopGo;
+        private Waypoint _pendingPlannedWaitWaypoint;
+        private double _pendingPlannedWaitDecelEnergyJ;
         // ───────────────────────────────────────────────────────────────────
 
         // ── PP-aware Slow-Start counters (Phase 1) ─────────────────────────
@@ -524,7 +527,12 @@ namespace RAWSimO.Core.Bots
             StatStopAndGoEnergyJ = 0.0;
             StatQueueStopAndGoCount = 0;
             StatQueueStopAndGoEnergyJ = 0.0;
-            _conflictBlockedSinceCommit = false;
+            _lastCommittedSegmentStartWaypoint = null;
+            _lastCommittedSegmentEndWaypoint = null;
+            _lastCommittedSegmentE2DecelJ = 0.0;
+            _pendingPlannedWaitStopGo = false;
+            _pendingPlannedWaitWaypoint = null;
+            _pendingPlannedWaitDecelEnergyJ = 0.0;
             StatTurningCount = 0;
             StatOrdersCompleted = 0;
             StatDistanceTraveledM = 0.0;
@@ -740,7 +748,7 @@ namespace RAWSimO.Core.Bots
                         // Pre-lift hold: bot reaches pod cell, then HOLDS empty (orange) before
                         // lifting. Release timing accounts for PodTransferTime so that
                         // (hold + lift + travel) ≈ T_starve. Pre-lift hold also saves the
-                        // 50→20 W loaded-support delta during the hold window.
+                        // configured loaded/empty support delta during the hold window.
                         if (slowStartEnabled)
                             StateQueueEnqueue(new BotSlowStartHold(extractTask));
                         StateQueueEnqueue(new BotPickupPod(extractTask.ReservedPod));
@@ -841,6 +849,138 @@ namespace RAWSimO.Core.Bots
                 StateQueuePeek().Act(this, lastTime, currentTime);
         }
 
+        private void MarkPlannedWaitStopGoIfForced(double waitTime)
+        {
+            _pendingPlannedWaitStopGo = false;
+            _pendingPlannedWaitWaypoint = null;
+            _pendingPlannedWaitDecelEnergyJ = 0.0;
+
+            if (waitTime <= 0.0 || Path == null || CurrentWaypoint == null)
+                return;
+            if (_lastCommittedSegmentStartWaypoint == null || _lastCommittedSegmentEndWaypoint != CurrentWaypoint)
+                return;
+
+            var nextStopAction = Path.Actions.Skip(1).FirstOrDefault(a => a.StopAtNode);
+            if (nextStopAction == null)
+                return;
+
+            var nextStopWaypoint = Instance.Controller.PathManager.GetWaypointByNodeId(nextStopAction.Node);
+            if (nextStopWaypoint == null || nextStopWaypoint == CurrentWaypoint || _lastCommittedSegmentStartWaypoint == CurrentWaypoint)
+                return;
+
+            double inboundOrientation = Circle.GetOrientation(
+                _lastCommittedSegmentStartWaypoint.X, _lastCommittedSegmentStartWaypoint.Y,
+                CurrentWaypoint.X, CurrentWaypoint.Y);
+            double outboundOrientation = Circle.GetOrientation(
+                CurrentWaypoint.X, CurrentWaypoint.Y,
+                nextStopWaypoint.X, nextStopWaypoint.Y);
+
+            if (Math.Abs(Circle.GetOrientationDifference(inboundOrientation, outboundOrientation)) >= Instance.StraightOrientationTolerance)
+                return;
+
+            _pendingPlannedWaitStopGo = true;
+            _pendingPlannedWaitWaypoint = CurrentWaypoint;
+            _pendingPlannedWaitDecelEnergyJ = _lastCommittedSegmentE2DecelJ;
+        }
+
+        private void CommitPendingPlannedWaitStopGo(double resumeAccelEnergyJ)
+        {
+            if (!_pendingPlannedWaitStopGo || _pendingPlannedWaitWaypoint != CurrentWaypoint)
+                return;
+
+            double stopGoEnergy = _pendingPlannedWaitDecelEnergyJ + resumeAccelEnergyJ;
+            StatStopAndGoCount++;
+            StatStopAndGoEnergyJ += stopGoEnergy;
+            if (_lastTripJITDestination != null)
+                _lastTripJITStopGoCount++;
+            RecordStopGoEvent(
+                "whca_planned_wait",
+                _lastCommittedSegmentStartWaypoint,
+                CurrentWaypoint,
+                NextWaypoint,
+                stopGoEnergy,
+                _pendingPlannedWaitDecelEnergyJ,
+                resumeAccelEnergyJ);
+
+            _pendingPlannedWaitStopGo = false;
+            _pendingPlannedWaitWaypoint = null;
+            _pendingPlannedWaitDecelEnergyJ = 0.0;
+        }
+
+        private bool IsQueueManagerCreepSegment(Waypoint from, Waypoint to)
+        {
+            return IsQueueing &&
+                from != null &&
+                to != null &&
+                from.QueueManager != null &&
+                from.QueueManager == to.QueueManager;
+        }
+
+        private void CommitQueueManagerStopGo(double resumeAccelEnergyJ)
+        {
+            double stopGoEnergy = _lastCommittedSegmentE2DecelJ + resumeAccelEnergyJ;
+            StatQueueStopAndGoCount++;
+            StatQueueStopAndGoEnergyJ += stopGoEnergy;
+            if (_lastTripJITDestination != null)
+                _lastTripJITQueueStopGoCount++;
+            RecordStopGoEvent(
+                "queue_manager_creep",
+                _lastCommittedSegmentStartWaypoint,
+                CurrentWaypoint,
+                NextWaypoint,
+                stopGoEnergy,
+                _lastCommittedSegmentE2DecelJ,
+                resumeAccelEnergyJ);
+        }
+
+        private int GetStopGoNodeId(Waypoint waypoint)
+        {
+            if (waypoint == null || Instance?.Controller?.PathManager == null)
+                return -1;
+            try { return Instance.Controller.PathManager.GetNodeIdByWaypoint(waypoint); }
+            catch { return -1; }
+        }
+
+        private void RecordStopGoEvent(string type, Waypoint from, Waypoint stop, Waypoint to, double energyJ, double decelJ, double accelJ)
+        {
+            if (Instance == null || stop == null)
+                return;
+
+            var ci = System.Globalization.CultureInfo.InvariantCulture;
+            int queueTerminalNode = stop.QueueManager != null ? GetStopGoNodeId(stop.QueueManager.QueueWaypoint) : -1;
+            int destinationNode = GetStopGoNodeId(DestinationWaypoint);
+            Instance.StatStopGoEventRows.Add(string.Join(";", new[]
+            {
+                Instance.Controller.CurrentTime.ToString(ci),
+                type,
+                ID.ToString(ci),
+                GetStopGoNodeId(from).ToString(ci),
+                GetStopGoNodeId(stop).ToString(ci),
+                GetStopGoNodeId(to).ToString(ci),
+                stop.X.ToString(ci),
+                stop.Y.ToString(ci),
+                (stop.Tier != null ? stop.Tier.ID : -1).ToString(ci),
+                (energyJ / 1000.0).ToString(ci),
+                (decelJ / 1000.0).ToString(ci),
+                (accelJ / 1000.0).ToString(ci),
+                queueTerminalNode.ToString(ci),
+                destinationNode.ToString(ci),
+                (Pod != null ? "true" : "false")
+            }));
+
+            if (type == "whca_planned_wait")
+            {
+                Instance.StatConflictWaitHeatPoints.Add(new LocationDatapoint()
+                {
+                    TimeStamp = Instance.Controller.CurrentTime,
+                    Tier = stop.Tier != null ? stop.Tier.ID : -1,
+                    X = stop.X,
+                    Y = stop.Y,
+                    BotTask = CurrentTask != null ? CurrentTask.Type : BotTaskType.None,
+                });
+            }
+        }
+
         /// <summary>
         /// Sets the next way point.
         /// </summary>
@@ -896,32 +1036,16 @@ namespace RAWSimO.Core.Bots
                 StatEnergyE2DecelJ += e2;
                 StatEnergyE3CruiseJ += e3;
 
-                // Conflict stop-and-go: this commit resumes movement after a planned wait or a
-                // reservation block. Split into two buckets by location:
-                //   - IsQueueing → in-queue creep conflict (StatQueueStopAndGo*)
-                //   - else       → open-road conflict      (StatStopAndGo*)
-                // Energy attributed = E1 + E2 of this resume leg — captures the full extra
-                // accel/decel pair the conflict imposed (re-accel from stop + decel into next stop).
-                // Strict subset of E1 + E2 totals.
-                if (_conflictBlockedSinceCommit)
-                {
-                    double restartEnergy = e1 + e2;
-                    if (IsQueueing)
-                    {
-                        StatQueueStopAndGoCount++;
-                        StatQueueStopAndGoEnergyJ += restartEnergy;
-                        if (_lastTripJITDestination != null)
-                            _lastTripJITQueueStopGoCount++;
-                    }
-                    else
-                    {
-                        StatStopAndGoCount++;
-                        StatStopAndGoEnergyJ += restartEnergy;
-                        if (_lastTripJITDestination != null)
-                            _lastTripJITStopGoCount++;
-                    }
-                    _conflictBlockedSinceCommit = false;
-                }
+                // WHCA* planned-wait stop-and-go: this resume leg contributes its E1.
+                // Queue-manager creep stop-and-go is tracked separately below.
+                bool queueManagerCreepSegment = _lastCommittedSegmentEndWaypoint == CurrentWaypoint &&
+                    IsQueueManagerCreepSegment(CurrentWaypoint, NextWaypoint);
+                CommitPendingPlannedWaitStopGo(e1);
+                if (queueManagerCreepSegment)
+                    CommitQueueManagerStopGo(e1);
+                _lastCommittedSegmentStartWaypoint = CurrentWaypoint;
+                _lastCommittedSegmentEndWaypoint = NextWaypoint;
+                _lastCommittedSegmentE2DecelJ = e2;
 
                 // E4: rotation energy (θ derived from rotateDuration and TurnSpeed)
                 // mTotal used here so loaded robots correctly pay heavier rotational inertia.
@@ -989,10 +1113,6 @@ namespace RAWSimO.Core.Bots
 
                 // Log failed reservation
                 Instance.StatOverallFailedReservations++;
-
-                // Conflict stop-and-go: blocked by another agent's reservation. Mark so the next
-                // successful commit (the resume) is counted. Queue creep is filtered at commit time.
-                _conflictBlockedSinceCommit = true;
 
                 return false;
             }
@@ -1598,7 +1718,7 @@ namespace RAWSimO.Core.Bots
             // Rest-task gate: return-to-park is a non-productive trip — no energy / wait / station metrics
             bool isRestTask = (CurrentTask != null && CurrentTask.Type == BotTaskType.Rest);
             // Active-task gate: bot must have a real non-rest task assigned to record productive wait.
-            // Support power is now always-on and load-dependent (20 W empty / 50 W loaded);
+            // Support power is now always-on and configured by payload state;
             // it is NOT gated by task state. hasActiveTask/hasSupportTask still gate the
             // wait/queueing SUBSETS below, not the support total.
             bool hasActiveTask = CurrentTask != null &&
@@ -1633,7 +1753,7 @@ namespace RAWSimO.Core.Bots
             }
 
             // E_support = SupportPower(Pod) × wall-clock time — always-on background power,
-            //             load-dependent (20 W empty / 50 W loaded). No task gate: idle/None/Rest
+            //             configured by payload state. No task gate: idle/None/Rest
             //             all accrue. Wait/queueing/slow-start are strict subsets accumulated below.
             StatESupportJ += EnergyConsumption.SupportPower(Pod) * delta;
 
@@ -2051,11 +2171,7 @@ namespace RAWSimO.Core.Bots
                     if (bot.Path.NextAction.StopAtNode && bot.Path.NextAction.WaitTimeAfterStop > 0)
                     {
                         bot._waitUntil = currentTime + bot.Path.NextAction.WaitTimeAfterStop;
-                        // Conflict stop-and-go: a planned WaitTimeAfterStop > 0 means the planner
-                        // inserted this wait to avoid a conflict with another agent. Mark so the
-                        // next successful commit (the resume) is counted. Bucket (queue vs road)
-                        // is decided at commit time by IsQueueing.
-                        bot._conflictBlockedSinceCommit = true;
+                        bot.MarkPlannedWaitStopGoIfForced(bot.Path.NextAction.WaitTimeAfterStop);
                     }
 
                     //pop the node
@@ -2858,6 +2974,22 @@ namespace RAWSimO.Core.Bots
                     if (release)
                     {
                         _holdFinished = true;
+                        // Release-event trace (gated): time, station, bot, pods inbound to station,
+                        // holder's est/eta at release. Lets us detect synchronized releases at the
+                        // same input station (two holders released within seconds of each other).
+                        var inst = bot.Instance;
+                        if (inst.SettingConfig != null && inst.SettingConfig.BackfillProbeEnabled
+                            && _task != null && _task.InputStation != null)
+                        {
+                            inst.StatInputReleaseRows.Add(string.Join(";", new[]
+                            {
+                                currentTime.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                                _task.InputStation.ID.ToString(),
+                                bot.ID.ToString(),
+                                _task.InputStation.GetInfoOpenBundles().ToString(),
+                                (_task.Requests != null ? _task.Requests.Count : 0).ToString()
+                            }));
+                        }
                     }
                     else
                     {

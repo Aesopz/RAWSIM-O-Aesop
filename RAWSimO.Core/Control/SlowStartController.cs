@@ -398,7 +398,14 @@ namespace RAWSimO.Core.Control
             foreach (var job in ordered)
             {
                 int extraItems = ReservePotentialPicks(job.Pod, openDemand);
-                double work = (job.BaseItems + extraItems) * station.ItemTransferTime;
+                // Pod-depletion time: the pod releases after the LAST item's PICK (ItemPickTime),
+                // not its full transfer — the trailing tote-placement (ItemTransferTime − ItemPickTime)
+                // is station-internal with the pod already gone. So m items deplete the pod in
+                // (m−1)·ItemTransferTime + ItemPickTime, not m·ItemTransferTime.
+                int totalItems = job.BaseItems + extraItems;
+                double work = totalItems <= 0
+                    ? 0.0
+                    : (totalItems - 1) * station.ItemTransferTime + station.ItemPickTime;
                 if (work <= 0.0)
                     continue;
 

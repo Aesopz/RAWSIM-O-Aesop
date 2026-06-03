@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <SettingConfiguration xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <Name>large_test_ss_input_backlog</Name>
+  <Name>large_test_ss_both_seq</Name>
   <SimulationWarmupTime>0</SimulationWarmupTime>
   <SimulationDuration>7200</SimulationDuration>
   <Seed>0</Seed>
@@ -13,9 +13,9 @@
   <UseTurnDelay>true</UseTurnDelay>
   <RotatePods>false</RotatePods>
   <QueueHandlingEnabled>true</QueueHandlingEnabled>
-  <SlowStartEnabled>false</SlowStartEnabled>
+  <SlowStartEnabled>true</SlowStartEnabled>
   <SlowStartInputEnabled>true</SlowStartInputEnabled>
-  <InputBacklogAwareHold>true</InputBacklogAwareHold>
+  <InputSequentialRelease>true</InputSequentialRelease>
   <SlowStartReleasePolicy>StationSlack</SlowStartReleasePolicy>
   <SlowStartEtaSafetyBuffer>0</SlowStartEtaSafetyBuffer>
   <SlowStartEtaImprovementLookaheadSec>5</SlowStartEtaImprovementLookaheadSec>

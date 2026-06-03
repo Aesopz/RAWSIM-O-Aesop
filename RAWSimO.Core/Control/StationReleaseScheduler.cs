@@ -191,7 +191,9 @@ namespace RAWSimO.Core.Control
                 double lift = (bn.Pod == null) ? bn.PodTransferTime : 0.0;
                 int committed = (task.Requests != null) ? task.Requests.Count : 0;
                 double value = ComputePodStationValue(task.ReservedPod, openDemand, task.Requests, committed);
-                double proc = committed * station.ItemTransferTime;
+                // Pod-depletion time (see SlowStartController): last item releases the pod at
+                // ItemPickTime, so m items = (m−1)·ItemTransferTime + ItemPickTime.
+                double proc = committed <= 0 ? 0.0 : (committed - 1) * station.ItemTransferTime + station.ItemPickTime;
 
                 etaById[bn.ID] = eta;
                 inputs.Add(new HolderInput
