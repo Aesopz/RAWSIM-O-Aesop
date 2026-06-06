@@ -26,10 +26,14 @@ namespace RAWSimO.Core.Control
             return delay >= 0.0 ? delay : fixedParam;
         }
 
-        /// <summary>Station EST [s] — projected seconds until the station next goes idle,
-        /// from the existing pipeline projection. Thin read-only wrapper.</summary>
+        /// <summary>Station EST [s] — projected seconds until the station next goes idle.
+        /// Thin read-only delegate to <see cref="SlowStartController.ComputeStationWorkProjection"/>.
+        /// A null station yields <see cref="double.PositiveInfinity"/> (treated as "never
+        /// starves" → no urgency), so a missing station cannot bias allocation toward itself.</summary>
         public static double Est(OutputStation station, double now)
         {
+            if (station == null)
+                return double.PositiveInfinity;
             return SlowStartController.ComputeStationWorkProjection(station, now).FirstStarveSec;
         }
     }

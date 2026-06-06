@@ -23,6 +23,8 @@ namespace RAWSimO.Playground.Tests
             Near(StarveAwareCost.TravelTime(30.0, 1.5), 20.0, "TravelTime: 30m / 1.5 = 20s");
             // TravelTime: non-positive speed falls back to identity (distance unchanged)
             Near(StarveAwareCost.TravelTime(30.0, 0.0), 30.0, "TravelTime: speed<=0 -> identity");
+            // TravelTime: negative speed also takes the identity branch (not an error)
+            Near(StarveAwareCost.TravelTime(30.0, -1.0), 30.0, "TravelTime: speed<0 -> identity");
 
             // DelayPenalty: delay >= 0 -> delay (pod late vs starve horizon)
             Near(StarveAwareCost.DelayPenalty(taCost: 50, est: 30, fixedParam: 5), 20.0, "DelayPenalty: late -> delay");
