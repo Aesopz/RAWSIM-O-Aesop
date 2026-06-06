@@ -155,8 +155,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         private bool _saEnabled;
         private double _saNominalSpeed;
         private double _saFixedParam;
-        private System.Collections.Generic.Dictionary<int, double> _saEstByStation;   // station.ID -> EST [s]
-        private System.Collections.Generic.Dictionary<int, double> _saRepBotPodTime;  // pod.ID -> min bot->pod time [s]
+        private System.Collections.Generic.Dictionary<int, double> _saEstByStation = new System.Collections.Generic.Dictionary<int, double>();   // station.ID -> EST [s]
+        private System.Collections.Generic.Dictionary<int, double> _saRepBotPodTime = new System.Collections.Generic.Dictionary<int, double>();  // pod.ID -> min bot->pod time [s]
 
         /// <summary>Precompute per-epoch starve-aware inputs: nominal speed, station EST,
         /// and the representative (min available-bot) bot->pod travel time per pod.
@@ -175,7 +175,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 : (Instance.Bots != null && Instance.Bots.Count > 0
                     ? System.Math.Max(0.1, Instance.Bots.Max(b => b.MaxVelocity))
                     : 1.0);
-            double now = Instance.Controller.CurrentTime;
+            double now = Instance.Controller != null ? Instance.Controller.CurrentTime : 0.0;
             _saEstByStation = new System.Collections.Generic.Dictionary<int, double>();
             foreach (var s in Cs.Keys)
                 _saEstByStation[s.ID] = StarveAwareCost.Est(s, now);
