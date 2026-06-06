@@ -507,6 +507,12 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 OutputStation chosenStation = null;
                 // Look for next station to assign orders to
                 foreach (var station in Instance.OutputStations
+                    // Station-starve-aware (gated): order closest-to-idle stations first so the
+                    // most-urgent station claims the limited available bots/pods first. Flag off =>
+                    // constant key + stable OrderBy => original OutputStations order preserved.
+                    .OrderBy(s => (Instance.SettingConfig != null && Instance.SettingConfig.StarveAwareCostEnabled)
+                        ? StarveAwareCost.Est(s, Instance.Controller.CurrentTime)
+                        : 0.0)
                     // Station has to be valid
                     .Where(s => validStationNormalAssignment(s)))
                 {

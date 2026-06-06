@@ -103,11 +103,28 @@ untouched):
 - A small helper computes `EST(s)` once per epoch for `Cs.Keys` and caches the
   representative bot→pod time per pod.
 
-**HADGS** — already greedy per-station with the nearest bot
-(`HADGSManager.cs:599`), so (r,p,s) is naturally available:
-- The candidate score (`_bestPodOStationCandidateSelector` / the bot→pod
-  estimate at `HADGSManager.cs:599`) uses `TA_cost` and adds the delay penalty,
-  so pod+bot selection directly reflects station starvation urgency.
+**HADGS** — *(corrected after code inspection)* HADGS is a greedy heuristic, not
+a MILP with distance coefficients. Its pod scoring is **demand-based**
+(`HADGSManager.cs:428-439`: Demand / Completeable / WorkAmount); pod→station
+distance does **not** enter pod selection, and distance is used only to pick the
+nearest bot for an already-chosen pod (`HADGSManager.cs:599`). So the M1G
+coefficient-swap does not map onto HADGS. Instead, inject starvation-awareness at
+the **station processing order** (approach 甲):
+- The per-station POA/PPS loop in `HeuristicsPOAandPPS` (`HADGSManager.cs:509-511`)
+  currently iterates `Instance.OutputStations` in natural order; whichever station
+  is processed first claims the limited available bots first (`HADGSManager.cs:585`
+  `if (Ra.Count == 0) continue;`).
+- When `StarveAwareCostEnabled` is true, order the station loop by
+  `StarveAwareCost.Est(station, now)` **ascending** (closest-to-idle first) so the
+  most-urgent station grabs bots/pods first. EST is recomputed each outer pass, so
+  priority updates as assignments register inbound pods.
+- Baseline preservation: with the flag off, the sort key is a constant `0.0`;
+  `OrderBy` is a stable sort, so the original `OutputStations` order is preserved
+  exactly (zero behavioural change).
+- This reuses the shared `StarveAwareCostEnabled` flag and the `StarveAwareCost.Est`
+  helper. The delay-penalty / travel-time cost model (§3.2) applies to M1G only;
+  HADGS uses EST ordering, which is the directly actionable lever given its
+  demand-based pod scoring.
 
 ### 3.4 Gating (ablation)
 New settings (default OFF → behaviour identical to current baseline):
