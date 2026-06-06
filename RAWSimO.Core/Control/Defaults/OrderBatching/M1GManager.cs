@@ -1,4 +1,5 @@
 ﻿using RAWSimO.Core.Configurations;
+using RAWSimO.Core.Control;
 using RAWSimO.Core.Elements;
 using RAWSimO.Core.IO;
 using RAWSimO.Core.Items;
@@ -149,6 +150,67 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             double podY = podWaypoint != null ? podWaypoint.Y : pod.Y;
             return Math.Abs(podX - station.Waypoint.X) + Math.Abs(podY - station.Waypoint.Y);
         }
+
+        // ── Station-starve-aware cost (gated by SettingConfig.StarveAwareCostEnabled) ──
+        private bool _saEnabled;
+        private double _saNominalSpeed;
+        private double _saFixedParam;
+        private System.Collections.Generic.Dictionary<int, double> _saEstByStation;   // station.ID -> EST [s]
+        private System.Collections.Generic.Dictionary<int, double> _saRepBotPodTime;  // pod.ID -> min bot->pod time [s]
+
+        /// <summary>Precompute per-epoch starve-aware inputs: nominal speed, station EST,
+        /// and the representative (min available-bot) bot->pod travel time per pod.
+        /// No-op (and leaves cost wrappers in distance mode) when the feature is disabled.</summary>
+        private void PrepareStarveAware(System.Collections.Generic.HashSet<Pod> pods,
+            System.Collections.Generic.Dictionary<OutputStation, int> Cs,
+            System.Collections.Generic.HashSet<Bot> Ra)
+        {
+            _saEnabled = Instance != null && Instance.SettingConfig != null && Instance.SettingConfig.StarveAwareCostEnabled;
+            if (!_saEnabled)
+                return;
+            _saFixedParam = Instance.SettingConfig.StarveAwareFixedParam;
+            double cfgSpeed = Instance.SettingConfig.StarveAwareNominalSpeed;
+            _saNominalSpeed = cfgSpeed > 0.0
+                ? cfgSpeed
+                : (Instance.Bots != null && Instance.Bots.Count > 0
+                    ? System.Math.Max(0.1, Instance.Bots.Max(b => b.MaxVelocity))
+                    : 1.0);
+            double now = Instance.Controller.CurrentTime;
+            _saEstByStation = new System.Collections.Generic.Dictionary<int, double>();
+            foreach (var s in Cs.Keys)
+                _saEstByStation[s.ID] = StarveAwareCost.Est(s, now);
+            _saRepBotPodTime = new System.Collections.Generic.Dictionary<int, double>();
+            foreach (var p in pods)
+            {
+                double best = double.PositiveInfinity;
+                foreach (var r in Ra)
+                    best = System.Math.Min(best, StarveAwareCost.TravelTime(EstimateBotPodDistance(r, p), _saNominalSpeed));
+                _saRepBotPodTime[p.ID] = best;
+            }
+        }
+
+        /// <summary>bot->pod objective coefficient: travel time when starve-aware, else distance.</summary>
+        private double M1GBotPodCost(Bot robot, Pod pod)
+        {
+            double d = EstimateBotPodDistance(robot, pod);
+            return _saEnabled ? StarveAwareCost.TravelTime(d, _saNominalSpeed) : d;
+        }
+
+        /// <summary>pod->station objective coefficient: travel time + starvation delay penalty
+        /// when starve-aware, else distance.</summary>
+        private double M1GPodStationCost(Pod pod, OutputStation station)
+        {
+            double d = EstimatePodStationDistance(pod, station);
+            if (!_saEnabled)
+                return d;
+            double podStationTime = StarveAwareCost.TravelTime(d, _saNominalSpeed);
+            double repBotPod = (_saRepBotPodTime.TryGetValue(pod.ID, out var t) && !double.IsPositiveInfinity(t)) ? t : 0.0;
+            double taCost = podStationTime + repBotPod;
+            double est = _saEstByStation.TryGetValue(station.ID, out var e) ? e : double.PositiveInfinity;
+            double penalty = StarveAwareCost.DelayPenalty(taCost, est, _saFixedParam);
+            return podStationTime + penalty;
+        }
+
         /// <summary>
         /// Indicates whether a currently unavailable bot should still be included as a near-future available bot.
         /// Base M1G keeps the original behavior and never includes such bots.
