@@ -204,6 +204,7 @@
     <Compile Include="Geometrics\QuadTree.cs" />
     <Compile Include="Control\PathManager.cs" />
     <Compile Include="Control\SlowStartController.cs" />
+    <Compile Include="Control\StarveAwareCost.cs" />
     <Compile Include="Control\JIT\IdealTravelTime.cs" />
     <Compile Include="Control\JIT\JITArrivalETA.cs" />
     <Compile Include="Info\IElevatorInfo.cs" />

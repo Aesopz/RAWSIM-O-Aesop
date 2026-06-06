@@ -24,7 +24,9 @@ namespace RAWSimO.Playground
         {
             if (args.Length == 1 && args[0] == "selftest")
             {
-                Environment.Exit(RAWSimO.Playground.Tests.StationReleaseSchedulerSelfTest.RunAll());
+                int rc = RAWSimO.Playground.Tests.StationReleaseSchedulerSelfTest.RunAll();
+                rc += RAWSimO.Playground.Tests.StarveAwareCostSelfTest.RunAll();
+                Environment.Exit(rc);
                 return;
             }
             // If arguments given in the right length handle the jenkins call
