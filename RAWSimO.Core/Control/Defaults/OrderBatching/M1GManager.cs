@@ -161,7 +161,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// <summary>Precompute per-epoch starve-aware inputs: nominal speed, station EST,
         /// and the representative (min available-bot) bot->pod travel time per pod.
         /// No-op (and leaves cost wrappers in distance mode) when the feature is disabled.</summary>
-        private void PrepareStarveAware(System.Collections.Generic.HashSet<Pod> pods,
+        private void PrepareStarveAware(System.Collections.Generic.IEnumerable<Pod> pods,
             System.Collections.Generic.Dictionary<OutputStation, int> Cs,
             System.Collections.Generic.HashSet<Bot> Ra)
         {
@@ -631,7 +631,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             VariableCollection<string> variablesBinary = new VariableCollection<string>(wrapper, VariableType.Binary, 0, 1, (string s) => { return s; });
             VariableCollection<string> variablesInteger2 = new VariableCollection<string>(wrapper, VariableType.Integer, 0, 5, (string s) => { return s; });
             VariableCollection<string> variablesInteger3 = new VariableCollection<string>(wrapper, VariableType.Integer, 0, 6, (string s) => { return s; });
-            PrepareStarveAware(new System.Collections.Generic.HashSet<Pod>(Pods), Cs, Ra);
+            // Precompute per-epoch starve-aware cost inputs; no-op when StarveAwareCostEnabled=false.
+            PrepareStarveAware(Pods, Cs, Ra);
             if (Ra.Count() > 0)
                 wrapper.SetObjective((LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * M1GPodStationCost(v.pod, v.outputstation)), wrapper)
                     + LinearExpression.Sum(deVarNameyrp.Where(u => Ra.Contains(u.robot) && Instance.ResourceManager.UnusedPods.Contains(u.pod) && u.pod.Waypoint != null).Select(v => variablesBinary[v.name] *
