@@ -161,6 +161,20 @@ namespace RAWSimO.Core.Configurations
         /// </summary>
         public bool SlowStartUseReservationEta = false;
         /// <summary>
+        /// Station-starve-aware M1G cost (output stations). When true, M1G converts its
+        /// pod->station / bot->pod distance cost to travel time and adds a starvation delay
+        /// penalty so pods are steered to stations about to go idle. Preserves w1/w2/w3 and
+        /// adds no MILP variables. Default off = baseline distance cost.
+        /// See docs/superpowers/specs/2026-06-06-m1g-hadgs-station-starve-aware-design.md.
+        /// </summary>
+        public bool StarveAwareCostEnabled = false;
+        /// <summary>Fixed floor penalty [s] applied when a pod can ideally arrive before the
+        /// station starves (delay &lt; 0). Small positive constant; keeps the cost non-negative.</summary>
+        public double StarveAwareFixedParam = 30.0;
+        /// <summary>Nominal speed [m/s] for distance-&gt;travel-time conversion. If &lt;= 0, M1G
+        /// derives it from the fleet's max bot velocity at solve time.</summary>
+        public double StarveAwareNominalSpeed = 0.0;
+        /// <summary>
         /// Input slow-start: include the station's KNOWN-but-unassigned store backlog
         /// (InputStation.GetInfoOpenRequests — store requests not yet bound to any InsertTask) as
         /// deterministic work in the holder's release horizon. Without this the input EST counts
