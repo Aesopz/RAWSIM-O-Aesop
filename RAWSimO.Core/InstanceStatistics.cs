@@ -197,11 +197,22 @@ namespace RAWSimO.Core
         /// holder release; written to input_release_probe.csv. For detecting synchronized releases
         /// (two holders released within seconds at the same input station).</summary>
         public List<string> StatInputReleaseRows = new List<string>();
-        /// <summary>Fleet starvation time: sum across stations of ticks where station is idle but has assigned orders [s].</summary>
+        /// <summary>Fleet Type A starvation (supply lag, optimizable): sum across stations of idle time where
+        /// the station has assigned orders but no pod is ready/queued (pod not yet arrived) [s].</summary>
         public double StatOverallStationStarvationTimeSec { get { return OutputStations.Sum(s => s.StatStarvationTimeSec); } }
+        /// <summary>Fleet Type B starvation (no-order waste, HADGS-caused): sum across stations of idle time
+        /// where the station has NO assigned order and no pod — the order manager left it unused [s].</summary>
+        public double StatOverallStationNoOrderIdleTimeSec { get { return OutputStations.Sum(s => s.StatStationNoOrderIdleTimeSec); } }
         /// <summary>Per-pod queue wait [s]: time from bot+pod entering queue zone until station begins picking.
         /// Excludes processing time. One sample per pod visit to an OutputStation.</summary>
         public List<double> StatPodQueueWaitSamples = new List<double>();
+        /// <summary>Diagnostic — per-pod-handoff gap [s] at an OutputStation: time from the previous pod's
+        /// last transfer finishing until the next pod's first pick begins. Captures the inter-pod
+        /// "銜接段" gap (waiting for / positioning the next pod) regardless of whether
+        /// HasReadyOrQueuedExtractPod masked it from the Type-A starvation counter. One sample per
+        /// pod transition (excludes each station's very first pod). Lets us check how much
+        /// handoff gap exists even when measured starvation is ~0 (e.g. bot-abundant).</summary>
+        public List<double> StatPodHandoffGapSamples = new List<double>();
         /// <summary>Per-pod picking time [s]: time from station beginning to pick until last item finished.
         /// One sample per pod visit to an OutputStation.</summary>
         public List<double> StatPodPickingTimeSamples = new List<double>();
@@ -1929,14 +1940,36 @@ namespace RAWSimO.Core
                 sb.AppendLine("StatJITEtaConflictWaitMeanSec: " + (sumJitWait / jitN).ToString(IOConstants.FORMATTER));
             }
 
-            // ─── Station starvation (idle while having assigned orders) ───
-            sb.AppendLine("StatStationStarvationTimeSec: " + StatOverallStationStarvationTimeSec.ToString(IOConstants.FORMATTER));
+            // ─── Station starvation, split into two mutually-exclusive types ───
+            // Type A "supply lag" (optimizable): has order, no pod ready/queued (pod not yet arrived).
+            // Type B "no-order waste" (HADGS left station unassigned): no order and no pod.
             double simDuration = SettingConfig.SimulationDuration;
             int nStations = OutputStations.Count;
+            sb.AppendLine("StatStationStarvationTimeSec: " + StatOverallStationStarvationTimeSec.ToString(IOConstants.FORMATTER));
             double starvPct = (simDuration > 0 && nStations > 0)
                 ? StatOverallStationStarvationTimeSec / (simDuration * nStations) * 100.0
                 : 0.0;
             sb.AppendLine("StatStationStarvationPctOfSimXStations: " + starvPct.ToString(IOConstants.FORMATTER));
+            sb.AppendLine("StatStationNoOrderIdleTimeSec: " + StatOverallStationNoOrderIdleTimeSec.ToString(IOConstants.FORMATTER));
+            double noOrderPct = (simDuration > 0 && nStations > 0)
+                ? StatOverallStationNoOrderIdleTimeSec / (simDuration * nStations) * 100.0
+                : 0.0;
+            sb.AppendLine("StatStationNoOrderIdlePctOfSimXStations: " + noOrderPct.ToString(IOConstants.FORMATTER));
+
+            // ─── Diagnostic: per-pod-handoff gap (prev pod finished → next pod first pick) ───
+            int hN = StatPodHandoffGapSamples.Count;
+            sb.AppendLine("StatPodHandoffGapCount: " + hN.ToString(IOConstants.FORMATTER));
+            if (hN > 0)
+            {
+                double hSum = 0, hMax = 0;
+                for (int i = 0; i < hN; i++) { hSum += StatPodHandoffGapSamples[i]; if (StatPodHandoffGapSamples[i] > hMax) hMax = StatPodHandoffGapSamples[i]; }
+                var hSorted = new List<double>(StatPodHandoffGapSamples); hSorted.Sort();
+                sb.AppendLine("StatPodHandoffGapSumSec: " + hSum.ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatPodHandoffGapMeanSec: " + (hSum / hN).ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatPodHandoffGapMaxSec: " + hMax.ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatPodHandoffGapP50Sec: " + hSorted[hN / 2].ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatPodHandoffGapP95Sec: " + hSorted[(int)(hN * 0.95)].ToString(IOConstants.FORMATTER));
+            }
 
             // ─── Per-pod queue-wait + picking-time (per pod visit to OS) ───
             int qN = StatPodQueueWaitSamples.Count;

@@ -166,7 +166,8 @@ namespace RAWSimO.Core.Control
         {
             //instance
             this.Instance = instance;
-            this.Log = true; //log => high memory consumption
+            // log => high memory consumption; disabled on long runs via DisableHeavyLogging.
+            this.Log = !(instance != null && instance.SettingConfig != null && instance.SettingConfig.DisableHeavyLogging);
         }
 
         /// <summary>
@@ -599,6 +600,50 @@ namespace RAWSimO.Core.Control
 
             if (tmpReservations == null)
                 return false; //no valid way point
+
+            // DIAGNOSTIC: catch non-finite reservation intervals before they reach the reservation
+            // table (DisjointIntervalTree.Add throws "Invalid interval: <start> - NaN"). The interval
+            // ends derive from physics checkpoint times, so a NaN here means getTimeNeededToMove
+            // produced a non-finite value. Dump physics params + per-segment graph distances so the
+            // exact source (bad physics param vs. bad distance vs. sqrt-of-negative checkpoint) is
+            // identifiable, then bail out (return false → bot retries next tick) instead of crashing.
+            bool anyNonFinite = false;
+            foreach (var iv in tmpReservations)
+                if (double.IsNaN(iv.Start) || double.IsInfinity(iv.Start) ||
+                    (double.IsNaN(iv.End) || (double.IsInfinity(iv.End) && iv.End < 0)))
+                { anyNonFinite = true; break; }
+            if (anyNonFinite)
+            {
+                var ci = System.Globalization.CultureInfo.InvariantCulture;
+                var ph = botNormal.Physics;
+                var sb = new System.Text.StringBuilder();
+                sb.AppendFormat(ci, "Bot{0}: non-finite reservation interval at t={1} — blockUntil={2}, rotation={3}, " +
+                    "Physics[a={4},d={5},vMax={6},turn={7}], startWp={8}, endWp={9}. ",
+                    botNormal.ID, currentTime, blockCurrentWaypointUntil, rotationDuration,
+                    ph.Acceleration, ph.Deceleration, ph.MaxSpeed, ph.TurnSpeed,
+                    _waypointIds[waypointStart], _waypointIds[waypointEnd]);
+                try
+                {
+                    int sNode = _waypointIds[waypointStart], dNode = _waypointIds[waypointEnd];
+                    var inter = PathFinder.Graph.getIntermediateNodes(sNode, dNode);
+                    sb.Append("dists[");
+                    if (inter == null) sb.Append("intermediateNodes=null");
+                    else
+                    {
+                        sb.AppendFormat(ci, "{0}", PathFinder.Graph.getDistance(sNode, sNode));
+                        foreach (var n in inter) sb.AppendFormat(ci, ",{0}", PathFinder.Graph.getDistance(sNode, n));
+                        sb.AppendFormat(ci, ",{0}", PathFinder.Graph.getDistance(sNode, dNode));
+                    }
+                    sb.Append("] ");
+                }
+                catch (Exception ex) { sb.Append("dist-probe-failed:" + ex.Message + " "); }
+                sb.Append("intervals[");
+                foreach (var iv in tmpReservations)
+                    sb.AppendFormat(ci, "(n{0}:{1}->{2})", iv.Node, iv.Start, iv.End);
+                sb.Append("]");
+                Instance.LogSevere(sb.ToString());
+                return false;
+            }
 
             //if the last node or way point is an elevator way point than add all connected nodes
             if (tmpReservations.Count >= 2)

@@ -52,6 +52,9 @@ namespace RAWSimO.MultiAgentPathFinding.DataStructures
         /// <param name="end">The end.</param>
         public virtual void Add(double start, double end, int agentId = -1, int prio = -1)
         {
+            if (double.IsNaN(start) || double.IsNaN(end) || double.IsInfinity(start))
+                throw new ArgumentException("Invalid interval: " + start.ToString(CultureInfo.InvariantCulture) + " - " + end.ToString(CultureInfo.InvariantCulture));
+
             //no senseless intervals
             bool senselesseInterval = end - start < ReservationTable.TOLERANCE;
             if (senselesseInterval)

@@ -260,6 +260,20 @@ namespace RAWSimO.Core.Configurations
         /// Indicates whether locations of the robots are polled alot more frequently in order to get more precise statistical feedback (note: this may cause huge output files).
         /// </summary>
         public bool IntenseLocationPolling = false;
+        /// <summary>
+        /// Performance switch for long runs: when true, disables the heavy, unbounded-in-memory
+        /// diagnostics that dominate wall-time and RAM on long simulations — the PathManager path log
+        /// and the heatmap collection (per-tick location polling + WHCA* conflict-wait heat points).
+        /// Default false (full diagnostics). Set true for fast 7200s+ statistical runs.
+        /// </summary>
+        public bool DisableHeavyLogging = false;
+        /// <summary>
+        /// Order-batching trigger threshold: the order manager (re)solves only when at least one output
+        /// station has free capacity &gt;= this value. 1 = maximally reactive (refill on any single open
+        /// slot); higher values batch assignments (wait for more open slots before solving), trading
+        /// reactivity for joint-assignment quality and fewer solves. Default 1 (original behavior).
+        /// </summary>
+        public int OrderBatchingTriggerThreshold = 1;
 
         #endregion
 

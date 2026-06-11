@@ -968,7 +968,8 @@ namespace RAWSimO.Core.Bots
                 (Pod != null ? "true" : "false")
             }));
 
-            if (type == "whca_planned_wait")
+            if (type == "whca_planned_wait"
+                && !(Instance.SettingConfig != null && Instance.SettingConfig.DisableHeavyLogging))
             {
                 Instance.StatConflictWaitHeatPoints.Add(new LocationDatapoint()
                 {
@@ -1006,6 +1007,27 @@ namespace RAWSimO.Core.Bots
             _endOrientation = Circle.GetOrientation(X, Y, waypoint.X, waypoint.Y);
             var rotateDuration = Physics.getTimeNeededToTurn(_startOrientation, _endOrientation);
             var waitUntil = Math.Max(_waitUntil, currentTime);
+
+            // Guard against NaN/Infinity leaking into the reservation table (DisjointIntervalTree.Add
+            // throws "Invalid interval: <start> - NaN"). The reservation interval's end is derived from
+            // startDrivingAt = waitUntil + rotateDuration, so a NaN in either poisons it. This block
+            // pinpoints the offending input (so the true upstream source can be traced) and sanitizes
+            // it to a finite value so the simulation keeps running instead of aborting mid-run.
+            if (double.IsNaN(waitUntil) || double.IsInfinity(waitUntil) ||
+                double.IsNaN(rotateDuration) || double.IsInfinity(rotateDuration))
+            {
+                Instance.LogSevere(string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                    "Bot{0}: non-finite move timing at t={1} — _waitUntil={2}, waitUntil={3}, rotateDuration={4}, " +
+                    "startOri={5}, endOri={6}, pos=({7},{8}), targetWp=({9},{10}), " +
+                    "Physics[a={11},d={12},vMax={13},turn={14}]",
+                    ID, currentTime, _waitUntil, waitUntil, rotateDuration,
+                    _startOrientation, _endOrientation, X, Y, waypoint.X, waypoint.Y,
+                    Physics.Acceleration, Physics.Deceleration, Physics.MaxSpeed, Physics.TurnSpeed));
+                if (double.IsNaN(waitUntil) || double.IsInfinity(waitUntil))
+                    waitUntil = currentTime;
+                if (double.IsNaN(rotateDuration) || double.IsInfinity(rotateDuration))
+                    rotateDuration = 0.0;
+            }
 
             if (Instance.Controller.PathManager.RegisterNextWaypoint(this, currentTime, waitUntil, rotateDuration, CurrentWaypoint, waypoint))
             {

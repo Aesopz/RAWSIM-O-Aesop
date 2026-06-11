@@ -216,22 +216,7 @@ namespace RAWSimO.MultiAgentPathFinding.Methods
 
                 if (!found)
                 {
-                    //set a fresh reservation for my current node
-                    _reservationTable.Clear(agent.NextNode);
-                    _calculatedReservations[agent.ID] = new List<ReservationTable.Interval>(new ReservationTable.Interval[] { new ReservationTable.Interval(agent.NextNode, 0, double.PositiveInfinity) });
-                    _reservationTable.Add(_calculatedReservations[agent.ID]);
-                    agent.Path = new Path();
-
-                    //clear all reservations of other agents => they will not calculate a path over this node anymore
-                    foreach (var otherAgent in _calculatedReservations.Keys.Where(id => id != agent.ID))
-                        _calculatedReservations[otherAgent].RemoveAll(r => r.Node == agent.NextNode);
-
-                    //add wait step
-                    agent.Path.AddFirst(agent.NextNode, true, LengthOfAWaitStep);
-
-                    //add the next node again
-                    if (agent.ReservationsToNextNode.Count > 0 && (agent.Path.Count == 0 || agent.Path.NextAction.Node != agent.NextNode || agent.Path.NextAction.StopAtNode == false))
-                        agent.Path.AddFirst(agent.NextNode, true, 0);
+                    FallBackToWaitReservation(agent);
                     continue;
                 }
 
@@ -243,6 +228,11 @@ namespace RAWSimO.MultiAgentPathFinding.Methods
 
                 List<ReservationTable.Interval> reservations;
                 aStar.GetPathAndReservations(ref agent.Path, out reservations);
+                if (ContainsInvalidInterval(reservations))
+                {
+                    FallBackToWaitReservation(agent);
+                    continue;
+                }
                 _calculatedReservations[agent.ID] = reservations;
 
                 //add to reservation table
@@ -311,6 +301,47 @@ namespace RAWSimO.MultiAgentPathFinding.Methods
             aStar.FinalReservation = true;
             var found = aStar.Search();
             return found && aStar.GoalNode >= 0 && aStar.NodeTo2D(aStar.GoalNode) == agent.DestinationNode;
+        }
+
+        private void FallBackToWaitReservation(Agent agent)
+        {
+            // Set a fresh reservation for my current node.
+            _reservationTable.Clear(agent.NextNode);
+            _calculatedReservations[agent.ID] = new List<ReservationTable.Interval>(
+                new ReservationTable.Interval[] { new ReservationTable.Interval(agent.NextNode, 0, double.PositiveInfinity) });
+            _reservationTable.Add(_calculatedReservations[agent.ID]);
+            agent.Path = new Path();
+
+            // Clear all reservations of other agents, so they will not calculate a path over this node anymore.
+            foreach (var otherAgent in _calculatedReservations.Keys.Where(id => id != agent.ID))
+                _calculatedReservations[otherAgent].RemoveAll(r => r.Node == agent.NextNode);
+
+            // Add wait step.
+            agent.Path.AddFirst(agent.NextNode, true, LengthOfAWaitStep);
+
+            // Add the next node again.
+            if (agent.ReservationsToNextNode.Count > 0 && (agent.Path.Count == 0 || agent.Path.NextAction.Node != agent.NextNode || agent.Path.NextAction.StopAtNode == false))
+                agent.Path.AddFirst(agent.NextNode, true, 0);
+        }
+
+        private static bool ContainsInvalidInterval(IEnumerable<ReservationTable.Interval> intervals)
+        {
+            if (intervals == null)
+                return true;
+
+            foreach (var interval in intervals)
+            {
+                if (interval == null)
+                    return true;
+                if (double.IsNaN(interval.Start) || double.IsNaN(interval.End))
+                    return true;
+                if (double.IsInfinity(interval.Start))
+                    return true;
+                if (interval.End <= interval.Start + ReservationTable.TOLERANCE)
+                    return true;
+            }
+
+            return false;
         }
     }
 }
