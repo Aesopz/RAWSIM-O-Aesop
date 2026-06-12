@@ -480,6 +480,19 @@ namespace RAWSimO.Core.Elements
         }
 
         /// <summary>
+        /// Indicates whether the order backlog still holds pending (not-yet-assigned) orders that could be
+        /// fed to this station. Used to tell "supply lag" (Type A — work exists, pod not here yet) apart
+        /// from "no-order waste" (Type B — nothing to do at all) when the station is idle.
+        /// </summary>
+        private bool HasServeablePendingDemand()
+        {
+            var orderManager = Instance != null && Instance.Controller != null ? Instance.Controller.OrderManager : null;
+            return orderManager != null
+                && orderManager.BacklogSnapshot != null
+                && orderManager.BacklogSnapshot.Count > 0;
+        }
+
+        /// <summary>
         /// All extract tasks that are registered for being done at this station.
         /// </summary>
         IEnumerable<ExtractTask> ActiveTasks { get { return GetActiveExtractTasks(); } }
@@ -615,13 +628,15 @@ namespace RAWSimO.Core.Elements
         /// </summary>
         public double StatDownTime;
         /// <summary>Type A starvation — "supply lag" (optimizable). Cumulative time [s] the station was
-        /// idle (not picking) while it HAD assigned orders (CapacityInUse &gt; 0) but NO pod was ready or
-        /// queued at the station (!HasReadyOrQueuedExtractPod) — i.e. an order is committed but its pod
-        /// has not arrived yet. This is the timing/method flaw the starve-aware feature targets.</summary>
+        /// idle (no pod currently picking, i.e. stationFreeAt &lt;= now) while the system still had work that
+        /// could feed it: a pod was inbound, an order was already committed to this station, or the order
+        /// backlog still held pending orders. The pod simply has not arrived yet — the timing/method flaw
+        /// the starve-aware feature targets.</summary>
         public double StatStarvationTimeSec;
-        /// <summary>Type B starvation — "no-order waste" (HADGS-caused). Cumulative time [s] the station was
-        /// idle (not picking) with NO assigned order (CapacityInUse == 0) and no pod ready/queued — the
-        /// order manager left the station unused. Pure station-resource waste, distinct from supply lag.</summary>
+        /// <summary>Type B starvation — "no-order waste". Cumulative time [s] the station was idle (no pod
+        /// picking) while there was genuinely nothing to do: no inbound pod, no committed order, and an
+        /// empty backlog. Pure station-resource idleness that no allocation decision could have avoided,
+        /// distinct from supply lag.</summary>
         public double StatStationNoOrderIdleTimeSec;
         /// <summary>
         /// The timepoint at which the station completed its last order and may have moved to a rest state.
@@ -733,18 +748,20 @@ namespace RAWSimO.Core.Elements
 
             // Log idle time
             StatIdleTime += idleDuration;
-            // Split the station's non-picking idle time (idleDuration > 0 == not inside a pick/transfer
-            // block) into two mutually-exclusive starvation types, both counted only after the first
-            // completed output (warm-up excluded) and only when no pod is ready/queued at the station:
-            //   Type A "supply lag" (optimizable): has an assigned order but the pod has not arrived yet.
-            //   Type B "no-order waste" (HADGS left the station unassigned): no order to work on at all.
-            // When a pod IS ready/queued (HasReadyOrQueuedExtractPod) the gap is a normal handoff, not starvation.
-            if (idleDuration > 0.0 && StatNumOrdersFinished > 0 && !HasReadyOrQueuedExtractPod())
+            // Split the station's non-picking idle time (idleDuration > 0 == no pod currently picking,
+            // equivalently the projection's stationFreeAt <= now) into two mutually-exclusive starvation
+            // types, both counted only after the first completed output (warm-up excluded):
+            //   Type A "supply lag" (optimizable): something could still feed the station — a pod is
+            //     inbound, an order is committed here, or the backlog still holds pending orders — but no
+            //     pod has arrived yet. Mirrors the forward-looking "Starve gap" the panel shows.
+            //   Type B "no-order waste": genuinely nothing to do (no inbound pod, no committed order, empty
+            //     backlog). No allocation decision could have avoided this idleness.
+            if (idleDuration > 0.0 && StatNumOrdersFinished > 0)
             {
-                if (CapacityInUse > 0)
-                    StatStarvationTimeSec += idleDuration;            // Type A: order committed, pod not yet here
+                if (GetInfoInboundPods() > 0 || CapacityInUse > 0 || HasServeablePendingDemand())
+                    StatStarvationTimeSec += idleDuration;            // Type A: supply lag (pod not here yet)
                 else
-                    StatStationNoOrderIdleTimeSec += idleDuration;    // Type B: no order assigned (resource waste)
+                    StatStationNoOrderIdleTimeSec += idleDuration;    // Type B: nothing to do at all
             }
 
             // Log down time
