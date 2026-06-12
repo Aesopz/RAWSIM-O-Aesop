@@ -26,6 +26,7 @@ namespace RAWSimO.Playground
             {
                 int rc = RAWSimO.Playground.Tests.StationReleaseSchedulerSelfTest.RunAll();
                 rc += RAWSimO.Playground.Tests.StarveAwareCostSelfTest.RunAll();
+                rc += RAWSimO.Playground.Tests.SaHadgsScoringSelfTest.RunAll();
                 Environment.Exit(rc);
                 return;
             }

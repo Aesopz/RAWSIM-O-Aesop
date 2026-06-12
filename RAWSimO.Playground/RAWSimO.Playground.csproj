@@ -88,6 +88,7 @@
     <Compile Include="Tests\RandomizerTests.cs" />
     <Compile Include="Tests\StationReleaseSchedulerSelfTest.cs" />
     <Compile Include="Tests\StarveAwareCostSelfTest.cs" />
+    <Compile Include="Tests\SaHadgsScoringSelfTest.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
