@@ -493,6 +493,54 @@ namespace RAWSimO.Core.Configurations
         }
     }
     /// <summary>
+    /// Starvation-aware HADGS. Inherits HADGSConfiguration so OrderManager.Update's
+    /// `is HADGSConfiguration` epoch trigger applies unchanged.
+    /// See docs/superpowers/specs/2026-06-13-sa-hadgs-design.md.
+    /// </summary>
+    public class SAHADGSConfiguration : HADGSConfiguration
+    {
+        /// <summary>
+        /// Returns the type of the corresponding method this configuration belongs to.
+        /// </summary>
+        /// <returns>The type of the method.</returns>
+        public override OrderBatchingMethodType GetMethodType() { return OrderBatchingMethodType.SAHADGS; }
+        /// <summary>
+        /// Main sweep knob: seconds of projected starvation gap one completed order is worth
+        /// in the weighted candidate score (analogous to M1G's w2).
+        /// </summary>
+        public double OrderRewardSec = 60.0;
+        /// <summary>
+        /// Secondary weight on summed travel time (energy/distance proxy) in the candidate score.
+        /// </summary>
+        public double TravelTimeWeight = 0.1;
+        /// <summary>
+        /// Number of most-urgent stock-feasible orders competing per station per round (flexible POA).
+        /// </summary>
+        public int TopKOrders = 3;
+        /// <summary>
+        /// Also build an ETA-greedy cover-set variant per order (second candidate; ablation switch).
+        /// </summary>
+        public bool UseEtaGreedyVariant = true;
+        /// <summary>
+        /// Tolerance added to EST when classifying a TA pair as on-time. Negative values
+        /// compensate the optimism of nominal-speed ETAs under congestion.
+        /// </summary>
+        public double FeasibilitySlackSec = 0.0;
+        /// <summary>
+        /// Speed used to convert distances into travel time. 0 → max bot velocity of the instance.
+        /// </summary>
+        public double NominalSpeed = 0.0;
+        /// <summary>
+        /// Returns a name identifying the method.
+        /// </summary>
+        /// <returns>The name of the method.</returns>
+        public override string GetMethodName()
+        {
+            if (!string.IsNullOrWhiteSpace(Name)) return Name;
+            return "obSAMP" + (FastLane ? "y" : "n") + "-w" + OrderRewardSec.ToString("0");
+        }
+    }
+    /// <summary>
     /// The configuration for the corresponding method.
     /// </summary>
     public class LinesInCommonOrderBatchingConfiguration : OrderBatchingConfiguration

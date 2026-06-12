@@ -304,6 +304,10 @@ namespace RAWSimO.Core.Configurations
         /// </summary>
         HADGS,
         /// <summary>
+        /// Starvation-aware HADGS: EST-driven water-filling POA/PPS/TA (no Gurobi in the hot path).
+        /// </summary>
+        SAHADGS,
+        /// <summary>
         /// An approach selecting an order that is most similar to the ones already assigned to a station.
         /// </summary>
         LinesInCommon,
@@ -740,6 +744,7 @@ namespace RAWSimO.Core.Configurations
     [XmlInclude(typeof(HASConfiguration))]
     [XmlInclude(typeof(HADGSConfiguration))]
     [XmlInclude(typeof(HADGSReturnPendingConfiguration))]
+    [XmlInclude(typeof(SAHADGSConfiguration))]
     [XmlInclude(typeof(LinesInCommonOrderBatchingConfiguration))]
     [XmlInclude(typeof(QueueOrderBatchingConfiguration))]
     public abstract class OrderBatchingConfiguration : ControllerConfigurationBase
