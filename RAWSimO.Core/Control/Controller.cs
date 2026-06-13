@@ -112,6 +112,7 @@ namespace RAWSimO.Core.Control
                 case OrderBatchingMethodType.GM2: OrderManager = new M2GManager(instance); break;
                 case OrderBatchingMethodType.HAS: OrderManager = new HASManager(instance); break;
                 case OrderBatchingMethodType.HADGS: OrderManager = new HADGSManager(instance); break;
+                case OrderBatchingMethodType.SAHADGS: OrderManager = new SAHADGSManager(instance); break;
                 case OrderBatchingMethodType.LinesInCommon: OrderManager = new LinesInCommonOrderManager(instance); break;
                 case OrderBatchingMethodType.Queue: OrderManager = new QueueOrderManager(instance); break;
                 default: throw new ArgumentException("Unknown order manager: " + instance.ControllerConfig.OrderBatchingConfig.GetMethodType());

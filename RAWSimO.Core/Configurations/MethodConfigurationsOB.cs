@@ -537,7 +537,9 @@ namespace RAWSimO.Core.Configurations
         public override string GetMethodName()
         {
             if (!string.IsNullOrWhiteSpace(Name)) return Name;
-            return "obSAMP" + (FastLane ? "y" : "n") + "-w" + OrderRewardSec.ToString("0");
+            return "obSAMP" + (FastLane ? "y" : "n") + "-w" + OrderRewardSec.ToString("0")
+                + "-k" + TopKOrders.ToString() + (UseEtaGreedyVariant ? "-v2" : "-v1")
+                + "-t" + TravelTimeWeight.ToString("0.##");
         }
     }
     /// <summary>
