@@ -302,7 +302,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             if (double.IsInfinity(dist) || double.IsNaN(dist))
                 return double.PositiveInfinity;
             double transfer = bot != null ? bot.PodTransferTime : 0.0;
-            return StarveAwareCost.TravelTime(dist, NominalSpeed()) + 2.0 * transfer;
+            return StarveAwareCost.TravelTime(dist, _epochNominalSpeed) + 2.0 * transfer;
         }
 
         /// <summary>
@@ -403,15 +403,296 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             }
         }
 
-        /// <summary>Min-EST water-filling main loop (full version lands in Task 4; this placeholder
-        /// keeps the build green with POA-only behavior).</summary>
+        // ===================== candidate machinery =====================
+
+        private sealed class SaCandidate
+        {
+            public Order Order;
+            public List<Pod> Pods;
+            public Dictionary<Pod, Bot> Assignment;
+            public Dictionary<Pod, double> EtaByPod;
+            public Dictionary<Pod, int> ItemsByPod;
+            public double GapSec;
+            public double SumTravelSec;
+            public int CompletableOrders;
+            public double Score;
+        }
+
+        /// <summary>
+        /// Greedy set-cover for one order: repeatedly take the pod covering the most remaining demand
+        /// (tie-break: shorter pod→station travel). Returns null if the pool cannot complete the order
+        /// within maxPods. itemsByPod = marginal items each chosen pod contributes (work credit).
+        /// </summary>
+        private List<Pod> BuildCoverSetCoverageGreedy(Order order, OutputStation station,
+            List<Pod> pool, int maxPods, out Dictionary<Pod, int> itemsByPod)
+        {
+            Dictionary<ItemDescription, int> remaining = RemainingDemand(order, station);
+            itemsByPod = new Dictionary<Pod, int>();
+            var chosen = new List<Pod>();
+            var available = new List<Pod>(pool);
+            while (remaining.Count > 0 && chosen.Count < maxPods)
+            {
+                Pod best = null; int bestCover = 0; double bestDist = double.PositiveInfinity;
+                foreach (var pod in available)
+                {
+                    int cover = 0;
+                    foreach (var kv in remaining)
+                        cover += Math.Min(pod.CountAvailable(kv.Key), kv.Value);
+                    if (cover <= 0) continue;
+                    double dist = EstimatePodStationDistance(pod, station);
+                    if (cover > bestCover || (cover == bestCover && dist < bestDist))
+                    { best = pod; bestCover = cover; bestDist = dist; }
+                }
+                if (best == null) { itemsByPod = null; return null; }
+                chosen.Add(best); available.Remove(best);
+                itemsByPod[best] = TakeFromRemaining(best, remaining);
+            }
+            if (remaining.Count > 0) { itemsByPod = null; return null; }
+            return chosen;
+        }
+
+        /// <summary>
+        /// ETA-greedy variant: walk pods by ascending pod→station travel time, take any pod that
+        /// contributes, until covered. Favors continuity over minimal set size.
+        /// </summary>
+        private List<Pod> BuildCoverSetEtaGreedy(Order order, OutputStation station,
+            List<Pod> pool, int maxPods, out Dictionary<Pod, int> itemsByPod)
+        {
+            Dictionary<ItemDescription, int> remaining = RemainingDemand(order, station);
+            itemsByPod = new Dictionary<Pod, int>();
+            var chosen = new List<Pod>();
+            foreach (var pod in pool.OrderBy(p => EstimatePodStationDistance(p, station)))
+            {
+                if (remaining.Count == 0 || chosen.Count >= maxPods) break;
+                int contributed = TakeFromRemaining(pod, remaining);
+                if (contributed > 0) { chosen.Add(pod); itemsByPod[pod] = contributed; }
+            }
+            if (remaining.Count > 0) { itemsByPod = null; return null; }
+            return chosen;
+        }
+
+        /// <summary>Order demand not already supplied by the station's inbound pods.</summary>
+        private Dictionary<ItemDescription, int> RemainingDemand(Order order, OutputStation station)
+        {
+            var remaining = new Dictionary<ItemDescription, int>();
+            foreach (var pos in order.Positions)
+            {
+                int fromInbound = _inboundPodsPerStation[station].Sum(p => p.CountAvailable(pos.Key));
+                int need = pos.Value - fromInbound;
+                if (need > 0) remaining[pos.Key] = need;
+            }
+            return remaining;
+        }
+
+        /// <summary>Deduct what the pod can supply from remaining demand; returns items taken.</summary>
+        private static int TakeFromRemaining(Pod pod, Dictionary<ItemDescription, int> remaining)
+        {
+            int contributed = 0;
+            foreach (var key in remaining.Keys.ToList())
+            {
+                int take = Math.Min(pod.CountAvailable(key), remaining[key]);
+                if (take > 0)
+                {
+                    contributed += take;
+                    remaining[key] -= take;
+                    if (remaining[key] == 0) remaining.Remove(key);
+                }
+            }
+            return contributed;
+        }
+
+        /// <summary>
+        /// TA: regret-greedy bot↔pod matching on TaPairScore (on-time lexicographically first).
+        /// Returns null if not enough bots or any pod is unreachable.
+        /// </summary>
+        private Dictionary<Pod, Bot> AssignBots(List<Pod> pods, List<Bot> bots, OutputStation station,
+            double estSec, out Dictionary<Pod, double> etaByPod, out double sumTravelSec)
+        {
+            etaByPod = null; sumTravelSec = 0.0;
+            if (pods.Count > bots.Count) return null;
+            double[,] eta = new double[pods.Count, bots.Count];
+            double[,] score = new double[pods.Count, bots.Count];
+            for (int p = 0; p < pods.Count; p++)
+                for (int b = 0; b < bots.Count; b++)
+                {
+                    eta[p, b] = EtaSeconds(bots[b], pods[p], station);
+                    score[p, b] = SaHadgsScoring.TaPairScore(eta[p, b], estSec, _config != null ? _config.FeasibilitySlackSec : 0.0);
+                }
+            int[] asg = SaHadgsScoring.RegretAssign(score);
+            if (asg == null) return null;
+            var result = new Dictionary<Pod, Bot>();
+            etaByPod = new Dictionary<Pod, double>();
+            for (int p = 0; p < pods.Count; p++)
+            {
+                if (double.IsPositiveInfinity(eta[p, asg[p]])) { etaByPod = null; return null; }
+                result[pods[p]] = bots[asg[p]];
+                etaByPod[pods[p]] = eta[p, asg[p]];
+                sumTravelSec += eta[p, asg[p]];
+            }
+            return result;
+        }
+
+        /// <summary>How many of the topK orders the inbound∪set stock can fully cover (greedy, in sequence order).</summary>
+        private int CountCompletableTopK(List<Order> topK, OutputStation station, List<Pod> set)
+        {
+            var avail = new Dictionary<ItemDescription, int>();
+            foreach (var p in _inboundPodsPerStation[station].Concat(set))
+                foreach (var item in p.ItemDescriptionsContained)
+                {
+                    int c; avail.TryGetValue(item, out c);
+                    avail[item] = c + p.CountAvailable(item);
+                }
+            int n = 0;
+            foreach (var o in topK)
+            {
+                bool ok = true;
+                foreach (var pos in o.Positions)
+                { int c; if (!avail.TryGetValue(pos.Key, out c) || c < pos.Value) { ok = false; break; } }
+                if (ok)
+                {
+                    n++;
+                    foreach (var pos in o.Positions) avail[pos.Key] -= pos.Value;
+                }
+            }
+            return n;
+        }
+
+        /// <summary>
+        /// Evaluates ≤ TopKOrders × ≤2 cover-set variants for the station and returns the best
+        /// weighted-score candidate (spec §4.2), or null if nothing is buildable.
+        /// </summary>
+        private SaCandidate SelectBestCandidate(OutputStation station, HashSet<Bot> Ra, double now)
+        {
+            double est = CurrentEst(station, now);
+            var topK = _pendingOrders
+                .Where(o => o.Positions.All(p =>
+                    Instance.ResourceManager.UnusedPods.Concat(_inboundPodsPerStation[station]).Sum(pod => pod.CountAvailable(p.Key)) >= p.Value))
+                .OrderBy(o => o.sequence)
+                .Take(Math.Max(1, _config != null ? _config.TopKOrders : 3))
+                .ToList();
+            if (topK.Count == 0) return null;
+            var pool = Instance.ResourceManager.UnusedPods
+                .Where(p => !_selectedPods.Contains(p) && !Instance.ResourceManager.BottoPod.ContainsValue(p))
+                .ToList();
+            if (pool.Count == 0) return null;
+            var bots = Ra.ToList();
+            if (bots.Count == 0) return null;
+            double itt = station.ItemTransferTime;
+            double orderReward = _config != null ? _config.OrderRewardSec : 60.0;
+            double travelWeight = _config != null ? _config.TravelTimeWeight : 0.1;
+            bool useVariant = _config == null || _config.UseEtaGreedyVariant;
+
+            SaCandidate best = null;
+            foreach (var order in topK)
+            {
+                for (int variant = 0; variant < 2; variant++)
+                {
+                    if (variant == 1 && !useVariant) break;
+                    Dictionary<Pod, int> itemsByPod;
+                    List<Pod> set = variant == 0
+                        ? BuildCoverSetCoverageGreedy(order, station, pool, bots.Count, out itemsByPod)
+                        : BuildCoverSetEtaGreedy(order, station, pool, bots.Count, out itemsByPod);
+                    if (set == null || set.Count == 0) continue;
+
+                    Dictionary<Pod, double> etaByPod; double sumTravel;
+                    var assignment = AssignBots(set, bots, station, est, out etaByPod, out sumTravel);
+                    if (assignment == null) continue;
+
+                    double gap = SaHadgsScoring.ProjectedGapSeconds(est,
+                        set.Select(p => (etaByPod[p], itemsByPod[p] * itt)));
+                    int completable = CountCompletableTopK(topK, station, set);
+                    double score = SaHadgsScoring.CandidateScore(
+                        completable, gap, sumTravel, orderReward, travelWeight);
+                    if (best == null || score < best.Score)
+                        best = new SaCandidate
+                        {
+                            Order = order, Pods = set, Assignment = assignment, EtaByPod = etaByPod,
+                            ItemsByPod = itemsByPod, GapSec = gap, SumTravelSec = sumTravel,
+                            CompletableOrders = completable, Score = score
+                        };
+                }
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// Commits a candidate: claim pods/bots (mirrors HADGSManager.cs:857-865), then records the
+        /// committed work into _localJobs so subsequent EST projections see it.
+        /// </summary>
+        private void CommitCandidate(SaCandidate cand, OutputStation station, HashSet<Bot> Ra, double now)
+        {
+            foreach (var kv in cand.Assignment)
+            {
+                Pod pod = kv.Key; Bot bot = kv.Value;
+                Ra.Remove(bot);
+                _inboundPodsPerStation[station].Add(pod);
+                _selectedPods.Add(pod);
+                station.RegisterInboundPod(pod);
+                Instance.ResourceManager.BottoPod.Add(bot, pod);
+                Instance.ResourceManager.ClaimPod(pod, bot, BotTaskType.Extract);
+                List<SlowStartController.StationWorkJob> jobs;
+                if (!_localJobs.TryGetValue(station, out jobs))
+                    _localJobs[station] = jobs = new List<SlowStartController.StationWorkJob>();
+                jobs.Add(new SlowStartController.StationWorkJob
+                {
+                    ArrivalAbs = now + cand.EtaByPod[pod],
+                    BaseItems = cand.ItemsByPod[pod],
+                    Pod = pod,
+                    ArrivalConfirmed = false
+                });
+            }
+            // On-time vs late commit stats (printed via InstanceStatistics).
+            if (cand.GapSec <= 0.0) Instance.StatSaHadgsOnTimeCommits++;
+            else { Instance.StatSaHadgsLateCommits++; Instance.StatSaHadgsLatenessSumSec += cand.GapSec; }
+        }
+
+        /// <summary>Cached per-epoch nominal speed (avoids per-ETA fleet scans).</summary>
+        private double _epochNominalSpeed = 1.0;
+
+        /// <summary>Min-EST water-filling main loop (spec §4.1).</summary>
         private void RunWaterFill()
         {
             double now = Instance.Controller.CurrentTime;
             _localJobs.Clear();
             _selectedPods = new HashSet<Pod>();
-            foreach (var station in Instance.OutputStations.Where(s => ValidStation(s)).OrderBy(s => CurrentEst(s, now)))
-                while (ValidStation(station) && TryPoaAssignOnce(station)) { }
+            _epochNominalSpeed = NominalSpeed();
+            HashSet<Bot> Ra = GenerateAvailableBots();
+
+            // Min-heap on (EST, station.ID) — SortedSet gives O(log n) pop-min with unique keys.
+            var heap = new SortedSet<Tuple<double, int>>();
+            var stationById = new Dictionary<int, OutputStation>();
+            foreach (var s in Instance.OutputStations.Where(st => ValidStation(st)))
+            {
+                heap.Add(Tuple.Create(CurrentEst(s, now), s.ID));
+                stationById[s.ID] = s;
+            }
+
+            int guard = 50 * Math.Max(1, Instance.OutputStations.Count)
+                          * Math.Max(1, Instance.OutputStations.Sum(s => s.Capacity));
+            while (heap.Count > 0 && guard-- > 0)
+            {
+                var top = heap.Min; heap.Remove(top);
+                OutputStation s = stationById[top.Item2];
+                if (!ValidStation(s)) continue;
+
+                bool progress = false;
+                // ① POA: zero-marginal-cost orders first
+                while (ValidStation(s) && TryPoaAssignOnce(s)) progress = true;
+                // ② PPS/TA: best weighted candidate
+                if (ValidStation(s) && Ra.Count > 0 && _pendingOrders.Count > 0)
+                {
+                    var cand = SelectBestCandidate(s, Ra, now);
+                    if (cand != null)
+                    {
+                        CommitCandidate(cand, s, Ra, now);
+                        while (ValidStation(s) && TryPoaAssignOnce(s)) { }
+                        progress = true;
+                    }
+                }
+                // ③ refresh EST and requeue only if we progressed and can still take work
+                if (progress && ValidStation(s))
+                    heap.Add(Tuple.Create(CurrentEst(s, now), s.ID));
+            }
         }
 
         #region IOptimize Members

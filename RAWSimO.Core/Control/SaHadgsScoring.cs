@@ -17,6 +17,7 @@ namespace RAWSimO.Core.Control
         /// Single-server pipeline simulation: total starvation gap (seconds) the job set leaves
         /// against a station whose current work runs out estSec from now. Jobs are (etaSec, workSec)
         /// relative to now; arrival order is normalized internally.
+        /// Infinity in etaSec/estSec propagates to the returned gap; jobs with workSec &lt;= 0 are ignored entirely (including their eta). NaN inputs are unsupported.
         /// </summary>
         public static double ProjectedGapSeconds(double estSec, IEnumerable<(double etaSec, double workSec)> jobs)
         {
@@ -42,6 +43,7 @@ namespace RAWSimO.Core.Control
         /// <summary>
         /// TA bot↔pod pair score (minimize): on-time (eta &lt;= est + slack) lexicographically
         /// dominates late via the BIG penalty; within a class, smaller eta wins.
+        /// Assumes finite etaSec is travel-scale (≪ BIG); unreachable pods must use PositiveInfinity, not a large finite sentinel.
         /// </summary>
         public static double TaPairScore(double etaSec, double estSec, double slackSec)
         {
@@ -64,6 +66,7 @@ namespace RAWSimO.Core.Control
         /// Each round: for every unassigned pod compute best and second-best free-bot scores;
         /// the pod with the largest regret (second − best) binds its best bot first.
         /// Returns podIndex → botIndex, or null if pods outnumber bots.
+        /// Empty matrices return an empty assignment. Regret ties break by lowest pod index (deterministic).
         /// </summary>
         public static int[] RegretAssign(double[,] score)
         {

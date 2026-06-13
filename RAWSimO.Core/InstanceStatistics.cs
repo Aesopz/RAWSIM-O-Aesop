@@ -213,6 +213,12 @@ namespace RAWSimO.Core
         /// pod transition (excludes each station's very first pod). Lets us check how much
         /// handoff gap exists even when measured starvation is ~0 (e.g. bot-abundant).</summary>
         public List<double> StatPodHandoffGapSamples = new List<double>();
+        /// <summary>SA-HADGS: candidate commits whose projected pipeline gap was zero (on-time).</summary>
+        public int StatSaHadgsOnTimeCommits = 0;
+        /// <summary>SA-HADGS: candidate commits with a positive projected gap (late, soft-constraint path).</summary>
+        public int StatSaHadgsLateCommits = 0;
+        /// <summary>SA-HADGS: summed projected gap seconds over late commits.</summary>
+        public double StatSaHadgsLatenessSumSec = 0.0;
         /// <summary>Per-pod picking time [s]: time from station beginning to pick until last item finished.
         /// One sample per pod visit to an OutputStation.</summary>
         public List<double> StatPodPickingTimeSamples = new List<double>();
@@ -604,6 +610,9 @@ namespace RAWSimO.Core
             StatInputReleaseRows.Clear();
             StatSlowStartDecisionTraces.Clear();
             StatSlowStartHoldingDecisionTraces.Clear();
+            StatSaHadgsOnTimeCommits = 0;
+            StatSaHadgsLateCommits = 0;
+            StatSaHadgsLatenessSumSec = 0.0;
 
             // Reset custom controller info
             StatCustomControllerInfo = new CustomControllerDatapoint();
@@ -1970,6 +1979,11 @@ namespace RAWSimO.Core
                 sb.AppendLine("StatPodHandoffGapP50Sec: " + hSorted[hN / 2].ToString(IOConstants.FORMATTER));
                 sb.AppendLine("StatPodHandoffGapP95Sec: " + hSorted[(int)(hN * 0.95)].ToString(IOConstants.FORMATTER));
             }
+
+            // ─── SA-HADGS: candidate commit timeliness ───
+            sb.AppendLine("StatSaHadgsOnTimeCommits: " + StatSaHadgsOnTimeCommits.ToString(IOConstants.FORMATTER));
+            sb.AppendLine("StatSaHadgsLateCommits: " + StatSaHadgsLateCommits.ToString(IOConstants.FORMATTER));
+            sb.AppendLine("StatSaHadgsLatenessMeanSec: " + (StatSaHadgsLateCommits > 0 ? StatSaHadgsLatenessSumSec / StatSaHadgsLateCommits : 0.0).ToString(IOConstants.FORMATTER));
 
             // ─── Per-pod queue-wait + picking-time (per pod visit to OS) ───
             int qN = StatPodQueueWaitSamples.Count;

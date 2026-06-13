@@ -78,6 +78,12 @@ namespace RAWSimO.Playground.Tests
             asg = SaHadgsScoring.RegretAssign(m3);
             True(asg[0] == 1, "Regret: single pod picks min score bot");
 
+            // Edge contracts
+            True(double.IsPositiveInfinity(SaHadgsScoring.ProjectedGapSeconds(30.0,
+                new List<(double eta, double work)> { (double.PositiveInfinity, 5.0) })),
+                "Gap: infinite eta -> infinite gap");
+            True(SaHadgsScoring.RegretAssign(new double[0, 0]).Length == 0, "Regret: empty -> empty");
+
             Console.WriteLine(_fails == 0 ? "ALL PASS" : $"{_fails} FAILURES");
             return _fails == 0 ? 0 : 1;
         }
