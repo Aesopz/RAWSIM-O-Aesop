@@ -531,6 +531,12 @@ namespace RAWSimO.Core.Configurations
         /// </summary>
         public double NominalSpeed = 0.0;
         /// <summary>
+        /// Number of most-urgent stock-feasible backlog orders over which a candidate pod-set's
+        /// completable-order reward is measured (pile-on horizon). 0 = unlimited (whole stock-feasible
+        /// backlog, most HADGS-like). Cover-sets are still seeded from the top TopKOrders only.
+        /// </summary>
+        public int CompletableHorizon = 0;
+        /// <summary>
         /// Returns a name identifying the method.
         /// </summary>
         /// <returns>The name of the method.</returns>
@@ -539,7 +545,7 @@ namespace RAWSimO.Core.Configurations
             if (!string.IsNullOrWhiteSpace(Name)) return Name;
             return "obSAMP" + (FastLane ? "y" : "n") + "-w" + OrderRewardSec.ToString("0")
                 + "-k" + TopKOrders.ToString() + (UseEtaGreedyVariant ? "-v2" : "-v1")
-                + "-t" + TravelTimeWeight.ToString("0.##");
+                + "-t" + TravelTimeWeight.ToString("0.##") + "-h" + CompletableHorizon.ToString();
         }
     }
     /// <summary>

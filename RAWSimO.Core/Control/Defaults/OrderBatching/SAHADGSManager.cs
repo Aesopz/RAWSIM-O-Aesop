@@ -539,9 +539,10 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             return result;
         }
 
-        /// <summary>How many of the topK orders the inbound∪set stock can fully cover (greedy, in sequence order).
+        /// <summary>How many of the orders in the provided evaluation window (pile-on horizon) the
+        /// inbound∪set stock can fully cover (greedy, in sequence order).
         /// inboundSupply is the per-pop precomputed inbound availability; only the candidate set is layered on top.</summary>
-        private int CountCompletableTopK(List<Order> topK, Dictionary<ItemDescription, int> inboundSupply, List<Pod> set)
+        private int CountCompletableBacklog(List<Order> evalOrders, Dictionary<ItemDescription, int> inboundSupply, List<Pod> set)
         {
             var avail = new Dictionary<ItemDescription, int>(inboundSupply);
             foreach (var p in set)
@@ -551,7 +552,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     avail[item] = c + p.CountAvailable(item);
                 }
             int n = 0;
-            foreach (var o in topK)
+            foreach (var o in evalOrders)
             {
                 bool ok = true;
                 foreach (var pos in o.Positions)
@@ -580,17 +581,18 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     int c; inboundSupply.TryGetValue(item, out c);
                     inboundSupply[item] = c + p.CountAvailable(item);
                 }
-            var topK = _pendingOrders
+            int horizon = _config != null ? _config.CompletableHorizon : 0;
+            var feasible = _pendingOrders
                 .Where(o => o.Positions.All(pos =>
                 {
                     int unused; _epochUnusedSupply.TryGetValue(pos.Key, out unused);
                     int inb; inboundSupply.TryGetValue(pos.Key, out inb);
                     return unused + inb >= pos.Value;
                 }))
-                .OrderBy(o => o.sequence)
-                .Take(Math.Max(1, _config != null ? _config.TopKOrders : 3))
-                .ToList();
-            if (topK.Count == 0) return null;
+                .OrderBy(o => o.sequence);
+            List<Order> evalOrders = (horizon > 0 ? feasible.Take(horizon) : feasible).ToList();
+            if (evalOrders.Count == 0) return null;
+            var seeds = evalOrders.Take(Math.Max(1, _config != null ? _config.TopKOrders : 3)).ToList();
             var pool = Instance.ResourceManager.UnusedPods
                 .Where(p => !_selectedPods.Contains(p) && !_epochClaimedPods.Contains(p))
                 .ToList();
@@ -603,7 +605,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             bool useVariant = _config == null || _config.UseEtaGreedyVariant;
 
             SaCandidate best = null;
-            foreach (var order in topK)
+            foreach (var order in seeds)
             {
                 for (int variant = 0; variant < 2; variant++)
                 {
@@ -620,7 +622,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
 
                     double gap = SaHadgsScoring.ProjectedGapSeconds(est,
                         set.Select(p => (etaByPod[p], itemsByPod[p] * itt)));
-                    int completable = CountCompletableTopK(topK, inboundSupply, set);
+                    int completable = CountCompletableBacklog(evalOrders, inboundSupply, set);
                     double score = SaHadgsScoring.CandidateScore(
                         completable, gap, sumTravel, orderReward, travelWeight);
                     if (best == null || score < best.Score)

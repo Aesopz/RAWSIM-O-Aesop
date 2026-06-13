@@ -118,6 +118,7 @@
     <UseEtaGreedyVariant>true</UseEtaGreedyVariant>
     <FeasibilitySlackSec>0</FeasibilitySlackSec>
     <NominalSpeed>0</NominalSpeed>
+    <CompletableHorizon>0</CompletableHorizon>
   </OrderBatchingConfig>
   <ReplenishmentBatchingConfig xsi:type="SamePodReplenishmentBatchingConfiguration">
     <Name />
