@@ -273,14 +273,17 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
 
         /// <summary>Station validity filter honoring the FastLane slot (mirrors HADGSManager.cs:952).</summary>
         private bool ValidStation(OutputStation station)
-        { return _config.FastLane ? IsAssignableKeepFastLaneSlot(station) : IsAssignable(station); }
+        {
+            bool fastLane = _config == null || _config.FastLane;   // default config has FastLane = true
+            return fastLane ? IsAssignableKeepFastLaneSlot(station) : IsAssignable(station);
+        }
 
         // ===================== SA-HADGS time/EST primitives =====================
 
         /// <summary>Speed used for distance→time conversion (config override or max bot velocity).</summary>
         private double NominalSpeed()
         {
-            if (_config.NominalSpeed > 0.0)
+            if (_config != null && _config.NominalSpeed > 0.0)
                 return _config.NominalSpeed;
             double v = 0.0;
             foreach (var bot in Instance.Bots)
@@ -383,18 +386,20 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     }
                 }
             }
-            // Urgent-order mode (HADGSManager.cs:954-968)
+            // Urgent-order mode (HADGSManager.cs:954-968). When the urgent set Od is large enough,
+            // run the water-fill on Od only, then restore the full backlog MINUS the orders the
+            // Od pass actually allocated (donor keeps a _pendingOrders1 mirror for this; we filter
+            // the backup against the post-run remnant instead).
             HashSet<Order> Od = GenerateOd(_pendingOrders);
-            HashSet<Order> backup = new HashSet<Order>(_pendingOrders);
             if (Od.Count == 0 || Od.Count < Cs.Sum(v => v.Value))
                 RunWaterFill();
             else
             {
-                _pendingOrders.Clear();
+                HashSet<Order> backup = new HashSet<Order>(_pendingOrders);
                 _pendingOrders = new HashSet<Order>(Od);
                 RunWaterFill();
-                _pendingOrders.Clear();
-                _pendingOrders = new HashSet<Order>(backup);
+                HashSet<Order> odRemnant = _pendingOrders;
+                _pendingOrders = new HashSet<Order>(backup.Where(o => !Od.Contains(o) || odRemnant.Contains(o)));
             }
         }
 
