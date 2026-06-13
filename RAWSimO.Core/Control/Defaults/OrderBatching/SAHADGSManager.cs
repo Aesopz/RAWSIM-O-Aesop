@@ -39,6 +39,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// <summary>Pods selected within the current epoch (guard against double-claim).</summary>
         private HashSet<Pod> _selectedPods = new HashSet<Pod>();
 
+        /// <summary>Per-epoch index: total CountAvailable over UnusedPods per item (kept in sync on commits).</summary>
+        private readonly Dictionary<ItemDescription, int> _epochUnusedSupply = new Dictionary<ItemDescription, int>();
+        /// <summary>Per-epoch set of pods already claimed (BottoPod values at epoch start + this epoch's commits).</summary>
+        private HashSet<Pod> _epochClaimedPods = new HashSet<Pod>();
+
         // borrowed: HADGSManager.cs:45-68
         private double EstimateBotPodDistance(Bot bot, Pod pod)
         {
@@ -440,7 +445,9 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                         cover += Math.Min(pod.CountAvailable(kv.Key), kv.Value);
                     if (cover <= 0) continue;
                     double dist = EstimatePodStationDistance(pod, station);
-                    if (cover > bestCover || (cover == bestCover && dist < bestDist))
+                    if (cover > bestCover
+                        || (cover == bestCover && dist < bestDist)
+                        || (cover == bestCover && dist == bestDist && best != null && pod.ID < best.ID))
                     { best = pod; bestCover = cover; bestDist = dist; }
                 }
                 if (best == null) { itemsByPod = null; return null; }
@@ -461,7 +468,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             Dictionary<ItemDescription, int> remaining = RemainingDemand(order, station);
             itemsByPod = new Dictionary<Pod, int>();
             var chosen = new List<Pod>();
-            foreach (var pod in pool.OrderBy(p => EstimatePodStationDistance(p, station)))
+            foreach (var pod in pool.OrderBy(p => EstimatePodStationDistance(p, station)).ThenBy(p => p.ID))
             {
                 if (remaining.Count == 0 || chosen.Count >= maxPods) break;
                 int contributed = TakeFromRemaining(pod, remaining);
@@ -532,11 +539,12 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             return result;
         }
 
-        /// <summary>How many of the topK orders the inbound∪set stock can fully cover (greedy, in sequence order).</summary>
-        private int CountCompletableTopK(List<Order> topK, OutputStation station, List<Pod> set)
+        /// <summary>How many of the topK orders the inbound∪set stock can fully cover (greedy, in sequence order).
+        /// inboundSupply is the per-pop precomputed inbound availability; only the candidate set is layered on top.</summary>
+        private int CountCompletableTopK(List<Order> topK, Dictionary<ItemDescription, int> inboundSupply, List<Pod> set)
         {
-            var avail = new Dictionary<ItemDescription, int>();
-            foreach (var p in _inboundPodsPerStation[station].Concat(set))
+            var avail = new Dictionary<ItemDescription, int>(inboundSupply);
+            foreach (var p in set)
                 foreach (var item in p.ItemDescriptionsContained)
                 {
                     int c; avail.TryGetValue(item, out c);
@@ -564,15 +572,27 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         private SaCandidate SelectBestCandidate(OutputStation station, HashSet<Bot> Ra, double now)
         {
             double est = CurrentEst(station, now);
+            // Per-station inbound supply (small: a handful of pods), layered on the per-epoch unused index.
+            var inboundSupply = new Dictionary<ItemDescription, int>();
+            foreach (var p in _inboundPodsPerStation[station])
+                foreach (var item in p.ItemDescriptionsContained)
+                {
+                    int c; inboundSupply.TryGetValue(item, out c);
+                    inboundSupply[item] = c + p.CountAvailable(item);
+                }
             var topK = _pendingOrders
-                .Where(o => o.Positions.All(p =>
-                    Instance.ResourceManager.UnusedPods.Concat(_inboundPodsPerStation[station]).Sum(pod => pod.CountAvailable(p.Key)) >= p.Value))
+                .Where(o => o.Positions.All(pos =>
+                {
+                    int unused; _epochUnusedSupply.TryGetValue(pos.Key, out unused);
+                    int inb; inboundSupply.TryGetValue(pos.Key, out inb);
+                    return unused + inb >= pos.Value;
+                }))
                 .OrderBy(o => o.sequence)
                 .Take(Math.Max(1, _config != null ? _config.TopKOrders : 3))
                 .ToList();
             if (topK.Count == 0) return null;
             var pool = Instance.ResourceManager.UnusedPods
-                .Where(p => !_selectedPods.Contains(p) && !Instance.ResourceManager.BottoPod.ContainsValue(p))
+                .Where(p => !_selectedPods.Contains(p) && !_epochClaimedPods.Contains(p))
                 .ToList();
             if (pool.Count == 0) return null;
             var bots = Ra.ToList();
@@ -600,7 +620,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
 
                     double gap = SaHadgsScoring.ProjectedGapSeconds(est,
                         set.Select(p => (etaByPod[p], itemsByPod[p] * itt)));
-                    int completable = CountCompletableTopK(topK, station, set);
+                    int completable = CountCompletableTopK(topK, inboundSupply, set);
                     double score = SaHadgsScoring.CandidateScore(
                         completable, gap, sumTravel, orderReward, travelWeight);
                     if (best == null || score < best.Score)
@@ -630,6 +650,13 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 station.RegisterInboundPod(pod);
                 Instance.ResourceManager.BottoPod.Add(bot, pod);
                 Instance.ResourceManager.ClaimPod(pod, bot, BotTaskType.Extract);
+                _epochClaimedPods.Add(pod);
+                foreach (var item in pod.ItemDescriptionsContained)
+                {
+                    int c;
+                    if (_epochUnusedSupply.TryGetValue(item, out c))
+                        _epochUnusedSupply[item] = Math.Max(0, c - pod.CountAvailable(item));
+                }
                 List<SlowStartController.StationWorkJob> jobs;
                 if (!_localJobs.TryGetValue(station, out jobs))
                     _localJobs[station] = jobs = new List<SlowStartController.StationWorkJob>();
@@ -655,6 +682,14 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             double now = Instance.Controller.CurrentTime;
             _localJobs.Clear();
             _selectedPods = new HashSet<Pod>();
+            _epochUnusedSupply.Clear();
+            foreach (var pod in Instance.ResourceManager.UnusedPods)
+                foreach (var item in pod.ItemDescriptionsContained)
+                {
+                    int c; _epochUnusedSupply.TryGetValue(item, out c);
+                    _epochUnusedSupply[item] = c + pod.CountAvailable(item);
+                }
+            _epochClaimedPods = new HashSet<Pod>(Instance.ResourceManager.BottoPod.Values);
             _epochNominalSpeed = NominalSpeed();
             HashSet<Bot> Ra = GenerateAvailableBots();
 
