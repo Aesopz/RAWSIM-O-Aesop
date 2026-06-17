@@ -57,6 +57,70 @@ namespace RAWSimO.Core.Control
         protected BiDictionary<Waypoint, int> _waypointIds;
 
         /// <summary>
+        /// Read-only lookup of the internal Waypoint &lt;-&gt; graph-node-id mapping.
+        /// Returns true if the waypoint has been registered with this PathManager.
+        /// Used by cost estimators (e.g. BAED) that need graph node ids to query the reservation table.
+        /// </summary>
+        public bool TryGetGraphNodeId(Waypoint waypoint, out int nodeId)
+        {
+            if (waypoint == null || _waypointIds == null || !_waypointIds.ValuesFirst.Contains(waypoint))
+            {
+                nodeId = -1;
+                return false;
+            }
+            nodeId = _waypointIds[waypoint];
+            return true;
+        }
+
+        /// <summary>
+        /// Reservation-aware ETA probe: estimates how long it would take the given bot
+        /// to travel from `from` to `to` starting at `startTime` with `startOrientationRad`,
+        /// considering the CURRENT reservation table. Pure read-only — does NOT modify
+        /// the reservation table. Returns NaN if no plan was found or the probe is not
+        /// implemented for this PathManager subclass.
+        /// Default implementation returns NaN; WHCA*-family subclasses override with a
+        /// SpaceTimeAStar dry-run.
+        /// </summary>
+        public virtual double EstimateReservationAwareEta(
+            BotNormal bot, Waypoint from, Waypoint to,
+            double startTime, double startOrientationRad)
+        {
+            return double.NaN;
+        }
+
+        /// <summary>
+        /// Ideal kinematic ETA: runs the same SpaceTimeAStar machinery the path planner uses
+        /// (same Graph, Physics, edge structure including direction constraints), but against
+        /// an EMPTY reservation table — no multi-bot conflict, no waits. Returns the pure
+        /// kinematic travel time from `from` to `to`. Used by SlowStart to estimate the
+        /// no-conflict travel time consistently with what WHCA*n would produce in a clear table.
+        /// Default returns NaN; WHCA* subclasses override.
+        /// </summary>
+        public virtual double EstimateIdealKinematicEta(
+            BotNormal bot, Waypoint from, Waypoint to,
+            double startTime, double startOrientationRad)
+        {
+            return double.NaN;
+        }
+
+        /// <summary>
+        /// Lookahead clearance check used by slow-start hold: walks the waypoint graph
+        /// from `from` greedily toward `to` for up to `lookAheadCells` steps, and checks
+        /// that each visited cell is reservation-free in the time window
+        /// [startTime, startTime + windowSeconds]. Reservations belonging to the calling
+        /// bot are NOT excluded — they shouldn't exist past the bot's current cell while
+        /// the bot is in slow-start hold.
+        /// Returns true when the immediate path forward is clear (bot can safely depart).
+        /// Default implementation returns true (no checking → hold releases immediately).
+        /// </summary>
+        public virtual bool IsPathClearForDeparture(
+            BotNormal bot, Waypoint to, double startTime,
+            int lookAheadCells, double windowSeconds)
+        {
+            return true;
+        }
+
+        /// <summary>
         /// ids of the elevators
         /// </summary>
         protected Dictionary<int, Elevator> _elevatorIds;
@@ -102,7 +166,8 @@ namespace RAWSimO.Core.Control
         {
             //instance
             this.Instance = instance;
-            this.Log = true; //log => high memory consumption
+            // log => high memory consumption; disabled on long runs via DisableHeavyLogging.
+            this.Log = !(instance != null && instance.SettingConfig != null && instance.SettingConfig.DisableHeavyLogging);
         }
 
         /// <summary>
@@ -380,6 +445,7 @@ namespace RAWSimO.Core.Control
                     Physics = bot.Physics,
                     RequestReoptimization = bot.RequestReoptimization,
                     Queueing = bot.IsQueueing,
+                    TaskPriorityRank = GetWhcaPriorityRank(bot),
                     NextNodeObject = nextWaypoint,
                     DestinationNodeObject = destination,
                     CurrentEnergyState = new RAWSimO.MultiAgentPathFinding.Elements.Agent.EnergyState
@@ -396,6 +462,24 @@ namespace RAWSimO.Core.Control
 
                 Debug.Assert(nextWaypoint.Tier.ID == destination.Tier.ID);
             }
+        }
+
+        private static int GetWhcaPriorityRank(BotNormal bot)
+        {
+            var taskType = bot.CurrentTask != null ? bot.CurrentTask.Type : BotTaskType.None;
+
+            if (bot.Pod != null)
+            {
+                if (taskType == BotTaskType.Extract || taskType == BotTaskType.Insert)
+                    return 0; // delivery to station
+                if (taskType == BotTaskType.ParkPod || taskType == BotTaskType.RepositionPod)
+                    return 1; // return pod to storage
+            }
+
+            if (taskType == BotTaskType.Extract || taskType == BotTaskType.Insert || taskType == BotTaskType.RepositionPod)
+                return 2; // pickup / approach pod
+
+            return 3; // rest, no task, and other low-priority movement
         }
 
         /// <summary>
@@ -442,6 +526,22 @@ namespace RAWSimO.Core.Control
             foreach (var queueManager in _queueManagers.Values)
                 queueManager.Update();
 
+            // Centralized slow-start release scheduling (one decision per station per tick).
+            if (Instance.SettingConfig != null && Instance.SettingConfig.SlowStartEnabled)
+            {
+                double buffer = Instance.SettingConfig.SlowStartEtaSafetyBuffer;
+                if (buffer <= 0.0) buffer = 0;  // default; see SlowStartController history
+                foreach (var os in Instance.OutputStations)
+                    StationReleaseScheduler.Schedule(os, this, currentTime, buffer);
+            }
+            // Replenishment (input-station) slow-start — independent flag, lower-half only.
+            if (Instance.SettingConfig != null && Instance.SettingConfig.SlowStartInputEnabled)
+            {
+                double bufferIn = Instance.SettingConfig.SlowStartEtaSafetyBuffer;
+                if (bufferIn <= 0.0) bufferIn = 0;
+                foreach (var ins in Instance.InputStations)
+                    InputStationReleaseScheduler.Schedule(ins, this, currentTime, bufferIn);
+            }
             //reorganize table
             if (_reservationTable == null)
                 _initReservationTable();
@@ -500,6 +600,50 @@ namespace RAWSimO.Core.Control
 
             if (tmpReservations == null)
                 return false; //no valid way point
+
+            // DIAGNOSTIC: catch non-finite reservation intervals before they reach the reservation
+            // table (DisjointIntervalTree.Add throws "Invalid interval: <start> - NaN"). The interval
+            // ends derive from physics checkpoint times, so a NaN here means getTimeNeededToMove
+            // produced a non-finite value. Dump physics params + per-segment graph distances so the
+            // exact source (bad physics param vs. bad distance vs. sqrt-of-negative checkpoint) is
+            // identifiable, then bail out (return false → bot retries next tick) instead of crashing.
+            bool anyNonFinite = false;
+            foreach (var iv in tmpReservations)
+                if (double.IsNaN(iv.Start) || double.IsInfinity(iv.Start) ||
+                    (double.IsNaN(iv.End) || (double.IsInfinity(iv.End) && iv.End < 0)))
+                { anyNonFinite = true; break; }
+            if (anyNonFinite)
+            {
+                var ci = System.Globalization.CultureInfo.InvariantCulture;
+                var ph = botNormal.Physics;
+                var sb = new System.Text.StringBuilder();
+                sb.AppendFormat(ci, "Bot{0}: non-finite reservation interval at t={1} — blockUntil={2}, rotation={3}, " +
+                    "Physics[a={4},d={5},vMax={6},turn={7}], startWp={8}, endWp={9}. ",
+                    botNormal.ID, currentTime, blockCurrentWaypointUntil, rotationDuration,
+                    ph.Acceleration, ph.Deceleration, ph.MaxSpeed, ph.TurnSpeed,
+                    _waypointIds[waypointStart], _waypointIds[waypointEnd]);
+                try
+                {
+                    int sNode = _waypointIds[waypointStart], dNode = _waypointIds[waypointEnd];
+                    var inter = PathFinder.Graph.getIntermediateNodes(sNode, dNode);
+                    sb.Append("dists[");
+                    if (inter == null) sb.Append("intermediateNodes=null");
+                    else
+                    {
+                        sb.AppendFormat(ci, "{0}", PathFinder.Graph.getDistance(sNode, sNode));
+                        foreach (var n in inter) sb.AppendFormat(ci, ",{0}", PathFinder.Graph.getDistance(sNode, n));
+                        sb.AppendFormat(ci, ",{0}", PathFinder.Graph.getDistance(sNode, dNode));
+                    }
+                    sb.Append("] ");
+                }
+                catch (Exception ex) { sb.Append("dist-probe-failed:" + ex.Message + " "); }
+                sb.Append("intervals[");
+                foreach (var iv in tmpReservations)
+                    sb.AppendFormat(ci, "(n{0}:{1}->{2})", iv.Node, iv.Start, iv.End);
+                sb.Append("]");
+                Instance.LogSevere(sb.ToString());
+                return false;
+            }
 
             //if the last node or way point is an elevator way point than add all connected nodes
             if (tmpReservations.Count >= 2)

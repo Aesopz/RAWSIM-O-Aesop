@@ -86,5 +86,31 @@ namespace RAWSimO.Core.Info
         /// </summary>
         /// <returns>The number of pods currently incoming to this station.</returns>
         int GetInfoInboundPods();
+        /// <summary>
+        /// Gets the projected time until this station first becomes idle/starved.
+        /// </summary>
+        /// <returns>The projected time-to-starvation in seconds.</returns>
+        double GetInfoStationEST();
+        /// <summary>
+        /// Gets the projected time until all currently committed station work clears.
+        /// </summary>
+        /// <returns>The projected work horizon in seconds.</returns>
+        double GetInfoStationWorkHorizon();
+        /// <summary>
+        /// Gets the total projected idle gap inside the current station work pipeline.
+        /// </summary>
+        /// <returns>The projected starvation gap in seconds.</returns>
+        double GetInfoStationStarvationGap();
+        /// <summary>
+        /// Gets the cumulative measured starvation time at this station so far (idle with assigned
+        /// demand and no queued/processing pod, counted only after the first completed output).
+        /// </summary>
+        /// <returns>The accumulated starvation time in seconds.</returns>
+        double GetInfoStationStarvationAccumulated();
+        /// <summary>
+        /// Gets the projected remaining time until the currently processed pod can leave the station.
+        /// </summary>
+        /// <returns>The remaining pod-release time in seconds, or NaN if no pod is currently being processed.</returns>
+        double GetInfoCurrentPodReleaseLeft();
     }
 }

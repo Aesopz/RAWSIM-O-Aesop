@@ -93,9 +93,13 @@
     <Compile Include="Configurations\LayoutConfiguration.cs" />
     <Compile Include="Configurations\MethodConfiguration.cs" />
     <Compile Include="Control\BotManagerPodSelection.cs" />
+    <Compile Include="Control\BotManagerJointPodSelection.cs" />
     <Compile Include="Control\BotTask.cs" />
     <Compile Include="Control\Allocator.cs" />
     <Compile Include="Control\BotManagerCore.cs" />
+    <Compile Include="Control\BackfillProbe.cs" />
+    <Compile Include="Control\InputStationReleaseScheduler.cs" />
+    <Compile Include="Control\StationReleaseScheduler.cs" />
     <Compile Include="Control\Defaults\ItemStorage\EmptiestStorageManager.cs" />
     <Compile Include="Control\Defaults\ItemStorage\LeastDemandStorageManager.cs" />
     <Compile Include="Control\Defaults\ItemStorage\ReactiveStorageManager.cs" />
@@ -109,6 +113,7 @@
     <Compile Include="Control\Defaults\OrderBatching\NearBestPodOrderManager.cs" />
     <Compile Include="Control\Defaults\OrderBatching\PodMatchingOrderManager.cs" />
     <Compile Include="Control\Defaults\OrderBatching\HADGSManager.cs" />
+    <Compile Include="Control\Defaults\OrderBatching\SAHADGSManager.cs" />
     <Compile Include="Control\Defaults\OrderBatching\QueueOrderManager.cs" />
     <Compile Include="Control\Defaults\OrderBatching\RelatedOrderManager.cs" />
     <Compile Include="Control\Defaults\OrderBatching\WorkloadOrderManager.cs" />
@@ -174,6 +179,7 @@
     <Compile Include="Items\SimpleItemDescription.cs" />
     <Compile Include="Management\MetaInformationManager.cs" />
     <Compile Include="Management\StockInformation.cs" />
+    <Compile Include="Metrics\BAEDEstimator.cs" />
     <Compile Include="Metrics\Distances.cs" />
     <Compile Include="Metrics\EnergyConsumption.cs" />
     <Compile Include="Control\Defaults\TaskAllocation\RandomBotManager.cs" />
@@ -198,6 +204,11 @@
     <Compile Include="Geometrics\QuadNode.cs" />
     <Compile Include="Geometrics\QuadTree.cs" />
     <Compile Include="Control\PathManager.cs" />
+    <Compile Include="Control\SlowStartController.cs" />
+    <Compile Include="Control\StarveAwareCost.cs" />
+    <Compile Include="Control\SaHadgsScoring.cs" />
+    <Compile Include="Control\JIT\IdealTravelTime.cs" />
+    <Compile Include="Control\JIT\JITArrivalETA.cs" />
     <Compile Include="Info\IElevatorInfo.cs" />
     <Compile Include="Info\IGeneralObjectInfo.cs" />
     <Compile Include="Info\IItemInfo.cs" />

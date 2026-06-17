@@ -1,4 +1,5 @@
 ﻿using RAWSimO.Core.Configurations;
+using RAWSimO.Core.Control;
 using RAWSimO.Core.Elements;
 using RAWSimO.Core.IO;
 using RAWSimO.Core.Items;
@@ -90,7 +91,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// </summary>
         private Dictionary<int, List<Symbol>> _IsvariableNames = new Dictionary<int, List<Symbol>>();
 
-        private RAWSimO.Core.Waypoints.Waypoint GetBotReferenceWaypoint(Bot bot)
+        protected virtual RAWSimO.Core.Waypoints.Waypoint GetBotReferenceWaypoint(Bot bot)
         {
             if (bot == null)
                 return null;
@@ -101,7 +102,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             return null;
         }
 
-        private RAWSimO.Core.Waypoints.Waypoint GetPodReferenceWaypoint(Pod pod)
+        protected RAWSimO.Core.Waypoints.Waypoint GetPodReferenceWaypoint(Pod pod)
         {
             if (pod == null)
                 return null;
@@ -149,6 +150,72 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             double podY = podWaypoint != null ? podWaypoint.Y : pod.Y;
             return Math.Abs(podX - station.Waypoint.X) + Math.Abs(podY - station.Waypoint.Y);
         }
+
+        // ── Station-starve-aware cost (gated by SettingConfig.StarveAwareCostEnabled) ──
+        private bool _saEnabled;
+        private double _saNominalSpeed;
+        private double _saFixedParam;
+        private System.Collections.Generic.Dictionary<int, double> _saEstByStation = new System.Collections.Generic.Dictionary<int, double>();   // station.ID -> EST [s]
+        private System.Collections.Generic.Dictionary<int, double> _saRepBotPodTime = new System.Collections.Generic.Dictionary<int, double>();  // pod.ID -> min bot->pod time [s]
+
+        /// <summary>Precompute per-epoch starve-aware inputs: nominal speed, station EST,
+        /// and the representative (min available-bot) bot->pod travel time per pod.
+        /// No-op (and leaves cost wrappers in distance mode) when the feature is disabled.</summary>
+        private void PrepareStarveAware(System.Collections.Generic.IEnumerable<Pod> pods,
+            System.Collections.Generic.Dictionary<OutputStation, int> Cs,
+            System.Collections.Generic.HashSet<Bot> Ra)
+        {
+            _saEnabled = Instance != null && Instance.SettingConfig != null && Instance.SettingConfig.StarveAwareCostEnabled;
+            if (!_saEnabled)
+                return;
+            _saFixedParam = Instance.SettingConfig.StarveAwareFixedParam;
+            double cfgSpeed = Instance.SettingConfig.StarveAwareNominalSpeed;
+            _saNominalSpeed = cfgSpeed > 0.0
+                ? cfgSpeed
+                : (Instance.Bots != null && Instance.Bots.Count > 0
+                    ? System.Math.Max(0.1, Instance.Bots.Max(b => b.MaxVelocity))
+                    : 1.0);
+            double now = Instance.Controller != null ? Instance.Controller.CurrentTime : 0.0;
+            _saEstByStation = new System.Collections.Generic.Dictionary<int, double>();
+            foreach (var s in Cs.Keys)
+                _saEstByStation[s.ID] = StarveAwareCost.Est(s, now);
+            _saRepBotPodTime = new System.Collections.Generic.Dictionary<int, double>();
+            foreach (var p in pods)
+            {
+                double best = double.PositiveInfinity;
+                foreach (var r in Ra)
+                    best = System.Math.Min(best, StarveAwareCost.TravelTime(EstimateBotPodDistance(r, p), _saNominalSpeed));
+                _saRepBotPodTime[p.ID] = best;
+            }
+        }
+
+        /// <summary>bot->pod objective coefficient: travel time when starve-aware, else distance.</summary>
+        private double M1GBotPodCost(Bot robot, Pod pod)
+        {
+            double d = EstimateBotPodDistance(robot, pod);
+            return _saEnabled ? StarveAwareCost.TravelTime(d, _saNominalSpeed) : d;
+        }
+
+        /// <summary>pod->station objective coefficient: travel time + starvation delay penalty
+        /// when starve-aware, else distance.</summary>
+        private double M1GPodStationCost(Pod pod, OutputStation station)
+        {
+            double d = EstimatePodStationDistance(pod, station);
+            if (!_saEnabled)
+                return d;
+            double podStationTime = StarveAwareCost.TravelTime(d, _saNominalSpeed);
+            double repBotPod = (_saRepBotPodTime.TryGetValue(pod.ID, out var t) && !double.IsPositiveInfinity(t)) ? t : 0.0;
+            double taCost = podStationTime + repBotPod;
+            double est = _saEstByStation.TryGetValue(station.ID, out var e) ? e : double.PositiveInfinity;
+            double penalty = StarveAwareCost.DelayPenalty(taCost, est, _saFixedParam);
+            return podStationTime + penalty;
+        }
+
+        /// <summary>
+        /// Indicates whether a currently unavailable bot should still be included as a near-future available bot.
+        /// Base M1G keeps the original behavior and never includes such bots.
+        /// </summary>
+        protected virtual bool CanUseReturnPendingBot(Bot bot) { return false; }
         /// <summary>
         /// Checks whether an item matching the description is contained in this pod. 
         /// </summary>
@@ -497,6 +564,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     R.Add(bot);
                     Ra.Add(bot);
                 }
+                else if (CanUseReturnPendingBot(bot))
+                {
+                    R.Add(bot);
+                    Ra.Add(bot);
+                }
             }
             //if (R.Count() == 0) 
             //    Thread.Sleep(1);
@@ -559,13 +631,15 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             VariableCollection<string> variablesBinary = new VariableCollection<string>(wrapper, VariableType.Binary, 0, 1, (string s) => { return s; });
             VariableCollection<string> variablesInteger2 = new VariableCollection<string>(wrapper, VariableType.Integer, 0, 5, (string s) => { return s; });
             VariableCollection<string> variablesInteger3 = new VariableCollection<string>(wrapper, VariableType.Integer, 0, 6, (string s) => { return s; });
+            // Precompute per-epoch starve-aware cost inputs; no-op when StarveAwareCostEnabled=false.
+            PrepareStarveAware(Pods, Cs, Ra);
             if (Ra.Count() > 0)
-                wrapper.SetObjective((LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * EstimatePodStationDistance(v.pod, v.outputstation)), wrapper)
+                wrapper.SetObjective((LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * M1GPodStationCost(v.pod, v.outputstation)), wrapper)
                     + LinearExpression.Sum(deVarNameyrp.Where(u => Ra.Contains(u.robot) && Instance.ResourceManager.UnusedPods.Contains(u.pod) && u.pod.Waypoint != null).Select(v => variablesBinary[v.name] *
-                    EstimateBotPodDistance(v.robot, v.pod)), wrapper)) * w1 + LinearExpression.Sum(deVarNameyos.Select(v => variablesBinary[v.name])) * w2
+                    M1GBotPodCost(v.robot, v.pod)), wrapper)) * w1 + LinearExpression.Sum(deVarNameyos.Select(v => variablesBinary[v.name])) * w2
                     + LinearExpression.Sum(deVarNameus.Select(v => variablesInteger3[v.name])) * w3, OptimizationSense.Minimize);
             else
-                wrapper.SetObjective(LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * EstimatePodStationDistance(v.pod, v.outputstation)), wrapper) * w1
+                wrapper.SetObjective(LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * M1GPodStationCost(v.pod, v.outputstation)), wrapper) * w1
                     + LinearExpression.Sum(deVarNameyos.Select(v => variablesBinary[v.name])) * w2
                     + LinearExpression.Sum(deVarNameus.Select(v => variablesInteger3[v.name])) * w3, OptimizationSense.Minimize);
             foreach (var order in pendingOrders)//每个订单最多只能分配给一个工作站
@@ -914,6 +988,62 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         }
 
         #endregion
+    }
+
+    /// <summary>
+    /// M1G copy variant that treats bots near completion of a park-pod task as available for the next M1G decision.
+    /// </summary>
+    public class M1GReturnPendingManager : M1GManager
+    {
+        private readonly M1GReturnPendingConfiguration _returnPendingConfig;
+
+        public M1GReturnPendingManager(Instance instance) : base(instance)
+        {
+            _returnPendingConfig = instance.ControllerConfig.OrderBatchingConfig as M1GReturnPendingConfiguration;
+        }
+
+        protected override RAWSimO.Core.Waypoints.Waypoint GetBotReferenceWaypoint(Bot bot)
+        {
+            if (IsReturnPendingBot(bot, out ParkPodTask parkTask))
+                return parkTask.StorageLocation;
+            return base.GetBotReferenceWaypoint(bot);
+        }
+
+        protected override bool CanUseReturnPendingBot(Bot bot)
+        {
+            if (!IsReturnPendingBot(bot, out ParkPodTask parkTask))
+                return false;
+            if (Instance.ResourceManager.BottoPod.ContainsKey(bot))
+                return false;
+            return IsNearReturnLocation(bot, parkTask.StorageLocation);
+        }
+
+        private bool IsReturnPendingBot(Bot bot, out ParkPodTask parkTask)
+        {
+            parkTask = bot?.CurrentTask as ParkPodTask;
+            return parkTask != null &&
+                bot.Pod != null &&
+                parkTask.Pod == bot.Pod &&
+                parkTask.StorageLocation != null;
+        }
+
+        private bool IsNearReturnLocation(Bot bot, RAWSimO.Core.Waypoints.Waypoint storageLocation)
+        {
+            if (storageLocation == null)
+                return false;
+            if (bot.CurrentWaypoint == storageLocation)
+                return true;
+            if (bot.GetInfoDestinationWaypoint() == storageLocation)
+                return true;
+
+            var botWaypoint = base.GetBotReferenceWaypoint(bot);
+            if (botWaypoint == null)
+                return false;
+            double threshold = _returnPendingConfig != null ? _returnPendingConfig.ReturnPendingDistanceThreshold : 1.0;
+            if (threshold < 0)
+                return false;
+            return Distances.CalculateShortestPath(botWaypoint, storageLocation, Instance) <= threshold;
+        }
     }
 
 }

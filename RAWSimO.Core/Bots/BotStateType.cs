@@ -42,6 +42,10 @@ namespace RAWSimO.Core.Bots
         /// <summary>
         /// Indicates that the bot is using an elevator.
         /// </summary>
-        UseElevator
+        UseElevator,
+        /// <summary>
+        /// PP-aware slow-start hold at pod cell before pod→station traversal.
+        /// </summary>
+        SlowStartHold
     }
 }

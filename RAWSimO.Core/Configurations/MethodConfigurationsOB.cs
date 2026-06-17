@@ -313,6 +313,31 @@ namespace RAWSimO.Core.Configurations
         }
     }
     /// <summary>
+    /// M1G variant that can reserve a next pod for bots that are nearly done returning their current pod.
+    /// </summary>
+    public class M1GReturnPendingConfiguration : M1GConfiguration
+    {
+        /// <summary>
+        /// Returns the type of the corresponding method this configuration belongs to.
+        /// </summary>
+        /// <returns>The type of the method.</returns>
+        public override OrderBatchingMethodType GetMethodType() { return OrderBatchingMethodType.GM1ReturnPending; }
+        /// <summary>
+        /// Maximum shortest-path distance from the return storage location for a park-pod bot to be considered reusable.
+        /// A bot whose next waypoint is the storage location is considered eligible regardless of this value.
+        /// </summary>
+        public double ReturnPendingDistanceThreshold = 1.0;
+        /// <summary>
+        /// Returns a name identifying the method.
+        /// </summary>
+        /// <returns>The name of the method.</returns>
+        public override string GetMethodName()
+        {
+            if (!string.IsNullOrWhiteSpace(Name)) return Name;
+            return "M1G-RP";
+        }
+    }
+    /// <summary>
     /// The configuration for the corresponding method.
     /// </summary>
     public class M2GConfiguration : OrderBatchingConfiguration
@@ -413,14 +438,114 @@ namespace RAWSimO.Core.Configurations
         /// </summary>
         public FastLaneTieBreaker FastLaneTieBreaker = FastLaneTieBreaker.EarliestDueTime;
         /// <summary>
+        /// Enables BAED (Blocking-Aware Effective Distance) cost augmentation in HADGS scoring.
+        /// When true, EstimateBotPodDistance / EstimatePodStationDistance return
+        /// physDistance + BAEDReferenceSpeed * sum(EntryDelay along path) computed from the live WCHA* reservation table.
+        /// Default off → standard static-distance behaviour, identical to baseline HADGS.
+        /// </summary>
+        public bool UseBAED = false;
+        /// <summary>
+        /// Reference speed (m/s) used to convert entry-delay seconds into distance-equivalent metres when UseBAED is on.
+        /// Default 1.5 m/s matches the layouts' MaxVelocity.
+        /// </summary>
+        public double BAEDReferenceSpeed = 1.5;
+        /// <summary>
+        /// Includes bots that are nearly done returning a pod as available candidates for HADGS pod-to-bot assignment.
+        /// Default off keeps baseline HADGS behavior.
+        /// </summary>
+        public bool UseReturnPendingBots = false;
+        /// <summary>
+        /// Maximum shortest-path distance from the return storage location for a park-pod bot to be considered reusable.
+        /// A bot whose next waypoint is the storage location is considered eligible regardless of this value.
+        /// </summary>
+        public double ReturnPendingDistanceThreshold = 1.0;
+        /// <summary>
         /// Returns a name identifying the method.
         /// </summary>
         /// <returns>The name of the method.</returns>
         public override string GetMethodName()
         {
             if (!string.IsNullOrWhiteSpace(Name)) return Name;
-            string name = "obMP" + (FastLane ? "y" : "n");
+            string name = "obMP" + (FastLane ? "y" : "n") + (UseBAED ? "-baed" : "") + (UseReturnPendingBots ? "-rp" : "");
             return name;
+        }
+    }
+    /// <summary>
+    /// HADGS variant that can reserve a next pod for bots that are nearly done returning their current pod.
+    /// </summary>
+    public class HADGSReturnPendingConfiguration : HADGSConfiguration
+    {
+        /// <summary>
+        /// Creates a new return-pending HADGS configuration.
+        /// </summary>
+        public HADGSReturnPendingConfiguration()
+        {
+            UseReturnPendingBots = true;
+        }
+        /// <summary>
+        /// Returns a name identifying the method.
+        /// </summary>
+        /// <returns>The name of the method.</returns>
+        public override string GetMethodName()
+        {
+            if (!string.IsNullOrWhiteSpace(Name)) return Name;
+            return "HADGS-RP";
+        }
+    }
+    /// <summary>
+    /// Starvation-aware HADGS. Inherits HADGSConfiguration so OrderManager.Update's
+    /// `is HADGSConfiguration` epoch trigger applies unchanged.
+    /// See docs/superpowers/specs/2026-06-13-sa-hadgs-design.md.
+    /// </summary>
+    public class SAHADGSConfiguration : HADGSConfiguration
+    {
+        /// <summary>
+        /// Returns the type of the corresponding method this configuration belongs to.
+        /// </summary>
+        /// <returns>The type of the method.</returns>
+        public override OrderBatchingMethodType GetMethodType() { return OrderBatchingMethodType.SAHADGS; }
+        /// <summary>
+        /// Main sweep knob: seconds of projected starvation gap one completed order is worth
+        /// in the weighted candidate score (analogous to M1G's w2).
+        /// </summary>
+        public double OrderRewardSec = 60.0;
+        /// <summary>
+        /// Secondary weight on summed travel time (energy/distance proxy) in the candidate score.
+        /// </summary>
+        public double TravelTimeWeight = 0.1;
+        /// <summary>
+        /// Number of most-urgent stock-feasible orders competing per station per round (flexible POA).
+        /// </summary>
+        public int TopKOrders = 3;
+        /// <summary>
+        /// Also build an ETA-greedy cover-set variant per order (second candidate; ablation switch).
+        /// </summary>
+        public bool UseEtaGreedyVariant = true;
+        /// <summary>
+        /// Tolerance added to EST when classifying a TA pair as on-time. Negative values
+        /// compensate the optimism of nominal-speed ETAs under congestion.
+        /// </summary>
+        public double FeasibilitySlackSec = 0.0;
+        /// <summary>
+        /// Speed used to convert distances into travel time. 0 → max bot velocity of the instance.
+        /// </summary>
+        public double NominalSpeed = 0.0;
+        /// <summary>
+        /// Number of most-urgent stock-feasible backlog orders over which a candidate pod-set's
+        /// completable-order reward is measured (pile-on horizon). 0 = unlimited (whole stock-feasible
+        /// backlog, most HADGS-like). Cover-sets are still seeded from the top TopKOrders only.
+        /// </summary>
+        public int CompletableHorizon = 0;
+        /// <summary>
+        /// Returns a name identifying the method.
+        /// </summary>
+        /// <returns>The name of the method.</returns>
+        public override string GetMethodName()
+        {
+            if (!string.IsNullOrWhiteSpace(Name)) return Name;
+            return "obSAMP" + (FastLane ? "y" : "n") + "-w" + OrderRewardSec.ToString("0")
+                + "-k" + TopKOrders.ToString() + (UseEtaGreedyVariant ? "-v2" : "-v1")
+                + "-t" + TravelTimeWeight.ToString("0.##") + "-h" + CompletableHorizon.ToString();
         }
     }
     /// <summary>

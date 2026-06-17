@@ -1,0 +1,9 @@
+time,bot_id,task_id,pod_id,station_id,eta_now,t_starve,queue_budget,release_budget,slack,chosen_delay,deadline,release_policy,eta_safety_buffer,probe_success,release_reason,station_pending_items,station_busy_remaining,station_queue_work,eta_at_release,remaining_t_starve_at_release,best_future_eta_at_release,best_future_delay_at_release,eta_improvement_at_release,neighbor_count_at_decision,missing_arrival_count,queue_arrival_time,release_time,actual_arrival_time,actual_eta,arrival_error,station_idle_at_arrival,queue_wait_at_station
+13.25,Bot0,16612996,Pod21,OutputStation0,30.46,0,0,0,-30.46,0,13.25,StationSlack,0,1,immediate_release,0,0,0,30.46,0,,,,0,0,38.32,13.25,44.17,30.92,0.46,1,5.85
+305.13,Bot0,27788708,Pod32,OutputStation0,15.54,0,0,0,-15.54,0,305.13,StationSlack,0,1,immediate_release,0,0,0,15.54,0,,,,0,0,315.15,305.13,321.09,15.96,0.42,1,5.95
+505.29,Bot0,18830246,Pod11,OutputStation0,18.25,0,0,0,-18.25,0,505.29,StationSlack,0,1,immediate_release,0,0,0,18.25,0,,,,0,0,518.33,505.29,523.96,18.67,0.42,1,5.63
+748.25,Bot0,41181381,Pod52,OutputStation0,20.21,0,0,0,-20.21,0,748.25,StationSlack,0,1,immediate_release,0,0,0,20.21,0,,,,0,0,763.04,748.25,768.89,20.64,0.43,1,5.85
+925.9,Bot1,8821459,Pod46,OutputStation0,25,56.2,0,56.2,31.2,31.2,957.1,StationSlack,0,0,hard_deadline,1,6.2,10,,24.98,,,,0,0,974.27,957.12,991.41,34.29,9.31,0,17.13
+1069.74,Bot0,41360766,Pod58,OutputStation0,15,66.24,0,66.24,51.24,51.24,1120.98,StationSlack,0,0,hard_deadline,1,6.24,10,,14.04,,,,0,0,1137.17,1121.94,1141.31,19.37,5.33,1,4.15
+1238.92,Bot1,26306458,Pod18,OutputStation0,23.33,44.95,0,44.95,21.62,21.62,1260.54,StationSlack,0,0,hard_deadline,1,4.95,10,,23.06,,,,0,0,1277.44,1260.81,1282.22,21.41,-1.65,1,4.78
+1387.56,Bot0,13077833,Pod50,OutputStation0,20,48.45,0,48.45,28.45,28.45,1416.01,StationSlack,0,0,hard_deadline,0,8.45,0,,19.3,,,,0,0,1432.72,1416.72,1437.51,20.79,1.49,1,4.78

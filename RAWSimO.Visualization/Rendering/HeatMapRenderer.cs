@@ -461,6 +461,12 @@ namespace RAWSimO.Visualization.Rendering
             for (int x = 0; x < _heatmap.GetLength(0); x++)
                 for (int y = 0; y < _heatmap.GetLength(1); y++)
                     maxHeat = Math.Max(maxHeat, _heatmap[x, y]);
+            if (maxHeat <= 0 || double.IsNaN(maxHeat) || double.IsInfinity(maxHeat))
+            {
+                _logger("No positive heat values found; showing instance without heat overlay.");
+                ResultImage = null;
+                return;
+            }
             for (int x = 0; x < _heatmap.GetLength(0); x++)
                 for (int y = 0; y < _heatmap.GetLength(1); y++)
                     _heatmap[x, y] /= maxHeat;

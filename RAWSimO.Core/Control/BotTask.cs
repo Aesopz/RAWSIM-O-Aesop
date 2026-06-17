@@ -187,6 +187,20 @@ namespace RAWSimO.Core.Control
         /// </summary>
         public List<ExtractRequest> Requests { get; private set; }
         /// <summary>
+        /// Predicted absolute simulation time at which the bot will physically arrive at the
+        /// output station with this pod. Written once by SlowStartController.ComputeHold()
+        /// at the slow-start decision moment (= bot already at pod cell). Used by other bots'
+        /// T_starve calculation to know when this in-flight pod is expected to start serving.
+        /// NaN = not yet written (slow-start decision has not happened, or feature disabled).
+        /// </summary>
+        public double ExpectedArrivalAtStation { get; set; } = double.NaN;
+        /// <summary>
+        /// Distinct orders this pod-visit has actually served items to. Populated by
+        /// OutputStation.TakeItemFromPod on each successful pick. Used to record the
+        /// "orders served per pod-visit" KPI at Finish().
+        /// </summary>
+        internal HashSet<Items.Order> ServedOrdersThisVisit = new HashSet<Items.Order>();
+        /// <summary>
         /// The pod to use for this task.
         /// </summary>
         public Pod ReservedPod { get; private set; }
@@ -261,6 +275,9 @@ namespace RAWSimO.Core.Control
                 throw new InvalidOperationException("An unfinished request cannot be marked as finished!");
             OutputStation.UnregisterInboundPod(ReservedPod);
             OutputStation.UnregisterExtractTask(this);
+            // Record orders-per-pod-visit KPI sample (diagnostic for value-vs-distance tradeoff)
+            if (ServedOrdersThisVisit.Count > 0)
+                Instance.StatPodVisitOrdersServedSamples.Add(ServedOrdersThisVisit.Count);
         }
     }
     /// <summary>

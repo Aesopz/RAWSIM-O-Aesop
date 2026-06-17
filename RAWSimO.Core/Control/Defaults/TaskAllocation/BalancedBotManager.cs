@@ -329,6 +329,7 @@ namespace RAWSimO.Core.Control.Defaults.TaskAllocation
                     _singleStationLists[_botStations[bot]];
                 // Check all stations 
                 bool success = false;
+                bool jointDispatchedOtherBot = false;
                 foreach (var station in potentialStations.Where(s =>
                     // Check only stations not dynamically at their limit regarding worker bot count
                     _stationWorkerCount[s] < _config.BotsPerStationLimit))
@@ -358,11 +359,40 @@ namespace RAWSimO.Core.Control.Defaults.TaskAllocation
                         // Try to do an extraction task
                         if (Instance.ControllerConfig.OrderBatchingConfig is PodMatchingOrderBatchingConfiguration)  //判断是否使用顺序求解
                         {
-                            success = DoExtractTaskForStation(bot, station as OutputStation,
-                            // Extended search options
-                            _config.ExtendSearch, _config.ExtendedSearchRadius,
-                            // Pod selection rules
-                            _config.PodSelectionConfig);
+                            var outputStation = station as OutputStation;
+                            if (_config.PodSelectionConfig.StationBoundedJointTAPlusPS && bot.Pod == null)
+                            {
+                                var jointSelection = SelectStationBoundedJointExtract(
+                                    outputStation,
+                                    _stationBots[station],
+                                    _config.PodSelectionConfig);
+                                if (jointSelection.Found)
+                                {
+                                    EnqueueExtract(jointSelection.Bot, outputStation, jointSelection.Pod, jointSelection.Requests);
+                                    if (jointSelection.Bot == bot)
+                                    {
+                                        success = true;
+                                    }
+                                    else
+                                    {
+                                        jointSelection.Bot.AssignTask(GetLastEnqueuedTask(jointSelection.Bot));
+                                        if (_workerStations[jointSelection.Bot] != null)
+                                            _stationWorkerCount[_workerStations[jointSelection.Bot]]--;
+                                        _workerStations[jointSelection.Bot] = station;
+                                        _stationWorkerCount[station]++;
+                                        jointDispatchedOtherBot = true;
+                                        success = false;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                success = DoExtractTaskForStation(bot, outputStation,
+                                // Extended search options
+                                _config.ExtendSearch, _config.ExtendedSearchRadius,
+                                // Pod selection rules
+                                _config.PodSelectionConfig);
+                            }
                         }
                         else if(Instance.ControllerConfig.OrderBatchingConfig is M1GConfiguration)//使用Gurobi
                         {
@@ -393,6 +423,8 @@ namespace RAWSimO.Core.Control.Defaults.TaskAllocation
                             _stationWorkerCount[station]++;
                             return;
                         }
+                        if (jointDispatchedOtherBot)
+                            break;
                     }
                 }
             }

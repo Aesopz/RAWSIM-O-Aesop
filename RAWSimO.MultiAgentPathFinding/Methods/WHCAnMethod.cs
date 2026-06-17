@@ -33,6 +33,11 @@ namespace RAWSimO.MultiAgentPathFinding.Methods
         public bool UseBias = false;
 
         /// <summary>
+        /// Prefer loaded/heavy and vertical-heading agents when sequencing WHCA reservations.
+        /// </summary>
+        public bool UseRulePriority = false;
+
+        /// <summary>
         /// Indicates whether the method uses a deadlock handler.
         /// </summary>
         public bool UseDeadlockHandler = true;
@@ -41,6 +46,19 @@ namespace RAWSimO.MultiAgentPathFinding.Methods
         /// Reservation Table
         /// </summary>
         public ReservationTable _reservationTable;
+
+        /// <summary>
+        /// Returns the live reservation list for the given bot id (or null when missing).
+        /// Used by SlowStartController's ETA probe to temporarily remove the probing bot's
+        /// own reservations before a SpaceTimeAStar dry-run, so that the bot is not blocked
+        /// by its own existing reservations at the start cell. The caller MUST call
+        /// _reservationTable.Add(...) to restore after the dry-run.
+        /// </summary>
+        public List<ReservationTable.Interval> GetBotReservations(int botId)
+        {
+            if (_calculatedReservations == null) return null;
+            return _calculatedReservations.TryGetValue(botId, out var list) ? list : null;
+        }
 
         /// <summary>
         /// The calculated reservations
@@ -99,7 +117,7 @@ namespace RAWSimO.MultiAgentPathFinding.Methods
                 _reservationTable.Remove(_calculatedReservations[missingAgentId]);
 
             //sort Agents
-            agents = agents.OrderBy(a => a.CanGoThroughObstacles ? 1 : 0).ThenBy(a => Graph.getDistance(a.NextNode, a.DestinationNode)).ToList();
+            agents = SortAgents(agents, currentTime);
 
             Dictionary<int, double> bias = new Dictionary<int, double>();
 
@@ -122,6 +140,7 @@ namespace RAWSimO.MultiAgentPathFinding.Methods
                     if (!rraStars.TryGetValue(agent.ID, out rraStar) || rraStar == null || rraStar.StartNode != agent.DestinationNode ||
                         UseDeadlockHandler && _deadlockHandler.IsInDeadlock(agent, currentTime)) // TODO this last expression is used to set back the state of the RRA* in case of a deadlock - this is only a hotfix
                         rraStars[agent.ID] = new ReverseResumableAStar(Graph, agent, agent.Physics, agent.DestinationNode);
+                    rraStars[agent.ID].ShouldAbort = () => Stopwatch.ElapsedMilliseconds / 1000.0 > Math.Min(RuntimeLimitPerAgent * agents.Count, RunTimeLimitOverall) * 0.9;
 
                     if (rraStars[agent.ID].Closed.Contains(agent.NextNode) || rraStars[agent.ID].Search(agent.NextNode))
                     {
@@ -162,6 +181,7 @@ namespace RAWSimO.MultiAgentPathFinding.Methods
                     if (!rraStars.TryGetValue(agent.ID, out rraStar) || rraStar == null || rraStar.StartNode != agent.DestinationNode ||
                         UseDeadlockHandler && _deadlockHandler.IsInDeadlock(agent, currentTime)) // TODO this last expression is used to set back the state of the RRA* in case of a deadlock - this is only a hotfix
                         rraStars[agent.ID] = new ReverseResumableAStar(Graph, agent, agent.Physics, agent.DestinationNode);
+                    rraStars[agent.ID].ShouldAbort = () => Stopwatch.ElapsedMilliseconds / 1000.0 > Math.Min(RuntimeLimitPerAgent * agents.Count, RunTimeLimitOverall) * 0.9;
                 }
 
                 //search my path to the goal
@@ -196,22 +216,7 @@ namespace RAWSimO.MultiAgentPathFinding.Methods
 
                 if (!found)
                 {
-                    //set a fresh reservation for my current node
-                    _reservationTable.Clear(agent.NextNode);
-                    _calculatedReservations[agent.ID] = new List<ReservationTable.Interval>(new ReservationTable.Interval[] { new ReservationTable.Interval(agent.NextNode, 0, double.PositiveInfinity) });
-                    _reservationTable.Add(_calculatedReservations[agent.ID]);
-                    agent.Path = new Path();
-
-                    //clear all reservations of other agents => they will not calculate a path over this node anymore
-                    foreach (var otherAgent in _calculatedReservations.Keys.Where(id => id != agent.ID))
-                        _calculatedReservations[otherAgent].RemoveAll(r => r.Node == agent.NextNode);
-
-                    //add wait step
-                    agent.Path.AddFirst(agent.NextNode, true, LengthOfAWaitStep);
-
-                    //add the next node again
-                    if (agent.ReservationsToNextNode.Count > 0 && (agent.Path.Count == 0 || agent.Path.NextAction.Node != agent.NextNode || agent.Path.NextAction.StopAtNode == false))
-                        agent.Path.AddFirst(agent.NextNode, true, 0);
+                    FallBackToWaitReservation(agent);
                     continue;
                 }
 
@@ -223,6 +228,11 @@ namespace RAWSimO.MultiAgentPathFinding.Methods
 
                 List<ReservationTable.Interval> reservations;
                 aStar.GetPathAndReservations(ref agent.Path, out reservations);
+                if (ContainsInvalidInterval(reservations))
+                {
+                    FallBackToWaitReservation(agent);
+                    continue;
+                }
                 _calculatedReservations[agent.ID] = reservations;
 
                 //add to reservation table
@@ -256,6 +266,82 @@ namespace RAWSimO.MultiAgentPathFinding.Methods
                         _deadlockHandler.RandomHop(agent);
             }
 
+        }
+
+        private List<Agent> SortAgents(List<Agent> agents, double currentTime)
+        {
+            IOrderedEnumerable<Agent> sorted;
+            if (UseRulePriority)
+            {
+                var reachesGoalInWindow = agents.ToDictionary(a => a.ID, a => CanReachDestinationWithinWindow(a, currentTime));
+                sorted = agents
+                    .OrderBy(a => reachesGoalInWindow[a.ID] ? 0 : 1)
+                    .ThenBy(a => a.TaskPriorityRank);
+            }
+            else
+            {
+                sorted = agents.OrderBy(a => a.CanGoThroughObstacles ? 1 : 0);
+            }
+
+            return sorted
+                .ThenBy(a => a.CanGoThroughObstacles ? 1 : 0)
+                .ThenBy(a => Graph.getDistance(a.NextNode, a.DestinationNode))
+                .ThenBy(a => a.ID)
+                .ToList();
+        }
+
+        private bool CanReachDestinationWithinWindow(Agent agent, double currentTime)
+        {
+            if (agent.FixedPosition || agent.NextNode == agent.DestinationNode)
+                return true;
+
+            var reservationTable = new ReservationTable(Graph, true, false, false);
+            var rraStar = new ReverseResumableAStar(Graph, agent, agent.Physics, agent.DestinationNode);
+            var aStar = new SpaceTimeAStar(Graph, LengthOfAWaitStep, currentTime + LengthOfAWindow, reservationTable, agent, rraStar);
+            aStar.FinalReservation = true;
+            var found = aStar.Search();
+            return found && aStar.GoalNode >= 0 && aStar.NodeTo2D(aStar.GoalNode) == agent.DestinationNode;
+        }
+
+        private void FallBackToWaitReservation(Agent agent)
+        {
+            // Set a fresh reservation for my current node.
+            _reservationTable.Clear(agent.NextNode);
+            _calculatedReservations[agent.ID] = new List<ReservationTable.Interval>(
+                new ReservationTable.Interval[] { new ReservationTable.Interval(agent.NextNode, 0, double.PositiveInfinity) });
+            _reservationTable.Add(_calculatedReservations[agent.ID]);
+            agent.Path = new Path();
+
+            // Clear all reservations of other agents, so they will not calculate a path over this node anymore.
+            foreach (var otherAgent in _calculatedReservations.Keys.Where(id => id != agent.ID))
+                _calculatedReservations[otherAgent].RemoveAll(r => r.Node == agent.NextNode);
+
+            // Add wait step.
+            agent.Path.AddFirst(agent.NextNode, true, LengthOfAWaitStep);
+
+            // Add the next node again.
+            if (agent.ReservationsToNextNode.Count > 0 && (agent.Path.Count == 0 || agent.Path.NextAction.Node != agent.NextNode || agent.Path.NextAction.StopAtNode == false))
+                agent.Path.AddFirst(agent.NextNode, true, 0);
+        }
+
+        private static bool ContainsInvalidInterval(IEnumerable<ReservationTable.Interval> intervals)
+        {
+            if (intervals == null)
+                return true;
+
+            foreach (var interval in intervals)
+            {
+                if (interval == null)
+                    return true;
+                if (double.IsNaN(interval.Start) || double.IsNaN(interval.End))
+                    return true;
+                if (double.IsInfinity(interval.Start))
+                    return true;
+                if (interval.End <= interval.Start + ReservationTable.TOLERANCE)
+                    return true;
+            }
+
+            return false;
         }
     }
 }

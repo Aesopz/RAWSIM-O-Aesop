@@ -43,6 +43,11 @@ namespace RAWSimO.Core.Management
         /// Contains all shortest paths calculated so far.
         /// </summary>
         MultiKeyDictionary<Waypoint, Waypoint, bool, double> _shortestPaths = new MultiKeyDictionary<Waypoint, Waypoint, bool, double>();
+        /// <summary>
+        /// Cache of full path-node sequences (start → ... → end), keyed (from, to, emulatePodCarrying).
+        /// Populated lazily by GetShortestPathNodes.
+        /// </summary>
+        MultiKeyDictionary<Waypoint, Waypoint, bool, List<Waypoint>> _shortestPathNodes = new MultiKeyDictionary<Waypoint, Waypoint, bool, List<Waypoint>>();
 
         /// <summary>
         /// Used to store the search tree of A*.
@@ -200,6 +205,92 @@ namespace RAWSimO.Core.Management
         {
             // Return the value
             return CalculateShortestPath(from, to, wrongTierPenaltyDistance, emulatePodCarrying); ;
+        }
+
+        /// <summary>
+        /// A* on the directed waypoint graph (one-way restricted via Waypoint.Paths neighbor list).
+        /// Returns the full ordered sequence of waypoints from start to destination (inclusive).
+        /// Mirrors CalculateShortestPath exactly but backtracks the ParentMove chain at termination.
+        /// Returns empty list on unreachable, single-element list if start == destination.
+        /// </summary>
+        private List<Waypoint> CalculateShortestPathNodes(Waypoint startNode, Waypoint destinationNode, double wrongTierPenalty, bool emulatePodCarrying)
+        {
+            if (startNode == null || destinationNode == null)
+                return new List<Waypoint>();
+            if (startNode == destinationNode)
+                return new List<Waypoint> { startNode };
+
+            Dictionary<Waypoint, WaypointSearchDatapoint> openLocations = new Dictionary<Waypoint, WaypointSearchDatapoint>();
+            Dictionary<Waypoint, WaypointSearchDatapoint> closedLocations = new Dictionary<Waypoint, WaypointSearchDatapoint>();
+            openLocations[startNode] = new WaypointSearchDatapoint(0.0, startNode.GetDistance(destinationNode), startNode, null, 0);
+
+            while (true)
+            {
+                KeyValuePair<Waypoint, WaypointSearchDatapoint> currentNodeKVP = openLocations.ArgMin(w => w.Value.DistanceTraveled + w.Value.DistanceToGoal);
+                if (currentNodeKVP.Equals(default(KeyValuePair<Waypoint, WaypointSearchDatapoint>)))
+                    return new List<Waypoint>();
+                Waypoint currentNode = currentNodeKVP.Key;
+                WaypointSearchDatapoint currentNodeData = currentNodeKVP.Value;
+
+                if (currentNode == destinationNode)
+                {
+                    // Backtrack the ParentMove chain to reconstruct the path.
+                    var reversed = new List<Waypoint>();
+                    for (var n = currentNodeData; n != null; n = n.ParentMove)
+                        reversed.Add(n.Waypoint);
+                    reversed.Reverse();
+                    return reversed;
+                }
+
+                closedLocations[currentNode] = currentNodeData;
+                openLocations.Remove(currentNode);
+
+                foreach (var successorNode in currentNode.Paths)
+                {
+                    if (closedLocations.ContainsKey(successorNode))
+                        continue;
+                    if (emulatePodCarrying && successorNode.PodStorageLocation && successorNode != destinationNode)
+                        continue;
+
+                    double additionalDistance = 0;
+                    if (successorNode.Tier != destinationNode.Tier)
+                        additionalDistance += wrongTierPenalty;
+
+                    if (!openLocations.ContainsKey(successorNode))
+                    {
+                        openLocations[successorNode] =
+                            new WaypointSearchDatapoint(
+                                currentNodeData.DistanceTraveled + currentNode[successorNode],
+                                successorNode.GetDistance(destinationNode) + additionalDistance,
+                                successorNode,
+                                currentNodeData,
+                                currentNodeData.Depth + 1);
+                    }
+                    else
+                    {
+                        WaypointSearchDatapoint oldPath = openLocations[successorNode];
+                        if (oldPath.DistanceTraveled > currentNodeData.DistanceTraveled + currentNode[successorNode])
+                        {
+                            oldPath.DistanceTraveled = currentNodeData.DistanceTraveled + currentNode[successorNode];
+                            oldPath.DistanceToGoal = successorNode.GetDistance(destinationNode) + additionalDistance;
+                            oldPath.Waypoint = successorNode;
+                            oldPath.ParentMove = currentNodeData;
+                            oldPath.Depth = currentNodeData.Depth + 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Cached accessor for the full waypoint sequence of the shortest pod-safe (or unrestricted) path.
+        /// Returns empty list when unreachable; single-element list when from == to.
+        /// </summary>
+        public List<Waypoint> GetShortestPathNodes(Waypoint from, Waypoint to, Instance instance, bool emulatePodCarrying)
+        {
+            if (!_shortestPathNodes.ContainsKey(from, to, emulatePodCarrying))
+                _shortestPathNodes[from, to, emulatePodCarrying] = CalculateShortestPathNodes(from, to, instance.WrongTierPenaltyDistance, emulatePodCarrying);
+            return _shortestPathNodes[from, to, emulatePodCarrying];
         }
     }
 
@@ -409,6 +500,10 @@ namespace RAWSimO.Core.Management
         /// </summary>
         MultiKeyDictionary<Waypoint, Waypoint, bool, double> _shortestPaths = new MultiKeyDictionary<Waypoint, Waypoint, bool, double>();
         /// <summary>
+        /// Cache of full time-optimal path-node sequences, keyed (from, to, emulatePodCarrying).
+        /// </summary>
+        MultiKeyDictionary<Waypoint, Waypoint, bool, List<Waypoint>> _shortestPathNodes = new MultiKeyDictionary<Waypoint, Waypoint, bool, List<Waypoint>>();
+        /// <summary>
         /// Estimates the time it takes to travel from one waypoint to another.
         /// </summary>
         /// <param name="from">The start node.</param>
@@ -583,6 +678,106 @@ namespace RAWSimO.Core.Management
                 _shortestPaths[from, to, emulatePodCarrying] = CalculateShortestPath(from, to, instance.WrongTierPenaltyDistance, emulatePodCarrying);
             // Return the value
             return _shortestPaths[from, to, emulatePodCarrying];
+        }
+
+        /// <summary>
+        /// Computes a TIME-optimal path (turn cost + drive time, infinite acceleration assumed) from
+        /// start to destination on the orientation-extended graph (TimeWaypoint), and returns the
+        /// underlying Waypoint sequence. Closest analogue to what WHCA*n picks in the no-conflict case.
+        /// Returns empty list when unreachable; single-element list when from == to.
+        /// </summary>
+        private List<Waypoint> CalculateShortestPathNodes(Waypoint start, Waypoint destination, double wrongTierPenalty, bool emulatePodCarrying)
+        {
+            if (start == null || destination == null)
+                return new List<Waypoint>();
+            if (start == destination)
+                return new List<Waypoint> { start };
+
+            List<Waypoint> bestPath = null;
+            double bestTime = double.PositiveInfinity;
+
+            foreach (var startNode in _timeGraph.TimeWaypointsOfOriginalWaypoints[start])
+            {
+                Dictionary<TimeWaypoint, TimeWaypointSearchDatapoint> openLocations = new Dictionary<TimeWaypoint, TimeWaypointSearchDatapoint>();
+                Dictionary<TimeWaypoint, TimeWaypointSearchDatapoint> closedLocations = new Dictionary<TimeWaypoint, TimeWaypointSearchDatapoint>();
+                openLocations[startNode] = new TimeWaypointSearchDatapoint(0.0, EstimateTravelTime(startNode, destination), startNode, null, 0);
+
+                while (true)
+                {
+                    KeyValuePair<TimeWaypoint, TimeWaypointSearchDatapoint> currentNodeKVP = openLocations.ArgMin(w => w.Value.TimeTraveled + w.Value.TimeToGoal);
+                    if (currentNodeKVP.Equals(default(KeyValuePair<TimeWaypoint, TimeWaypointSearchDatapoint>)))
+                        break;
+                    TimeWaypoint currentNode = currentNodeKVP.Key;
+                    TimeWaypointSearchDatapoint currentNodeData = currentNodeKVP.Value;
+
+                    if (currentNode.OriginalWaypoint == destination)
+                    {
+                        if (currentNodeData.TimeTraveled < bestTime)
+                        {
+                            bestTime = currentNodeData.TimeTraveled;
+                            // Backtrack: build waypoint list (dedupe consecutive same-original waypoints
+                            // since pure rotation edges share OriginalWaypoint with previous node).
+                            var reversed = new List<Waypoint>();
+                            for (var n = currentNodeData; n != null; n = n.ParentMove)
+                            {
+                                var wp = n.Waypoint.OriginalWaypoint;
+                                if (reversed.Count == 0 || reversed[reversed.Count - 1] != wp)
+                                    reversed.Add(wp);
+                            }
+                            reversed.Reverse();
+                            bestPath = reversed;
+                        }
+                        break;
+                    }
+
+                    closedLocations[currentNode] = currentNodeData;
+                    openLocations.Remove(currentNode);
+
+                    foreach (var edge in currentNode.Edges)
+                    {
+                        if (closedLocations.ContainsKey(edge.Item1))
+                            continue;
+                        if (emulatePodCarrying && edge.Item1.OriginalWaypoint.PodStorageLocation && edge.Item1.OriginalWaypoint != destination)
+                            continue;
+                        double additionalDistance = 0;
+                        if (edge.Item1.OriginalWaypoint.Tier != destination.Tier)
+                            additionalDistance += wrongTierPenalty;
+                        if (!openLocations.ContainsKey(edge.Item1))
+                        {
+                            openLocations[edge.Item1] = new TimeWaypointSearchDatapoint(
+                                currentNodeData.TimeTraveled + edge.Item2,
+                                EstimateTravelTime(edge.Item1, destination) + additionalDistance,
+                                edge.Item1, currentNodeData, currentNodeData.Depth + 1);
+                        }
+                        else
+                        {
+                            TimeWaypointSearchDatapoint oldPath = openLocations[edge.Item1];
+                            if (oldPath.TimeTraveled > currentNodeData.TimeTraveled + edge.Item2)
+                            {
+                                oldPath.TimeTraveled = currentNodeData.TimeTraveled + edge.Item2;
+                                oldPath.TimeToGoal = EstimateTravelTime(edge.Item1, destination) + additionalDistance;
+                                oldPath.Waypoint = edge.Item1;
+                                oldPath.ParentMove = currentNodeData;
+                                oldPath.Depth = currentNodeData.Depth + 1;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return bestPath ?? new List<Waypoint>();
+        }
+
+        /// <summary>
+        /// Cached accessor for the time-optimal waypoint sequence (matches WHCA*n's path choice in the no-conflict case).
+        /// </summary>
+        public List<Waypoint> GetShortestPathNodes(Waypoint from, Waypoint to, Instance instance, bool emulatePodCarrying)
+        {
+            if (_timeGraph == null)
+                _timeGraph = new TimeGraph(_instance);
+            if (!_shortestPathNodes.ContainsKey(from, to, emulatePodCarrying))
+                _shortestPathNodes[from, to, emulatePodCarrying] = CalculateShortestPathNodes(from, to, instance.WrongTierPenaltyDistance, emulatePodCarrying);
+            return _shortestPathNodes[from, to, emulatePodCarrying];
         }
     }
 

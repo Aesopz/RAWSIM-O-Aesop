@@ -124,9 +124,9 @@ namespace RAWSimO.Core
         public double StatOverallEnergyE4J { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatEnergyE4RotationJ); } }
         /// <summary>Fleet pod lift/lower energy E5 [J].</summary>
         public double StatOverallEnergyE5J { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatEnergyE5LiftLowerJ); } }
-        /// <summary>Fleet support energy [J] = P_SUPPORT × Σ task-active time (standby/rest excluded).</summary>
+        /// <summary>Fleet support energy [J] = Sum SupportPower(Pod) x wall-clock time (always-on; configured by payload state).</summary>
         public double StatOverallEnergySupportJ { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatESupportJ); } }
-        /// <summary>Fleet total energy including support [J] = E_mech + P_SUPPORT×t_active.</summary>
+        /// <summary>Fleet total energy including support [J] = E_mech + Σ SupportPower(Pod)×time.</summary>
         public double StatOverallEnergyTotalWithSupportJ { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatEnergyTotalWithSupportJ); } }
         /// <summary>Total turning events across all bots.</summary>
         public int StatOverallTurningCount { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatTurningCount); } }
@@ -142,16 +142,167 @@ namespace RAWSimO.Core
         public int StatOverallEmptyTurningCount { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatEmptyTurningCount); } }
         /// <summary>Total wait time across all bots (stationary, not rotating) [s].</summary>
         public double StatOverallWaitTimeSec { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatWaitTimeSec); } }
-        /// <summary>Fleet E_support (background P_SUPPORT × active-task time; includes moving) [J].</summary>
+        /// <summary>Fleet E_support (always-on SupportPower(Pod) x wall-clock time; configured by payload state; includes moving) [J].</summary>
         public double StatOverallESupportJ { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatESupportJ); } }
-        /// <summary>Fleet E_wait (P_SUPPORT × congestion-wait subset; strict subset of E_support) [J].</summary>
+        /// <summary>Fleet E_wait (SupportPower(Pod) × congestion-wait subset; strict subset of E_support) [J].</summary>
         public double StatOverallEWaitJ { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatEWaitJ); } }
         /// <summary>Fleet E_wait while loaded [J].</summary>
         public double StatOverallEWaitLoadedJ { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatEWaitLoadedJ); } }
         /// <summary>Fleet E_wait while empty [J].</summary>
         public double StatOverallEWaitEmptyJ { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatEWaitEmptyJ); } }
+        /// <summary>Fleet premature-arrival queue time [s] — bot inside station queue zone, not yet in GetItems/PutItems service. KPI for starvation-aware OB+PS evaluation.</summary>
+        public double StatOverallQueueingAtStationTimeSec { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatQueueingAtStationTimeSec); } }
+        /// <summary>Fleet premature-arrival queueing energy [J] = SupportPower(Pod) × StatOverallQueueingAtStationTimeSec. Strict subset of E_support.</summary>
+        public double StatOverallEQueueingAtStationJ { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatEQueueingAtStationJ); } }
+        /// <summary>Fleet WHCA*/reservation-table planned-wait stop-and-go event count (queue-manager creep counted separately).</summary>
+        public int StatOverallStopAndGoCount { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatStopAndGoCount); } }
+        /// <summary>Fleet planned-wait stop-and-go energy [J] = E2 into wait + E1 out of wait; not additive to total.</summary>
+        public double StatOverallStopAndGoEnergyJ { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatStopAndGoEnergyJ); } }
+        /// <summary>Fleet station-queue creep stop-and-go event count caused by QueueManager advancing stopped bots.</summary>
+        public int StatOverallQueueStopAndGoCount { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatQueueStopAndGoCount); } }
+        /// <summary>Fleet station-queue creep stop-and-go energy [J] = E2 into queue stop + E1 out of queue stop; not additive to total.</summary>
+        public double StatOverallQueueStopAndGoEnergyJ { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatQueueStopAndGoEnergyJ); } }
+        /// <summary>Event-level stop-and-go rows for visualization; written to stop_and_go_events.csv.</summary>
+        public List<string> StatStopGoEventRows = new List<string>();
+        /// <summary>WHCA*/reservation-table planned-wait points in native RAWSim-O heatmap format; written to conflictwait.heat.</summary>
+        public List<LocationDatapoint> StatConflictWaitHeatPoints = new List<LocationDatapoint>();
+        /// <summary>JIT validation: ideal-kinematic expected travel duration [s] per pod→station trip, captured at trip start.</summary>
+        public List<double> StatJITEtaExpectedSamples = new List<double>();
+        /// <summary>JIT validation: measured actual travel duration [s] per pod→station trip, captured at queue-zone arrival.</summary>
+        public List<double> StatJITEtaActualSamples = new List<double>();
+        /// <summary>JIT validation diagnostic: A* path nodes count per trip (start, ..., end inclusive).</summary>
+        public List<int> StatJITEtaPathNodeCounts = new List<int>();
+        /// <summary>JIT validation diagnostic: A* path total euclidean length [m] per trip.</summary>
+        public List<double> StatJITEtaPathLengths = new List<double>();
+        /// <summary>JIT validation diagnostic: source waypoint ID per trip.</summary>
+        public List<int> StatJITEtaSourceIds = new List<int>();
+        /// <summary>JIT validation diagnostic: destination waypoint ID per trip (queue rear or fallback).</summary>
+        public List<int> StatJITEtaDestIds = new List<int>();
+        public List<int> StatJITEtaBotIds = new List<int>();
+        public List<string> StatJITEtaTaskIds = new List<string>();
+        public List<int> StatJITEtaTripIds = new List<int>();
+        public List<int> StatJITEtaStopGoCounts = new List<int>();
+        public List<int> StatJITEtaQueueStopGoCounts = new List<int>();
+        public List<double> StatJITEtaWaitSecs = new List<double>();
+        /// <summary>Backfill-potential probe rows (BackfillProbeEnabled). One row per projected
+        /// starvation-gap onset per station; written to backfill_probe.csv at finish.</summary>
+        public List<string> StatBackfillProbeRows = new List<string>();
+        /// <summary>Input-scheduler diagnostic rows (one per Schedule call with >=1 holder);
+        /// written to input_sched_probe.csv at finish. For diagnosing input EST under-estimation.</summary>
+        public List<string> StatInputSchedRows = new List<string>();
+        /// <summary>Per-pod INPUT-station queue wait [s]: queue-zone arrival → storing start. One
+        /// sample per pod visit to an InputStation. Previously unmeasured (only output was tracked).</summary>
+        public List<double> StatInputPodQueueWaitSamples = new List<double>();
+        /// <summary>Input slow-start release events (gated by BackfillProbeEnabled): one row per
+        /// holder release; written to input_release_probe.csv. For detecting synchronized releases
+        /// (two holders released within seconds at the same input station).</summary>
+        public List<string> StatInputReleaseRows = new List<string>();
+        /// <summary>Fleet Type A starvation (supply lag, optimizable): sum across stations of idle time where
+        /// the station has assigned orders but no pod is ready/queued (pod not yet arrived) [s].</summary>
+        public double StatOverallStationStarvationTimeSec { get { return OutputStations.Sum(s => s.StatStarvationTimeSec); } }
+        /// <summary>Fleet Type B starvation (no-order waste, HADGS-caused): sum across stations of idle time
+        /// where the station has NO assigned order and no pod — the order manager left it unused [s].</summary>
+        public double StatOverallStationNoOrderIdleTimeSec { get { return OutputStations.Sum(s => s.StatStationNoOrderIdleTimeSec); } }
+        /// <summary>Per-pod queue wait [s]: time from bot+pod entering queue zone until station begins picking.
+        /// Excludes processing time. One sample per pod visit to an OutputStation.</summary>
+        public List<double> StatPodQueueWaitSamples = new List<double>();
+        /// <summary>Diagnostic — per-pod-handoff gap [s] at an OutputStation: time from the previous pod's
+        /// last transfer finishing until the next pod's first pick begins. Captures the inter-pod
+        /// "銜接段" gap (waiting for / positioning the next pod) regardless of whether
+        /// HasReadyOrQueuedExtractPod masked it from the Type-A starvation counter. One sample per
+        /// pod transition (excludes each station's very first pod). Lets us check how much
+        /// handoff gap exists even when measured starvation is ~0 (e.g. bot-abundant).</summary>
+        public List<double> StatPodHandoffGapSamples = new List<double>();
+        /// <summary>SA-HADGS: candidate commits whose projected pipeline gap was zero (on-time).</summary>
+        public int StatSaHadgsOnTimeCommits = 0;
+        /// <summary>SA-HADGS: candidate commits with a positive projected gap (late, soft-constraint path).</summary>
+        public int StatSaHadgsLateCommits = 0;
+        /// <summary>SA-HADGS: summed projected gap seconds over late commits.</summary>
+        public double StatSaHadgsLatenessSumSec = 0.0;
+        /// <summary>Per-pod picking time [s]: time from station beginning to pick until last item finished.
+        /// One sample per pod visit to an OutputStation.</summary>
+        public List<double> StatPodPickingTimeSamples = new List<double>();
+        /// <summary>
+        /// Diagnostic KPI: distinct orders served per pod-visit (one sample per ExtractTask.Finish).
+        /// Distribution stats (mean, p25/50/75/95) reveal whether pod value is multi-order or single-order.
+        /// Used to decide if starvation-aware OB+PS has value-differentiation headroom over distance-min.
+        /// </summary>
+        public List<int> StatPodVisitOrdersServedSamples = new List<int>();
+        /// <summary>
+        /// Diagnostic KPI: per-station inbound-pod count snapshot taken at the start of each OB decision trigger.
+        /// One sample per (trigger × station) pair. Distribution reveals queue congestion at decision time.
+        /// </summary>
+        public List<int> StatDecisionTriggerQueueDepthSamples = new List<int>();
+        /// <summary>
+        /// Per-decision trace for slow-start release timing. Used to evaluate whether upstream
+        /// holds are actually converting station queue wait into better departure timing.
+        /// </summary>
+        public List<SlowStartDecisionTrace> StatSlowStartDecisionTraces = new List<SlowStartDecisionTrace>();
+        /// <summary>
+        /// Per-scheduler-tick slow-start holding decisions. One row per holder per station
+        /// scheduler invocation; lifecycle callbacks fill in the eventual realized timings.
+        /// </summary>
+        public List<SlowStartHoldingDecisionTrace> StatSlowStartHoldingDecisionTraces = new List<SlowStartHoldingDecisionTrace>();
+        /// <summary>
+        /// Decision-space KPI: total available station slots (Σ Cs[s] = Capacity − Reserved − InUse) at each HADGS trigger.
+        /// Equals the maximum number of orders the trigger can admit across all stations.
+        /// </summary>
+        public List<int> StatDecisionAvailableStationSlotsSamples = new List<int>();
+        /// <summary>
+        /// Decision-space KPI: count of UnusedPods (pods available for fresh assignment) at each HADGS trigger.
+        /// </summary>
+        public List<int> StatDecisionUnusedPodsSamples = new List<int>();
+        /// <summary>
+        /// Decision-space KPI: count of pending orders in backlog at each HADGS trigger.
+        /// </summary>
+        public List<int> StatDecisionPendingOrdersSamples = new List<int>();
+        /// <summary>
+        /// Decision-space KPI: candidate-combination size = slots × pods × pendingOrders at each trigger.
+        /// Approximates the size of the discrete decision space HADGS is choosing from.
+        /// </summary>
+        public List<long> StatDecisionCandidateCombosSamples = new List<long>();
+        /// <summary>Bots whose current task is Rest at the moment of HADGS trigger (over-supply indicator).</summary>
+        public List<int> StatDecisionBotsInRestSamples = new List<int>();
+        /// <summary>Bots whose current task is Rest or None (truly unproductive) at HADGS trigger.</summary>
+        public List<int> StatDecisionBotsIdleOrRestSamples = new List<int>();
         /// <summary>Fleet idle time (no task assigned) [s].</summary>
         public double StatOverallTimeIdleSec { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatTimeIdleSec); } }
+        /// <summary>
+        /// Fleet Rest-task time [s] — bot was on Rest (parking / returning to rest spot).
+        /// Rest is NOT productive work; counted separately so utilization calculations
+        /// can correctly classify it as non-productive.
+        /// </summary>
+        public double StatOverallTimeRestSec { get { return Bots.OfType<Bots.BotNormal>().Sum(b =>
+            b.StatTotalTaskTimes.TryGetValue(Control.BotTaskType.Rest, out var t) ? t : 0.0); } }
+        /// <summary>
+        /// Fleet total bot-seconds = SimulationDuration × botCount. Denominator for utilization ratios.
+        /// </summary>
+        public double StatTotalBotSec { get { return StatTime * Bots.OfType<Bots.BotNormal>().Count(); } }
+        /// <summary>
+        /// Layer 1 utilization (legacy / raw occupancy): fraction of bot-time with ANY assigned task
+        /// (including Rest). Equals 1 − idle/total. Kept for backward compatibility but inflates the
+        /// real productive figure because Rest is counted as utilized.
+        /// </summary>
+        public double StatUtilizationRaw { get {
+            double denom = StatTotalBotSec; if (denom <= 0) return double.NaN;
+            return 1.0 - StatOverallTimeIdleSec / denom; } }
+        /// <summary>
+        /// Layer 2 utilization (productive): fraction of bot-time on tasks that advance system state.
+        /// Excludes None AND Rest. Captures Extract / Insert / ParkPod / RepositionPod time.
+        /// </summary>
+        public double StatUtilizationProductive { get {
+            double denom = StatTotalBotSec; if (denom <= 0) return double.NaN;
+            return Math.Max(0.0, 1.0 - (StatOverallTimeIdleSec + StatOverallTimeRestSec) / denom); } }
+        /// <summary>
+        /// Layer 3 utilization (effective): productive utilization minus time spent waiting
+        /// at station queue or stuck in congestion wait. The fraction of bot-time *actually*
+        /// doing work that drives throughput. Headline number for "fleet truly busy".
+        /// </summary>
+        public double StatUtilizationEffective { get {
+            double denom = StatTotalBotSec; if (denom <= 0) return double.NaN;
+            double nonProductive = StatOverallTimeIdleSec + StatOverallTimeRestSec
+                                 + StatOverallQueueingAtStationTimeSec + StatOverallWaitTimeSec;
+            return Math.Max(0.0, 1.0 - nonProductive / denom); } }
         // ── Pref calibration: event-level 8-accumulator aggregation ───────────────
         public double StatOverallMoveEnergyEmptyJ  { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatMoveEnergyEmptyJ); } }
         public double StatOverallMoveTimeEmptySec  { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatMoveTimeEmptySec); } }
@@ -177,7 +328,7 @@ namespace RAWSimO.Core
         public double StatOverallWaitTimeLoadedSec { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatWaitTimeLoadedSec); } }
         /// <summary>Fleet wait time while empty [s].</summary>
         public double StatOverallWaitTimeEmptySec  { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatWaitTimeEmptySec); } }
-        /// <summary>Fleet wait energy while loaded [J] = P_SUPPORT × congestion-wait time.</summary>
+        /// <summary>Fleet wait energy while loaded [J] = SUPPORT_POWER_LOADED × congestion-wait time.</summary>
         public double StatOverallWaitEnergyLoadedJ { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatWaitEnergyLoadedJ); } }
         /// <summary>Fleet wait energy while empty [J].</summary>
         public double StatOverallWaitEnergyEmptyJ  { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatWaitEnergyEmptyJ); } }
@@ -439,6 +590,29 @@ namespace RAWSimO.Core
             _statOrderLatenessTimes.Clear();
             _statBundleThroughputTimes.Clear();
             _statBundleTurnoverTimes.Clear();
+            StatJITEtaExpectedSamples.Clear();
+            StatJITEtaActualSamples.Clear();
+            StatJITEtaPathNodeCounts.Clear();
+            StatJITEtaPathLengths.Clear();
+            StatJITEtaSourceIds.Clear();
+            StatJITEtaDestIds.Clear();
+            StatJITEtaBotIds.Clear();
+            StatJITEtaTaskIds.Clear();
+            StatJITEtaTripIds.Clear();
+            StatJITEtaStopGoCounts.Clear();
+            StatJITEtaQueueStopGoCounts.Clear();
+            StatJITEtaWaitSecs.Clear();
+            StatStopGoEventRows.Clear();
+            StatConflictWaitHeatPoints.Clear();
+            StatBackfillProbeRows.Clear();
+            StatInputSchedRows.Clear();
+            StatInputPodQueueWaitSamples.Clear();
+            StatInputReleaseRows.Clear();
+            StatSlowStartDecisionTraces.Clear();
+            StatSlowStartHoldingDecisionTraces.Clear();
+            StatSaHadgsOnTimeCommits = 0;
+            StatSaHadgsLateCommits = 0;
+            StatSaHadgsLatenessSumSec = 0.0;
 
             // Reset custom controller info
             StatCustomControllerInfo = new CustomControllerDatapoint();
@@ -852,6 +1026,12 @@ namespace RAWSimO.Core
             using (StreamWriter sw = new StreamWriter(Path.Combine(SettingConfig.StatisticsDirectory, "kpi_report.csv")))
                 WriteKpiReport(sw);
 
+            // Write slow-start decision trace (always, even when empty, so experiment scripts can assert presence)
+            using (StreamWriter sw = new StreamWriter(Path.Combine(SettingConfig.StatisticsDirectory, "slowstart_decisions.csv")))
+                WriteSlowStartDecisionTrace(sw);
+            using (StreamWriter sw = new StreamWriter(Path.Combine(SettingConfig.StatisticsDirectory, "slowstart_holding_decisions.csv")))
+                WriteSlowStartHoldingDecisionTrace(sw);
+
             // Write further statistics
             switch (SettingConfig.LogFileLevel)
             {
@@ -902,6 +1082,323 @@ namespace RAWSimO.Core
             // Flush trip statistics data
             StatFlushTripStatistics();
             StatFlushConnectionStatistics();
+        }
+
+        internal SlowStartDecisionTrace NotifySlowStartDecision(
+            Bots.BotNormal bot,
+            ExtractTask task,
+            SlowStartController.HoldDiagnostics diag,
+            double currentTime,
+            double deadline)
+        {
+            var station = task != null ? task.OutputStation : null;
+            double stationBusyRemaining = 0.0;
+            if (station != null)
+            {
+                double blockedUntil = station.GetBlockedUntilTime();
+                if (!double.IsNaN(blockedUntil) && blockedUntil > currentTime)
+                    stationBusyRemaining = blockedUntil - currentTime;
+            }
+
+            var trace = new SlowStartDecisionTrace()
+            {
+                Time = currentTime,
+                BotId = bot != null ? bot.GetIdentfierString() : "",
+                TaskId = task != null ? task.GetHashCode().ToString(IOConstants.FORMATTER) : "",
+                PodId = task != null && task.ReservedPod != null ? task.ReservedPod.GetIdentfierString() : "",
+                StationId = station != null ? station.GetIdentfierString() : "",
+                EtaNow = diag.Eta,
+                TStarve = diag.TStarve,
+                QueueBudget = diag.QueueBudget,
+                ReleaseBudget = diag.ReleaseBudget,
+                Slack = Math.Max(diag.TStarve, diag.QueueBudget) - diag.Eta - (SettingConfig != null ? SettingConfig.SlowStartEtaSafetyBuffer : 0.0),
+                ChosenDelay = diag.Delay,
+                Deadline = deadline,
+                ReleasePolicy = SettingConfig != null ? SettingConfig.SlowStartReleasePolicy.ToString() : "",
+                EtaSafetyBuffer = SettingConfig != null ? SettingConfig.SlowStartEtaSafetyBuffer : 0.0,
+                ProbeSuccess = !diag.EtaProbeFailed,
+                ReleaseReason = diag.Delay <= 0.0 ? "immediate_release" : "",
+                StationPendingItems = station != null ? station.PendingItemRequestCount : 0,
+                StationBusyRemaining = stationBusyRemaining,
+                StationQueueWork = EstimateStationQueueWorkForSlowStart(station, bot),
+                NeighborCountAtDecision = CountNearbyBots(bot, 2.0),
+                MissingArrivalCount = diag.MissingArrivalCount,
+                QueueArrivalTime = double.NaN,
+                ReleaseTime = diag.Delay <= 0.0 ? currentTime : double.NaN,
+                ActualArrivalTime = double.NaN,
+                ActualEta = double.NaN,
+                ArrivalError = double.NaN,
+                StationIdleAtArrival = double.NaN,
+                QueueWaitAtStation = double.NaN,
+            };
+            StatSlowStartDecisionTraces.Add(trace);
+            return trace;
+        }
+
+        internal void NotifySlowStartRelease(SlowStartDecisionTrace trace, double currentTime, string releaseReason, double etaNow, double remainingTStarve, double bestFutureEta = double.NaN, double bestFutureDelay = double.NaN)
+        {
+            if (trace == null)
+                return;
+            trace.ReleaseTime = currentTime;
+            if (!double.IsNaN(trace.Time))
+                trace.ActualHoldTime = Math.Max(0.0, currentTime - trace.Time);
+            trace.ReleaseReason = releaseReason ?? "";
+            trace.EtaAtRelease = etaNow;
+            trace.RemainingTStarveAtRelease = remainingTStarve;
+            trace.BestFutureEtaAtRelease = bestFutureEta;
+            trace.BestFutureDelayAtRelease = bestFutureDelay;
+            if (!double.IsNaN(etaNow) && !double.IsNaN(bestFutureEta))
+                trace.EtaImprovementAtRelease = etaNow - bestFutureEta;
+            UpdateSlowStartHoldingRows(trace.TaskId, trace.BotId, row =>
+            {
+                row.ReleaseTime = currentTime;
+                row.ReleaseReason = trace.ReleaseReason;
+                row.ActualHoldTime = trace.ActualHoldTime;
+                row.EtaAtRelease = etaNow;
+                row.RemainingEstAtRelease = remainingTStarve;
+            });
+        }
+
+        internal void NotifySlowStartStationTripStart(ExtractTask task, Bots.BotNormal bot, double currentTime)
+        {
+            var trace = FindLatestSlowStartTrace(task, bot);
+            if (trace != null && double.IsNaN(trace.MovementStartTime))
+                trace.MovementStartTime = currentTime;
+
+            string taskId = task != null ? task.GetHashCode().ToString(IOConstants.FORMATTER) : "";
+            string botId = bot != null ? bot.GetIdentfierString() : "";
+            UpdateSlowStartHoldingRows(taskId, botId, row =>
+            {
+                if (double.IsNaN(row.MovementStartTime))
+                    row.MovementStartTime = currentTime;
+            });
+        }
+
+        internal void NotifySlowStartStationQueueArrival(ExtractTask task, Bots.BotNormal bot, double currentTime)
+        {
+            var trace = FindLatestSlowStartTrace(task, bot);
+            if (trace != null && double.IsNaN(trace.QueueArrivalTime))
+            {
+                trace.QueueArrivalTime = currentTime;
+                if (!double.IsNaN(trace.ReleaseTime))
+                    trace.ReleaseToQueueTime = currentTime - trace.ReleaseTime;
+                if (!double.IsNaN(trace.MovementStartTime))
+                    trace.MovementTimeToQueue = currentTime - trace.MovementStartTime;
+            }
+
+            string taskId = task != null ? task.GetHashCode().ToString(IOConstants.FORMATTER) : "";
+            string botId = bot != null ? bot.GetIdentfierString() : "";
+            UpdateSlowStartHoldingRows(taskId, botId, row =>
+            {
+                if (double.IsNaN(row.QueueArrivalTime))
+                    row.QueueArrivalTime = currentTime;
+                if (!double.IsNaN(row.ReleaseTime))
+                    row.ReleaseToQueueTime = currentTime - row.ReleaseTime;
+                if (!double.IsNaN(row.MovementStartTime))
+                    row.MovementTimeToQueue = currentTime - row.MovementStartTime;
+            });
+        }
+
+        internal void NotifySlowStartActualArrival(ExtractTask task, Bots.BotNormal bot, double currentTime)
+        {
+            var trace = FindLatestSlowStartTrace(task, bot);
+            if (trace == null || !double.IsNaN(trace.ActualArrivalTime))
+                return;
+
+            trace.ActualArrivalTime = currentTime;
+            if (!double.IsNaN(trace.ReleaseTime))
+                trace.ActualEta = currentTime - trace.ReleaseTime;
+            if (!double.IsNaN(trace.EtaNow))
+                trace.ArrivalError = currentTime - (trace.Time + trace.ChosenDelay + trace.EtaNow);
+            if (!double.IsNaN(trace.QueueArrivalTime))
+                trace.QueueWaitAtStation = currentTime - trace.QueueArrivalTime;
+
+            var station = task != null ? task.OutputStation : null;
+            if (station != null)
+            {
+                double blockedUntil = station.GetBlockedUntilTime();
+                bool stationIdle = (double.IsNaN(blockedUntil) || blockedUntil <= currentTime) && station.PendingItemRequestCount == 0;
+                trace.StationIdleAtArrival = stationIdle ? 1.0 : 0.0;
+            }
+
+            string taskId = task != null ? task.GetHashCode().ToString(IOConstants.FORMATTER) : "";
+            string botId = bot != null ? bot.GetIdentfierString() : "";
+            UpdateSlowStartHoldingRows(taskId, botId, row =>
+            {
+                if (double.IsNaN(row.ActualArrivalTime))
+                    row.ActualArrivalTime = currentTime;
+                if (!double.IsNaN(row.ReleaseTime))
+                    row.ActualEta = currentTime - row.ReleaseTime;
+                if (!double.IsNaN(row.DecisionTime) && !double.IsNaN(row.HoldDelay) && !double.IsNaN(row.Travel))
+                    row.ArrivalError = currentTime - (row.DecisionTime + row.HoldDelay + row.Lift + row.Travel);
+                if (!double.IsNaN(row.QueueArrivalTime))
+                    row.QueueWaitAtStation = currentTime - row.QueueArrivalTime;
+                row.StationIdleAtArrival = trace.StationIdleAtArrival;
+            });
+        }
+
+        internal void NotifySlowStartProcessingFinished(ExtractTask task, Bots.BotNormal bot, double currentTime)
+        {
+            var trace = FindLatestSlowStartTrace(task, bot);
+            if (trace != null)
+            {
+                trace.ProcessingFinishTime = currentTime;
+                if (!double.IsNaN(trace.ActualArrivalTime))
+                    trace.ProcessingTime = currentTime - trace.ActualArrivalTime;
+            }
+
+            string taskId = task != null ? task.GetHashCode().ToString(IOConstants.FORMATTER) : "";
+            string botId = bot != null ? bot.GetIdentfierString() : "";
+            UpdateSlowStartHoldingRows(taskId, botId, row =>
+            {
+                row.ProcessingFinishTime = currentTime;
+                if (!double.IsNaN(row.ActualArrivalTime))
+                    row.ProcessingTime = currentTime - row.ActualArrivalTime;
+            });
+        }
+
+        private SlowStartDecisionTrace FindLatestSlowStartTrace(ExtractTask task, Bots.BotNormal bot)
+        {
+            string taskId = task != null ? task.GetHashCode().ToString(IOConstants.FORMATTER) : "";
+            string botId = bot != null ? bot.GetIdentfierString() : "";
+            for (int i = StatSlowStartDecisionTraces.Count - 1; i >= 0; i--)
+            {
+                var trace = StatSlowStartDecisionTraces[i];
+                if (trace.TaskId == taskId && trace.BotId == botId)
+                    return trace;
+            }
+            return null;
+        }
+
+        internal void NotifySlowStartHoldingDecision(
+            OutputStation station,
+            Bots.BotNormal bot,
+            ExtractTask task,
+            double currentTime,
+            double stationEst,
+            double stationWorkHorizon,
+            double stationStarvationGap,
+            int stationLateJobs,
+            int stationUncertainJobs,
+            double buffer,
+            double lift,
+            double travel,
+            double value,
+            double proc,
+            double releaseBudget,
+            double budget,
+            double holdDelay,
+            double deadline,
+            bool feasible,
+            bool chosen,
+            bool chosenReleaseNow,
+            int holderCount,
+            int chosenBotId)
+        {
+            double stationBusyRemaining = 0.0;
+            if (station != null)
+            {
+                double blockedUntil = station.GetBlockedUntilTime();
+                if (!double.IsNaN(blockedUntil) && blockedUntil > currentTime)
+                    stationBusyRemaining = blockedUntil - currentTime;
+            }
+
+            var row = new SlowStartHoldingDecisionTrace
+            {
+                DecisionTime = currentTime,
+                BotId = bot != null ? bot.GetIdentfierString() : "",
+                TaskId = task != null ? task.GetHashCode().ToString(IOConstants.FORMATTER) : "",
+                PodId = task != null && task.ReservedPod != null ? task.ReservedPod.GetIdentfierString() : "",
+                StationId = station != null ? station.GetIdentfierString() : "",
+                StationEst = stationEst,
+                StationWorkHorizon = stationWorkHorizon,
+                StationStarvationGap = stationStarvationGap,
+                StationLateJobs = stationLateJobs,
+                StationUncertainJobs = stationUncertainJobs,
+                Buffer = buffer,
+                Lift = lift,
+                Travel = travel,
+                Value = value,
+                ProcessingBudget = proc,
+                ReleaseBudget = releaseBudget,
+                HoldingBudget = budget,
+                HoldDelay = holdDelay,
+                Deadline = deadline,
+                HoldElapsed = bot != null && !double.IsNaN(bot._slowStartHoldStartTime) ? Math.Max(0.0, currentTime - bot._slowStartHoldStartTime) : double.NaN,
+                Feasible = feasible,
+                Chosen = chosen,
+                ChosenReleaseNow = chosenReleaseNow,
+                HolderCount = holderCount,
+                ChosenBotId = chosenBotId >= 0 ? chosenBotId.ToString(IOConstants.FORMATTER) : "",
+                StationPendingItems = station != null ? station.PendingItemRequestCount : 0,
+                StationBusyRemaining = stationBusyRemaining,
+                StationQueueWork = EstimateStationQueueWorkForSlowStart(station, bot),
+                NeighborCountAtDecision = CountNearbyBots(bot, 2.0),
+            };
+            StatSlowStartHoldingDecisionTraces.Add(row);
+        }
+
+        private void UpdateSlowStartHoldingRows(string taskId, string botId, Action<SlowStartHoldingDecisionTrace> update)
+        {
+            if (update == null || string.IsNullOrEmpty(taskId) || string.IsNullOrEmpty(botId))
+                return;
+            foreach (var row in StatSlowStartHoldingDecisionTraces)
+            {
+                if (row.TaskId == taskId && row.BotId == botId)
+                    update(row);
+            }
+        }
+
+        private double EstimateStationQueueWorkForSlowStart(OutputStation station, Bots.BotNormal self)
+        {
+            if (station == null)
+                return 0.0;
+            double work = station.PendingItemRequestCount * station.ItemTransferTime;
+            foreach (var task in station.GetActiveExtractTasks())
+            {
+                if (task == null || task.Requests == null || task.Requests.Count == 0)
+                    continue;
+                if (self != null && object.ReferenceEquals(task, self.CurrentTask))
+                    continue;
+                var other = task.Bot as Bots.BotNormal;
+                if (other == null || other._isSlowStartHolding)
+                    continue;
+                if (other.IsQueueing)
+                    work += task.Requests.Count * station.ItemTransferTime;
+            }
+            return work;
+        }
+
+        private int CountNearbyBots(Bots.BotNormal bot, double radiusCells)
+        {
+            if (bot == null || bot.CurrentWaypoint == null)
+                return 0;
+            double radiusSquared = radiusCells * radiusCells;
+            int count = 0;
+            foreach (var other in Bots.OfType<Bots.BotNormal>())
+            {
+                if (object.ReferenceEquals(other, bot) || other.CurrentWaypoint == null)
+                    continue;
+                double dx = other.CurrentWaypoint.X - bot.CurrentWaypoint.X;
+                double dy = other.CurrentWaypoint.Y - bot.CurrentWaypoint.Y;
+                if (dx * dx + dy * dy <= radiusSquared)
+                    count++;
+            }
+            return count;
+        }
+
+        public void WriteSlowStartDecisionTrace(TextWriter writer)
+        {
+            writer.WriteLine(SlowStartDecisionTrace.GetHeader());
+            foreach (var trace in StatSlowStartDecisionTraces)
+                writer.WriteLine(trace.GetLine());
+        }
+
+        public void WriteSlowStartHoldingDecisionTrace(TextWriter writer)
+        {
+            writer.WriteLine(SlowStartHoldingDecisionTrace.GetHeader());
+            foreach (var trace in StatSlowStartHoldingDecisionTraces)
+                writer.WriteLine(trace.GetLine());
         }
 
         /// <summary>
@@ -1007,6 +1504,19 @@ namespace RAWSimO.Core
                     foreach (var stateType in Enum.GetValues(typeof(BotStateType)).Cast<BotStateType>())
                         if (bot.StatTotalStateTimes.ContainsKey(stateType))
                             sb.AppendLine(stateType + ": " + bot.StatTotalStateTimes[stateType].ToString(IOConstants.FORMATTER));
+                    foreach (var stateType in Enum.GetValues(typeof(BotStateType)).Cast<BotStateType>())
+                        if (bot.StatTotalStateCounts.ContainsKey(stateType))
+                            sb.AppendLine(stateType + "_Count: " + bot.StatTotalStateCounts[stateType]);
+                    // PP-aware slow-start dedicated counters
+                    if (bot is Bots.BotNormal bn)
+                    {
+                        sb.AppendLine("StatSlowStartHoldTimeSec: " + bn.StatSlowStartHoldTimeSec.ToString(IOConstants.FORMATTER));
+                        sb.AppendLine("StatSlowStartHoldEnergyJ: " + bn.StatSlowStartHoldEnergyJ.ToString(IOConstants.FORMATTER));
+                        sb.AppendLine("StatSlowStartDecisionCount: " + bn.StatSlowStartDecisionCount);
+                        sb.AppendLine("StatSlowStartImmediateReleaseCount: " + bn.StatSlowStartImmediateReleaseCount);
+                        sb.AppendLine("StatSlowStartSearchFailures: " + bn.StatSlowStartSearchFailures);
+                        sb.AppendLine("StatSlowStartExpectedArrivalMissingCount: " + bn.StatSlowStartExpectedArrivalMissingCount);
+                    }
                 }
             }
             if (detailedAll || detailedPods)
@@ -1079,6 +1589,29 @@ namespace RAWSimO.Core
             sb.AppendLine("StatTimingOrderBatchingAverage: " + Observer.TimingOrderBatchingAverage.ToString(IOConstants.FORMATTER));
             sb.AppendLine("StatTimingOrderBatchingOverall: " + Observer.TimingOrderBatchingOverall.ToString(IOConstants.FORMATTER));
             sb.AppendLine("StatTimingOrderBatchingCount: " + Observer.TimingOrderBatchingDecisionCount.ToString(IOConstants.FORMATTER));
+            sb.AppendLine(">>> SlowStartProbeDiagnostics");
+            var pT = typeof(RAWSimO.Core.Control.Defaults.PathPlanning.WHCAnStarPathManager);
+            sb.AppendLine("s_ProbeAttempts: " + pT.GetField("s_ProbeAttempts").GetValue(null));
+            sb.AppendLine("s_ProbeEarlyExit: " + pT.GetField("s_ProbeEarlyExit").GetValue(null));
+            sb.AppendLine("s_ProbeFromEqualsTo: " + pT.GetField("s_ProbeFromEqualsTo").GetValue(null));
+            sb.AppendLine("s_ProbeSelfListNull: " + pT.GetField("s_ProbeSelfListNull").GetValue(null));
+            sb.AppendLine("s_ProbeSelfListEmpty: " + pT.GetField("s_ProbeSelfListEmpty").GetValue(null));
+            sb.AppendLine("s_ProbeSelfLastEndNotInf: " + pT.GetField("s_ProbeSelfLastEndNotInf").GetValue(null));
+            sb.AppendLine("s_ProbeSelfLastNodeMismatch: " + pT.GetField("s_ProbeSelfLastNodeMismatch").GetValue(null));
+            sb.AppendLine("s_ProbeSelfRemovedOk: " + pT.GetField("s_ProbeSelfRemovedOk").GetValue(null));
+            sb.AppendLine("s_ProbeSearchSuccess: " + pT.GetField("s_ProbeSearchSuccess").GetValue(null));
+            sb.AppendLine("s_ProbeSearchFalse: " + pT.GetField("s_ProbeSearchFalse").GetValue(null));
+            sb.AppendLine("s_ProbeGoalInvalid: " + pT.GetField("s_ProbeGoalInvalid").GetValue(null));
+            sb.AppendLine("s_ProbeArrivalInf: " + pT.GetField("s_ProbeArrivalInf").GetValue(null));
+            sb.AppendLine("s_ProbeException: " + pT.GetField("s_ProbeException").GetValue(null));
+            sb.AppendLine("s_ProbeStartWaitOk: " + pT.GetField("s_ProbeStartWaitOk").GetValue(null));
+            sb.AppendLine("s_ProbeStartWaitBlocked: " + pT.GetField("s_ProbeStartWaitBlocked").GetValue(null));
+            sb.AppendLine("s_ProbeAnyMoveGenerated: " + pT.GetField("s_ProbeAnyMoveGenerated").GetValue(null));
+            sb.AppendLine("s_ProbeOnlyWaits: " + pT.GetField("s_ProbeOnlyWaits").GetValue(null));
+            sb.AppendLine("s_ProbeGoalIsDest: " + pT.GetField("s_ProbeGoalIsDest").GetValue(null));
+            sb.AppendLine("s_ProbeGoalIsWindowExpiry: " + pT.GetField("s_ProbeGoalIsWindowExpiry").GetValue(null));
+            sb.AppendLine("s_ProbeMaxNodeTimeSumMs: " + pT.GetField("s_ProbeMaxNodeTimeSumMs").GetValue(null));
+            sb.AppendLine("s_ProbeMaxNodeTimeSamples: " + pT.GetField("s_ProbeMaxNodeTimeSamples").GetValue(null));
             sb.AppendLine(">>> Overall");
             sb.AppendLine("StatOverallBundlesPlaced: " + StatOverallBundlesPlaced);
             sb.AppendLine("StatOverallItemsOrdered: " + StatOverallItemsOrdered);
@@ -1118,6 +1651,9 @@ namespace RAWSimO.Core
             sb.AppendLine("KPI_EOR: " + (StatOverallOrdersHandled > 0 ? (StatOverallEnergyTotalJ / 1000.0 / StatOverallOrdersHandled).ToString(IOConstants.FORMATTER) : "0"));
             // Energy statistics (Rizqi model)
             sb.AppendLine(">>> Energy (Rizqi model)");
+            sb.AppendLine("EnergyRobotMassKg: " + Metrics.EnergyConsumption.ROBOT_MASS.ToString(IOConstants.FORMATTER));
+            sb.AppendLine("EnergySupportPowerEmptyW: " + Metrics.EnergyConsumption.SUPPORT_POWER_EMPTY.ToString(IOConstants.FORMATTER));
+            sb.AppendLine("EnergySupportPowerLoadedW: " + Metrics.EnergyConsumption.SUPPORT_POWER_LOADED.ToString(IOConstants.FORMATTER));
             sb.AppendLine("StatEnergyTotalKJ: " + (StatOverallEnergyTotalJ / 1000.0).ToString(IOConstants.FORMATTER));
             sb.AppendLine("StatEnergyE1AccelKJ: " + (StatOverallEnergyE1J / 1000.0).ToString(IOConstants.FORMATTER));
             sb.AppendLine("StatEnergyE2DecelKJ: " + (StatOverallEnergyE2J / 1000.0).ToString(IOConstants.FORMATTER));
@@ -1200,7 +1736,8 @@ namespace RAWSimO.Core
             double utilization = (StatTime > 0 && botCount > 0)
                 ? 1.0 - (StatOverallTimeIdleSec / (StatTime * botCount))
                 : double.NaN;
-            // E_support = background support energy (P_SUPPORT × active-task time; includes moving)
+            // E_support = always-on background energy (SupportPower(Pod) x wall-clock time;
+            //             configured by payload state; includes idle/moving/waiting, no task gate)
             sb.AppendLine("StatESupportKJ: " + (StatOverallESupportJ / 1000.0).ToString(IOConstants.FORMATTER));
             sb.AppendLine("StatESupportPerOrderKJ: " + (StatOverallOrdersHandled > 0 ? (StatOverallESupportJ / 1000.0 / StatOverallOrdersHandled).ToString(IOConstants.FORMATTER) : "0"));
             // E_wait = congestion-wait subset of E_support (stationary with active task)
@@ -1208,8 +1745,307 @@ namespace RAWSimO.Core
             sb.AppendLine("StatEWaitLoadedKJ: " + (StatOverallEWaitLoadedJ / 1000.0).ToString(IOConstants.FORMATTER));
             sb.AppendLine("StatEWaitEmptyKJ: " + (StatOverallEWaitEmptyJ / 1000.0).ToString(IOConstants.FORMATTER));
             sb.AppendLine("StatEWaitPerOrderKJ: " + (StatOverallOrdersHandled > 0 ? (StatOverallEWaitJ / 1000.0 / StatOverallOrdersHandled).ToString(IOConstants.FORMATTER) : "0"));
+            // E_queueing_at_station = premature-arrival waste (bot in station queue zone, not yet picking)
+            sb.AppendLine("StatQueueingAtStationTimeSec: " + StatOverallQueueingAtStationTimeSec.ToString(IOConstants.FORMATTER));
+            sb.AppendLine("StatEQueueingAtStationKJ: " + (StatOverallEQueueingAtStationJ / 1000.0).ToString(IOConstants.FORMATTER));
+            sb.AppendLine("StatEQueueingAtStationPerOrderKJ: " + (StatOverallOrdersHandled > 0 ? (StatOverallEQueueingAtStationJ / 1000.0 / StatOverallOrdersHandled).ToString(IOConstants.FORMATTER) : "0"));
+            double queueingShareOfSupport = StatOverallESupportJ > 0
+                ? StatOverallEQueueingAtStationJ / StatOverallESupportJ : double.NaN;
+            sb.AppendLine("StatEQueueingShareOfSupport: " + (double.IsNaN(queueingShareOfSupport) ? "NaN" : queueingShareOfSupport.ToString(IOConstants.FORMATTER)));
+
+            // stop_and_go_* = WHCA*/reservation-table planned waits that split straight travel.
+            // queue_stop_and_go_* = QueueManager creep inside station queue zones.
+            // Energy is E2 into the stop + E1 out of the stop (re-classification; not additive to total).
+            sb.AppendLine("StatStopAndGoCount: " + StatOverallStopAndGoCount.ToString(IOConstants.FORMATTER));
+            sb.AppendLine("StatStopAndGoEnergyKJ: " + (StatOverallStopAndGoEnergyJ / 1000.0).ToString(IOConstants.FORMATTER));
+            sb.AppendLine("StatStopAndGoCountPerOrder: " + (StatOverallOrdersHandled > 0 ? ((double)StatOverallStopAndGoCount / StatOverallOrdersHandled).ToString(IOConstants.FORMATTER) : "0"));
+            sb.AppendLine("StatStopAndGoEnergyPerOrderKJ: " + (StatOverallOrdersHandled > 0 ? (StatOverallStopAndGoEnergyJ / 1000.0 / StatOverallOrdersHandled).ToString(IOConstants.FORMATTER) : "0"));
+            sb.AppendLine("StatQueueStopAndGoCount: " + StatOverallQueueStopAndGoCount.ToString(IOConstants.FORMATTER));
+            sb.AppendLine("StatQueueStopAndGoEnergyKJ: " + (StatOverallQueueStopAndGoEnergyJ / 1000.0).ToString(IOConstants.FORMATTER));
+            sb.AppendLine("StatQueueStopAndGoCountPerOrder: " + (StatOverallOrdersHandled > 0 ? ((double)StatOverallQueueStopAndGoCount / StatOverallOrdersHandled).ToString(IOConstants.FORMATTER) : "0"));
+            sb.AppendLine("StatQueueStopAndGoEnergyPerOrderKJ: " + (StatOverallOrdersHandled > 0 ? (StatOverallQueueStopAndGoEnergyJ / 1000.0 / StatOverallOrdersHandled).ToString(IOConstants.FORMATTER) : "0"));
+
+            // ─── Backfill-potential probe (deferred-binding + opportunistic backfill hit rate) ───
+            sb.AppendLine("StatBackfillProbeRowCount: " + StatBackfillProbeRows.Count.ToString(IOConstants.FORMATTER));
+            if (StatBackfillProbeRows.Count > 0 && Directory.Exists(SettingConfig.StatisticsDirectory))
+            {
+                string backfillCsvPath = Path.Combine(SettingConfig.StatisticsDirectory, "backfill_probe.csv");
+                using (var sw = new StreamWriter(backfillCsvPath))
+                {
+                    sw.WriteLine("time_sec;station_id;cap_in_use;cap;free_slot;other_present_pods;inbound_pods;pod_id;pod_remaining_units;assigned_match;backlog_size;full_match_orders;partial_match_orders;max_match_units;best_full_demand");
+                    foreach (var row in StatBackfillProbeRows)
+                        sw.WriteLine(row);
+                }
+            }
+
+            if (StatStopGoEventRows.Count > 0 && Directory.Exists(SettingConfig.StatisticsDirectory))
+            {
+                using (var sw = new StreamWriter(Path.Combine(SettingConfig.StatisticsDirectory, "stop_and_go_events.csv")))
+                {
+                    sw.WriteLine("time_sec;type;bot_id;from_node;stop_node;to_node;x;y;tier;energy_kJ;decel_kJ;accel_kJ;queue_terminal_node;destination_node;loaded");
+                    foreach (var row in StatStopGoEventRows)
+                        sw.WriteLine(row);
+                }
+            }
+
+            if (StatConflictWaitHeatPoints.Count > 0 && Directory.Exists(SettingConfig.StatisticsDirectory))
+            {
+                using (var sw = new StreamWriter(Path.Combine(SettingConfig.StatisticsDirectory, "conflictwait.heat")))
+                {
+                    sw.WriteLine(LocationDatapoint.GetCSVHeader());
+                    foreach (var point in StatConflictWaitHeatPoints)
+                        sw.WriteLine(point.ToCSV());
+                }
+            }
+
+            // ─── Input-station per-pod queue wait (previously unmeasured) ───
+            int inWaitN = StatInputPodQueueWaitSamples.Count;
+            sb.AppendLine("StatInputPodQueueWaitSampleCount: " + inWaitN.ToString(IOConstants.FORMATTER));
+            if (inWaitN > 0)
+            {
+                var sorted = StatInputPodQueueWaitSamples.OrderBy(v => v).ToList();
+                double mean = sorted.Average();
+                double p50 = sorted[(int)(0.50 * (inWaitN - 1))];
+                double p95 = sorted[(int)(0.95 * (inWaitN - 1))];
+                sb.AppendLine("StatInputPodQueueWaitMeanSec: " + mean.ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatInputPodQueueWaitP50Sec: " + p50.ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatInputPodQueueWaitP95Sec: " + p95.ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatInputPodQueueWaitMaxSec: " + sorted[inWaitN - 1].ToString(IOConstants.FORMATTER));
+            }
+
+            // ─── Input slow-start release events (synchronized-release detection) ───
+            if (StatInputReleaseRows.Count > 0 && Directory.Exists(SettingConfig.StatisticsDirectory))
+            {
+                using (var sw = new StreamWriter(Path.Combine(SettingConfig.StatisticsDirectory, "input_release_probe.csv")))
+                {
+                    sw.WriteLine("time_sec;station_id;bot_id;inbound_pods;bundles");
+                    foreach (var row in StatInputReleaseRows)
+                        sw.WriteLine(row);
+                }
+            }
+
+            // ─── Input-scheduler diagnostic (input EST under-estimation analysis) ───
+            sb.AppendLine("StatInputSchedRowCount: " + StatInputSchedRows.Count.ToString(IOConstants.FORMATTER));
+            if (StatInputSchedRows.Count > 0 && Directory.Exists(SettingConfig.StatisticsDirectory))
+            {
+                string inSchedCsv = Path.Combine(SettingConfig.StatisticsDirectory, "input_sched_probe.csv");
+                using (var sw = new StreamWriter(inSchedCsv))
+                {
+                    sw.WriteLine("time_sec;station_id;holders;queued_pods;intransit_pods;first_starve_sec;work_horizon_sec;cascade_starve_sec;chosen_delay_sec;release_now");
+                    foreach (var row in StatInputSchedRows)
+                        sw.WriteLine(row);
+                }
+            }
+
+            // ─── JIT ETA validation (ideal kinematic vs measured trip duration) ───
+            int jitN = StatJITEtaActualSamples.Count;
+            sb.AppendLine("StatJITEtaSampleCount: " + jitN.ToString(IOConstants.FORMATTER));
+            // Per-sample CSV dump for diagnostic
+            if (jitN > 0 && Directory.Exists(SettingConfig.StatisticsDirectory))
+            {
+                string csvPath = Path.Combine(SettingConfig.StatisticsDirectory, "jit_eta_samples.csv");
+                using (var sw = new StreamWriter(csvPath))
+                {
+                    sw.WriteLine("idx;bot_id;task_id;trip_id;src_id;dest_id;path_nodes;path_len_m;expected_sec;actual_sec;gap_sec;abs_err_sec;rel_err_pct;stop_go_count;queue_stop_go_count;conflict_wait_sec");
+                    for (int i = 0; i < jitN; i++)
+                    {
+                        double e = StatJITEtaExpectedSamples[i];
+                        double a = StatJITEtaActualSamples[i];
+                        double gap = a - e;
+                        double absErr = Math.Abs(a - e);
+                        double rel = e > 1e-9 ? absErr / e * 100.0 : 0.0;
+                        int botId = i < StatJITEtaBotIds.Count ? StatJITEtaBotIds[i] : -1;
+                        string taskId = i < StatJITEtaTaskIds.Count ? (StatJITEtaTaskIds[i] ?? "").Replace(";", "_") : "";
+                        int tripId = i < StatJITEtaTripIds.Count ? StatJITEtaTripIds[i] : -1;
+                        int srcId = i < StatJITEtaSourceIds.Count ? StatJITEtaSourceIds[i] : -1;
+                        int destId = i < StatJITEtaDestIds.Count ? StatJITEtaDestIds[i] : -1;
+                        int nodes = i < StatJITEtaPathNodeCounts.Count ? StatJITEtaPathNodeCounts[i] : 0;
+                        double plen = i < StatJITEtaPathLengths.Count ? StatJITEtaPathLengths[i] : 0.0;
+                        int stopGo = i < StatJITEtaStopGoCounts.Count ? StatJITEtaStopGoCounts[i] : 0;
+                        int queueStopGo = i < StatJITEtaQueueStopGoCounts.Count ? StatJITEtaQueueStopGoCounts[i] : 0;
+                        double waitSec = i < StatJITEtaWaitSecs.Count ? StatJITEtaWaitSecs[i] : 0.0;
+                        sw.WriteLine(i + ";" + botId + ";" + taskId + ";" + tripId + ";" +
+                                     srcId + ";" + destId + ";" + nodes + ";" +
+                                     plen.ToString(IOConstants.FORMATTER) + ";" +
+                                     e.ToString(IOConstants.FORMATTER) + ";" +
+                                     a.ToString(IOConstants.FORMATTER) + ";" +
+                                     gap.ToString(IOConstants.FORMATTER) + ";" +
+                                     absErr.ToString(IOConstants.FORMATTER) + ";" +
+                                     rel.ToString(IOConstants.FORMATTER) + ";" +
+                                     stopGo.ToString(IOConstants.FORMATTER) + ";" +
+                                     queueStopGo.ToString(IOConstants.FORMATTER) + ";" +
+                                     waitSec.ToString(IOConstants.FORMATTER));
+                    }
+                }
+                string botCsvPath = Path.Combine(SettingConfig.StatisticsDirectory, "jit_eta_by_bot.csv");
+                using (var sw = new StreamWriter(botCsvPath))
+                {
+                    sw.WriteLine("bot_id;sample_count;expected_mean_sec;actual_mean_sec;gap_mean_sec;gap_var_sec2;gap_std_sec;abs_err_mean_sec;stop_go_mean;queue_stop_go_mean;conflict_wait_mean_sec");
+                    foreach (var group in Enumerable.Range(0, jitN).GroupBy(i => i < StatJITEtaBotIds.Count ? StatJITEtaBotIds[i] : -1).OrderBy(g => g.Key))
+                    {
+                        int n = group.Count();
+                        double sumE = 0.0, sumA = 0.0, sumGap = 0.0, sumGap2 = 0.0, sumAbs = 0.0, sumStop = 0.0, sumQStop = 0.0, sumWait = 0.0;
+                        foreach (int i in group)
+                        {
+                            double e = StatJITEtaExpectedSamples[i];
+                            double a = StatJITEtaActualSamples[i];
+                            double gap = a - e;
+                            sumE += e;
+                            sumA += a;
+                            sumGap += gap;
+                            sumGap2 += gap * gap;
+                            sumAbs += Math.Abs(gap);
+                            sumStop += i < StatJITEtaStopGoCounts.Count ? StatJITEtaStopGoCounts[i] : 0;
+                            sumQStop += i < StatJITEtaQueueStopGoCounts.Count ? StatJITEtaQueueStopGoCounts[i] : 0;
+                            sumWait += i < StatJITEtaWaitSecs.Count ? StatJITEtaWaitSecs[i] : 0.0;
+                        }
+                        double meanGap = sumGap / n;
+                        double varGap = Math.Max(0.0, sumGap2 / n - meanGap * meanGap);
+                        sw.WriteLine(group.Key.ToString(IOConstants.FORMATTER) + ";" +
+                                     n.ToString(IOConstants.FORMATTER) + ";" +
+                                     (sumE / n).ToString(IOConstants.FORMATTER) + ";" +
+                                     (sumA / n).ToString(IOConstants.FORMATTER) + ";" +
+                                     meanGap.ToString(IOConstants.FORMATTER) + ";" +
+                                     varGap.ToString(IOConstants.FORMATTER) + ";" +
+                                     Math.Sqrt(varGap).ToString(IOConstants.FORMATTER) + ";" +
+                                     (sumAbs / n).ToString(IOConstants.FORMATTER) + ";" +
+                                     (sumStop / n).ToString(IOConstants.FORMATTER) + ";" +
+                                     (sumQStop / n).ToString(IOConstants.FORMATTER) + ";" +
+                                     (sumWait / n).ToString(IOConstants.FORMATTER));
+                    }
+                }
+            }
+            if (jitN > 0)
+            {
+                double sumE = 0, sumA = 0, sumSignedErr = 0, sumSignedErr2 = 0, sumAbsErr = 0, sumAbsRel = 0, maxRel = 0;
+                double sumStopGo = 0, sumQueueStopGo = 0, sumJitWait = 0;
+                for (int i = 0; i < jitN; i++)
+                {
+                    double e = StatJITEtaExpectedSamples[i];
+                    double a = StatJITEtaActualSamples[i];
+                    double signedErr = a - e;
+                    double absErr = Math.Abs(signedErr);
+                    double rel = e > 1e-9 ? absErr / e : 0.0;
+                    sumE += e; sumA += a; sumSignedErr += signedErr; sumSignedErr2 += signedErr * signedErr; sumAbsErr += absErr; sumAbsRel += rel;
+                    sumStopGo += i < StatJITEtaStopGoCounts.Count ? StatJITEtaStopGoCounts[i] : 0;
+                    sumQueueStopGo += i < StatJITEtaQueueStopGoCounts.Count ? StatJITEtaQueueStopGoCounts[i] : 0;
+                    sumJitWait += i < StatJITEtaWaitSecs.Count ? StatJITEtaWaitSecs[i] : 0.0;
+                    if (rel > maxRel) maxRel = rel;
+                }
+                double meanSignedErr = sumSignedErr / jitN;
+                double varSignedErr = Math.Max(0.0, sumSignedErr2 / jitN - meanSignedErr * meanSignedErr);
+                sb.AppendLine("StatJITEtaExpectedMeanSec: " + (sumE / jitN).ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatJITEtaActualMeanSec: " + (sumA / jitN).ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatJITEtaMeanGapSec: " + meanSignedErr.ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatJITEtaGapVarianceSec2: " + varSignedErr.ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatJITEtaGapStdDevSec: " + Math.Sqrt(varSignedErr).ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatJITEtaMeanAbsErrSec: " + (sumAbsErr / jitN).ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatJITEtaMeanRelErrPct: " + (sumAbsRel / jitN * 100.0).ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatJITEtaMaxRelErrPct: " + (maxRel * 100.0).ToString(IOConstants.FORMATTER));
+                double aggregateBiasPct = sumE > 1e-9 ? (sumA - sumE) / sumE * 100.0 : 0.0;
+                sb.AppendLine("StatJITEtaAggregateBiasPct: " + aggregateBiasPct.ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatJITEtaStopGoMean: " + (sumStopGo / jitN).ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatJITEtaQueueStopGoMean: " + (sumQueueStopGo / jitN).ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatJITEtaConflictWaitMeanSec: " + (sumJitWait / jitN).ToString(IOConstants.FORMATTER));
+            }
+
+            // ─── Station starvation, split into two mutually-exclusive types ───
+            // Type A "supply lag" (optimizable): has order, no pod ready/queued (pod not yet arrived).
+            // Type B "no-order waste" (HADGS left station unassigned): no order and no pod.
+            double simDuration = SettingConfig.SimulationDuration;
+            int nStations = OutputStations.Count;
+            sb.AppendLine("StatStationStarvationTimeSec: " + StatOverallStationStarvationTimeSec.ToString(IOConstants.FORMATTER));
+            double starvPct = (simDuration > 0 && nStations > 0)
+                ? StatOverallStationStarvationTimeSec / (simDuration * nStations) * 100.0
+                : 0.0;
+            sb.AppendLine("StatStationStarvationPctOfSimXStations: " + starvPct.ToString(IOConstants.FORMATTER));
+            sb.AppendLine("StatStationNoOrderIdleTimeSec: " + StatOverallStationNoOrderIdleTimeSec.ToString(IOConstants.FORMATTER));
+            double noOrderPct = (simDuration > 0 && nStations > 0)
+                ? StatOverallStationNoOrderIdleTimeSec / (simDuration * nStations) * 100.0
+                : 0.0;
+            sb.AppendLine("StatStationNoOrderIdlePctOfSimXStations: " + noOrderPct.ToString(IOConstants.FORMATTER));
+
+            // ─── Diagnostic: per-pod-handoff gap (prev pod finished → next pod first pick) ───
+            int hN = StatPodHandoffGapSamples.Count;
+            sb.AppendLine("StatPodHandoffGapCount: " + hN.ToString(IOConstants.FORMATTER));
+            if (hN > 0)
+            {
+                double hSum = 0, hMax = 0;
+                for (int i = 0; i < hN; i++) { hSum += StatPodHandoffGapSamples[i]; if (StatPodHandoffGapSamples[i] > hMax) hMax = StatPodHandoffGapSamples[i]; }
+                var hSorted = new List<double>(StatPodHandoffGapSamples); hSorted.Sort();
+                sb.AppendLine("StatPodHandoffGapSumSec: " + hSum.ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatPodHandoffGapMeanSec: " + (hSum / hN).ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatPodHandoffGapMaxSec: " + hMax.ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatPodHandoffGapP50Sec: " + hSorted[hN / 2].ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatPodHandoffGapP95Sec: " + hSorted[(int)(hN * 0.95)].ToString(IOConstants.FORMATTER));
+            }
+
+            // ─── SA-HADGS: candidate commit timeliness ───
+            sb.AppendLine("StatSaHadgsOnTimeCommits: " + StatSaHadgsOnTimeCommits.ToString(IOConstants.FORMATTER));
+            sb.AppendLine("StatSaHadgsLateCommits: " + StatSaHadgsLateCommits.ToString(IOConstants.FORMATTER));
+            sb.AppendLine("StatSaHadgsLatenessMeanSec: " + (StatSaHadgsLateCommits > 0 ? StatSaHadgsLatenessSumSec / StatSaHadgsLateCommits : 0.0).ToString(IOConstants.FORMATTER));
+
+            // ─── Per-pod queue-wait + picking-time (per pod visit to OS) ───
+            int qN = StatPodQueueWaitSamples.Count;
+            int pN = StatPodPickingTimeSamples.Count;
+            sb.AppendLine("StatPodVisitCount: " + Math.Min(qN, pN).ToString(IOConstants.FORMATTER));
+            if (qN > 0)
+            {
+                double qSum = 0, qMax = 0;
+                for (int i = 0; i < qN; i++) { qSum += StatPodQueueWaitSamples[i]; if (StatPodQueueWaitSamples[i] > qMax) qMax = StatPodQueueWaitSamples[i]; }
+                var qSorted = new List<double>(StatPodQueueWaitSamples); qSorted.Sort();
+                sb.AppendLine("StatPodQueueWaitMeanSec: " + (qSum / qN).ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatPodQueueWaitMaxSec: " + qMax.ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatPodQueueWaitP50Sec: " + qSorted[qN / 2].ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatPodQueueWaitP95Sec: " + qSorted[(int)(qN * 0.95)].ToString(IOConstants.FORMATTER));
+            }
+            if (pN > 0)
+            {
+                double pSum = 0, pMax = 0;
+                for (int i = 0; i < pN; i++) { pSum += StatPodPickingTimeSamples[i]; if (StatPodPickingTimeSamples[i] > pMax) pMax = StatPodPickingTimeSamples[i]; }
+                var pSorted = new List<double>(StatPodPickingTimeSamples); pSorted.Sort();
+                sb.AppendLine("StatPodPickingTimeMeanSec: " + (pSum / pN).ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatPodPickingTimeMaxSec: " + pMax.ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatPodPickingTimeP50Sec: " + pSorted[pN / 2].ToString(IOConstants.FORMATTER));
+                sb.AppendLine("StatPodPickingTimeP95Sec: " + pSorted[(int)(pN * 0.95)].ToString(IOConstants.FORMATTER));
+            }
+            // Per-pod-visit CSV dump
+            if ((qN > 0 || pN > 0) && Directory.Exists(SettingConfig.StatisticsDirectory))
+            {
+                string podCsv = Path.Combine(SettingConfig.StatisticsDirectory, "pod_visit_metrics.csv");
+                int n = Math.Min(qN, pN);
+                using (var sw = new StreamWriter(podCsv))
+                {
+                    sw.WriteLine("idx;queue_wait_sec;picking_time_sec");
+                    for (int i = 0; i < n; i++)
+                        sw.WriteLine(i + ";" + StatPodQueueWaitSamples[i].ToString(IOConstants.FORMATTER) + ";" +
+                                     StatPodPickingTimeSamples[i].ToString(IOConstants.FORMATTER));
+                }
+            }
+
+            // ─── Diagnostic KPIs for value-vs-distance tradeoff investigation ────────
+            // KPI A: orders served per pod-visit — does a single pod typically serve >1 order?
+            WritePercentileBlock(sb, "StatPodVisitOrdersServed", StatPodVisitOrdersServedSamples);
+            // KPI B: per-station inbound-pod count at decision trigger — queue congestion at OB time
+            WritePercentileBlock(sb, "StatDecisionTriggerQueueDepth", StatDecisionTriggerQueueDepthSamples);
+            // KPI C: decision-space — how many choices does HADGS face per trigger?
+            WritePercentileBlock(sb, "StatDecisionAvailableStationSlots", StatDecisionAvailableStationSlotsSamples);
+            WritePercentileBlock(sb, "StatDecisionUnusedPods", StatDecisionUnusedPodsSamples);
+            WritePercentileBlock(sb, "StatDecisionPendingOrders", StatDecisionPendingOrdersSamples);
+            WritePercentileBlockLong(sb, "StatDecisionCandidateCombos", StatDecisionCandidateCombosSamples);
+            // KPI D: bots in Rest / Idle at HADGS trigger — over-supply signal
+            WritePercentileBlock(sb, "StatDecisionBotsInRest", StatDecisionBotsInRestSamples);
+            WritePercentileBlock(sb, "StatDecisionBotsIdleOrRest", StatDecisionBotsIdleOrRestSamples);
             sb.AppendLine("StatTimeIdleSec: " + StatOverallTimeIdleSec.ToString(IOConstants.FORMATTER));
-            sb.AppendLine("StatRobotUtilization: " + (double.IsNaN(utilization) ? "NaN" : utilization.ToString(IOConstants.FORMATTER)));
+            sb.AppendLine("StatTimeRestSec: " + StatOverallTimeRestSec.ToString(IOConstants.FORMATTER));
+            // ── Layered utilization: Raw vs Productive vs Effective ───────────────────
+            // Raw      : 1 − idle/total  (legacy; counts Rest as utilized — INFLATES)
+            // Productive: subtracts Rest as well (genuine task-doing fraction)
+            // Effective : also subtracts at-station queue + congestion wait
+            //             (fraction of bot-time actually advancing throughput)
+            sb.AppendLine("StatRobotUtilization: " + (double.IsNaN(StatUtilizationRaw) ? "NaN" : StatUtilizationRaw.ToString(IOConstants.FORMATTER)));
+            sb.AppendLine("StatRobotUtilizationProductive: " + (double.IsNaN(StatUtilizationProductive) ? "NaN" : StatUtilizationProductive.ToString(IOConstants.FORMATTER)));
+            sb.AppendLine("StatRobotUtilizationEffective: " + (double.IsNaN(StatUtilizationEffective) ? "NaN" : StatUtilizationEffective.ToString(IOConstants.FORMATTER)));
             double eWaitToMechRatio = StatOverallEnergyTotalJ > 0
                 ? StatOverallEWaitJ / StatOverallEnergyTotalJ : double.NaN;
             sb.AppendLine("StatEWaitToMechRatio: " + (double.IsNaN(eWaitToMechRatio) ? "NaN" : eWaitToMechRatio.ToString(IOConstants.FORMATTER)));
@@ -1224,6 +2060,68 @@ namespace RAWSimO.Core
         /// Writes a CSV KPI report covering the 6-layer metrics framework.
         /// Columns: layer,metric,empty,loaded,total,unit
         /// </summary>
+        private static void WritePercentileBlockLong(StringBuilder sb, string prefix, List<long> samples)
+        {
+            sb.AppendLine(prefix + "_count: " + samples.Count);
+            if (samples.Count == 0)
+            {
+                foreach (var k in new[] { "mean", "p25", "p50", "p75", "p95", "max" })
+                    sb.AppendLine(prefix + "_" + k + ": NaN");
+                return;
+            }
+            var sorted = samples.OrderBy(v => v).ToList();
+            int n = sorted.Count;
+            double Pct(double q)
+            {
+                double pos = q * (n - 1);
+                int lo = (int)Math.Floor(pos);
+                int hi = (int)Math.Ceiling(pos);
+                if (lo == hi) return sorted[lo];
+                return sorted[lo] + (pos - lo) * (sorted[hi] - sorted[lo]);
+            }
+            sb.AppendLine(prefix + "_mean: " + samples.Average().ToString(IOConstants.FORMATTER));
+            sb.AppendLine(prefix + "_p25: " + Pct(0.25).ToString(IOConstants.FORMATTER));
+            sb.AppendLine(prefix + "_p50: " + Pct(0.50).ToString(IOConstants.FORMATTER));
+            sb.AppendLine(prefix + "_p75: " + Pct(0.75).ToString(IOConstants.FORMATTER));
+            sb.AppendLine(prefix + "_p95: " + Pct(0.95).ToString(IOConstants.FORMATTER));
+            sb.AppendLine(prefix + "_max: " + sorted[n - 1]);
+        }
+
+        /// <summary>
+        /// Writes count, mean, p25/p50/p75/p95/max for an integer sample list.
+        /// Used for diagnostic distribution KPIs (pod-visit orders, queue depth, etc.).
+        /// </summary>
+        private static void WritePercentileBlock(StringBuilder sb, string prefix, List<int> samples)
+        {
+            sb.AppendLine(prefix + "_count: " + samples.Count);
+            if (samples.Count == 0)
+            {
+                sb.AppendLine(prefix + "_mean: NaN");
+                sb.AppendLine(prefix + "_p25: NaN");
+                sb.AppendLine(prefix + "_p50: NaN");
+                sb.AppendLine(prefix + "_p75: NaN");
+                sb.AppendLine(prefix + "_p95: NaN");
+                sb.AppendLine(prefix + "_max: NaN");
+                return;
+            }
+            var sorted = samples.OrderBy(v => v).ToList();
+            int n = sorted.Count;
+            double Pct(double q)
+            {
+                double pos = q * (n - 1);
+                int lo = (int)Math.Floor(pos);
+                int hi = (int)Math.Ceiling(pos);
+                if (lo == hi) return sorted[lo];
+                return sorted[lo] + (pos - lo) * (sorted[hi] - sorted[lo]);
+            }
+            sb.AppendLine(prefix + "_mean: " + samples.Average().ToString(IOConstants.FORMATTER));
+            sb.AppendLine(prefix + "_p25: " + Pct(0.25).ToString(IOConstants.FORMATTER));
+            sb.AppendLine(prefix + "_p50: " + Pct(0.50).ToString(IOConstants.FORMATTER));
+            sb.AppendLine(prefix + "_p75: " + Pct(0.75).ToString(IOConstants.FORMATTER));
+            sb.AppendLine(prefix + "_p95: " + Pct(0.95).ToString(IOConstants.FORMATTER));
+            sb.AppendLine(prefix + "_max: " + sorted[n - 1]);
+        }
+
         private void WriteKpiReport(StreamWriter sw)
         {
             var bots = Bots.OfType<Bots.BotNormal>().ToList();
@@ -1330,6 +2228,30 @@ namespace RAWSimO.Core
                 fmt(totalDistEmpty > 0 ? tnC_E / totalDistEmpty : 0.0),
                 fmt(totalDistLoad  > 0 ? tnC_L / totalDistLoad  : 0.0), "", "per m"));
 
+            // Stop-and-go: congestion-induced stop/restart cycles. Split into:
+            //   stop_and_go_*       = WHCA*/reservation-table planned-wait stop/restart
+            //   queue_stop_and_go_* = QueueManager creep stop/restart inside station queue zones
+            // Plus queue_holding_*  = stationary support energy while waiting in queue (already tracked).
+            // Not split by load state. Stop-and-go energy is a strict subset of E1+E2; queue holding is a strict subset of E_support.
+            sw.WriteLine(row("L4", "stop_and_go_count", "", "", StatOverallStopAndGoCount.ToString(IOConstants.FORMATTER), "events"));
+            sw.WriteLine(row("L4", "stop_and_go_energy_kJ", "", "", fmt(StatOverallStopAndGoEnergyJ / 1000.0), "kJ"));
+            sw.WriteLine(row("L4", "stop_and_go_pct_of_e1e2", "", "",
+                fmt((e1J + e2J) > 0 ? 100.0 * StatOverallStopAndGoEnergyJ / (e1J + e2J) : 0.0), "%"));
+            sw.WriteLine(row("L4", "stop_and_go_per_order", "", "",
+                fmt(StatOverallOrdersHandled > 0 ? (double)StatOverallStopAndGoCount / StatOverallOrdersHandled : 0.0), "per order"));
+            sw.WriteLine(row("L4", "queue_stop_and_go_count", "", "", StatOverallQueueStopAndGoCount.ToString(IOConstants.FORMATTER), "events"));
+            sw.WriteLine(row("L4", "queue_stop_and_go_energy_kJ", "", "", fmt(StatOverallQueueStopAndGoEnergyJ / 1000.0), "kJ"));
+            sw.WriteLine(row("L4", "queue_stop_and_go_pct_of_e1e2", "", "",
+                fmt((e1J + e2J) > 0 ? 100.0 * StatOverallQueueStopAndGoEnergyJ / (e1J + e2J) : 0.0), "%"));
+            sw.WriteLine(row("L4", "queue_stop_and_go_per_order", "", "",
+                fmt(StatOverallOrdersHandled > 0 ? (double)StatOverallQueueStopAndGoCount / StatOverallOrdersHandled : 0.0), "per order"));
+            sw.WriteLine(row("L4", "queue_holding_time_sec", "", "", fmt(StatOverallQueueingAtStationTimeSec), "s"));
+            sw.WriteLine(row("L4", "queue_holding_energy_kJ", "", "", fmt(StatOverallEQueueingAtStationJ / 1000.0), "kJ"));
+            sw.WriteLine(row("L4", "queue_holding_pct_of_support", "", "",
+                fmt(StatOverallESupportJ > 0 ? 100.0 * StatOverallEQueueingAtStationJ / StatOverallESupportJ : 0.0), "%"));
+            sw.WriteLine(row("L4", "queue_holding_per_order_kJ", "", "",
+                fmt(StatOverallOrdersHandled > 0 ? StatOverallEQueueingAtStationJ / 1000.0 / StatOverallOrdersHandled : 0.0), "per order"));
+
             // Layer 5: wait
             sw.WriteLine(row("L5", "wait_time_sec", fmt(waitT_E), fmt(waitT_L), fmt(waitT_E + waitT_L), "s"));
             sw.WriteLine(row("L5", "wait_energy_kJ", fmt(waitE_E / 1000.0), fmt(waitE_L / 1000.0),
@@ -1353,8 +2275,8 @@ namespace RAWSimO.Core
             //   move    = E1+E2+E3 (mechanical drive)
             //   turn    = E4       (mechanical rotation)
             //   lift    = E5       (mechanical lift/lower)
-            //   wait    = P_SUPPORT × WaitTimeSec  (routing-induced congestion cost)
-            //   support = E_support_total − wait  (P_SUPPORT during motion & station service, no standby)
+            //   wait    = SupportPower(Pod) × WaitTimeSec  (routing-induced congestion cost)
+            //   support = E_support_total − wait  (always-on background minus the wait subset; includes standby)
             // denominator = move+turn+lift+wait+support = StatOverallEnergyTotalWithSupportJ
             double totMove = moveE_L + moveE_E;
             double totTurn = turnE_L + turnE_E;
@@ -1392,5 +2314,219 @@ namespace RAWSimO.Core
         }
 
         #endregion
+    }
+
+    public class SlowStartDecisionTrace
+    {
+        public double Time;
+        public string BotId;
+        public string TaskId;
+        public string PodId;
+        public string StationId;
+        public double EtaNow;
+        public double TStarve;
+        public double QueueBudget;
+        public double ReleaseBudget;
+        public double Slack;
+        public double ChosenDelay;
+        public double Deadline;
+        public string ReleasePolicy;
+        public double EtaSafetyBuffer;
+        public bool ProbeSuccess;
+        public string ReleaseReason;
+        public int StationPendingItems;
+        public double StationBusyRemaining;
+        public double StationQueueWork;
+        public double EtaAtRelease = double.NaN;
+        public double RemainingTStarveAtRelease = double.NaN;
+        public double BestFutureEtaAtRelease = double.NaN;
+        public double BestFutureDelayAtRelease = double.NaN;
+        public double EtaImprovementAtRelease = double.NaN;
+        public int NeighborCountAtDecision;
+        public int MissingArrivalCount;
+        public double QueueArrivalTime = double.NaN;
+        public double MovementStartTime = double.NaN;
+        public double ReleaseTime = double.NaN;
+        public double ActualHoldTime = double.NaN;
+        public double ActualArrivalTime = double.NaN;
+        public double ActualEta = double.NaN;
+        public double ReleaseToQueueTime = double.NaN;
+        public double MovementTimeToQueue = double.NaN;
+        public double ArrivalError = double.NaN;
+        public double StationIdleAtArrival = double.NaN;
+        public double QueueWaitAtStation = double.NaN;
+        public double ProcessingFinishTime = double.NaN;
+        public double ProcessingTime = double.NaN;
+
+        public static string GetHeader()
+        {
+            return "time,bot_id,task_id,pod_id,station_id,eta_now,t_starve,queue_budget,release_budget,slack,chosen_delay,deadline,release_policy,eta_safety_buffer,probe_success,release_reason,station_pending_items,station_busy_remaining,station_queue_work,eta_at_release,remaining_t_starve_at_release,best_future_eta_at_release,best_future_delay_at_release,eta_improvement_at_release,neighbor_count_at_decision,missing_arrival_count,queue_arrival_time,movement_start_time,release_time,actual_hold_time,actual_arrival_time,actual_eta,release_to_queue_time,movement_time_to_queue,arrival_error,station_idle_at_arrival,queue_wait_at_station,processing_finish_time,processing_time";
+        }
+
+        public string GetLine()
+        {
+            return F(Time) + "," +
+                S(BotId) + "," +
+                S(TaskId) + "," +
+                S(PodId) + "," +
+                S(StationId) + "," +
+                F(EtaNow) + "," +
+                F(TStarve) + "," +
+                F(QueueBudget) + "," +
+                F(ReleaseBudget) + "," +
+                F(Slack) + "," +
+                F(ChosenDelay) + "," +
+                F(Deadline) + "," +
+                S(ReleasePolicy) + "," +
+                F(EtaSafetyBuffer) + "," +
+                (ProbeSuccess ? "1" : "0") + "," +
+                S(ReleaseReason) + "," +
+                StationPendingItems.ToString(IOConstants.FORMATTER) + "," +
+                F(StationBusyRemaining) + "," +
+                F(StationQueueWork) + "," +
+                F(EtaAtRelease) + "," +
+                F(RemainingTStarveAtRelease) + "," +
+                F(BestFutureEtaAtRelease) + "," +
+                F(BestFutureDelayAtRelease) + "," +
+                F(EtaImprovementAtRelease) + "," +
+                NeighborCountAtDecision.ToString(IOConstants.FORMATTER) + "," +
+                MissingArrivalCount.ToString(IOConstants.FORMATTER) + "," +
+                F(QueueArrivalTime) + "," +
+                F(MovementStartTime) + "," +
+                F(ReleaseTime) + "," +
+                F(ActualHoldTime) + "," +
+                F(ActualArrivalTime) + "," +
+                F(ActualEta) + "," +
+                F(ReleaseToQueueTime) + "," +
+                F(MovementTimeToQueue) + "," +
+                F(ArrivalError) + "," +
+                F(StationIdleAtArrival) + "," +
+                F(QueueWaitAtStation) + "," +
+                F(ProcessingFinishTime) + "," +
+                F(ProcessingTime);
+        }
+
+        private static string F(double value)
+        {
+            return double.IsNaN(value) ? "" : value.ToString(IOConstants.EXPORT_FORMAT_SHORTER, IOConstants.FORMATTER);
+        }
+
+        private static string S(string value)
+        {
+            return (value ?? "").Replace(",", "_");
+        }
+    }
+
+    public class SlowStartHoldingDecisionTrace
+    {
+        public double DecisionTime;
+        public string BotId;
+        public string TaskId;
+        public string PodId;
+        public string StationId;
+        public double StationEst;
+        public double StationWorkHorizon;
+        public double StationStarvationGap;
+        public int StationLateJobs;
+        public int StationUncertainJobs;
+        public double Buffer;
+        public double Lift;
+        public double Travel;
+        public double Value;
+        public double ProcessingBudget;
+        public double ReleaseBudget;
+        public double HoldingBudget;
+        public double HoldDelay;
+        public double Deadline;
+        public double HoldElapsed;
+        public bool Feasible;
+        public bool Chosen;
+        public bool ChosenReleaseNow;
+        public int HolderCount;
+        public string ChosenBotId;
+        public int StationPendingItems;
+        public double StationBusyRemaining;
+        public double StationQueueWork;
+        public int NeighborCountAtDecision;
+        public string ReleaseReason = "";
+        public double ReleaseTime = double.NaN;
+        public double ActualHoldTime = double.NaN;
+        public double EtaAtRelease = double.NaN;
+        public double RemainingEstAtRelease = double.NaN;
+        public double MovementStartTime = double.NaN;
+        public double QueueArrivalTime = double.NaN;
+        public double ActualArrivalTime = double.NaN;
+        public double ActualEta = double.NaN;
+        public double ReleaseToQueueTime = double.NaN;
+        public double MovementTimeToQueue = double.NaN;
+        public double ArrivalError = double.NaN;
+        public double StationIdleAtArrival = double.NaN;
+        public double QueueWaitAtStation = double.NaN;
+        public double ProcessingFinishTime = double.NaN;
+        public double ProcessingTime = double.NaN;
+
+        public static string GetHeader()
+        {
+            return "decision_time,bot_id,task_id,pod_id,station_id,station_est,station_work_horizon,station_starvation_gap,station_late_jobs,station_uncertain_jobs,buffer,lift,travel,value,processing_budget,release_budget,holding_budget,hold_delay,deadline,hold_elapsed,feasible,chosen,chosen_release_now,holder_count,chosen_bot_id,station_pending_items,station_busy_remaining,station_queue_work,neighbor_count_at_decision,release_reason,release_time,actual_hold_time,eta_at_release,remaining_est_at_release,movement_start_time,queue_arrival_time,actual_arrival_time,actual_eta,release_to_queue_time,movement_time_to_queue,arrival_error,station_idle_at_arrival,queue_wait_at_station,processing_finish_time,processing_time";
+        }
+
+        public string GetLine()
+        {
+            return F(DecisionTime) + "," +
+                S(BotId) + "," +
+                S(TaskId) + "," +
+                S(PodId) + "," +
+                S(StationId) + "," +
+                F(StationEst) + "," +
+                F(StationWorkHorizon) + "," +
+                F(StationStarvationGap) + "," +
+                StationLateJobs.ToString(IOConstants.FORMATTER) + "," +
+                StationUncertainJobs.ToString(IOConstants.FORMATTER) + "," +
+                F(Buffer) + "," +
+                F(Lift) + "," +
+                F(Travel) + "," +
+                F(Value) + "," +
+                F(ProcessingBudget) + "," +
+                F(ReleaseBudget) + "," +
+                F(HoldingBudget) + "," +
+                F(HoldDelay) + "," +
+                F(Deadline) + "," +
+                F(HoldElapsed) + "," +
+                (Feasible ? "1" : "0") + "," +
+                (Chosen ? "1" : "0") + "," +
+                (ChosenReleaseNow ? "1" : "0") + "," +
+                HolderCount.ToString(IOConstants.FORMATTER) + "," +
+                S(ChosenBotId) + "," +
+                StationPendingItems.ToString(IOConstants.FORMATTER) + "," +
+                F(StationBusyRemaining) + "," +
+                F(StationQueueWork) + "," +
+                NeighborCountAtDecision.ToString(IOConstants.FORMATTER) + "," +
+                S(ReleaseReason) + "," +
+                F(ReleaseTime) + "," +
+                F(ActualHoldTime) + "," +
+                F(EtaAtRelease) + "," +
+                F(RemainingEstAtRelease) + "," +
+                F(MovementStartTime) + "," +
+                F(QueueArrivalTime) + "," +
+                F(ActualArrivalTime) + "," +
+                F(ActualEta) + "," +
+                F(ReleaseToQueueTime) + "," +
+                F(MovementTimeToQueue) + "," +
+                F(ArrivalError) + "," +
+                F(StationIdleAtArrival) + "," +
+                F(QueueWaitAtStation) + "," +
+                F(ProcessingFinishTime) + "," +
+                F(ProcessingTime);
+        }
+
+        private static string F(double value)
+        {
+            return double.IsNaN(value) ? "" : value.ToString(IOConstants.EXPORT_FORMAT_SHORTER, IOConstants.FORMATTER);
+        }
+
+        private static string S(string value)
+        {
+            return (value ?? "").Replace(",", "_");
+        }
     }
 }

@@ -33,6 +33,12 @@ namespace RAWSimO.MultiAgentPathFinding.Methods
         public bool UseDeadlockHandler = true;
 
         /// <summary>
+        /// WHCA*v-P planning order: loaded-first (TotalWeight desc), then vertical heading,
+        /// then distance-to-destination, then retry-priority, then bot id.
+        /// </summary>
+        public bool UseRulePriority = false;
+
+        /// <summary>
         /// The RRA* Searches
         /// </summary>
         public Dictionary<int, ReverseResumableAStar> rraStars;
@@ -115,11 +121,11 @@ namespace RAWSimO.MultiAgentPathFinding.Methods
             _reservationTable.Clear();
             var fixedBlockage = AgentInfoExtractor.getStartBlockage(agents, currentTime);
 
-            SortAgents(ref agents, agentPrios);
-
             //set fixed blockage
             foreach (var interval in fixedBlockage.Values.SelectMany(d => d))
                 _reservationTable.Add(interval);
+
+            SortAgents(ref agents, agentPrios, currentTime);
 
             //deadlock handling
             if (UseDeadlockHandler)
@@ -147,9 +153,11 @@ namespace RAWSimO.MultiAgentPathFinding.Methods
                 {
                     rraStars[agent.ID] = new ReverseResumableAStar(Graph, agent, agent.Physics, agent.DestinationNode);
                 }
+                rraStars[agent.ID].ShouldAbort = () => Stopwatch.ElapsedMilliseconds / 1000.0 > runtimeLimit * 0.9;
 
                 //search my path to the goal
                 var aStar = new SpaceTimeAStar(Graph, LengthOfAWaitStep, currentTime + LengthOfAWindow, _reservationTable, agent, rraStars[agent.ID]);
+                aStar.ShouldAbort = () => Stopwatch.ElapsedMilliseconds / 1000.0 > runtimeLimit * 0.9;
 
                 //the agent with a higher priority has to wait so that the others can go out of the way
                 aStar.WaitStepsBeforeStart = (int)(Math.Pow(2, agentPrios[agent.ID]) / 2.0);
@@ -208,9 +216,38 @@ namespace RAWSimO.MultiAgentPathFinding.Methods
         /// </summary>
         /// <param name="agents">The agents.</param>
         /// <param name="queues">The queues.</param>
-        private void SortAgents(ref List<Agent> agents, Dictionary<int, int> agentPrios)
+        private void SortAgents(ref List<Agent> agents, Dictionary<int, int> agentPrios, double currentTime)
         {
-            agents = agents.OrderByDescending(a => agentPrios[a.ID]).ThenBy(a => a.CanGoThroughObstacles ? 1 : 0).ThenBy(a => Graph.getDistance(a.NextNode, a.DestinationNode)).ToList();
+            if (UseRulePriority)
+            {
+                var reachesGoalInWindow = agents.ToDictionary(a => a.ID, a => CanReachDestinationWithinWindow(a, currentTime));
+                agents = agents
+                    .OrderByDescending(a => agentPrios[a.ID])
+                    .ThenBy(a => reachesGoalInWindow[a.ID] ? 0 : 1)
+                    .ThenBy(a => a.TaskPriorityRank)
+                    .ThenBy(a => Graph.getDistance(a.NextNode, a.DestinationNode))
+                    .ThenBy(a => a.ID)
+                    .ToList();
+                return;
+            }
+
+            agents = agents
+                .OrderByDescending(a => agentPrios[a.ID])
+                .ThenBy(a => a.CanGoThroughObstacles ? 1 : 0)
+                .ThenBy(a => Graph.getDistance(a.NextNode, a.DestinationNode))
+                .ThenBy(a => a.ID)
+                .ToList();
+        }
+
+        private bool CanReachDestinationWithinWindow(Agent agent, double currentTime)
+        {
+            if (agent.FixedPosition || agent.NextNode == agent.DestinationNode)
+                return true;
+
+            var rraStar = new ReverseResumableAStar(Graph, agent, agent.Physics, agent.DestinationNode);
+            var aStar = new SpaceTimeAStar(Graph, LengthOfAWaitStep, currentTime + LengthOfAWindow, _reservationTable, agent, rraStar);
+            var found = aStar.Search();
+            return found && aStar.GoalNode >= 0 && aStar.NodeTo2D(aStar.GoalNode) == agent.DestinationNode;
         }
     }
 }

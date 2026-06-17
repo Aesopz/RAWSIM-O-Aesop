@@ -30,4 +30,7 @@ scripts/__pycache__/
 
 # OS
 Thumbs.db
-desktop.ini.worktrees/
+desktop.ini
+
+# Git worktrees
+.worktrees/
