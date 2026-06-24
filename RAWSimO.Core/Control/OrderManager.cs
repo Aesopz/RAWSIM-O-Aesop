@@ -294,20 +294,34 @@ namespace RAWSimO.Core.Control
                 SituationInvestigated = false;
                 idoforder++;
             }
-            if (Instance.ControllerConfig.OrderBatchingConfig is HADGSConfiguration)
+            if (Instance.ControllerConfig.OrderBatchingConfig is HADGSConfiguration hadgsConfig)
             {
-                GenerateCs();
-                //Decide about remaining orders
-                if (!SituationInvestigated || Cs.Any(v => v.Value > _ThresholdValue - 1))
+                if (hadgsConfig.UseM1GTriggerGate)
                 {
-                    //Measure time for decision
-                    DateTime before = DateTime.Now;
-                    if (Cs.Any(v => v.Value > _ThresholdValue - 1))
-                        DecideAboutPendingOrders();// Do the actual work
-                                                   //Calculate decision time
-                    Instance.Observer.TimeOrderBatching((DateTime.Now - before).TotalSeconds);
-                    //Remember that we had a look at the situation
-                    SituationInvestigated = true;
+                    if (!SituationInvestigated)
+                    {
+                        GenerateCs();
+                        if (Cs.Any(v => v.Value > _ThresholdValue - 1))
+                        {
+                            DateTime before = DateTime.Now;
+                            DecideAboutPendingOrders();
+                            Instance.Observer.TimeOrderBatching((DateTime.Now - before).TotalSeconds);
+                        }
+                        SituationInvestigated = true;
+                    }
+                }
+                else
+                {
+                    GenerateCs();
+                    // Legacy HADGS trigger: keep re-evaluating while station capacity exists.
+                    if (!SituationInvestigated || Cs.Any(v => v.Value > _ThresholdValue - 1))
+                    {
+                        DateTime before = DateTime.Now;
+                        if (Cs.Any(v => v.Value > _ThresholdValue - 1))
+                            DecideAboutPendingOrders();
+                        Instance.Observer.TimeOrderBatching((DateTime.Now - before).TotalSeconds);
+                        SituationInvestigated = true;
+                    }
                 }
             }
             else

@@ -19,8 +19,11 @@
   <SlowStartEnabled>false</SlowStartEnabled>
   <SlowStartInputEnabled>false</SlowStartInputEnabled>
   <SlowStartUseReservationEta>false</SlowStartUseReservationEta>
+  <StarveAwareCostEnabled>false</StarveAwareCostEnabled>
+  <StarveAwareFixedParam>30</StarveAwareFixedParam>
+  <StarveAwareNominalSpeed>0</StarveAwareNominalSpeed>
   <InputBacklogAwareHold>false</InputBacklogAwareHold>
-  <InputSequentialRelease>false</InputSequentialRelease>
+  <InputSequentialRelease>true</InputSequentialRelease>
   <BackfillProbeEnabled>false</BackfillProbeEnabled>
   <SlowStartReleasePolicy>StationSlack</SlowStartReleasePolicy>
   <SlowStartEtaSafetyBuffer>0</SlowStartEtaSafetyBuffer>
@@ -32,6 +35,8 @@
   <StationShutdownThresholdTime>600</StationShutdownThresholdTime>
   <CorrelativeFrequencyTracking>false</CorrelativeFrequencyTracking>
   <IntenseLocationPolling>false</IntenseLocationPolling>
+  <DisableHeavyLogging>true</DisableHeavyLogging>
+  <OrderBatchingTriggerThreshold>1</OrderBatchingTriggerThreshold>
   <InventoryConfiguration>
     <ItemType>SimpleItem</ItemType>
     <OrderMode>Fill</OrderMode>

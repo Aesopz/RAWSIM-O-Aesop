@@ -5,6 +5,7 @@ using RAWSimO.Core.IO;
 using RAWSimO.Core.Randomization;
 using RAWSimO.Playground.Generators;
 using RAWSimO.Playground.Tests;
+using RAWSimO.Playground.Tools;
 using RAWSimO.Toolbox;
 using System;
 using System.Collections.Generic;
@@ -22,6 +23,11 @@ namespace RAWSimO.Playground
     {
         static void Main(string[] args)
         {
+            if (args.Length >= 1 && args[0] == "eta-surrogate")
+            {
+                Environment.Exit(EtaSurrogateDatasetExporter.Run(args));
+                return;
+            }
             if (args.Length == 1 && args[0] == "selftest")
             {
                 int rc = RAWSimO.Playground.Tests.StationReleaseSchedulerSelfTest.RunAll();

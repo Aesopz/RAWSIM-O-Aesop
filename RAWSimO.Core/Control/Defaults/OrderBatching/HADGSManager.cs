@@ -41,19 +41,20 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// </summary>
         public int LocalSearch = 3;
         bool IfSimplePOAandPPS = false;
+        private readonly Dictionary<int, Dictionary<int, double>> _podStationDistanceCache =
+            new Dictionary<int, Dictionary<int, double>>();
 
-        private double EstimateBotPodDistance(Bot bot, Pod pod)
+        protected double EstimateBotPodDistance(Bot bot, Pod pod)
         {
             if (bot == null || pod == null)
                 return double.PositiveInfinity;
 
             var botWaypoint = GetBotReferenceWaypoint(bot);
+            var podWaypoint = GetPodReferenceWaypoint(pod);
             double botX = botWaypoint != null ? botWaypoint.X : bot.X;
             double botY = botWaypoint != null ? botWaypoint.Y : bot.Y;
-            var podWaypoint = GetPodReferenceWaypoint(pod);
             double podX = podWaypoint != null ? podWaypoint.X : pod.X;
             double podY = podWaypoint != null ? podWaypoint.Y : pod.Y;
-
             double physDist = Math.Abs(botX - podX) + Math.Abs(botY - podY);
 
             if (_config != null && _config.UseBAED && bot.CurrentWaypoint != null && podWaypoint != null)
@@ -80,7 +81,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             return null;
         }
 
-        private double EstimatePodStationDistance(Pod pod, OutputStation station)
+        protected double EstimatePodStationDistance(Pod pod, OutputStation station)
         {
             if (pod == null || station == null || station.Waypoint == null)
                 return double.PositiveInfinity;
@@ -88,17 +89,25 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             var podWaypoint = GetPodReferenceWaypoint(pod);
 
             double physDist;
-            if (podWaypoint != null &&
-                DistanceSet.ContainsKey(station.Waypoint.ID) &&
-                DistanceSet[station.Waypoint.ID].ContainsKey(podWaypoint.ID))
+            if (podWaypoint != null)
             {
-                physDist = DistanceSet[station.Waypoint.ID][podWaypoint.ID];
+                if (!_podStationDistanceCache.TryGetValue(station.Waypoint.ID, out Dictionary<int, double> stationDistances))
+                {
+                    stationDistances = new Dictionary<int, double>();
+                    _podStationDistanceCache.Add(station.Waypoint.ID, stationDistances);
+                }
+
+                if (!stationDistances.TryGetValue(podWaypoint.ID, out physDist))
+                {
+                    physDist = Distances.CalculateShortestPathPodSafe(
+                        podWaypoint, station.Waypoint, Instance);
+                    stationDistances.Add(podWaypoint.ID, physDist);
+                }
             }
             else
             {
-                double podX = podWaypoint != null ? podWaypoint.X : pod.X;
-                double podY = podWaypoint != null ? podWaypoint.Y : pod.Y;
-                physDist = Math.Abs(podX - station.Waypoint.X) + Math.Abs(podY - station.Waypoint.Y);
+                physDist = Math.Abs(pod.X - station.Waypoint.X) +
+                    Math.Abs(pod.Y - station.Waypoint.Y);
             }
 
             if (_config != null && _config.UseBAED && podWaypoint != null)
@@ -112,7 +121,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             return physDist;
         }
 
-        private RAWSimO.Core.Waypoints.Waypoint GetPodReferenceWaypoint(Pod pod)
+        protected RAWSimO.Core.Waypoints.Waypoint GetPodReferenceWaypoint(Pod pod)
         {
             if (pod == null)
                 return null;
@@ -891,11 +900,19 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// This method is being timed for statistical purposes and is also ONLY called when <code>SituationInvestigated</code> is <code>false</code>.
         /// Hence, set the field accordingly to react on events not tracked by this outer skeleton.
         /// </summary>
+        /// <summary>SA-HADGS hook: extra additive cost on the output pod score. The selector is
+        /// MINIMIZED, so a positive value pushes the pod away. Base HADGS adds nothing.</summary>
+        protected virtual double PodStationScoreAdjustment(Pod pod, OutputStation station) { return 0.0; }
+        /// <summary>SA-HADGS hook: per-decision precompute (e.g. EST per station). Base HADGS no-op.</summary>
+        protected virtual void PrepareDecisionExtras() { }
+
         protected override void DecideAboutPendingOrders()
         {
             // If not initialized, do it now
             if (_bestCandidateSelectNormal == null)
                 Initialize();
+            // SA-HADGS: precompute starvation-aware inputs (EST etc.); no-op in base HADGS.
+            PrepareDecisionExtras();
             // KPI: snapshot per-station inbound-pod count at the moment of decision trigger
             // (one sample per station per trigger). Used to characterize queue congestion at OB decisions.
             foreach (var _kpiStation in Instance.OutputStations)
@@ -944,8 +961,9 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             }
             if (_bestPodOStationCandidateSelector == null)
             {
+                var _baseOutputScorer = GenerateScorerPodForOStationBot(_config1.PodSelectionConfig.OutputPodScorer);
                 _bestPodOStationCandidateSelector = new BestCandidateSelector(false,
-                    GenerateScorerPodForOStationBot(_config1.PodSelectionConfig.OutputPodScorer),
+                    () => _baseOutputScorer() + PodStationScoreAdjustment(_currentPod, _currentOStation),
                     GenerateScorerPodForOStationBot(_config1.PodSelectionConfig.OutputPodScorerTieBreaker1));
             }
             // Define filter functions

@@ -1,0 +1,8 @@
+instance=C:\Users\CodexSandboxOffline\.codex\.sandbox\cwd\84e42e2a4ddb5877\Material\Instances\CoreBenchmark\small\small.xlayo
+setting=C:\Users\CodexSandboxOffline\.codex\.sandbox\cwd\84e42e2a4ddb5877\Material\Instances\CoreBenchmark\small\small_o100_mu100.xsett
+control=C:\Users\CodexSandboxOffline\.codex\.sandbox\cwd\84e42e2a4ddb5877\Material\Instances\CoreBenchmark\small\sequ_whcan.xconf
+sample_csv=C:\Users\CodexSandboxOffline\.codex\.sandbox\cwd\84e42e2a4ddb5877\analysis\eta_surrogate\small\eta_samples.csv
+bot_count=15
+pod_count=100
+output_station_count=2
+waypoint_count=352

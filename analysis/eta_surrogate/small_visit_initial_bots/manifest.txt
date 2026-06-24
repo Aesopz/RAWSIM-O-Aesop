@@ -1,0 +1,10 @@
+instance=C:\Users\Aesop\Desktop\EE-RAWSim-O_PP\Material\Instances\CoreBenchmark\small\small.xlayo
+setting=C:\Users\Aesop\Desktop\EE-RAWSim-O_PP\Material\Instances\CoreBenchmark\small\small_o100_mu100.xsett
+control=C:\Users\Aesop\Desktop\EE-RAWSim-O_PP\Material\Instances\CoreBenchmark\small\sequ_whcan.xconf
+sample_csv=C:\Users\Aesop\Desktop\EE-RAWSim-O_PP\analysis\eta_surrogate\small_visit_initial_bots\eta_samples.csv
+source_scope=initial_bots
+max_visits=0
+bot_count=15
+pod_count=100
+output_station_count=2
+waypoint_count=352

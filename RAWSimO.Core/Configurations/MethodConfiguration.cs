@@ -308,6 +308,10 @@ namespace RAWSimO.Core.Configurations
         /// </summary>
         SAHADGS,
         /// <summary>
+        /// Starvation-aware M1G: M1G plus a pod-delay penalty (free-flow arrival vs station EST).
+        /// </summary>
+        SAM1G,
+        /// <summary>
         /// An approach selecting an order that is most similar to the ones already assigned to a station.
         /// </summary>
         LinesInCommon,
@@ -739,6 +743,7 @@ namespace RAWSimO.Core.Configurations
     [XmlInclude(typeof(ForesightOrderBatchingConfiguration))]
     [XmlInclude(typeof(PodMatchingOrderBatchingConfiguration))]
     [XmlInclude(typeof(M1GConfiguration))]
+    [XmlInclude(typeof(SAM1GConfiguration))]
     [XmlInclude(typeof(M1GReturnPendingConfiguration))]
     [XmlInclude(typeof(M2GConfiguration))]
     [XmlInclude(typeof(HASConfiguration))]

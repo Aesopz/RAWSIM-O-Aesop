@@ -313,6 +313,27 @@ namespace RAWSimO.Core.Configurations
         }
     }
     /// <summary>
+    /// Starvation-Aware M1G (SA-M1G): M1G plus a pod-delay penalty in the pod-&gt;station objective.
+    /// When a pod's free-flow ideal arrival (bot-&gt;pod + pod-&gt;station, conflict-free lower bound)
+    /// exceeds the target station's EST (FirstStarveSec), the starvation window (arrival - EST) is
+    /// penalized by <see cref="DelayPenaltyWeight"/>. Discourages high-value pods that would starve
+    /// the station. EST recomputed each solve.
+    /// </summary>
+    public class SAM1GConfiguration : M1GConfiguration
+    {
+        /// <summary>Returns the type of the corresponding method this configuration belongs to.</summary>
+        public override OrderBatchingMethodType GetMethodType() { return OrderBatchingMethodType.SAM1G; }
+        /// <summary>Sweep knob: penalty weight applied to the estimated starvation delay
+        /// (seconds the pod's free-flow arrival exceeds the target station's EST). To be tuned.</summary>
+        public double DelayPenaltyWeight = 1.0;
+        /// <summary>Returns a name identifying the method.</summary>
+        public override string GetMethodName()
+        {
+            if (!string.IsNullOrWhiteSpace(Name)) return Name;
+            return "obSAM1G" + DelayPenaltyWeight.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+    }
+    /// <summary>
     /// M1G variant that can reserve a next pod for bots that are nearly done returning their current pod.
     /// </summary>
     public class M1GReturnPendingConfiguration : M1GConfiguration
@@ -460,6 +481,12 @@ namespace RAWSimO.Core.Configurations
         /// </summary>
         public double ReturnPendingDistanceThreshold = 1.0;
         /// <summary>
+        /// When enabled, HADGS only re-evaluates after SituationInvestigated has
+        /// been invalidated, matching the M1G trigger gate. Default off preserves
+        /// the legacy HADGS behavior of re-evaluating while station capacity exists.
+        /// </summary>
+        public bool UseM1GTriggerGate = false;
+        /// <summary>
         /// Returns a name identifying the method.
         /// </summary>
         /// <returns>The name of the method.</returns>
@@ -493,12 +520,20 @@ namespace RAWSimO.Core.Configurations
         }
     }
     /// <summary>
-    /// Starvation-aware HADGS. Inherits HADGSConfiguration so OrderManager.Update's
-    /// `is HADGSConfiguration` epoch trigger applies unchanged.
+    /// Starvation-aware HADGS. Inherits HADGSConfiguration and enables the
+    /// M1G-style SituationInvestigated trigger gate by default.
     /// See docs/superpowers/specs/2026-06-13-sa-hadgs-design.md.
     /// </summary>
     public class SAHADGSConfiguration : HADGSConfiguration
     {
+        /// <summary>
+        /// Creates a starvation-aware HADGS configuration with the M1G trigger
+        /// gate enabled. Set UseM1GTriggerGate=false to restore legacy triggering.
+        /// </summary>
+        public SAHADGSConfiguration()
+        {
+            UseM1GTriggerGate = true;
+        }
         /// <summary>
         /// Returns the type of the corresponding method this configuration belongs to.
         /// </summary>
@@ -536,6 +571,12 @@ namespace RAWSimO.Core.Configurations
         /// backlog, most HADGS-like). Cover-sets are still seeded from the top TopKOrders only.
         /// </summary>
         public int CompletableHorizon = 0;
+        /// <summary>
+        /// SA-M1G-aligned sweep knob: penalty weight applied to the estimated starvation delay
+        /// (seconds the pod's free-flow arrival exceeds the target station's EST). Added to the
+        /// minimized output pod score so late pods are avoided. Mirrors SAM1GConfiguration.DelayPenaltyWeight.
+        /// </summary>
+        public double DelayPenaltyWeight = 10.0;
         /// <summary>
         /// Returns a name identifying the method.
         /// </summary>

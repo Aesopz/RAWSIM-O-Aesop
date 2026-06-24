@@ -112,6 +112,7 @@
     <BAEDReferenceSpeed>1.5</BAEDReferenceSpeed>
     <UseReturnPendingBots>false</UseReturnPendingBots>
     <ReturnPendingDistanceThreshold>1</ReturnPendingDistanceThreshold>
+    <UseM1GTriggerGate>true</UseM1GTriggerGate>
     <OrderRewardSec>60</OrderRewardSec>
     <TravelTimeWeight>0.1</TravelTimeWeight>
     <TopKOrders>3</TopKOrders>

@@ -104,7 +104,13 @@ namespace RAWSimO.Core.Bots
         /// <summary>
         /// Clears the complete state queue.
         /// </summary>
-        private void StateQueueClear() { _stateQueue.Clear(); _currentInfoStateName = ""; }
+        private void StateQueueClear()
+        {
+            _stateQueue.Clear();
+            _pendingTripsLoaded.Clear();
+            _pendingEtaSurrogateLegTraces.Clear();
+            _currentInfoStateName = "";
+        }
         /// <summary>
         /// The number of states currently in the queue.
         /// </summary>
@@ -155,6 +161,11 @@ namespace RAWSimO.Core.Bots
         /// activated (multiple _appendMoveStates may run in same tick before any movement).
         /// </summary>
         private Queue<bool> _pendingTripsLoaded = new Queue<bool>();
+        /// <summary>
+        /// Optional ETA-surrogate diagnostics aligned with _pendingTripsLoaded.
+        /// </summary>
+        private Queue<EtaSurrogateActualLegTrace> _pendingEtaSurrogateLegTraces = new Queue<EtaSurrogateActualLegTrace>();
+        private EtaSurrogateActualLegTrace _activeEtaSurrogateLegTrace = null;
 
         /// <summary>Per-trip recorded metrics (flushed at CloseCurrentTrip).</summary>
         public struct TripRecord
@@ -164,6 +175,59 @@ namespace RAWSimO.Core.Bots
             public double EnergyJ;       // mechanical (E1..E5) consumed during trip
             public double WaitTimeSec;
             public int TurnCount;
+        }
+
+        private class EtaSurrogateActualLegTrace
+        {
+            public string Kind;
+            public int VisitId;
+            public int LegIndex;
+            public string SourceScope;
+            public int BotId;
+            public int StationQueueWaypointId;
+            public int FromId;
+            public int ToId;
+            public int PodId;
+            public int StationId;
+            public bool Loaded;
+            public double OrientationBucket;
+            public double FromX;
+            public double FromY;
+            public double ToX;
+            public double ToY;
+            public double AbsDx;
+            public double AbsDy;
+            public double Euclid;
+            public double Manhattan;
+            public bool SameTier;
+            public bool FromStorage;
+            public bool ToStorage;
+            public bool FromQueue;
+            public bool ToQueue;
+            public int FromDegree;
+            public int ToDegree;
+            public bool PathFound;
+            public int PathHops;
+            public double PathDistance;
+            public int PathTurns;
+            public int PathSegments;
+            public double EtaSec;
+            // ── A2: decision-time load-state features (captured at trip build) ──
+            public double TripStartTime;
+            public int LoadedBotCount;
+            public int StationInboundCount;
+            public int LocalBotCountSrc;
+            public int LocalBotCountDest;
+            // ── A2b: station-centric congestion features (pod→station) ──
+            public int CodestBotCount;
+            public int StationFaceBotCount;
+        }
+
+        private struct EtaSurrogatePathFeatures
+        {
+            public double Distance;
+            public int Turns;
+            public int Segments;
         }
         /// <summary>Per-trip records for loaded trips.</summary>
         public List<TripRecord> PerTripRecordsLoaded = new List<TripRecord>();
@@ -192,6 +256,11 @@ namespace RAWSimO.Core.Bots
                     };
                     if (_activeTripLoaded) { PerTripWaitRatioLoaded.Add(waitRatio); PerTripRecordsLoaded.Add(rec); }
                     else                   { PerTripWaitRatioEmpty.Add(waitRatio);  PerTripRecordsEmpty.Add(rec);  }
+                    if (_activeEtaSurrogateLegTrace != null)
+                    {
+                        AppendEtaSurrogateActualLeg(_activeEtaSurrogateLegTrace, dur, _currentTripWaitSec, _currentTripTurnCount, 0, 0);
+                        _activeEtaSurrogateLegTrace = null;
+                    }
                 }
                 _tripOpen = false;
             }
@@ -211,8 +280,189 @@ namespace RAWSimO.Core.Bots
                 _tripStartDistanceM = StatDistanceTraveledM;
                 _currentTripTurnCount = 0;
                 _tripOpen = true;
+                _activeEtaSurrogateLegTrace = _pendingEtaSurrogateLegTraces.Count > 0
+                    ? _pendingEtaSurrogateLegTraces.Dequeue()
+                    : null;
             }
         }
+
+        private EtaSurrogateActualLegTrace BuildEtaSurrogateActualLegTrace(
+            string kind, int legIndex, Waypoint from, Waypoint to, Pod pod, OutputStation station,
+            bool loaded, double initialOrientation, Waypoint stationQueueWaypoint)
+        {
+            if (from == null || to == null)
+                return null;
+            // Skip analysis-only eta-surrogate leg tracing (per-trip A* + O(N) fleet scans) when heavy logging is off.
+            if (Instance != null && Instance.SettingConfig != null && Instance.SettingConfig.DisableHeavyLogging)
+                return null;
+
+            List<Waypoint> path = Instance.MetaInfoManager.TimeEfficientPathManager
+                .GetShortestPathNodes(from, to, Instance, loaded);
+            bool pathFound = path != null && path.Count >= 2;
+            EtaSurrogatePathFeatures pf = pathFound
+                ? BuildEtaSurrogatePathFeatures(path, Instance.StraightOrientationTolerance)
+                : new EtaSurrogatePathFeatures();
+            double eta = pathFound
+                ? Control.JIT.IdealTravelTime.Compute(path, Physics, Instance.StraightOrientationTolerance, initialOrientation)
+                : double.PositiveInfinity;
+
+            double dx = Math.Abs(from.X - to.X);
+            double dy = Math.Abs(from.Y - to.Y);
+            double euclid = Math.Sqrt(dx * dx + dy * dy);
+            double manhattan = dx + dy;
+            int visitId = CurrentTask != null ? CurrentTask.GetHashCode() : 0;
+
+            // ── A2: decision-time load-state features ──
+            double tripStartTime = Instance != null && Instance.Controller != null ? Instance.Controller.CurrentTime : 0.0;
+            int loadedBots = 0;
+            if (Instance != null && Instance.Bots != null)
+                foreach (var b in Instance.Bots)
+                    if (b != null && b.Pod != null) loadedBots++;
+            int stationInbound = station != null && station.InboundPods != null ? station.InboundPods.Count() : -1;
+            int localSrc = CountBotsNear(from.X, from.Y, from.Tier, EtaLoadLocalRadius);
+            int localDest = CountBotsNear(to.X, to.Y, to.Tier, EtaLoadLocalRadius);
+            // A2b: station-centric features (only meaningful when targeting a station)
+            int codest = 0, stationFace = -1;
+            if (station != null)
+            {
+                if (Instance != null && Instance.Bots != null)
+                    foreach (var b in Instance.Bots)
+                        if (b != null && b != this && (b.CurrentTask as ExtractTask)?.OutputStation == station) codest++;
+                if (station.Waypoint != null)
+                    stationFace = CountBotsNear(station.Waypoint.X, station.Waypoint.Y, station.Waypoint.Tier, EtaLoadStationFaceRadius);
+            }
+
+            return new EtaSurrogateActualLegTrace
+            {
+                Kind = kind,
+                VisitId = visitId,
+                LegIndex = legIndex,
+                SourceScope = "actual_sim",
+                BotId = ID,
+                StationQueueWaypointId = stationQueueWaypoint != null ? stationQueueWaypoint.ID : -1,
+                FromId = from.ID,
+                ToId = to.ID,
+                PodId = pod != null ? pod.ID : -1,
+                StationId = station != null ? station.ID : -1,
+                Loaded = loaded,
+                OrientationBucket = double.IsNaN(initialOrientation) ? -1.0 : initialOrientation,
+                FromX = from.X,
+                FromY = from.Y,
+                ToX = to.X,
+                ToY = to.Y,
+                AbsDx = dx,
+                AbsDy = dy,
+                Euclid = euclid,
+                Manhattan = manhattan,
+                SameTier = from.Tier == to.Tier,
+                FromStorage = from.PodStorageLocation,
+                ToStorage = to.PodStorageLocation,
+                FromQueue = from.IsQueueWaypoint,
+                ToQueue = to.IsQueueWaypoint,
+                FromDegree = from.Paths.Count(),
+                ToDegree = to.Paths.Count(),
+                PathFound = pathFound,
+                PathHops = pathFound ? path.Count - 1 : 0,
+                PathDistance = pf.Distance,
+                PathTurns = pf.Turns,
+                PathSegments = pf.Segments,
+                EtaSec = eta,
+                TripStartTime = tripStartTime,
+                LoadedBotCount = loadedBots,
+                StationInboundCount = stationInbound,
+                LocalBotCountSrc = localSrc,
+                LocalBotCountDest = localDest,
+                CodestBotCount = codest,
+                StationFaceBotCount = stationFace
+            };
+        }
+
+        /// <summary>A2: radius [m] for local bot-density features around src/dest waypoints.</summary>
+        private const double EtaLoadLocalRadius = 4.0;
+        /// <summary>A2b: radius [m] around the station face for queue-occupancy proxy.</summary>
+        private const double EtaLoadStationFaceRadius = 6.0;
+        /// <summary>A2: count other bots on the same tier within <paramref name="radius"/> of (x,y).
+        /// O(N) over the fleet (N small); used only by the eta-surrogate leg logger.</summary>
+        private int CountBotsNear(double x, double y, object tier, double radius)
+        {
+            if (Instance == null || Instance.Bots == null) return 0;
+            double r2 = radius * radius;
+            int c = 0;
+            foreach (var b in Instance.Bots)
+            {
+                if (b == null || b == this) continue;
+                if (tier != null && !ReferenceEquals(b.Tier, tier)) continue;
+                double bdx = b.X - x, bdy = b.Y - y;
+                if (bdx * bdx + bdy * bdy <= r2) c++;
+            }
+            return c;
+        }
+
+        private static EtaSurrogatePathFeatures BuildEtaSurrogatePathFeatures(IReadOnlyList<Waypoint> path, double straightOrientationTolerance)
+        {
+            double distance = 0.0;
+            int turns = 0;
+            int segments = path.Count >= 2 ? 1 : 0;
+            double prevOri = 0.0;
+            bool hasPrev = false;
+
+            for (int i = 0; i < path.Count - 1; i++)
+            {
+                Waypoint a = path[i];
+                Waypoint b = path[i + 1];
+                distance += a.GetDistance(b);
+                double ori = Circle.GetOrientation(a.X, a.Y, b.X, b.Y);
+                if (hasPrev)
+                {
+                    double diff = Math.Abs(Circle.GetOrientationDifference(prevOri, ori));
+                    if (diff >= straightOrientationTolerance)
+                    {
+                        turns++;
+                        segments++;
+                    }
+                }
+                prevOri = ori;
+                hasPrev = true;
+            }
+
+            return new EtaSurrogatePathFeatures
+            {
+                Distance = distance,
+                Turns = turns,
+                Segments = segments
+            };
+        }
+
+        private void AppendEtaSurrogateActualLeg(EtaSurrogateActualLegTrace trace, double actualSec,
+            double waitSec, int turnCount, int stopGoCount, int queueStopGoCount)
+        {
+            if (trace == null || Instance == null)
+                return;
+
+            Instance.StatEtaSurrogateActualLegRows.Add(string.Join(",",
+                trace.Kind,
+                I(trace.VisitId), I(trace.LegIndex), trace.SourceScope, I(trace.BotId), I(trace.StationQueueWaypointId),
+                I(trace.FromId), I(trace.ToId), I(trace.PodId), I(trace.StationId), B(trace.Loaded), D(trace.OrientationBucket),
+                D(trace.FromX), D(trace.FromY), D(trace.ToX), D(trace.ToY),
+                D(trace.AbsDx), D(trace.AbsDy), D(trace.Euclid), D(trace.Manhattan),
+                B(trace.SameTier), B(trace.FromStorage), B(trace.ToStorage), B(trace.FromQueue), B(trace.ToQueue),
+                I(trace.FromDegree), I(trace.ToDegree),
+                B(trace.PathFound), I(trace.PathHops), D(trace.PathDistance), I(trace.PathTurns), I(trace.PathSegments),
+                D(trace.EtaSec), D(actualSec), D(waitSec), I(turnCount), I(stopGoCount), I(queueStopGoCount),
+                D(trace.TripStartTime), I(trace.LoadedBotCount), I(trace.StationInboundCount), I(trace.LocalBotCountSrc), I(trace.LocalBotCountDest),
+                I(trace.CodestBotCount), I(trace.StationFaceBotCount)));
+        }
+
+        private static string D(double value)
+        {
+            if (double.IsPositiveInfinity(value)) return "inf";
+            if (double.IsNegativeInfinity(value)) return "-inf";
+            if (double.IsNaN(value)) return "nan";
+            return value.ToString("G17", System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        private static string I(int value) { return value.ToString(System.Globalization.CultureInfo.InvariantCulture); }
+        private static string B(bool value) { return value ? "1" : "0"; }
 
         /// <summary>
         /// rotate until
@@ -744,7 +994,11 @@ namespace RAWSimO.Core.Bots
                     if (extractTask.ReservedPod != Pod)
                     {
                         var podWaypoint = extractTask.ReservedPod.Waypoint;
-                        _appendMoveStates(CurrentWaypoint, podWaypoint, tripLoaded: false);
+                        var b2pTrace = BuildEtaSurrogateActualLegTrace(
+                            "bot_to_pod", 1, CurrentWaypoint, podWaypoint, extractTask.ReservedPod,
+                            extractTask.OutputStation, loaded: false, initialOrientation: Orientation,
+                            stationQueueWaypoint: Control.JIT.JITArrivalETA.ResolveQueueRearWaypoint(extractTask.OutputStation));
+                        _appendMoveStates(CurrentWaypoint, podWaypoint, tripLoaded: false, etaTrace: b2pTrace);
                         // Pre-lift hold: bot reaches pod cell, then HOLDS empty (orange) before
                         // lifting. Release timing accounts for PodTransferTime so that
                         // (hold + lift + travel) ≈ T_starve. Pre-lift hold also saves the
@@ -786,7 +1040,7 @@ namespace RAWSimO.Core.Bots
         /// </summary>
         /// <param name="waypointFrom">The from waypoint.</param>
         /// <param name="waypointTo">The destination waypoint.</param>
-        private void _appendMoveStates(Waypoint waypointFrom, Waypoint waypointTo, bool? tripLoaded = null)
+        private void _appendMoveStates(Waypoint waypointFrom, Waypoint waypointTo, bool? tripLoaded = null, EtaSurrogateActualLegTrace etaTrace = null)
         {
             // ── Per-trip tracking: each solver-dispatched path (currentWaypoint → destinationWaypoint)
             // counts as one trip. Loaded/empty passed by caller (task dispatch knows the semantic —
@@ -801,6 +1055,7 @@ namespace RAWSimO.Core.Bots
                 if (tripLoaded.Value) StatTripCountLoaded++;
                 else                  StatTripCountEmpty++;
                 _pendingTripsLoaded.Enqueue(tripLoaded.Value);
+                _pendingEtaSurrogateLegTraces.Enqueue(etaTrace);
             }
 
             double distance;
@@ -1250,6 +1505,7 @@ namespace RAWSimO.Core.Bots
         private double _lastTripJITWaitSec = 0.0;
         private string _lastTripJITTaskId = "";
         internal Waypoints.Waypoint _lastTripJITDestination = null;
+        private EtaSurrogateActualLegTrace _lastTripJITEtaSurrogateTrace = null;
         /// <summary>Sequence of waypoints actually visited during the current JIT-tracked trip, in order.
         /// Used to validate IdealTravelTime formula against the path the bot truly walked
         /// (independent of A* path-choice variance).</summary>
@@ -1412,9 +1668,18 @@ namespace RAWSimO.Core.Bots
                 Instance.StatJITEtaStopGoCounts.Add(_lastTripJITStopGoCount);
                 Instance.StatJITEtaQueueStopGoCounts.Add(_lastTripJITQueueStopGoCount);
                 Instance.StatJITEtaWaitSecs.Add(_lastTripJITWaitSec);
+                if (_lastTripJITEtaSurrogateTrace != null)
+                {
+                    double realActualDur = _queueTripStartTime > 0.0
+                        ? Math.Max(0.0, arrivalTime - _queueTripStartTime)
+                        : actualDur;
+                    AppendEtaSurrogateActualLeg(_lastTripJITEtaSurrogateTrace, realActualDur,
+                        _lastTripJITWaitSec, _currentTripTurnCount, _lastTripJITStopGoCount, _lastTripJITQueueStopGoCount);
+                }
             }
             _lastTripExpectedDurationSec = double.NaN;
             _lastTripJITDestination = null;
+            _lastTripJITEtaSurrogateTrace = null;
             _lastTripActualPath = null;
             _lastTripActualArrivals = null;
             _lastTripJITTripId = -1;
@@ -2045,6 +2310,9 @@ namespace RAWSimO.Core.Bots
                                 ? bot.CurrentTask.GetHashCode().ToString(IOConstants.FORMATTER)
                                 : "";
                             bot._lastTripInitialOrientation = bot.Orientation;
+                            bot._lastTripJITEtaSurrogateTrace = bot.BuildEtaSurrogateActualLegTrace(
+                                "pod_to_station_queue", 2, bot.CurrentWaypoint, dest, bot.Pod, os,
+                                loaded: true, initialOrientation: bot.Orientation, stationQueueWaypoint: dest);
                             // Start fresh actual-path trace; seed with current waypoint as start.
                             bot._lastTripActualPath = new List<Waypoints.Waypoint> { bot.CurrentWaypoint };
                             bot._lastTripActualArrivals = new List<double> { bot.Instance.Controller.CurrentTime };
@@ -2063,6 +2331,7 @@ namespace RAWSimO.Core.Bots
                             // Already at the location - no trip to do
                             bot._queueTripStartTime = double.NaN;
                             bot._lastTripExpectedDurationSec = double.NaN;
+                            bot._lastTripJITEtaSurrogateTrace = null;
                         }
                     }
                     else if (DestinationWaypoint.InputStation != null)

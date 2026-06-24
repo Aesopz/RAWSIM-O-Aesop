@@ -1,0 +1,2750 @@
+
+---PAGE 1---
+Online Joint Order Assignment and Task Allocation in
+Robotic Mobile Fulﬁllment Systems under Travel Time
+Uncertainty
+Yundong Feng a, Yiqi Sun b and Zuojun Max Shen c
+a Department of Industrial Engineering, Tsinghua University, Beijing, China,
+b Department of Data and Systems Engineering, The University of Hong Kong, Hong
+Kong, China,
+c Faculty of Engineering and Faculty of Business and Economics, The University of Hong
+Kong, Hong Kong, China.
+Abstract
+In this study, we address the online joint order assignment and task allocation prob-
+lem in Robotic Mobile Fulﬁllment Systems (RMFS), focusing on travel time uncertain-
+ties arising from unpredictable congestion and the adaptive routing of Autonomous
+Mobile Robots (AMRs). Our model jointly optimizes both the sequencing of orders at
+workstations and the allocation of transport tasks − deﬁned as the movement of speciﬁc
+pods between storage areas and workstations − to individual AMRs. To capture op-
+erational dynamics, we ﬁrst formulate a stochastic programming model. To overcome
+computational intractability, we reformulate this model as an approximate dynamic
+programming (ADP) framework using Lagrange relaxation. Within this architecture,
+we rigorously capture the travel time uncertainty by constructing nested ambiguity
+sets and developing a data-driven distributionally robust optimization (DRO) model.
+We further design an eﬃcient heuristic algorithm with bounded approximation guaran-
+tees. Numerical experiments based on real-world data demonstrate that our approach
+substantially outperforms a traditional greedy algorithm, achieving a 14.87% average
+relative improvement in workstation occupancy rate. These results highlight the value
+of explicitly modeling travel time uncertainty for real-time decision-making in high-
+throughput RMFS environments.
+Keywords: Task Allocation, Order Assignment, Online Scheduling, Robotic Mobile Fulﬁll-
+ment System, Data-Driven Distributionally Robust Optimization.
+1 Introduction
+The Robotic Mobile Fulﬁllment System (RMFS) represents a signiﬁcant advancement in
+automated storage and order picking systems, oﬀering superior eﬃciency, storage capacity,
+and ﬂexibility. The system’s key innovation lies in its use of Autonomous Mobile Robots
+(AMRs), which can lift and transport “pods”, i.e., shelf rack units containing inventory,
+between storage areas and workstations. The beneﬁts of the RMFS are manifold. Firstly,
+it signiﬁcantly enhances pick-up eﬃciency, as order picking is the most time-consuming
+operation in warehouses (Shah and Khanzode, 2017), and RMFS allows workers or robots
+1
+
+
+---PAGE 2---
+at workstations to remain stationary instead of traversing the warehouse to pick pack-
+ages. In addition, because AMRs can maneuver beneath the shelves, the storage density
+of RMFS is greatly increased compared with traditional warehouses, leading to substan-
+tial savings in space and inventory costs. Lastly, the RMFS oﬀers exceptional ﬂexibility.
+AMRs can dynamically reposition shelves during warehouse operations, allowing for a highly
+adaptable inventory layout. Since Amazon ﬁrst introduced the Kiva RMFS in the United
+States in 2012, similar systems have been developed and implemented by various compa-
+nies worldwide. These advanced systems include Geek+ by JizhijiaTech in China, Butler
+by GreyOrange in India, and Racrew by Hitachi in Japan, etc.
+(a) Transport with AMR
+ (b) Workstation
+ (c) Storage Area
+Figure 1: Illustration of the RMFS of Geek+, China
+Despite its proven eﬃciency and cost-eﬀectiveness in practice, the operational manage-
+ment of RMFS remains highly challenging due to its inherent complexity. Even estimat-
+ing the performance of a given RMFS is a nontrivial task (Lamballais et al., 2017; Yang
+et al., 2021). Moreover, unlike traditional Automated Guided Vehicles (AGVs), AMRs
+can autonomously respond to their environment and re-route without human intervention,
+introducing substantial uncertainty in travel times (Lamballais Tessensohn et al., 2020;
+da Costa Barros and Nascimento, 2021). This uncertainty is further exacerbated under
+high order volumes, where AMR congestion becomes diﬃcult to predict. In addition, fun-
+damental operational strategies in RMFS − such as task allocation, order assignment, and
+pod storage assignment − are computationally intensive yet require rapid responses due to
+the system’s highly dynamic nature (Merschformann et al., 2019). The task allocation prob-
+lem involves assigning transportation tasks to AMRs; the order assignment problem focuses
+on allocating pick-up and replenishment orders to workstations or pods; and the pod stor-
+2
+
+
+---PAGE 3---
+age assignment problem concerns placing pods in designated areas within the storage zone.
+Our research concentrates on the integrated order assignment and task allocation problem.
+Speciﬁcally, we jointly consider the online assignment of speciﬁed orders to workstations
+for processing and the allocation of the corresponding transportation tasks to AMRs.
+Numerous studies have investigated operational strategies in RMFS from various per-
+spectives. To the best of our knowledge, existing research can largely be categorized into
+two streams based on their formulation approaches. The ﬁrst stream adopts mixed-integer
+programming (MIP) to formulate the deterministic RMFS problems. For example, Boysen
+et al. (2017) analyzes the sequencing of orders and pod visits in a setting with a single
+picking workstation. They formulate an MIP model to minimize the number of pod vis-
+its and propose a heuristic algorithm to iteratively generate feasible solutions. Similarly,
+Valle and Beasley (2021) uses MIP to model the problem of assigning orders and racks to
+pickers, also aiming to minimize pod usage, and proposes two heuristics for approximate
+solutions. In contrast, Kim et al. (2020) formulates an MIP model to assign items to pods,
+with the objective of maximizing the intra-pod similarity of items for operational eﬃciency.
+More recent research has shifted toward practical objectives, such as minimizing system
+makespan, and considers the joint optimization of task allocation and order assignment
+(e.g., Wang et al., 2022; Zhen et al., 2023). While MIP formulations allow for precise
+strategy generation, most studies remain limited to static settings due to the high compu-
+tational complexity involved. Furthermore, AMR traﬃc congestion can cause signiﬁcant
+delays in travel times, rendering static model solutions infeasible in real-world operations.
+As a result, these models typically require excessive transport capacity and oversimpliﬁed
+operational assumptions − conditions that are rarely realistic in practice.
+The second stream of research models the RMFS as a queuing network and incorpo-
+rates decision-making within a Markov Decision Process (MDP) framework (e.g., Lambal-
+lais Tessensohn et al., 2020; Lamballais et al., 2022). In these studies, random parameters
+are typically assumed to follow known distributions, and the system state − which includes
+the number of AMRs, workstations, and orders in various stages − evolves according to
+a transition probability matrix. This formulation allows researchers to analyze the sys-
+tems long-term behavior across multiple decision epochs. While queuing network models
+eﬀectively capture the aggregate stochastic dynamics of RMFS, their utility for real-time
+3
+
+
+---PAGE 4---
+operational decision-making is shaped by two key characteristics. First, these models typ-
+ically produce high-level operational guidelines rather than the detailed, implementable
+decisions required for online dispatch. In other words, such models are better suited for
+capturing general operational dynamics rather than producing speciﬁc task or order assign-
+ments. Second, their reliance on predetermined probability distributions makes it diﬃcult
+to reﬂect the intricate spatiotemporal dependencies characteristic of AMR congestion and
+autonomous navigationphenomena that are often inadequately described by conventional
+parametric assumptions. For instance, Lamballais et al. (2022) assume that after a pod vis-
+its a picking station, it proceeds to replenishment with a probability p, which is empirically
+estimated from real-world data.
+To enable deployable real-time decision-making with certiﬁable uncertainty quantiﬁca-
+tion, we address the online joint order assignment and task allocation problem in RMFS un-
+der travel time uncertainty − involving coordinated assignment of transport tasks to AMRs
+and orders to workstations. We formulate this integrated problem via stochastic program-
+ming and transform it into an approximate dynamic programming (ADP) framework under
+Lagrange relaxation. To mitigate adverse eﬀects of congestion-induced variability, we ex-
+plicitly model travel time uncertaintycapturing both task-speciﬁc and sequence-dependent
+variabilityusing nested ambiguity sets. This yields a data-driven distributionally robust
+counterpart to the ADP. We further reformulate this robust counterpart as a two-stage
+problem and design a polynomial-time approximate algorithm with bounded approxima-
+tion guarantees. Building on this foundation, we develop an online dispatching method
+validated with real-world data from Geek+, demonstrating a 14.87% improvement in work-
+station occupancy rate over practical greedy baselines.
+To the best of our knowledge, this study is the ﬁrst to incorporate travel time uncer-
+tainty into online RMFS optimization using a distributionally robust optimization (DRO)
+framework − setting it apart from previous research that assumes ﬁxed travel times in
+static scenarios (Lamballais et al., 2017) or presumes known distributions in queuing mod-
+els. Beyond uncertainty modeling, our work presents a uniﬁed framework for integrated
+production and distribution scheduling. In contrast to conventional transportation and
+logistic research, we explicitly account for processing times and queue dynamics at service
+stations − critical factors increasingly prevalent in modern logistics systems. By leverag-
+4
+
+
+---PAGE 5---
+ing ambiguity sets to represent real-world transportation uncertainty, our methodology is
+readily extensible to emerging applications such as last-mile delivery and drone logistics.
+Moreover, our approach diﬀers from prior studies through its comprehensive treatment of
+system component conﬁgurations. While most existing research presumes abundant AMR
+availability (Lamballais et al., 2017; Wang et al., 2022) − which simpliﬁes the problem −
+we adopt a scheduling-theoretic perspective and systematically decompose scenarios based
+on the quantitative relationships among tasks, AMRs, and workstations. Our analysis fo-
+cuses on the most challenging and operationally relevant case, where the number of tasks
+exceeds the number of AMRs, which in turn exceeds the number of workstations. This set-
+ting closely mirrors practical logistics constraints and introduces signiﬁcant computational
+challenges that our method is speciﬁcally designed to address.
+The remainder of this paper is organized as follows. Section 2 reviews the related
+literature on methodology. Section 3 introduces the model settings and formulates the
+integrated stochastic model, which is further extended into a dynamic programming model
+in Section 4. Section 5 presents the distributionally robust counterpart, incorporating travel
+time uncertainties. Section 6 provides the numerical experiments and their results. Finally,
+Section 7 concludes the paper and suggests directions for future research.
+2 Literature Review
+Beyond the operational strategies within RMFS, which have been discussed in the intro-
+duction, our research is also closely related to the integrated production and outbound
+distribution scheduling (IPODS) problem. This problem amalgamates the two most crucial
+functions in the supply chain − production and distribution − and conducts joint plan-
+ning and scheduling to minimize operating costs or maximize customer satisfaction. Early
+IPODS problems only considered oﬄine dispatching, where parameters such as operating
+time are perfectly known. For example, Potts (1980) ﬁrst analyzed the oﬄine IPODS prob-
+lem with only a single machine. Woeginger (1994) further examined the IPODS problem
+in the context of parallel machines, providing heuristic solutions with constant worst-case
+guarantees, and Cheng and Kahlbacher (1993) extended the concept from individual deliver-
+ies to batch deliveries, also taking into account vehicle routing decisions and transportation
+5
+
+
+---PAGE 6---
+costs. Lastly, Lee and Chen (2001) explicitly considered the impacts of transport capacity
+and travel time, both within the ﬂow shop and during the ﬁnal product delivery process.
+To address the limitations imposed by the practical setting of predetermined jobs and
+parameters in the oﬄine IPODS problem, researchers have utilized continuously updated
+market information to revise the parameter distribution. This revised problem is referred
+to as the O-IPOD problem, and related studies are comprehensively reviewed in Chen
+and Hall (2022). In line with classic online scheduling literature, studies on the online O-
+IPODS problem often propose heuristic algorithms for resolution. For example, Hoogeveen
+and Vestjens (2000) considered a simple single-machine online scheduling problem. They
+established that the upper bound of the competitive ratio for an online algorithm is 1+
+√
+5
+2 ,
+and proposed a straightforward online algorithm with a competitive ratio of 2. Subsequent
+research considers more complex and practical scenarios, such as capacity constraints, dis-
+tribution costs, batch processing modes, and limited distribution capacity in batch delivery
+modes (Pundoor and Chen, 2005; Tian et al., 2007; A verbakh, 2010). To our knowledge,
+the study by Tang et al. (2019) bears the closest relevance to our work. They addressed
+the integrated optimization problem of production and two-phase distribution, proposing
+both oﬄine and online algorithms and calculating their respective competitive ratios. In
+this scenario, the transportation of products from the warehouse occurs in two stages:
+initially from the factory to a transit hub, followed by delivery from the transit hub to
+the customer’s location. In contrast to prior studies, our work introduces a key structural
+distinction: a closed-loop process that requires bidirectional (inbound and outbound) trans-
+port operations. Speciﬁcally, AMRs must (i) retrieve pods from storage and deliver them
+to workstations (inbound), (ii) queue and undergo processing at workstations (production),
+and (iii) return processed pods to storage areas (outbound) before starting new tasks.
+This contrasts fundamentally with the conventional (open-loop) production → outbound
+sequence in IPODS. Consequently, our closed-loop system (inbound-production-outbound)
+inherently induces sequence-dependent travel times due to positional dependencies between
+consecutive pods’ storage locations.
+The integration of time uncertainty situates our work within DRO literature. Un-
+like classical robust optimization (RO) − which constructs uncertainty sets for parameter
+realizations and often yields overly conservative solutions (Delage and Mannor, 2010) −
+6
+
+
+---PAGE 7---
+DRO characterizes ambiguity in the underlying probability distributions through data-
+informed ambiguity sets (Wiesemann et al., 2014). This approach mitigates excessive
+conservatism while leveraging observational data. However, implementing DRO in multi-
+stage settings poses signiﬁcant computational challenges: identifying worst-case distribu-
+tions within nested ambiguity sets (used to model evolving uncertainty (Xu and Mannor,
+2012)) remains tractable primarily for convex problems. Our formulation introduces com-
+binatorial complexity through two coupled integer variable sets governing order assignment
+and task allocation. To address this, we develop a polynomial-time approximation algo-
+rithm with provable suboptimality bounds for the multi-stage DRO problem. This strategy
+decomposes the optimization at each decision epoch into tractable subproblems while pre-
+serving consistency between the coupled order assignment and task allocation decisions.
+Consequently, our DRO framework captures decision-makers’ evolving utilization of distri-
+butional knowledge while maintaining feasibility for real-time scheduling.
+The DRO approach has been widely used to model uncertainty in various optimization
+problems. For example, Carlsson and Delage (2013) and Carlsson et al. (2018) applied
+DRO to service region partitioning problems in the context of the classic traveling salesman
+problem. In the domain of last-mile delivery, Liu et al. (2020) employed DRO to capture
+uncertain delivery times in order allocation, while Ulmer et al. (2021) modeled demand and
+lead time uncertainty using DRO for stochastic dynamic pickup and delivery problems. In
+contrast to these studies, we establish a novel integrated production-distribution scheduling
+framework incorporating travel time uncertainty. Moreover, we jointly address the online
+dispatching of both AMRs and workstations − a complex setting aligned with real-world
+RMFS constraints. This approach extends DRO methodology to a broader class of tightly
+coupled production-transportation systems.
+3 Model Settings and Problem Overview
+3.1 System Settings and Assumptions
+Consider a RMFS comprising a set of tasks I = {1, 2,..., |I|}to be completed within the
+planning horizon, a set of workstations J = {1, 2,..., |J |}for order processing, and a set of
+AMRs K = {1, 2,..., |K|}for pod transportation. Each transportation task performed by
+7
+
+
+---PAGE 8---
+an AMR corresponds to an order processed at a workstation and sequentially comprises: (1)
+a pickup sub-task(navigating to the pod’s storage location), (2) a delivery sub-task(moving
+the pod to the workstation area), and (3) a return sub-task(returning the pod to the storage
+area). Given the one-to-one correspondence, we will use task indices to represent orders
+throughout the subsequent discussion. As our primary focus lies on the joint allocation of
+tasks and orders to AMRs and workstations, we assume that both tasks and the locations
+of pods corresponding to these tasks are exogenous.
+The detailed operational procedure of the RMFS is as follows: When a task i ∈ I
+is allocated to an AMR k ∈ K , the AMR picks up and delivers the required pod to a
+designated workstation j ∈ J for processing. If workstation j is occupied upon arrival,
+the AMR joins a ﬁrst-come-ﬁrst-served (FCFS) queue and waits until all preceding tasks
+at that workstation are completed. Following processing, the AMR returns the pod to
+storage and subsequently proceeds to its next allocated task i′ ∈ I , repeating the full
+pickup-delivery-queue-processing-return cycle until all allocated tasks are fulﬁlled.
+A key distinction of our research lies in the explicit modeling of AMR travel times and
+workstation processing times. Let τii′ denote the total travel time between two consec-
+utive tasks i and i′ (assigned to the same AMR), and let pi represent the deterministic
+processing time of task i at a workstation. Speciﬁcally, τii′ equals the combined travel time
+for completing the return requirement of task i and initiating the pickup and the delivery
+requirements of task i′. Since temporal uncertainties in RMFS primarily stem from AMR
+congestion, we model τii′ as a stochastic parameter. The following assumptions formalize
+these considerations:
+Assumption 3.1 The AMRs and workstations are homogeneous in capability. That is,
+(i) For any given tasks i andi′, the delivery duration τii′, which is stochastic, is invariant
+across diﬀerent AMR and workstation combinations;
+(ii) Similarly, the processing time pi for task i is invariant among various workstations.
+Assumption 3.2 (i) The travel time of AMRs is bounded and adheres to the triangle in-
+equality, i.e., τii′ +τi′i′′≤ τii′′, τii′ ∈ [0, ¯τ], ∀i,i ′,i ′′∈ I ;
+(ii) The processing time of tasks at workstations is bounded by pi ∈ [p, ¯p], ∀i ∈ I .
+Here, Assumption 3.1 posits that all AMRs are of uniform speciﬁcations and that work-
+8
+
+
+---PAGE 9---
+stations, being in close proximity, possess identical processing capabilities. This allows us
+to focus on the relationship between time and task sequencing without the confounding
+eﬀects of hardware heterogeneity. Assumption 3.2 ensures that travel times satisfy the
+triangle inequality, while both transport and processing times are bounded to support the
+subsequent mathematical analysis.
+3.2 Problem Deﬁnition and Classiﬁcation
+For a given set of tasks I, our research aims to minimize the makespan, denoted by Cmax =
+max{Ci, ∀i ∈ I}, where Ci is the completion time of task i. The decision variables include:
+(1) Task allocation to AMRs with sequence, denoted by x = {xk
+ii′ ∈ { 0, 1}, ∀i,i ′ ∈
+I, k ∈ K}. Here, xk
+ii′ = 1 signiﬁes that AMR k is sequentially allocated to tasks i and i′
+without any intervening tasks;
+(2) Order assignment to workstations with sequence, denoted by y = {yj
+ii′ ∈ {0, 1}, ∀i,i ′∈
+I, j ∈ J }. Similarly, yj
+ii′ = 1 indicates that workstation j is sequentially assigned to the
+orders corresponding to tasks i and i′ without any intervening orders.
+Given the above setup, our research problem can be transformed into a series of well-
+deﬁned scheduling problems based on the relative sizes of workstations, AMRs, and tasks.
+To align with the context of classic scheduling studies, we use sii′ to denote the setting time
+related to tasks i and i′, and ri to represent the release time of task i, where sii′ = τii′,
+ri =τ0i′ in our scenario. The dispatching problem can then be categorized as follows.
+Proposition 3.1 (i) If |I| ≤ min{|J |, |K|}, the problem can be solved in polynomial time,
+and the objective function is maxi{ri +pi}.
+(ii) If |K| ≤min{|I|, |J |}, the problem is equivalent to P|K||sii′|Cmax, which is an N P-
+hard problem.
+(iii) If |J |< |I| ≤ |K|, the problem is equivalent to P|J ||ri|Cmax, which is a an N P-hard
+problem when |J | ≥2. In addition, the Longest Processing Time (LPT) Principle provides
+a 3/ 2 approximation algorithm.
+(iv) If |J |< |K|< |I|, the problem is equivalent to a two-stage ﬂexible ﬂow shop problem
+F (|K|, |J |)|sii′,block |Cmax, which is also an N P-hard problem.
+Proposition 3.1 categorizes the transformed scheduling problem according to various
+9
+
+
+---PAGE 10---
+parameter combinations. Following Michael (1995), we use Pm to represent the scenario
+with m machines in parallel, and F (m,n ) to denote the two-stage ﬂexible ﬂow shop with
+m and n parallel machines at the two stages, respectively. Case (i) suggests that the
+number of tasks is smaller than either the number of AMRs or workstations. Consequently,
+the corresponding problem can be simpliﬁed to a more manageable problem solvable in
+polynomial time. Cases (ii) and (iii) address scenarios with a limited number and a large
+number of AMRs, respectively, and both can be transformed into well-studied N P-hard
+problems. Speciﬁcally, Case (ii) is analogous to a parallel machine scheduling problem
+with |K| machines, with the constraints on the sequence-dependent setup times of sii′.
+Similarly, Case (iii) corresponds to a parallel machine scheduling problem with |J|machines
+and respective release times of ri. Furthermore, these two cases can be transformed into
+several classic scheduling and routing problems under speciﬁc scenarios. For example, when
+|K|= 1, Case (ii) can be simpliﬁed to a Traveling Salesman Problem (TSP). Similarly, when
+2 ≤ |J |< |I| ≤ |K|, Case (iii) encompasses the following two speciﬁc scenarios:
+(1) When ri = r, ∀i ∈ I , the problem is equivalent to minimizing P|J |||Cmax. This
+problem has been studied by Graham (1969), showing that the LPT Principle is a 4/ 3
+approximation algorithm.
+(2) When pi = p, ∀i ∈ I , the problem is a P-problem, and can be optimized via list
+scheduling (LS) policy based on the set of all available tasks.
+Case (iv) in Proposition 3.1 presents the most complex scenario with fewer workstations
+and a large number of tasks. This is equivalent to a two-stage ﬂexible shop with |K|and |J|
+parallel machines at the two stages, subject to the setup times of sii′ and a critical “block”
+constraint: After completing its portion of a task, the machine (AMR) remains occupied
+until the task ﬁnishes all subsequent operations. The remainder of this research focuses
+exclusively on this operationally complex yet prevalent RMFS scenario, which remains
+understudied in scheduling literature.
+3.3 Mathematical Formulation of the Integrated Model
+To address the integrated dispatching problem, we present a stochastic programming model
+that accounts for uncertainties in travel times. In addition to x and y, we introduce two
+intermediate variables: (1) u = {ui, ∀i ∈ I}, where ui denotes the arrival time of the AMR
+10
+
+
+---PAGE 11---
+delivering task i to the corresponding workstation; and (2) v = {vi, ∀i ∈ I} , in which vi
+represents the completion time of task i’s preceding task at the workstation. Let i = 0 and
+i = |I|+ 1 denote virtual dummy tasks representing the initialization and termination of
+operations for both AMRs and workstations.. Let π∈ Π represent the optimal policy to
+make, where Π is the set of all non-anticipative policies (that is, policies that only depend
+on the observed history). Then the mathematical formulation is given as follows:
+min
+π∈ Π
+Eτ{Cmax} (1a)
+s.t. C max ≥ Ci, ∀i ∈ I, (1b)
+∑
+i′∈I
+xk
+0i′ = 1, ∀k ∈ K, (1c)
+∑
+i′∈I\{ i}
+xk
+ii′ −
+∑
+i′′∈I\{ i}
+xk
+i′′i = 0, ∀k ∈ K, ∀i ∈ I, (1d)
+∑
+i∈I
+xk
+i, |I|+1 = 1, ∀k ∈ K, (1e)
+∑
+k∈K
+∑
+i∈I∪{ 0}
+xk
+ii′ = 1, ∀i′ ∈ I\{ i}, (1f)
+∑
+i′∈I
+yj
+0i′ = 1, ∀j ∈ J, (1g)
+∑
+i′∈I\{ i}
+yj
+ii′ −
+∑
+i′′∈I\{ i}
+yj
+i′′i = 0, ∀j ∈ J, ∀i ∈ I, (1h)
+∑
+i∈I
+yj
+i, |I|+1 = 1, ∀j ∈ J, (1i)
+∑
+j∈J
+∑
+i∈I∪{ 0}
+yj
+ii′ = 1, ∀i′∈ I\{ i}, (1j)
+(Ci +τii′ − ui′)xk
+ii′ = 0, ∀i ∈ I, ∀i′∈ I\{ i}, ∀k ∈ K, (1k)
+(Ci − vi′)yj
+ii′ = 0, ∀i ∈ I, ∀i′ ∈ I\{ i}, ∀j ∈ J, (1l)
+Ci = max{ui,v i} +pi, ∀i ∈ I, (1m)
+(ui − ui′)yj
+ii′ ≤ 0, ∀i ∈ I, ∀i′ ∈ I\{ i}, ∀j ∈ J, (1n)
+xk
+ii′ ∈ {0, 1},y j
+ii′ ∈ {0, 1}, ∀k ∈ K, ∀j ∈ J, ∀i ∈ I, ∀i′ ∈ I\{ i}, (1o)
+Ci ≥ 0, ∀i ∈ I. (1p)
+Here, the objective function (1a) aims to minimize the makespan, which is deﬁned as the
+maximum completion time across all tasks in Constraint (1b). Conditions (1c) to (1f) are
+constraints related to AMRs. Speciﬁcally, Constraint (1c) requires each AMR to depart
+11
+
+
+---PAGE 12---
+from the docking position and start to execute tasks exactly once. Constraint (1d) is a ﬂow
+conservation for sequential task execution. Constraint (1e) requires each AMR to complete
+all assigned tasks and return to the docking position exactly once. Constraint (1f) ensures
+that each task is assigned to exactly one AMR. Similarly, constraints (1g) to (1j) enforce the
+sequential processing of tasks at workstations, mirroring the structure of the AMR-related
+constraints. Constraints (1k) to (1n) characterize the temporal relationships among tasks,
+and their linearization is provided in appendix A.2. Speciﬁcally, Constraint (1k) ensures
+that for two consecutive tasks i and i′ performed by the same AMR, the AMR’s arrival
+time of i′ (ui′) at the workstation equals the completion time of i (Ci) plus the transit time
+τii′. And vi is deﬁned in Constraint (1l) as the completion time of task i’s preceding task
+at the workstation. Completion time Ci is deﬁned in Constraint (1m) as the maximum of
+AMR arrival time ui and workstation release time vi, plus processing time pi. Constraint
+(1n) enforces a FCFS queue at each workstation, ensuring that tasks are processed in the
+same sequence as they arrive. Finally, Constraint (1o) stipulates that the decision variables
+are binary, and Constraint (1p) ensures the non-negativity of task completion times.
+The complexity of model 1 is evident, even without considering the travel time uncer-
+tainty. The procedures for completing tasks in our context essentially resemble the classic
+Vehicle Routing Problem (VRP). However, our problem jointly considers the order and
+task allocation for both AMRs and workstations, thereby obtaining two coupled sets of
+VRP-based constraints. This substantially ampliﬁes the complexity of the mathematical
+formulation and the challenge of solving the problem.
+4 Dynamic Programming Model
+This section extends the stochastic programming Model 1 into a solvable dynamic pro-
+gramming model for multi-period planning, which lays the groundwork for further online
+dispatching strategies.
+4.1 Problem Simpliﬁcation via Lagrange Relaxation
+A key limitation of the original model lies in its objective function, which is designed
+to minimize the system-wide makespan ( Cmax). This formulation is ill-suited for online
+12
+
+
+---PAGE 13---
+optimization because the value of Cmax can only be determined after all tasks have been
+fully allocated − a critical constraint that complicates the real-time analysis of how speciﬁc
+task allocation decisions aﬀect system performance. To address this, we propose replacing
+the original objective Cmax with reﬁned, component-speciﬁc objectives: workstation-level
+makespan (Cj
+max, ∀j) and AMR-level makespan ( Ck
+max, ∀k). By decoupling the system-
+level completion time into sub-objectives, we develop an approximate objective function
+that better aligns with the dynamic, incremental nature of online optimization strategies.
+Additionally, we demonstrate that the bounded gap between these sub-objectives and the
+original Cmax strengthens theoretical global consistency.
+4.1.1 Preliminary: Mathematical Properties of the Optimal Solutions
+We begin by analyzing the gaps between the system makespan and the completion times of
+the workstations and AMRs under the optimal strategy. Speciﬁcally, we ﬁrst introduce a
+valid inequality in Proposition 4.1, enabling us to calculate the optimal makespans for the
+system and its components. In the subsequent comparison stage, we conduct a comprehen-
+sive analysis at both the individual and aggregated levels. For analytical convenience, we
+primarily focus on the deterministic case, assuming that travel times are known in advance.
+Proposition 4.1 The optimal solutions of Model 1 exist such that the last task processed at
+each workstation corresponds to the ﬁnal task assigned to the respective AMR. The valid
+inequality corresponding to this condition can be expressed as follows:
+yj
+i, |I|+1 ≤
+∑
+k∈K
+xk
+i, |I|+1, ∀i ∈ I, ∀j ∈ J. (2)
+Proposition 4.1 establishes that optimal solutions satisfying constraint (2) must exist. The
+condition for optimality is quite intuitive: it implies that the last task at every workstation
+corresponds to an AMR that does not need to service subsequent tasks. Otherwise, we
+can always improve the solution by transferring all subsequent tasks for that AMR to the
+current workstation.
+Based on Proposition 4.1, we subsequently analyze the maximum gap between the
+objective function Cmax and the completion time of each workstation Cj
+max, as well as the
+completion time of each AMR Ck
+max. Speciﬁcally, Propositions 4.2 and 4.3 provide suﬃcient
+13
+
+
+---PAGE 14---
+conditions for the existence of an optimal solution, while Propositions 4.4 and 4.5 present
+conditions that all optimal solutions must satisfy, which are derived from inequality (2).
+Proposition 4.2 There exist optimal solutions to Model 1 such that
+Cmax − min
+j∈J
+Cj
+max ≤ ¯τ+ ¯p. (3)
+Proposition 4.2 asserts the existence of optimal solutions where the bounded gap between
+the objective Cmax and the minimum workstation makespan minj∈J Cj
+max is less than ¯τ+ ¯p
+− the per-task upper limit of transport and processing times. Notably, since this bound
+is independent of the number of allocated tasks ( |I|), the ratio of the bounded gap to the
+objective Cmax diminishes as |I|grows.
+Proposition 4.3 There exist optimal solutions to Model 1 that satisfy at least one of the
+following two bounds:
+(i) AMR-related bound:
+Cmax − min
+k∈K
+Ck
+max ≤ ¯τ+ ¯p; (4)
+(ii) Workstation-related bound:
+Cmax − min
+j∈J
+Cj
+max ≤ ¯p. (5)
+Proposition 4.3 further delineates the gap between the objective Cmax and the minimum
+completion time of AMRs mink∈KCk
+max, in addition to the gap with minj∈J Cj
+max under
+condition (2). Here, either the gap between Cmax and mink∈KCk
+max is less than the maxi-
+mum sum of a task’s travel time and processing time ¯τ+ ¯p, or the gap between Cmax and
+minj∈J Cj
+max is less than the upper bound of the operating time of a task ¯p. Compared
+with Proposition 4.2, Proposition 4.3 further suggests that if condition 4 does not hold,
+then the upper bound of Cmax − minj∈J Cj
+max can be further reduced by ¯τ.
+Proposition 4.4 Under the valid inequality (2), the optimal solutions to Model 1 satisfy:
+|J |Cmax −
+∑
+j∈J
+Cj
+max ≤ (|J | −1)(¯τ+ ¯p). (6)
+Proposition 4.4 further reﬁnes the upper bound on the gap between the objective Cmax
+and the average completion time of workstations. Speciﬁcally, the average-level gap Cmax −
+14
+
+
+---PAGE 15---
+1
+|J |
+∑
+j∈J Cj
+max ≤ |J |−1
+|J | (¯τ+ ¯p). Similar to the results in Proposition 4.2, the aggregate-level
+bound (6) is independent of |I|; thus, it can be considered a tight bound when dealing with
+a large number of tasks. Moreover, the average-level bound is slightly reduced compared
+to the individual-level bound, a result that aligns with expectations.
+Proposition 4.5 Under the valid inequality (2), the optimal solutions to Model 1 satisfy at
+least one of the following two bounds:
+(i) AMR-related bound:
+|K|Cmax −
+∑
+k∈K
+Ck
+max ≤ (|K| −1)(¯τ+ ¯p), ∀k ∈ K ; (7)
+(ii) Workstation-related bound:
+|J |Cmax −
+∑
+j∈J
+Cj
+max ≤ (|J | −1)¯p, ∀j ∈ J. (8)
+Similar to Proposition 4.3, Proposition 4.5 further characterizes the gap between the objec-
+tive function Cmax and the average completion time of AMRs. Under the valid inequality
+(2), either the gap between Cmax and the average completion time of AMRs ( 1
+|K|
+∑
+k∈KCk
+max)
+is less than |K|−1
+|K| (¯τ+ ¯p), or the gap between Cmax and the average completion time of work-
+stations ( 1
+|J |
+∑
+j∈J Cj
+max) is less than |J |−1
+|J | ¯p. Compared to Proposition 4.4, Proposition 4.5
+further implies that if condition 4 does not hold, then the upper bound Cmax −
+∑
+j∈J Cj
+max
+|J |
+can be further reduced by (|J |−1)¯τ
+|J | .
+4.1.2 Approximated Objective Function via Lagrange Relaxation
+The theoretical results conﬁrm that the bounded gap between the system-wide makespan
+and the completion time of components is not signiﬁcant. Consequently, we construct
+an approximate objective function based on Cj
+max andCk
+max using the Lagrange relaxation
+method. Speciﬁcally, given that constraint (1b) is equivalent to the following two conditions:
+Cmax ≥
+∑
+i∈I
+Cixk
+i, |I|+1, ∀k ∈ K, C max ≥
+∑
+i∈I
+Ciyj
+i, |I|+1, ∀j ∈ J,
+we can formulate the Lagrange relaxation problem with the following objective function:
+Cmax −
+∑
+k∈K
+λk(Cmax −
+∑
+i∈I
+Cixk
+i, |I|+1) −
+∑
+j∈J
+µj(Cmax −
+∑
+i∈I
+Ciyj
+i, |I|+1). (9)
+15
+
+
+---PAGE 16---
+Here, λk and µj are non-negative Lagrange multipliers with ∑
+k∈Kλk + ∑
+j∈J µj = 1 . As
+shown in Section A.9, the objective function (9) is equivalent to
+∑
+k∈K
+λk
+∑
+i∈I∪{ 0}
+∑
+i′∈I
+((vi′ − ui′)+ +pi′ +τii′)xk
+ii′ +
+∑
+j∈J
+µj
+∑
+i∈I∪{ 0}
+∑
+i′∈I
+((ui′ − vi′)+ +pi′)yj
+ii′. (10)
+As deﬁned in Section 3.3, ui is the arrival time of task i at the corresponding workstation,
+and vi represents the completion time of the previous task at the same workstation. The
+Lagrange relaxation problem provides a lower bound for the original problem.
+Lemma 4.1 The lower bounds obtained with equal Lagrange multipliers of the same type,
+i.e., λk =λ,∀k ∈ K , µj =µ,∀j ∈ J , are larger than those with unequal multipliers.
+Lemma 4.1 provides the optimum of Lagrange relaxation problems, thus oﬀering the
+tightest lower bound of the original problem among all Lagrange relaxation variants. There-
+fore, we set λk =λ= γ
+|K|, ∀k ∈ K , µj =µ= 1−γ
+|J |, ∀j ∈ J , and the objective function (10)
+can be further transformed to
+∑
+i′∈I
+γ
+|K|(vi′ − ui′)+
+  
+(i)
++ 1 − γ
+|J |(ui′ − vi′)+
+  
+(ii)
++ ( γ
+|K|+ 1 − γ
+|J |)pi′
+  
+(iii)
++ γ
+|K|
+∑
+i∈I∪{ 0}
+τii′
+∑
+k∈K
+xk
+ii′
+  
+(iv)
+. (11)
+The transformation details are given in Section A.9. Here, sub-objective (iii) is irrelevant
+to the decisions and can be considered as a ﬁxed item. Sub-objective (i) is the sum of
+waiting time of tasks at workstations, while sub-objective (ii) is the sum of workstations’
+idle time. Sub-objective (iv) is the total travel time on AMRs. In summary, the modiﬁed
+objective function of the Lagrange relaxation problem decomposes the original objective of
+total system makespan into the sum of task-speciﬁc sub-objectives. Consequently, during
+subsequent online allocation, we can compute the reward for each task, which supports the
+design of online optimization strategies.
+4.2 Dynamic Programming Model
+Building upon the decomposed sub-objectives of each task, we develop a dynamic program-
+ming model to facilitate the subsequent online dispatching strategy. We deﬁne the time
+period as t and the starting time of period t as ηt. Here, we assume ηt = t∆η, with ∆η
+representing a ﬁxed time slot. In addition, we introduce the following additional decision
+16
+
+
+---PAGE 17---
+variables: (1) The set of unserved tasks in period t, denoted by At, where |At| ≤ |I|; (2)
+The set of tasks being executed by AMRs in period t, denoted by Bt, where |Bt| ≤ |K|; (3)
+The set of tasks that are allocated to AMRs in period t, denoted by ∆ At ⊆ A t; and (4)
+The set of tasks that are ﬁnished by AMRs in period t, denoted by ∆ Bt ⊆ B t. (5) The
+starting time of task i, denoted by wi, ∀i ∈ I .
+Then the Bellman equation for our dynamic programming model is as follows:
+Ht(At, Bt) = min
+∆ At⊆At||∆ At|≤|∆ Bt|
+∑
+i∈ ∆ Bt
+( 1 − γ
+|J |(ui−vi)++ γ
+|K|(vi−ui)++ γ
+|K|(ui−wi))+Eτ{Ht+1(At+1, Bt+1)}
+(12)
+where ∆ Bt = {i ∈ B t|max{ui,v i} ∈ (ηt− 1,ηt]}. The transition function is given by:
+(At+1, Bt+1) = ( At\ ∆ At, Bt ∪ ∆ At\ ∆ Bt}), and the boundary condition is Ht(∅, ∅) = 0, ∀t.
+Unfortunately, the curse of dimensionality renders the direct solution of this dynamic
+programming model infeasible, primarily due to the large task volume and travel time
+uncertainty. To address this, we propose an ADP model adopting myopic strategies −
+a common practice in online scheduling problems. Speciﬁcally, the reward function is
+computed solely based on currently assigned tasks, and only the impacts of tasks assigned
+in the current and previous periods are considered. Future unassigned tasks are explicitly
+excluded from the current optimization.
+To develop an eﬀective ADP model, we ﬁrst reformulate the original dynamic pro-
+gramming model into an equivalent form. This equivalent model exhibits more forward-
+looking system behavior under the myopic policy. We deﬁne vi(S) as the time required
+for the workstation corresponding to task i to complete the previous tasks when only the
+tasks in set S are available. It is straightforward that vi(·) is a monotonic function, i.e.,
+vi(S1 ∪ S2) ≥ vi(S1),vi(S1 ∪ S2) ≥ vi(S2). Then, the previous Bellman’s equation (12) can
+be reformulated as:
+˜Ht(At, Bt) = min
+∆ At⊆At||∆ At|≤|∆ Bt|
+Eτ{ ˜G(∆ At, Bt) + ˜Ht+1(At+1, Bt+1)}, (13)
+where ∆ Bt = {i ∈ Bt|max{ui,v i} ∈ (ηt− 1,ηt]}, ˜G(∆ At, Bt) = G1(∆ At, Bt) +G2(∆ At, Bt),
+˜G1(∆ At, Bt) = ∑
+i∈Bt
+1−γ
+|J |[(ui − vi(Bt ∪ ∆ At))+ − (ui − vi(Bt))+] + γ
+|K|[(vi(Bt ∪ ∆ At) −
+ui)+ − (vi(Bt) − ui)+], and ˜G2(∆ At, Bt) = ∑
+i∈ ∆ At
+1−γ
+|J |(ui − vi(Bt ∪ ∆ At))+ + γ
+|K|(vi(Bt ∪
+∆ At)−ui)+ + γ
+|K|(ui −wi). And both the transition function and boundary condition remain
+17
+
+
+---PAGE 18---
+unchanged. Under the Myopic strategy, we have:
+˜G(∆ At, Bt) = 1 − γ
+|J |
+∑
+j∈J
+(
+Cj
+max(Bt ∪ ∆ At) − Cj
+max(Bt)
+)
++ γ
+|K|
+
+ ∑
+i∈Bt∪ ∆ At
+Ci(Bt ∪ ∆ At) −
+∑
+i∈Bt
+Ci(Bt)
+
+ − ( 1 − γ
+|J |+ γ
+|K|)
+∑
+i∈ ∆ At
+pi,
+where, Cj
+max(S) represents the completion time of workstation j with the set of tasks S,
+and Ci(S) is the completion time of task i ∈ S . Let
+G(S) = 1 − γ
+|J |
+∑
+j∈J
+Cj
+max(S) + γ
+|K|
+∑
+i∈S
+Ci(S) − ( 1 − γ
+|J |+ γ
+|K|)
+∑
+i∈S
+pi, (14)
+we have ˜G(∆ At, Bt) = G(Bt ∪ ∆ At) − G(Bt). Thus, the ADP model is given by
+ˆHt(At, Bt) = Eτ[ ˆHt+1(At+1, Bt+1) − G(Bt)] + min
+∆ At⊆At||∆ At|≤|∆ Bt|
+Eτ[G(Bt ∪ ∆ At)]. (15)
+The ADP model (15) reveals that at each decision epoch, the problem reduces to an opti-
+mization of function G(·), i.e., min∆ At⊆At||∆ At|≤|∆ Bt|Eτ[G(Bt ∪ ∆ At)].
+4.3 Sub-Optimality Induced by the FCFS Rule
+We conclude this section by evaluating the impact of the FCFS rule within the approximated
+problem, using the optimal schedule as a benchmark. Since FCFS is a conventional practice
+in RMFS, its inherent system ineﬃciencies are inevitable. Given that our focus is on tasks
+assigned within the current period, the decision at each decision epoch simpliﬁes to assigning
+the next task to each AMR as it arrives at the workstation. In this context, the travel time
+for the next task depends only on the speciﬁc characteristics of that task, and the objective
+function is γ
+|K|
+∑Ci + 1−γ
+|J |Cmax according to the ADP model (15). Therefore, for each
+workstation, this structure constitutes a single-machine scheduling problem 1|ri|γ
+|K|
+∑Ci +
+1−γ
+|J |Cmax, where the release time ri equals task i’s arrival time at the workstation, and the
+FCFS rule is mathematically equivalent to the earliest release date (ERD) rule in the setting
+of scheduling literature. Without loss of generality, we further assume no prioritization
+exists for simultaneous task arrivals ( ri =ri′).
+Proposition 4.6 For a single-machine scheduling problem 1|ri|γ
+|K|
+∑Ci + 1−γ
+|J |Cmax, the max-
+imum gap between the optimum and the FCFS rule is γ
+|K|⌈|Ij |
+2 ⌉⌊|Ij |
+2 ⌋(¯p − p).
+18
+
+
+---PAGE 19---
+With the above settings, the gap between the FCFS rule and the optimum is given
+in Proposition 4.6. Here, |Ij| denotes the number of tasks for workstation j ∈ J , and
+γ
+|K|is the Lagrangian multiplier. Indeed, the ERD rule achieves exact optimality for the
+single-machine scheduling problem 1|ri|Cmax. Thus, the observed optimality gap under our
+objective function γ
+|K|
+∑Ci + 1−γ
+|J |Cmax stems from the ∑Ci component, where the FCFS
+rule incurs suboptimality proportional to task processing time variance (¯p − p).
+Proposition 4.7 For a single-machine scheduling problem 1|ri|γ
+|K|
+∑Ci+ 1−γ
+|J |Cmax with buﬀer
+size |¯Kj|, we have:
+(i) If |¯Kj| ≥ ⌊|Ij |
+2 ⌋, the maximum gap between the optimal schedule and the FCFS rule
+equals γ
+|K|⌈|Ij |
+2 ⌉⌊|Ij |
+2 ⌋(¯p − p);
+(ii) Otherwise, the maximum gap equals γ
+|K||¯Kj|(|Ij| − |¯Kj|)(¯p − p).
+In practice, there is typically an upper limit to the number of AMRs assigned to each
+workstation for load balancing. Let |¯Kj|denote the upper limit for workstation j ∈ J . The
+problem then becomes equivalent to a single-machine scheduling problem with a buﬀer size
+of |¯Kj|. The gap between the FCFS rule and the optimal sequence is detailed in Proposition
+4.7. In case 1, where the total number of tasks on each workstation ( |Ij|) is relatively small,
+the gap is approximately quadratic with respect to |Ij|. Meanwhile, in case 2, the gap is
+linear with |Ij|, suggesting that the number of tasks has less signiﬁcant marginal eﬀects
+on the gap when the total number of tasks gets larger. In Case 1, where the task load
+per workstation ( |Ij|) is relatively small, the optimality gap scales quadratically with |Ij|.
+Conversely, in Case 2 with larger task volumes, the gap exhibits linear scaling with |Ij|. This
+transition reveals diminishing marginal impact of task volume on the per-task scheduling
+loss as the total number of tasks ( |I|) increases.
+5 DRO under Travel Time Uncertainty
+Based on the ADP model, we incorporate DRO techniques to capture the time uncertainty.
+We ﬁrst clarify two key motivations for adopting DRO. First, DRO enhances operational
+stability in RMFS by minimizing system eﬃciency ﬂuctuations. As this approach optimizes
+against the worst-case probability distribution, it improves robustness against extreme sce-
+narios and mitigates eﬃciency risks. Second, accurate estimation of travel times is inher-
+19
+
+
+---PAGE 20---
+ently challenging in this system. Pre-task transport durations cannot be reliably predicted
+from historical data due to dynamic factors such as task types, pickup/delivery locations,
+and real-time warehouse traﬃc conditions.
+In subsequent numerical experiments, we analyze travel time distributions in RMFS and
+demonstrate that point estimates frequently deviate signiﬁcantly from actual values, while
+interval estimation captures a broader range of real-world variations. Therefore, following
+the distributionally robust MDP framework established in Xu and Mannor (2012), we
+employ a sequence of nested ambiguity sets.
+5.1 Formulation of the Ambiguity Sets
+We ﬁrst deﬁne the nested ambiguity sets for the travel time of tasks. To achieve workload
+equilibrium among distributed resources and ensure problem tractability, we adopt the
+following dispatching strategy: At each decision epoch, at most one task is allocated to
+each workstation and idle AMR. Mathematically, we use the type tuple ϕ= ⟨i,j,k ⟩ ∈ Φ to
+represent the speciﬁc decision of assigning the task i to the AMR k and transporting it to
+the workstation j for processing. The ambiguity set of type ϕ, determined by the current
+state of task i, workstation j and AMR k, describes the uncertainty in the distribution
+of travel times for unprocessed tasks assigned to workstation j. As discussed in Section
+4.3, our research problem essentially equates to a single-machine scheduling problem with
+release times denoted by r = {ri, ∀i ∈ I} . As a result, we use rϕto represent the release
+time vector for all tasks currently assigned to the workstation associated with ϕ.
+We employ a series of N nested ambiguity sets R1 ⊆ R2 ⊆ · · · ⊆RN with associated
+conﬁdence levels 0 ≤ σ1 ≤ σ2 ≤ · · · ≤σN = 1 . where σn quantiﬁes the probabilistic
+guarantee for set Rn of the unknown parameters (release time vectors rn
+ϕ, ∀ϕ). For ease of
+notation, we deﬁne σ0 = 0. Crucially, when N = 1, this framework reduces to conventional
+RO with R1 constituting the deterministic uncertainty set.
+Let ψrepresent a speciﬁc scenario encompassing the allocation of all new tasks at a
+decision epoch, and Ψ the universe of all such scenarios. The ambiguity set F Ψ (σ1,...,σ N )
+is structured as follows:
+F Ψ (σ1,...,σ N ) =
+
+
+f |f =
+⨂
+ψ∈ Ψ
+fψ;fψ∈ Fψ(σ1,...,σ N ), ∀ψ∈ Ψ
+
+
+ (16)
+20
+
+
+---PAGE 21---
+Fψ(σ1,...,σ N ) =
+{
+fψ|fψ
+ϕ=fϕ;fϕ∈ Fϕ(σ1,...,σ N ), ∀ϕ∈ Φψ
+}
+(17)
+Fϕ(σ1,...,σ N ) =
+{
+fϕ|fϕ(RN
+ϕ) = 1;fϕ(Rn
+ϕ) ≥ σn,n = 1,...,N − 1
+}
+. (18)
+In Eq. (16), Fψ(σ1,...,σ N ) represents the ambiguity set for a speciﬁc scenario ψ, and the
+condition f = ⨂
+ψ∈ Ψ fψindicates that the parameters for diﬀerent scenarios are indepen-
+dent, where ⨂denotes the Cartesian product. Next, in Eq. (17), we introduce Φψ⊆ Φ to
+represent the set of all allocation tuples ϕunder a speciﬁc scenario ψ, and Fϕ(σ1,...,σ N )
+is the marginal ambiguity set for a speciﬁc ψ∈ Ψ . As diﬀerent type tuples ϕcorrespond
+to diﬀerent workstations, we only need to capture the marginal distribution in the formu-
+lation, rather than the joint distribution. The condition fψ
+ϕ= fϕindicates that fϕis the
+marginal distribution fψ
+ϕ of fψover the type ϕ. Finally, Eq. (18) provides the speciﬁc
+conditions for a given type tuple ϕ. Speciﬁcally, given that rϕis the release time vector for
+all tasks currently assigned to the workstation associated with ϕ, the condition fϕ(RN
+ϕ) = 1
+implies that the unknown parameter rϕis restricted to the outermost ambiguity set, and
+the condition fϕ(Rn
+ϕ) ≥ σn implies that rϕ∈ Rn
+ϕholds with a probability of at least σn.
+5.2 Distributionally Robust Counterpart
+Given the deﬁned ambiguity set F Ψ (σ1,...,σ N ) characterizing scenario-based uncertain-
+ties, we formulate the following distributionally robust counterpart to the ADP model (15).
+mins sup
+f Ψ ∈ F Ψ (σ1,...,σ N )
+Er
+
+
+
+∑
+ψ∈ Ψ
+∑
+ϕ∈ Φψ
+max
+yϕ
+min
+Cϕ
+gϕ
+(
+rϕ, yϕ, Cϕ
+)
+sψ
+
+
+ (19a)
+s.t.
+∑
+ψ∈ Ψ
+sψ= 1, (19b)
+yϕ∈ Yϕ(rϕ), ∀rϕ, ∀ϕ∈ Φ, (19c)
+Cϕ(rϕ, yϕ) ∈ Cϕ(rϕ, yϕ), ∀yϕ∈ Yϕ(rϕ), ∀rϕ, ∀ϕ∈ Φ, (19d)
+sψ∈ {0, 1}, ∀ψ∈ Ψ. (19e)
+Here, we deﬁne an integer decision vector s = {sψ∈ { 0, 1}, ∀ψ∈ Ψ }, where sψ= 1
+indicates that the scenario ψis selected; otherwise, sψ= 0 . In addition, yϕdenotes the
+decision variable y under scenario ϕ, and Cϕrepresents the completion time vector for
+all tasks currently assigned to the workstation associated with ϕ. In alignment with the
+21
+
+
+---PAGE 22---
+function G(·) deﬁned in (14) of the ADP model, the objective function is deﬁned as:
+gϕ
+(
+rϕ, yϕ, Cϕ
+)
+= 1 − γ
+|J |Cϕ
+max + γ
+|K|
+∑
+iϕ∈Iϕ
+Cϕ
+iϕ− ( 1 − γ
+|J |+ γ
+|K|)pϕ
+i,
+where Cϕ
+max represents the workstation makespan under scenario ϕ, iϕis the task index
+under scenario ϕ, Cϕ
+iϕis the completion time of task iϕ, and pϕ
+i is the processing time.
+Constraint (19b) ensures exactly one scenario is selected. Constraint (19c) represents a set
+of constraints related to the vector yϕ, and is transformed from the constraints (1g) ∼ (1j),
+(1n), and (1o) in Model 1. Similarly, Constraint (19d) imposes additional constraints on
+the vector Cϕ, and is transformed from the constraints (1b) and (1m) in Model 1. The
+detailed formulations of constraints (19c) and (19d) are provided in Appendix A.15.
+To ensure computational tractability, we deﬁne z =
+{
+zϕ, ∀ϕ∈ Φ
+⏐⏐⏐zϕ= ∑
+ψ∈ Ψ aϕ,ψsψ
+}
+as a new decision vector, where aϕ,ψ= 1 if ϕ∈ Φψ, otherwise, aϕ,ψ= 0 . Through the
+mathematical transformations detailed in Appendix A.13, we can reformulate the scenario-
+based distributionally robust counterpart (19) into the following type-based version:
+minz
+∑
+ϕ
+{
+sup
+fϕ∈ Fϕ(σ1,...,σ N )
+Erϕ
+{
+max
+yϕ
+min
+Cϕ
+gϕ
+(
+rϕ, yϕ, Cϕ
+)}}
+zϕ (20a)
+s.t. (19c), (19d),
+z ∈ Z, (20b)
+where Z deﬁnes the feasible region of zϕ, and can be further speciﬁed as:
+Z =
+
+
+zϕ∈ {0, 1}, ∀ϕ∈ Φ
+⏐⏐⏐⏐⏐⏐
+∑
+ϕ∈⟨i, ·, ·⟩
+zϕ≤ 1, ∀i ∈ Ia,
+∑
+ϕ∈⟨·,j, ·⟩
+zϕ≤ 1, ∀j ∈ Ja,
+∑
+ϕ∈⟨·, ·,k ⟩
+zϕ= 1, ∀k ∈ Ka
+
+
+,
+where Ia, Ja, and Ka represent the set of unassigned tasks, idle workstations, and idle
+AMRs at each decision epoch.
+To enhance solving eﬃciency, we ﬁnally decompose Model 20 into a two-stage model,
+eliminating redundant calculations for identical target types across diﬀerent scenarios. The
+main problem in the ﬁrst stage is a three-dimensional assignment problem as follows:
+minz
+∑
+ϕ
+ˆgϕzϕ (21a)
+s.t. z ∈ Z. (21b)
+22
+
+
+---PAGE 23---
+And the type-based sub-problem in the second stage is given by:
+ˆgϕ=
+{
+sup
+fϕ∈ Fϕ(σ1,...,σ N )
+Erϕ
+{
+max
+yϕ
+min
+Cϕ
+gϕ
+(
+rϕ, yϕ, Cϕ
+)} ⏐⏐⏐⏐⏐ (19c), (19d)
+}
+(22)
+The second-stage problem can be further simpliﬁed via the following proposition for ˆgϕ.
+Proposition 5.1
+ˆgϕ = sup
+fϕ∈ Fϕ(σ1,...,σ N )
+∫
+max
+yϕ∈Y (rϕ)
+min
+Cϕ∈C (rϕ, y)
+g(rϕ, yϕ, Cϕ)df(rϕ) (23)
+=
+N∑
+n=1
+(σn − σn− 1) max
+rn
+ϕ∈ Rn, yϕ∈Y (rn
+ϕ)
+min
+Cϕ∈C (rn
+ϕ, yϕ)
+g(rn
+ϕ, yϕ, Cϕ).
+In addition, Constraint (19d) is a binding equality constraint that uniquely determines
+the value of Cϕ. Hence, the innermost minimization problem minCϕgϕ
+(
+rn
+ϕ, yϕ, Cϕ
+)
+re-
+duces to a constant over the (singleton) feasible region, yielding:
+gϕ
+(
+rn
+ϕ, yϕ, Cϕ
+)
+= min
+Cϕ
+gϕ
+(
+rn
+ϕ, yϕ, Cϕ
+)
+= max
+Cϕ
+gϕ
+(
+rn
+ϕ, yϕ, Cϕ
+)
+.
+Thus, we can simplify the second-stage sub-problem of model 22 from a max-min problem
+to the following maximization problem:
+ˆgϕ=
+{ N∑
+n=1
+(σn − σn− 1) max
+rn
+ϕ∈ Rn
+ϕ
+gϕ
+(
+rn
+ϕ, yϕ, Cϕ
+)⏐⏐⏐⏐⏐ (19c), (19d)
+}
+(24)
+Therefore, we reformulate the distributionally robust counterpart (19) into a solvable two-
+stage mixed integer linear programming (MILP) problem. At each decision epoch, we ﬁrst
+solve all feasible second-stage subproblems (24) for feasible types ϕin parallel, obtaining
+the precomputed values ˆgϕ. These ˆgϕvalues are then embedded into the ﬁrst-stage assign-
+ment problem (21). This sequential decomposition exploits the separability of type-level
+subproblems while maintaining global optimality through the assignment vector z.
+5.3 Approximated Optimal Solution for the DRO Sub-problem
+Due to the exponentially growing feasible solutions induced by binary decision variables,
+the second-stage MILP model remains N P-hard. This complexity poses signiﬁcant chal-
+lenges for developing eﬃcient online algorithms capable of meeting real-time scheduling
+requirements. Therefore, in this subsection, we propose an approximate online allocation
+23
+
+
+---PAGE 24---
+algorithm by constructing a suitable ambiguity set. Therefore, in this subsection, we pro-
+pose a polynomial-time approximate online allocation algorithm by constructing a tailored
+ambiguity set. This ambiguity set enables computation of solutions with bounded sub-
+optimality in polynomial time. The formal deﬁnition and theoretical guarantees of this
+ambiguity set are given below. For notational conciseness, we omit the subscripts and
+superscripts of ϕand n hereafter.
+The ambiguity set under a given conﬁdence level σn and type ϕ= ⟨i,j,k ⟩ is given by:
+R = {r|ri ∈ [ri, ¯ri], ∀i ∈ I,f l(r) ≤ 0, ∀l ∈ L}. (25)
+Here,fl(r) ≤ 0, ∀l ∈ L represents a series of constraints about the ambiguity set, satisfying
+∂fl(r)
+∂ri
+> 0, ∂fl(r)
+∂r′
+i
+≤ 0, ∀i′̸=i. These conditions stipulate that if the release time of one task
+increases, the ambiguity set of release times for other tasks does not shrink. In practical
+scenarios, when the travel time for one task at the workstation increases, it implies that the
+current traﬃc situation is unfavorable, and thus the travel time for other tasks is also likely
+to increase. Therefore, these conditions align with real-world transportation scenarios.
+Moreover, with the above settings, there exists a point ˜r = (˜r1,..., ˜r|I|), which satisﬁes
+ri ≤ ˜ri, ∀i ∈ I for any point within the feasible region of r = (r1,...,r |I|). In other words,
+for any ri, the corresponding value ˜ri is the maximum value within the vector ˜r, and can
+be considered an approximate solution. Proposition 5.2 provides a theoretical guarantee in
+comparison with the optimal solution under the FCFS rule.
+Proposition 5.2 Let r∗ = arg max r∈ Rg (r, y, C), then we have:
+|g (r∗, y, C) − g (˜r, y, C)| ≤ γ
+|K|⌈|I|
+2 ⌉⌊|I|
+2 ⌋(¯p − p).
+Notice that, as the subscripts and superscripts of ϕandn are omitted, the set of tasks in
+Proposition 5.2 is essentially Iϕ, which only includes the total tasks allocated to the current
+workstation (and |Iϕ| ≤ |Kj|holds inherently). Critically, the maximum gap between the
+approximated solution and optimal solution under the FCFS rule is no greater than the
+system loss generated by the FCFS rule. In addition, both the approximated solution and
+the system optimum (without the FCFS rule) yield objective values no greater than that
+of the FCFS rule. Consequently, the maximum absolute gap between the approximated
+solution and system optimum remains bounded by γ
+|K|⌈|Iϕ|
+2 ⌉⌊|Iϕ|
+2 ⌋(¯p − p).
+24
+
+
+---PAGE 25---
+Given that the release (arrival) times of all tasks are ﬁxed according to the approximate
+solution ˜r and the application of the FCFS rule based on these predetermined arrival
+times, the objective value for solution ˜r is computable in polynomial time. As a result,
+in subsequent numerical experiments, we incorporate ˜r into the solution of the two-stage
+DRO framework to enhance the problem-solving eﬃciency and facilitate online dispatching.
+6 Numerical Experiments and Results
+Finally, we validate our online allocation strategy using actual data and the commercial
+simulation platform provided by Geek+ (a leading AMR company based in Beijing, China).
+The results demonstrate the superiority of our algorithm over the classic greedy algorithm
+− the traditional practical alternative necessitated by the NP-hard nature of the original
+optimization problem and the uncertainties of travel times.
+6.1 Data-Driven Ambiguity Sets via Quantile Regression
+We utilize a real dataset from a Geek+ smart warehouse, which comprises data from 1,897
+transport tasks performed by robots. Each transport task, corresponding to various trans-
+port processes, can be divided into three sub-tasks: pick-up, delivery, and return. A speciﬁc
+sample includes the AMR index, task index, sub-task type, as well as the path and transport
+distance under both actual and optimal scenarios. In practice, the AMR is programmed to
+follow the optimal route as closely as possible, automatically resorting to alternative routes
+when the optimal choice is unavailable, such as when it is occupied by other AMRs. For
+page limit, the descriptive statistics are given in Appendix B.
+Based on the statistical ﬁndings presented in Appendix B, the distribution of actual
+travel times demonstrates considerable instability, exhibiting strong correlations with both
+travel distances and motion trajectory features (such as the number of turns). In addition,
+our statistical analysis reveals distinct transport proﬁles across sub-task types: delivery and
+return sub-tasks exhibit comparable duration distributions and variability, while pick-up
+sub-tasks demonstrate signiﬁcantly shorter and more stable travel times. This divergence
+arises from fundamental diﬀerences in load states − delivery and return sub-tasks require
+AMRs to operate in a loaded state (carrying pods), while pick-up sub-tasks are performed
+25
+
+
+---PAGE 26---
+in an unloaded state. Moreover, the unloaded state enables AMRs to navigate underneath
+shelves, bypassing congestion and substantially reducing travel delays. Consequently, we
+utilize four features derived from optimal routing plans for prediction − speciﬁcally, travel
+distance and number of turns under both loaded and unloaded states − since real-time
+route information remains unavailable during allocation decision epochs.
+Given these complex distributional characteristics, we employ quantile regression rather
+than point estimation to construct the nested ambiguity sets. This approach provides two
+key advantages: (1) it captures the travel time distribution more comprehensively, including
+its tails and overall shape; and (2) it is inherently robust to outliers, while its structure
+aligns well with the requirements of our nested ambiguity set framework. Consequently, we
+construct quantile regression models for AMR travel time under three scenarios: unloaded
+transport, loaded transport, and mixed transport (combining both states). Speciﬁcally, we
+ﬁt a series of linear quantile regression models for the 25th, 50th, and 75th percentiles.
+Numerical results, as shown in Table 4, Appendix B, conﬁrm that both distance metrics
+and turn metrics signiﬁcantly impact transport durations across all scenarios.
+6.2 Polynomial Algorithm and Experiment Settings
+The operational workﬂow of the proposed DRO framework (see Figure 2) comprises separate
+oﬄine and online phases. In the oﬄine phase, we construct the warehouse layout and
+train quantile regression models using historical data. During each decision epoch in the
+online phase, we identify the current positions of available AMRs and target pods, then
+use quantile regression outputs to construct ambiguity sets. These ambiguity sets inform
+the formulation and solution of the second-stage DRO subproblem, whose results guide the
+ﬁrst-stage matching process to determine optimal dispatch assignments. To evaluate the
+performance of our DRO algorithm, we benchmark it against the classic greedy algorithm,
+which assigns each idle AMR to the task with the shortest predicted travel time.
+It is noteworthy that the ﬁrst-stage problem constitutes a three-dimensional match-
+ing problem, which is NP-hard. However, within Geek+’s operational environment, task-
+workstation assignments are predetermined through system conﬁguration, thereby reducing
+the problem to a two-dimensional bipartite matching that can be solved in polynomial time.
+To further improve decision quality, we implement a temporal ﬁltering mechanism: at each
+26
+
+
+---PAGE 27---
+Figure 2: The workﬂow of the DRO framework
+decision epoch, only tasks with predicted travel times below the 75th percentile are con-
+sidered for immediate allocation. This approach strategically excludes high-duration tasks
+(those in the upper quartile), as their extended execution windows typically fall outside
+the current decision epoch’s relevance horizon. These deferred tasks are reconsidered in
+subsequent epochs when updated predictions place them within actionable timeframes.
+Our experiments were conducted on Geek+’s commercial simulation platform using
+a realistic warehouse layout. The setup featured 9 workstations managing a total of 45
+AMRs, with each workstation capable of controlling up to 8 AMRs simultaneously. In the
+simulation environment, we assigned a variety of transport tasks to the workstations, with
+each task deﬁned by a distinct processing time (see Table 5, Appendix B). To ensure robust
+and fair comparisons, the simulation environment was held constant across all experimental
+scenariosincluding the initial positions of AMRs, the assignment of pods to workstations,
+and the spatial locations of all pods.
+6.3 Numerical Results
+In line with Lamballais et al. (2017), we adopt workstation occupancy rate as the evaluation
+metric, reﬂecting our focus on scenarios with a limited number of workstations. In fact,
+maximizing workstation occupancy rates in our scenario is equivalent to minimizing the
+makespan, since both the set of tasks and their estimated processing times are exogenous.
+As shown in Table 1, our DRO algorithm consistently outperforms the greedy algorithm
+across all workstations. On average, the DRO approach achieves an absolute improvement
+of 9.81% and a relative improvement of 14.87% in workstation occupancy rate.
+To isolate the impact of travel time uncertainty, we conducted a counterfactual exper-
+iment assuming deterministic travel times perfectly predicted by regression. As shown in
+Table 6 (Appendix B), deterministic conditions improve average occupancy to 83.27% −
+27
+
+
+---PAGE 28---
+Table 1: Comparison of Algorithms Based on Workstation Occupancy Rate
+Number of Greedy DRO Absolute Relative
+Workstations Algorithm Algorithm Improvement Improvement
+1 66.53% 76.23% 9.70% 14.58%
+2 64.17% 74.40% 10.23% 15.94%
+3 62.65% 73.23% 10.58% 16.89%
+4 64.59% 75.34% 10.75% 16.64%
+5 65.84% 77.62% 11.78% 17.89%
+6 62.00% 71.20% 9.20% 14.84%
+7 73.37% 82.24% 8.87% 12.09%
+8 67.89% 78.22% 10.33% 15.22%
+9 66.71% 73.56% 6.85% 10.27%
+A verage 65.97% 75.78% 9.81% 14.87%
+7.49% higher than under uncertainty. Crucially, while uncertainty reduces performance for
+both algorithms, the relative advantage of the DRO algorithm over greedy algorithm de-
+creases from 14.87% to 11.12% under deterministic conditions. This conﬁrms that our DRO
+algorithm’s superiority is particularly pronounced under travel time uncertainty, where it
+better manages distributional ambiguity.
+7 Conclusion
+In summary, this study addresses the online joint order assignment and task allocation prob-
+lem in RMFS. Leveraging Lagrange relaxation for objective decomposition, we propose an
+ADP framework incorporating a myopic strategy. Simultaneously, to address uncertain-
+ties in travel times, we introduce a nested series of ambiguity sets. This transforms the
+dynamic programming model into a sequence of solvable two-stage DRO models at each
+decision epoch. To ensure computational tractability, we employ quantile regression on the
+operational dataset to construct appropriate ambiguity sets, and design a polynomial-time
+approximation algorithm with a proven approximation guarantee. Numerical experiments
+using real-world data from Geek+ demonstrate that our approach signiﬁcantly outperforms
+the classic greedy algorithm practically.
+While this research primarily addresses allocation strategies within RMFS, the proposed
+framework naturally extends to other practical scenarios that require robust management of
+28
+
+
+---PAGE 29---
+travel time uncertainty. For example, the methodology adapts readily to last-mile delivery,
+where distribution center processing times parallel workstation dynamics in our model. It
+is also well suited to low-altitude economy operations, such as drone delivery, where drones
+dispatched from centralized depots encounter ﬂight duration uncertaintiesclosely analogous
+to RMFS robot travel time uncertainty. Given these structural similarities, our core algo-
+rithm and ambiguity set approach require minimal modiﬁcation. Eﬀectively managing un-
+certainty in these domains, however, depends on capturing application-speciﬁc risk factors:
+(1) In last-mile delivery, uncertainty extends beyond standard transit metrics to operational
+dynamics, including unpredictable sequencing due to real-time batching, stochastic service
+times at pickup/drop-oﬀ points (e.g., parking delays, customer interactions), and systemic
+volatility from traﬃc incidents or urban mobility constraints. (2) In drone delivery, while
+transit uncertainty remains relevant, dominant factors shift to weather disruptions, airspace
+access limitations, and stochastic battery performance. Therefore, successful implementa-
+tion relies less on altering the underlying DRO framework and more on reﬁning uncertainty
+characterization − mapping domain-speciﬁc risks to quantiﬁable travel time distributions.
+Advanced forecasting or physics-informed modeling can incorporate these factors into ambi-
+guity sets while preserving computational tractability. Despite these contextual challenges,
+our study establishes a foundational DRO framework for real-time logistics optimization,
+providing essential insights into uniﬁed ambiguity set construction, eﬃcient approxima-
+tion algorithms, and adaptive decision-making − enabling deployment across automated
+warehouses, last-mile deliveries, and emerging aerial fulﬁllment systems.
+Data Availability Statement
+The data, codes and numerical results that support the ﬁndings of this study are openly
+available at http://doi.org/10.5281/zenodo.16011215.
+References
+A verbakh, I. (2010). On-line integrated production–distribution scheduling problems with
+capacitated deliveries. European Journal of Operational Research , 200(2):377–384.
+Boysen, N., Briskorn, D., and Emde, S. (2017). Parts-to-picker based order processing in
+a rack-moving mobile robots environment. European Journal of Operational Research ,
+262(2):550–562.
+29
+
+
+---PAGE 30---
+Carlsson, J. G., Behroozi, M., and Mihic, K. (2018). Wasserstein distance and the distri-
+butionally robust tsp. Operations Research, 66(6):1603–1624.
+Carlsson, J. G. and Delage, E. (2013). Robust partitioning for stochastic multivehicle
+routing. Operations research, 61(3):727–744.
+Chen, B. and Vestjens, A. P. (1997). Scheduling on identical machines: How good is lpt in
+an on-line setting? Operations research letters, 21(4):165–169.
+Chen, Z.-L. and Hall, N. G. (2022). Supply Chain Scheduling . Springer Cham.
+Cheng, T. and Kahlbacher, H. (1993). Scheduling with delivery and earliness penalties.
+Asia-Paciﬁc Journal of Operational Research , 10(2):145–152.
+da Costa Barros, Í. R. and Nascimento, T. P. (2021). Robotic mobile fulﬁllment systems:
+A survey on recent developments and research opportunities. Robotics and Autonomous
+Systems, 137:103729.
+Delage, E. and Mannor, S. (2010). Percentile optimization for markov decision processes
+with parameter uncertainty. Operations research, 58(1):203–213.
+Graham, R. L. (1969). Bounds on multiprocessing timing anomalies. SIAM journal on
+Applied Mathematics, 17(2):416–429.
+Hoogeveen, J. and Vestjens, A. P. (2000). A best possible deterministic on-line algorithm
+for minimizing maximum delivery time on a single machine. SIAM Journal on Discrete
+Mathematics, 13(1):56–63.
+Kim, H.-J., Pais, C., and Shen, Z.-J. M. (2020). Item assignment problem in a robotic
+mobile fulﬁllment system. IEEE Transactions on Automation Science and Engineering ,
+17(4):1854–1867.
+Lamballais, T., Merschformann, M., Roy, D., de Koster, M., Azadeh, K., and Suhl, L.
+(2022). Dynamic policies for resource reallocation in a robotic mobile fulﬁllment system
+with time-varying demand. European Journal of Operational Research , 300(3):937–952.
+Lamballais, T., Roy, D., and De Koster, M. (2017). Estimating performance in a robotic
+mobile fulﬁllment system. European Journal of Operational Research , 256(3):976–990.
+Lamballais Tessensohn, T., Roy, D., and De Koster, R. B. (2020). Inventory allocation in
+robotic mobile fulﬁllment systems. IISE transactions , 52(1):1–17.
+Lee, C.-Y. and Chen, Z.-L. (2001). Machine scheduling with transportation considerations.
+Journal of scheduling , 4(1):3–24.
+Liu, S., He, L., and Shen, Z. (2020). On-time last-mile delivery: Order assignment with
+travel-time predictors. Management Science .
+Merschformann, M., Lamballais, T., De Koster, M., and Suhl, L. (2019). Decision rules for
+robotic mobile fulﬁllment systems. Operations Research Perspectives, 6:100128.
+Michael, P. (1995). Scheduling. theory, algorithms and systems. ISBN0-13-706757-7.
+Potts, C. N. (1980). Analysis of a heuristic for one machine sequencing with release dates
+and delivery times. Operations Research, 28(6):1436–1441.
+Pundoor, G. and Chen, Z.-L. (2005). Scheduling a production–distribution system to op-
+timize the tradeoﬀ between delivery tardiness and distribution cost. Naval Research
+Logistics (NRL), 52(6):571–589.
+Shah, B. and Khanzode, V. (2017). A comprehensive review of warehouse operational
+issues. International Journal of Logistics Systems and Management , 26(3):346–378.
+Tang, L., Li, F., and Chen, Z.-L. (2019). Integrated scheduling of production and two-stage
+delivery of make-to-order products: Oﬄine and online algorithms. INFORMS Journal
+on Computing , 31(3):493–514.
+Tian, J., Fu, R., and Yuan, J. (2007). On-line scheduling with delivery time on a single
+batch machine. Theoretical Computer Science , 374(1-3):49–57.
+30
+
+
+---PAGE 31---
+Ulmer, M. W., Thomas, B. W., Campbell, A., and Woyak, N. (2021). The restaurant meal
+delivery problem: Dynamic pickup and delivery with deadlines and random ready times.
+Transportation Science, 55:75–100.
+Valle, C. A. and Beasley, J. E. (2021). Order allocation, rack allocation and rack sequencing
+for pickers in a mobile rack environment. Computers & Operations Research, 125:105090.
+Wang, Z., Sheu, J.-B., Teo, C.-P., and Xue, G. (2022). Robot scheduling for mobile-rack
+warehouses: Human–robot coordinated order picking systems. Production and Operations
+Management, 31(1):98–116.
+Wiesemann, W., Kuhn, D., and Sim, M. (2014). Distributionally robust convex optimiza-
+tion. Operations research, 62(6):1358–1376.
+Woeginger, G. J. (1994). Heuristics for parallel machine scheduling with delivery times.
+Acta Informatica, 31:503–512.
+Xu, H. and Mannor, S. (2012). Distributionally robust markov decision processes. Mathe-
+matics of Operations Research , 37(2):288–300.
+Yang, P., Zhao, Z., and Shen, Z.-J. M. (2021). A ﬂow picking system for order fulﬁllment
+in e-commerce warehouses. IISE Transactions, 53(5):541–551.
+Zhen, L., Tan, Z., de Koster, R., and Wang, S. (2023). How to deploy robotic mobile
+fulﬁllment systems. Transportation Science, 57(6):1671–1695.
+31
+
+
+---PAGE 32---
+Appendices
+A Mathematical Proofs and Transformation Details
+A.1 Proof of Proposition 3.1
+1. - Proof of Proposition 3.1-(i): Let i∗ denote a task that has the maximum sum of
+travel time τ0i∗ from the origin 0 and processing time pi∗, i.e., i∗ ∈i {τ0i +pi}. Then
+according to Assumptions 3.1 and 3.2, there is no scenario where the completion time
+of task i∗ is earlier than τ0i∗ +pi∗. Therefore, the optimal solution will not be less
+than τ0i∗ +pi∗, providing a lower bound on the optimal solution to the problem.
+Meanwhile, for |I| ≤ min{|J |, |K|}, we can obtain a feasible solution with a value
+equal to the lower bound τ0i∗ +pi∗ by assigning each task a dedicated workstation
+and a dedicated AMR. Therefore, when |I| ≤min{|J |, |K|}, this feasible solution is
+an optimal solution for the problem. Finally, this problem is equivalent to ﬁnding the
+largest element in a set, which can be solved in polynomial time. □
+2. - Proof of Proposition 3.1-(ii): We ﬁrst introduce the following lemma before proving
+Proposition 3.1-2.
+Lemma A.1 If |K| ≤min{|I|, |J |}, then an optimal solution exists such that all tasks
+on the AMRs are served by their corresponding dedicated workstations.
+Proof of Lemma A.1:
+We prove Lemma A.1 by demonstrating that for any feasible solution, we can derive
+a new feasible solution where all tasks on the AMR are served by their dedicated
+workstation, and the objective function of this new feasible solution is not greater
+than that of the original solution.
+Speciﬁcally, given any feasible solution, when a task is transferred from an AMR to a
+workstation, the task must wait in the queue if there are other tasks at the workstation
+that need to be processed ﬁrst. However, when we pair each AMR with a dedicated
+workstation, the task no longer needs to wait upon arrival at the workstation and can
+begin processing immediately. Therefore, for each feasible solution, we preserve the
+32
+
+
+---PAGE 33---
+order of all AMRs on the task and assign each AMR a corresponding workstation,
+resulting in a new feasible solution. According to Assumption 3.1, the completion
+time of all tasks in the new feasible solution is not greater than the completion time
+corresponding to the original feasible solution, and the objective function of the new
+feasible solution is not greater than that of the original solution. □
+According to Lemma A.1, we can consider each AMR and its corresponding worksta-
+tion as a parallel machine. We deﬁne the time from task i leaving the workstation to
+task i′ arriving at the workstation as the sequence-dependent setup time sii′ = τii′.
+And the problem is equivalent to P|K||sii′|Cmax. It is well known that two special
+cases of P|K||sii′|Cmax, namely, P|K|||Cmax, |K| ≥2 and |sii′|Cmax are both N P-hard
+problems. Thus, P|K||sii′|Cmax is a N P-hard problem. □
+3. - Proof of Proposition 3.1-(iii): According to Assumptions 3.1 and 3.2, there is no
+scenario where the arrival time of task i at any given workstation is earlier than τ0i.
+When |I| ≤ |K|, it is optimal for each task to be transported by a dedicated AMR,
+i.e., each AMR transports no more than one task. Therefore, we deﬁne the release
+time of each task i as ri =τ0i, and the problem reduces to P|J ||ri|Cmax problem.
+It is well known that P2||Cmax, a special case of P|J ||ri|Cmax, is N P-hard as it is
+equivalent to the PARTITION problem. Additionally, Chen and Vestjens (1997) have
+shown that the longest processing time (LPT) rule is a 3/2-approximation algorithm
+for P|J ||ri|Cmax. □
+4. - Proof of Proposition 3.1-(iv): The problem reduces to P|K||sii′|Cmax when pi =
+0, ∀i ∈ I , which is a N P-hard problem. □
+A.2 Linearization of Constraints in Model 1
+Constraint (1k) can be linearized as:
+Ci +τii′ − M (1 − xk
+ii′) ≤ ui′, ∀i ∈ I, ∀i′∈ I\{ i}, ∀k ∈ K,
+Ci +τii′ +M (1 − xk
+ii′) ≥ ui′, ∀i ∈ I, ∀i′∈ I\{ i}, ∀k ∈ K.
+33
+
+
+---PAGE 34---
+Constraint (1l) can be linearized as:
+Ci − M (1 − yj
+ii′) ≤ vi′, ∀i ∈ I, ∀i′∈ I\{ i}, ∀j ∈ J,
+Ci +M (1 − yj
+ii′) ≥ vi′, ∀i ∈ I, ∀i′∈ I\{ i}, ∀j ∈ J.
+Constraint (1m) can be linearized as:
+ui +pi +M (1 − δi) ≥ Ci, ∀i ∈ I,
+vi +pi +Mδi ≥ Ci, ∀i ∈ I,
+ui − Mδi ≤ vi, ∀i ∈ I,
+ui +pi ≤ Ci,v i +pi ≤ Ci, ∀i ∈ I.
+Constraint (1n) can be linearized as:
+ui − M (1 − yj
+ii′) ≤ ui′, ∀i ∈ I, ∀i′∈ I\{ i}, ∀j ∈ J.
+A.3 Proof of Proposition 4.1
+First, we demonstrate that for any feasible solution, it’s possible to derive a new feasible
+solution that adheres to the condition proposed in Proposition 4.1. Moreover, the objective
+function value of this new feasible solution does not exceed that of the original feasible
+solution.
+Consider any feasible solution. For each workstation, if the AMR corresponding to the
+last task on this workstation has other tasks to serve later, we transfer all subsequent tasks
+from this AMR to the current workstation for processing. This operation does not alter the
+arrival time of any task, nor does it increase the waiting time for any task. Consequently,
+the completion time for all tasks in the new feasible solution does not exceed the completion
+time in the original feasible solution. Thus, the objective function value for the new feasible
+solution does not exceed that of the original feasible solution.
+Therefore, for an optimal solution, we can apply the above operation to derive a new
+optimal solution. This new solution satisﬁes the condition that the last task processed at
+each workstation is the ﬁnal task of the corresponding AMR. □
+34
+
+
+---PAGE 35---
+A.4 Proof of Proposition 4.2
+First, consider any feasible solution that satisﬁes the valid inequality (2) but does not meet
+the condition (3). Suppose there are m ≤ |J |workstations with a completion time Cj
+max
+equal to the total completion time Cmax. We can perform an operation to transfer one of the
+m tasks with the longest completion time to the workstation with the shortest processing
+time, thereby obtaining a new feasible solution. Since the original feasible solution does not
+satisfy the condition (3), the completion time of the transferred task in the new solution
+is less than its original completion time. Consequently, the objective function of the new
+feasible solution is not greater than that of the original feasible solution, and the new
+feasible solution includes (m − 1)> 0 workstations with a completion time Cj
+max equal to
+the total completion time Cmax.
+In fact, for any optimal solution satisfying the valid inequality (2), with m workstations
+whose completion time Cj
+max equals the total completion time Cmax, we can obtain a new
+optimal solution that satisﬁes the condition (3) by performing the above operation no
+more than (m − 1) times. After performing the operation once, the objective function of
+the new feasible solution is not greater than the objective function of the original feasible
+solution. Therefore, performing this operation on an optimal solution that satisﬁes the
+valid inequality (2) but does not meet the condition (3) will yield another optimal solution.
+We then prove by contradiction that the operation will be performed no more than
+(m − 1) times. Suppose there exist optimal solutions that, even after (m − 1) operations,
+still do not satisfy the condition (3), and the operation can still be continued to obtain a
+new optimal solution. Since we have proven that each operation reduces by one the number
+of workstations whose completion time Cj
+max equals the total completion time Cmax, after
+(m − 1) operations, only one workstation remains with a completion time equal to Cmax.
+If the operation is performed again in this case, the objective function of the new solution
+obtained is strictly less than that of the original solution. This contradicts the assumption
+that the original solution is optimal.
+Therefore, for any optimal solution that satisﬁes the valid inequality (2) but does not
+meet the condition (3), we can perform the above operation no more than (m − 1) times
+to obtain a new optimal solution that satisﬁes the condition (3). □
+35
+
+
+---PAGE 36---
+A.5 Proof of Proposition 4.3
+The proof of Proposition 4.3 follows a similar logic to that of Proposition 4.2. First, consider
+any feasible solution that does not satisfy either condition (4) or (5), and has m ≤ |J |
+workstations with a completion time Cj
+max equal to the total completion time Cmax. We
+can perform an operation to transfer one of the m tasks with the longest completion time
+to the workstation with the shortest corresponding completion time on the AMR with the
+shortest corresponding completion time, thereby obtaining a new feasible solution. Since the
+original feasible solution does not satisfy conditions (4) and (5), the completion time of the
+transferred task in the new solution is less than its original completion time. Consequently,
+the objective function of the new feasible solution is not greater than that of the original
+feasible solution, and the new feasible solution includes (m − 1) > 0 workstations with a
+completion time Cj
+max equal to the total completion time Cmax.
+Then, for any optimal solution with m workstations whose completion time Cj
+max equals
+the total completion time Cmax, we can obtain a new optimal solution that satisﬁes at
+least one of the conditions (4) and (5) by performing the above operation no more than
+(m − 1) times. After performing the operation once, the objective function of the new
+feasible solution is not greater than the objective function of the original feasible solution.
+Therefore, performing this operation on an optimal solution that does not satisfy conditions
+(4) and (5) will yield another optimal solution.
+We ﬁnally prove by contradiction that the operation will be performed no more than
+(m − 1) times. Suppose there exist optimal solutions that, even after (m − 1) operations,
+still do not satisfy either condition (4) or (5), and the operation can still be continued to
+obtain a new optimal solution. Since we have proven that each operation reduces by one
+the number of workstations whose completion time Cj
+max equals the total completion time
+Cmax, after (m − 1) operations, only one workstation remains with a completion time equal
+toCmax. If the operation is performed again in this case, the objective function of the new
+solution obtained is strictly less than that of the original solution. This contradicts the
+assumption that the original solution is optimal. Therefore, for any optimal solution that
+does not satisfy either condition (4) or (5), we can perform the above operation no more
+than (m − 1) times to obtain a new optimal solution that satisﬁes at least one of the two
+conditions. □
+36
+
+
+---PAGE 37---
+A.6 Proof of Proposition 4.4
+We continue to apply the operation proposed in the proof of Proposition 4.2 and prove
+Proposition 4.4 by contradiction. We assume that there exist optimal solutions that do
+not satisfy condition (6). We then consider optimal solutions that satisfy the condition
+where there are m ≤ |J |workstations whose completion time Cj
+max is equal to the total
+completion time Cmax. Then we have the following two scenarios.
+1. When m = |J |, we have |J |Cmax − ∑
+j∈J Cj
+max = 0, which violates the assumption,
+hence a contradiction is derived.
+2. When m ≤ |J | − 1, for |J |Cmax − ∑
+j∈J Cj
+max > (|J | −1)(¯τ+ ¯p), we have the
+following results. Excluding the workstations whose completion time Cj
+max equals
+the total completion time Cmax, the sum of the completion times of the remaining
+(|J | −m) workstations is greater than (|J | −1)(¯τ+ ¯p). Therefore, there is at least
+one workstation whose completion time Cj
+max is less than (Cmax − ¯τ− ¯p). We can
+then perform the operation proposed in the proof of Proposition 4.2 to obtain a new
+optimal solution. Each time an operation is performed, the completion time of the
+selected workstation with the shortest completion time does not increase by more
+than ¯τ+ ¯p. Therefore, after performing (m − 1) operations, the sum of the completion
+times of the (|J | −m) workstations is greater than (|J | −m)(¯τ+ ¯p). There is still at
+least one workstation whose completion time Cj
+max is less than (Cmax − ¯τ− ¯p), and
+we can continue the operation to obtain a new optimal solution. This contradicts the
+previous result proven in Proposition 4.2 that the operation will not exceed (m − 1)
+times.
+Taken together, the optimal solutions satisfy condition (6), and Proposition 4.4 is proved.
+□
+A.7 Proof of Proposition 4.5
+We continue to apply the operation proposed in the proof of Proposition 4.3 and prove
+Proposition 4.5 by contradiction. We consider optimal solutions such that there are m ≤ |J |
+workstations whose completion time Cj
+max is equal to the total completion time Cmax.
+37
+
+
+---PAGE 38---
+1. When m = |J |, we have |J |Cmax − ∑
+j∈J Cj
+max = 0. Obviously, the assumption that
+the optimal solution does not satisfy condition is violated, yielding a contradiction.
+2. When m ≤ |J | − 1, for |K|Cmax − ∑
+k∈KCk
+max > (|K| −1)(¯τ+ ¯p) and |J |Cmax −
+∑
+j∈J Cj
+max > (|J | −1)¯p, we have the following results. Excluding the workstations
+whose completion time Cj
+max equals the total completion time Cmax, the sum of the
+completion times of the remaining (|J | −m) workstations is greater than (|J | −
+1)¯p. Similarly, excluding the AMRs whose completion time Ck
+max equals the total
+completion time Cmax, the sum of the completion times of the remaining (|K| −m)
+AMRs is greater than (|K| −1)(¯τ+ ¯p). Therefore, there is at least one workstation
+whose completion time Cj
+max is less than (Cmax − ¯p), and there is at least one AMR
+whose completion time Ck
+max is less than (Cmax − ¯τ− ¯p). And we can perform the
+operation proposed in the proof of Proposition 4.3 and provide a new optimal solution.
+Every time an operation is performed, the completion time of the selected shortest
+completion time workstation does not increase by more than ¯p, and the completion
+time of the selected shortest completion time AMR does not increase by more than
+¯τ+ ¯p. Therefore, after performing (m − 1) operations, the sum of the completion
+times of the (|J | −m) workstations is greater than (|J | −m)¯p, and the sum of the
+completion times of the (|K| −m) AMRs is greater than (|K| −m)(¯τ+ ¯p). There is
+still at least one workstation whose completion time Cj
+max is less than (Cmax − ¯p), and
+at least one AMR whose completion time Ck
+max is less than (Cmax − ¯τ− ¯p). We can
+continue to apply the operation to obtain a new optimal solution. This contradicts the
+previous result that the operation will not exceed (m − 1) times proved in Proposition
+4.3.
+In conclusion, the optimal solutions satisfy at least one of the two conditions (7) and (8),
+and Proposition 4.5 is proved. □
+A.8 Corollaries in Section 3
+Corollary A.1 Under the valid inequality (2), the optimal solutions satisfy the condition
+Cmax − min
+j∈J
+Cj
+max ≤ m(¯τ+ ¯p). (26)
+38
+
+
+---PAGE 39---
+wherem ≤ |J |represents the total number of workstations whose completion time Cj
+max is
+equal to the total completion time Cmax.
+Proof of Corollary A.1. We regard the m workstations whose completion time Cj
+max
+equals the total completion time Cmax and the workstation with the shortest total comple-
+tion time Cj
+max as a subsystem. Since the goal of the subsystem determines the goal of the
+overall system, the optimality of the subsystem is a necessary condition for the optimality
+of the overall system. Applying the necessary condition proposed in Proposition 4.4 to the
+sub-problem, we have
+(m + 1)Cmax − mCmax − min
+j∈J
+Cj
+max ≤ m(¯τ+ ¯p) ⇒ Cmax − min
+j∈J
+Cj
+max ≤ m(¯τ+ ¯p). (27)
+Thus, when the overall system is optimal, the necessary condition must be established and
+the Corollary is proved. □
+Corollary A.2 Under the valid inequality (2), the optimal solutions satisfy at least one of
+the following two bounds:
+i. AMR-related bound:
+Cmax − min
+k∈K
+Ck
+max ≤ m(¯τ+ ¯p), (28)
+ii. Workstation-related bound:
+Cmax − min
+j∈J
+Cj
+max ≤ m¯p, (29)
+wherem ≤ |J |represents the total number of workstations whose completion time Cj
+max is
+equal to the total completion time Cmax.
+Proof of Corollary A.2. We regard the m workstations whose completion time Cj
+max
+equals the total completion time Cmax and the workstation with the shortest total comple-
+tion time Cj
+max, and the m AMRs whose completion time Ck
+max equals the total completion
+time Cmax and the AMR with the shortest total completion time Ck
+max as a subsystem.
+Since the goal of the subsystem determines the goal of the overall system, the optimality of
+the subsystem is a necessary condition for the optimality of the overall system. Applying
+the necessary condition proposed in Proposition 4.5 to the sub-problem, at least one of the
+following two conditions is established,
+(m + 1)Cmax − mCmax − min
+k∈K
+Ck
+max ≤ m(¯τ+ ¯p) ⇒ Cmax − min
+k∈K
+Ck
+max ≤ m(¯τ+ ¯p), (30)
+39
+
+
+---PAGE 40---
+(m + 1)Cmax − mCmax − min
+j∈J
+Cj
+max ≤ m¯p ⇒ Cmax − min
+j∈J
+Cj
+max ≤ m¯p. (31)
+Thus, when the overall system is optimal, at least one of the two conditions is established
+and the Corollary is proved. □
+A.9 Mathematical Transformation of the Lagrange Relaxation Prob-
+lem
+The transformation from Eq. (9) to Eq. (10) is given as follows:
+Cmax −
+∑
+k∈K
+λk(Cmax −
+∑
+i∈I
+Cixk
+i, |I|+1) −
+∑
+j∈J
+µj(Cmax −
+∑
+i∈I
+Ciyj
+i, |I|+1)
+= (1 −
+∑
+k∈K
+λk −
+∑
+j∈J
+µj)Cmax +
+∑
+k∈K
+λk
+∑
+i∈I
+Cixk
+i, |I|+1 +
+∑
+j∈J
+µj
+∑
+i∈I
+Ciyj
+i, |I|+1
+=
+∑
+k∈K
+λk
+∑
+i∈I
+Cixk
+i, |I|+1 +
+∑
+j∈J
+µj
+∑
+i∈I
+Ciyj
+i, |I|+1
+=
+∑
+k∈K
+λk
+∑
+i∈I∪{ 0}
+∑
+i′∈I\ i
+(Ci′ − Ci)xk
+ii′ +
+∑
+j∈J
+µj
+∑
+i∈I∪{ 0}
+∑
+i′∈I\ i
+(Ci′ − Ci)yj
+ii′
+=
+∑
+k∈K
+λk
+∑
+i∈I∪{ 0}
+∑
+i′∈I
+(Ci′ − Ci)xk
+ii′ +
+∑
+j∈J
+µj
+∑
+i∈I∪{ 0}
+∑
+i′∈I
+(Ci′ − Ci)yj
+ii′
+=
+∑
+k∈K
+λk
+∑
+i∈I∪{ 0}
+∑
+i′∈I
+(max{ui′,v i′} +pi′ − Ci)xk
+ii′ +
+∑
+j∈J
+µj
+∑
+i∈I∪{ 0}
+∑
+i′∈I
+(max{ui′,v i′} +pi′ − Ci)yj
+ii′
+=
+∑
+k∈K
+λk
+∑
+i∈I∪{ 0}
+∑
+i′∈I
+(max{ui′,v i′} +pi′ +τii′ − ui′)xk
+ii′ +
+∑
+j∈J
+µj
+∑
+i∈I∪{ 0}
+∑
+i′∈I
+(max{ui′,v i′} +pi′ − vi′)yj
+ii′
+=
+∑
+k∈K
+λk
+∑
+i∈I∪{ 0}
+∑
+i′∈I
+((vi′ − ui′)+ +pi′ +τii′)xk
+ii′ +
+∑
+j∈J
+µj
+∑
+i∈I∪{ 0}
+∑
+i′∈I
+((ui′ − vi′)+ +pi′)yj
+ii′.
+And the transformation from (10) to (11) is given as follows:
+∑
+k∈K
+γ
+|K|
+∑
+i∈I∪{ 0}
+∑
+i′∈I
+((vi′ − ui′)+ +pi′ +τii′)xk
+ii′ +
+∑
+j∈J
+1 − γ
+|J |
+∑
+i∈I∪{ 0}
+∑
+i′∈I
+((ui′ − vi′)+ +pi′)yj
+ii′
+= γ
+|K|
+∑
+i∈I∪{ 0}
+∑
+i′∈I
+((vi′ − ui′)+ +pi′ +τii′)
+∑
+k∈K
+xk
+ii′ + 1 − γ
+|J |
+∑
+i∈I∪{ 0}
+∑
+i′∈I
+((ui′ − vi′)+ +pi′)
+∑
+j∈J
+yj
+ii′
+= γ
+|K|
+∑
+i′∈I
+((vi′ − ui′)+ +pi′)
+∑
+i∈I∪{ 0}
+∑
+k∈K
+xk
+ii′ + γ
+|K|
+∑
+i∈I∪{ 0}
+∑
+i′∈I
+τii′
+∑
+k∈K
+xk
+ii′
++ 1 − γ
+|J |
+∑
+i′∈I
+((ui′ − vi′)+ +pi′)
+∑
+i∈I∪{ 0}
+∑
+j∈J
+yj
+ii′
+=
+∑
+i′∈I
+γ
+|K|((vi′ − ui′)+ +pi′) + 1 − γ
+|J |((ui′ − vi′)+ +pi′) + γ
+|K|
+∑
+i∈I∪{ 0}
+∑
+i′∈I
+τii′
+∑
+k∈K
+xk
+ii′
+=
+∑
+i′∈I
+γ
+|K|(vi′ − ui′)+ + 1 − γ
+|J |(ui′ − vi′)+ + ( γ
+|K|+ 1 − γ
+|J |)pi′ + γ
+|K|
+∑
+i∈I∪{ 0}
+τii′
+∑
+k∈K
+xk
+ii′.
+40
+
+
+---PAGE 41---
+A.10 Proof of Lemma 4.1
+To prove Lemma 4.1, we introduce the following lemma.
+Lemma A.2 (Rearrangement Inequality) Let 0 ≤ λ1 ≤ λ2 ≤ · · · ≤λK, 0 ≤ ϕ1 ≤ ϕ2 ≤ · · · ≤
+ϕK, for any order [k],
+λ1ϕK +λ2ϕK− 1 + · · ·+λKϕ1 ≤ λ1ϕ[1] +λ2ϕ[2] + · · ·+λKϕ[K],
+and
+λ1ϕK +λ2ϕ2 + · · ·+λKϕK ≥ λ1ϕ[1] +λ2ϕ[2] + · · ·+λKϕ[K].
+From lemma A.2, when λ1 +λ2 + · · ·+λK = Λ , 0 ≤ λ1 ≤ λ2 ≤ · · · ≤λK, 0 ≤ ϕ1 ≤
+ϕ2 ≤ · · · ≤ϕK, we have
+λ1ϕK +λ2ϕK− 1 + · · ·+λKϕ1 ≤ λ1ϕ1 +λ2ϕ2 + · · ·+λK− 1ϕK− 1 +λKϕK
+λ1ϕK +λ2ϕK− 1 + · · ·+λKϕ1 ≤ λ1ϕ2 +λ2ϕ3 + · · ·+λK− 1ϕK +λKϕ1
+λ1ϕK +λ2ϕK− 1 + · · ·+λKϕ1 ≤ λ1ϕ3 +λ2ϕ4 + · · ·+λK− 1ϕ1 +λKϕ2
+...
+λ1ϕK +λ2ϕK− 1 + · · ·+λKϕ1 ≤ λ1ϕK +λ2ϕ1 + · · ·+λK− 1ϕK− 2 +λKϕK− 1
+Summing up the above inequalities, we obtain
+n(λ1ϕK +λ2ϕK− 1 + · · ·+λKϕ1) ≤ λ1
+K∑
+k=1
+ϕk +λ2
+K∑
+k=1
+ϕk + · · ·+λk
+K∑
+k=1
+ϕk
+= Λ
+K∑
+k=1
+ϕk.
+Therefore, when λ1 =λ2 = · · ·=λK, or ϕ1 =ϕ2 = · · ·=ϕK, we have
+λ1ϕK +λ2ϕK− 1 + · · ·+λKϕ1 = Λ
+n
+K∑
+k=1
+ϕk,
+which proves Lemma 4.1. □
+A.11 Proof of Proposition 4.6
+As discussed in Section 4.2, our problem can be considered as a single-machine scheduling
+problem with release time ri, where the objective function is γ
+|K|
+∑Ci + 1−γ
+|J |Cmax. We use
+this model to prove Proposition 4.6.
+41
+
+
+---PAGE 42---
+1. For a processing sequence under ERD rule, we can consider multiple adjacent tasks
+without idle time as a task segment. By doing this, we can divide the entire set of
+tasks at points of idle time and create separate task segments. Within each segment,
+there is no idle time between tasks, and the release time of each task within a segment
+is not earlier than the start time of the segment. First, we deﬁne the following swap
+operation: if swapping the order of any two adjacent tasks i and i′ within each task
+segment decreases the total objective value, we implement the swap operation. Repeat
+this operation until the order satisﬁes the optimal strategy. Assuming that under the
+ERD rule, task i is processed before task i′, i.e., ri ≤ ri′. Let wi be the start time
+of task i. We have ri ≤ wi. The gap between the objective function before and after
+the swap is given by: 2wi + 2pi +pi′− (2ri′+ 2pi′+pi) = 2wi − 2ri′+pi − pi′. When
+ri′ takes the minimum value and equals ri, the gap is maximized. Therefore, when
+all tasks within each task segment have the same release time, the gap between the
+ERD rule and the optimal strategy is maximized.
+2. In each task segment, we demonstrate the maximum gap as follows. Assume that
+there are N tasks in an arbitrary segment. Without loss of generality, let p ≤ p1 ≤
+p2 ≤ · · · ≤pN ≤ ¯p. When r1 = r2 = · · ·= rN , the ﬂowtime of any processing
+sequence under ERD rule [n] is given by
+N∑
+i=1
+i∑
+n=1
+p[n] =Np [1] + (N − 1)p[2] + · · ·+ 2p[N − 1] +p[N ]. (32)
+From Lemma A.2, for any processing sequence, we have
+Np 1 + (N − 1)p2 + · · ·+ 2pN − 1 +pN ≤ Np [1] + (N − 1)p[2] + · · ·+ 2p[N − 1] +p[N ], (33)
+NpN + (N − 1)pN − 1 + · · ·+ 2p2 +p1 ≥ Np [1] + (N − 1)p[2] + · · ·+ 2p[N − 1] +p[N ]. (34)
+Inequality (33) implies that Shortest Processing Time (SPT) ﬁrst is optimal for
+1||∑Ci, and Inequality (34) implies that Longest Processing Time (LPT) ﬁrst policy
+provide the worst sequence of 1||∑Ci. Therefore, the largest gap between diﬀerent
+sequences is
+(NpN + (N − 1)pN − 1 + · · ·+ 2p2 +p1) − (Np 1 + (N − 1)p2 + · · ·+ 2pN − 1 +pN )
+= ( N − 1)(pN − p1) + (N − 3)(pN − 1 − p2) +
+(
+⌈N
+2 ⌉+ 1 − ⌊N
+2 ⌋
+)
+(p⌈N
+2 ⌉+1 − p⌊N
+2 ⌋).
+42
+
+
+---PAGE 43---
+Forp ≤ pn ≤ ¯p, ∀n ≤ N , we take pn =p, if n <N
+2 , and pn = ¯p, if n >N
+2 . And the
+largest gap is given by
+(N − 1)(pN − p1) + (N − 3)(pN − 1 − p2) +
+(
+⌈N
+2 ⌉+ 1 − ⌊N
+2 ⌋
+)
+(p⌈N
+2 ⌉+1 − p⌊N
+2 ⌋)
+≤ (N − 1)(¯p − p) + (N − 3)(¯p − p) +
+(
+⌈N
+2 ⌉+ 1 − ⌊N
+2 ⌋
+)
+(¯p − p)
+=
+((
+N +N − 1 + · · ·+ ⌈N
+2 ⌉+ 1
+)
+−
+(
+1 + 2 + · · ·+ ⌊N
+2 ⌋
+))
+(¯p − p)
+= ⌈N
+2 ⌉⌊N
+2 ⌋(¯p − p).
+3. We have proven the maximum gap for each task segment. Now we will prove that when
+the number of task segments is 1, i.e., under the ERD rule where no idle time exists,
+the total gap reaches its maximum value. Assuming there are K segments, where the
+number of tasks in each segment is denoted as Nk, we have N1 +N2 + · · ·+NK = |Ij|,
+nk ≥ 0, ∀k ≤ K, the total gap is
+K∑
+k=1
+⌈Nk
+2 ⌉⌊Nk
+2 ⌋(¯p − p) ≤ ⌈ |Ij|
+2 ⌉(¯p − p)
+K∑
+k=1
+⌊Nk
+2 ⌋ ≤ ⌈|Ij|
+2 ⌉⌊|Ij|
+2 ⌋(¯p − p). (35)
+When Nk = |Ij|,n k′ = 0, ∀k,k ′ ≤ K,k ′ ̸=k, we have
+K∑
+k=1
+⌈Nk
+2 ⌉⌊Nk
+2 ⌋(¯p − p) = ⌈|Ij|
+2 ⌉⌊|Ij|
+2 ⌋(¯p − p) (36)
+□
+A.12 Proof of Proposition 4.7
+Similar to the proof in Proposition 4.6, we ﬁrst divide all tasks at idle points and create
+separate task segments. By applying the same analysis method as in Proposition 4.6, we
+can prove that when all tasks within each task segment have the same release time, the
+gap between the FCFS sequence and the optimal sequence is maximized under the buﬀer
+setting. In addition, similar to Proposition 4.6, when there is only one segment (all tasks
+have the same release time) under the buﬀer setting, the gap is maximized.
+Thus, we demonstrate the maximum gap under the case when there is only one segment:
+1. When the buﬀer size |¯Kj| ≥ ⌊|Ij |
+2 ⌋, based on part (b) of the proof in Proposition 4.6,
+we construct a task release order where the ﬁrst ⌊|Ij |
+2 ⌋ tasks have a processing time of
+43
+
+
+---PAGE 44---
+¯p, and all subsequent tasks have a processing time of p. According to the deﬁnition,
+the buﬀer problem serves the demands in the buﬀer ﬁrst. The reordering problem
+serves the demands with shorter processing times ﬁrst. Therefore, the gap between
+the two sequences is ⌈|Ij |
+2 ⌉⌊|Ij |
+2 ⌋(¯p − p).
+2. When the buﬀer size |¯Kj| ≤ ⌊|Ij |
+2 ⌋ − 1, since the buﬀer problem serves the demands
+in the buﬀer ﬁrst, the worst-case scenario is to set the processing time of the demand
+ﬁrst loaded into the buﬀer to ¯p. On the other hand, the reordering problem serves
+the demands with shorter processing time ﬁrst, so the maximum gap between the two
+approaches is |¯Kj|(|Ij| − |¯Kj|)(¯p − p).
+□
+A.13 Mathematical Transformation of the DRO Problem
+Based on the linear property of the expectation and our deﬁnition of the ambiguity sets of
+marginal distributions, we can derive the following transformations:
+mins sup
+f Ψ ∈ F Ψ (σ1,...,σ N )
+Er
+
+
+
+∑
+ψ∈ Ψ
+∑
+ϕ∈ Φψ
+max
+yϕ
+min
+Cϕ
+gϕ
+(
+rϕ, yϕ, Cϕ
+)
+sψ
+
+
+
+= min s sup
+f Ψ ∈ F Ψ (σ1,...,σ N )
+∑
+ψ∈ Ψ
+∑
+ϕ∈ Φ
+Er
+{
+max
+yϕ
+min
+Cϕ
+gϕ
+(
+rϕ, yϕ, Cϕ
+)}
+aϕ,ψsψ
+(due to the deﬁnition of aϕ,ψ)
+= min s
+∑
+ψ∈ Ψ
+sup
+fψ∈ Fψ(σ1,...,σ N )
+∑
+ϕ∈ Φ
+Er
+{
+max
+yϕ
+min
+Cϕ
+gϕ
+(
+rϕ, yϕ, Cϕ
+)}
+aϕ,ψsψ
+(due to the parameter independency deﬁned in Eq. (16))
+= min s
+∑
+ψ∈ Ψ
+sup
+fψ∈ Fψ(σ1,...,σ N )
+∑
+ϕ∈ Φ
+Erϕ
+{
+max
+yϕ
+min
+Cϕ
+gϕ
+(
+rϕ, yϕ, Cϕ
+)}
+aϕ,ψsψ
+(due to the expectation property of the marginal distribution)
+= min s
+∑
+ψ∈ Ψ
+∑
+ϕ∈ Φ
+{
+sup
+fϕ∈ Fϕ(σ1,...,σ N )
+Erϕ
+{
+max
+yϕ
+min
+Cϕ
+gϕ
+(
+rϕ, yϕ, Cϕ
+)}}
+aϕ,ψsψ
+(due to the deﬁnition of marginal distribution in Eq. (17))
+= min s
+∑
+ϕ∈ Φ
+{
+sup
+fϕ∈ Fϕ(σ1,...,σ N )
+Erϕ
+{
+max
+yϕ
+min
+Cϕ
+gϕ
+(
+rϕ, yϕ, Cϕ
+)}} ∑
+ψ∈ Ψ
+aϕ,ψsψ
+(due to linear transformation)
+= min z
+∑
+ϕ∈ Φ
+{
+sup
+fϕ∈ Fϕ(σ1,...,σ N )
+Erϕ
+{
+max
+yϕ
+min
+Cϕ
+gϕ
+(
+rϕ, yϕ, Cϕ
+)}}
+zϕ
+44
+
+
+---PAGE 45---
+(due to the deﬁnition of zϕ).
+A.14 Proof of Proposition 5.1
+To streamline the expressions, we omit the super and subscripts ϕin the proof. Let
+ρn =
+∫
+r∈ Rn
+df(r) ∈ [σn, 1], ∀n ∈ {1, 2,...,N }, ρ0 = 0,
+g∗(r) = max
+y∈Y (r)
+min
+C∈C (r, y)
+g(r, y, C).
+Then we have
+sup
+f ∈ F (σ1,...,σ N )
+∫
+max
+y∈Y (r)
+min
+C∈C (r, y)
+g(r, y, C)df(r)
+= sup
+f ∈ F (σ1,...,σ N )
+N∑
+n=1
+∫
+r∈ Rn\ Rn− 1
+g∗(rn)df(r)
+≤ sup
+f ∈ F (σ1,...,σ N )
+N∑
+n=1
+∫
+r∈ Rn\ Rn− 1
+df(r) max
+r∈ Rn
+g∗(r)
+= max
+ρn∈ [σn, 1], ∀n≤N
+N∑
+n=1
+(ρn − ρn− 1) max
+r∈ Rn
+g∗(r)
+= max
+ρn∈ [σn, 1], ∀n≤N
+{
+max
+r∈ RN
+g∗(r) −
+N − 1∑
+n=1
+ρn[ max
+r∈ Rn+1
+g∗(r) − max
+r∈ Rn
+g∗(r)]
+}
+= max
+r∈ RN
+g∗(r) −
+N − 1∑
+n=1
+σn[ max
+r∈ Rn+1
+g∗(r) − max
+r∈ Rn
+g∗(r)]
+=
+N∑
+n=1
+(σn − σn− 1) max
+rn∈ Rn, y∈Y (rn)
+min
+C∈C (rn, y)
+g(rn, y, C).
+Proposition 5.1 is proved. □
+A.15 Constraints (19c) and (19d)
+Constraint (19c) represents a set of constraints related to the vector yϕ, and is composed
+of:
+∑
+i′
+ϕ∈Iϕ
+yϕ
+0i′
+ϕ
+= 1, ∀ϕ∈ Φ,
+∑
+i′
+ϕ∈Iϕ\{ iϕ}
+yϕ
+iϕi′
+ϕ
+−
+∑
+i′′
+ϕ∈I\{ iϕ}
+yϕ
+i′′
+ϕiϕ
+= 0, ∀iϕ∈ Iϕ, ∀ϕ∈ Φ,
+∑
+iϕ∈Iϕ
+yϕ
+iϕ, |I|+1 = 1, ∀ϕ∈ Φ,
+45
+
+
+---PAGE 46---
+∑
+iϕ∈Iϕ∪{0}
+yϕ
+iϕi′
+ϕ
+= 1, ∀i′
+ϕ∈ Iϕ\{ iϕ}, ∀ϕ∈ Φ,
+riϕ,ϕ+M (1 − yϕ
+iϕi′
+ϕ
+) ≤ ri′
+ϕ,ϕ, ∀iϕ∈ Iϕ, ∀i′
+ϕ∈ Iϕ\{ iϕ}, ∀ϕ∈ Φ,
+yϕ
+iϕi′
+ϕ
+∈ {0, 1}, ∀iϕ∈ Iϕ, ∀i′
+ϕ∈ Iϕ\{ iϕ}, ∀ϕ∈ Φ.
+Constraint (19d) represents a set of constraints related to the vector Cϕ, and is com-
+posed of:
+Cϕ
+max =
+∑
+iϕ∈Iϕ
+Cϕ
+iϕyϕ
+iϕ, |I|+1, ∀ϕ∈ Φ, (37)
+Cϕ
+i′
+ϕ
+= max
+
+
+ri′
+ϕ,ϕ,
+∑
+iϕ∈Iϕ
+Cϕ
+iϕyϕ
+iϕi′
+ϕ
+
+
+ +pϕ
+i′
+ϕ
+, ∀i′
+ϕ∈ Iϕ\ iϕ, ∀ϕ∈ Φ. (38)
+And the linearization of Constraints (37) and (38) is given by
+Cϕ
+iϕ− M (1 − yiϕ, |I|+1) ≤ Cϕ
+max, ∀iϕ∈ Iϕ, ∀ϕ∈ Φ,
+Cϕ
+iϕ+M (1 − yiϕ, |I|+1) ≥ Cϕ
+max, ∀iϕ∈ Iϕ, ∀ϕ∈ Φ,
+Cϕ
+iϕ− M (1 − yϕ
+iϕi′
+ϕ
+) ≤ vϕ
+i′
+ϕ
+, ∀iϕ∈ Iϕ, ∀i′
+ϕ∈ Iϕ\ iϕ, ∀ϕ∈ Φ,
+Cϕ
+iϕ+M (1 − yϕ
+iϕi′
+ϕ
+) ≥ vϕ
+i′
+ϕ
+, ∀iϕ∈ Iϕ, ∀i′
+ϕ∈ Iϕ\ iϕ, ∀ϕ∈ Φ,
+riϕ,ϕ+pϕ
+iϕ+M (1 − δϕ
+iϕ) ≥ Cϕ
+iϕ, ∀iϕ∈ Iϕ, ∀ϕ∈ Φ,
+viϕ,ϕ+pϕ
+iϕ+Mδϕ
+iϕ≥ Cϕ
+iϕ, ∀iϕ∈ Iϕ, ∀ϕ∈ Φ,
+riϕ,ϕ− Mδϕ
+iϕ≤ viϕ,ϕ, ∀iϕ∈ Iϕ, ∀ϕ∈ Φ,
+riϕ,ϕ+pϕ
+iϕ≤ Cϕ
+iϕ,v iϕ,ϕ+pϕ
+iϕ≤ Cϕ
+iϕ, ∀iϕ∈ Iϕ, ∀ϕ∈ Φ,
+δϕ
+iϕ∈ {0, 1}, ∀iϕ∈ Iϕ, ∀ϕ∈ Φ.
+A.16 Proof of Proposition 5.2
+To prove Proposition 5.2, we establish an upper bound for maxr∈ Rg (r, y, C) that cannot
+be reached. We then demonstrate that the gap between this upper bound and g (˜r, y, C)
+is no more than γ
+|K|⌈|I|
+2 ⌉⌊|I|
+2 ⌋(¯p − p).
+Given that every vector within ˜r represents the maximum corresponding value, we sort
+the vector in descending order and label the ith value as r[i]. Consequently, the arrival time
+of the i-th task at the workstation is no later than r[i] in any element of the ambiguity set
+we deﬁne. As such, we can assign the arrival time of the ith task at the workstation to r[i],
+46
+
+
+---PAGE 47---
+which corresponds to the processing time derived from the processing times of all tasks,
+thereby maximizing the objective. By decomposing the processing time and release time of
+each task, we thus obtain an upper bound for the problem.
+We then demonstrate that the maximum gap between this upper bound and the ob-
+jective function derived from the feasible solution ˜r is no greater than the maximum gap
+between this upper bound and the objective function derived from the feasible solution
+˜r. This is shown using a proof method similar to that in Proposition 4.6. Speciﬁcally,
+when ˜r1 = ˜r2 = · · ·= ˜r|I|, the tasks in the upper bound are processed according to the
+LPT (Longest Processing Time) rule. Meanwhile, the feasible solution ˜r, in which all tasks
+arrive simultaneously, can be processed in any order. The maximum gap is attained when
+the feasible solution takes the minimum value. Therefore, tasks in the feasible solution ˜r
+are processed according to the SPT (Shortest Processing Time) rule. Hence, the maximum
+gap is proven in accordance with Proposition 4.6.
+Finally, as ˜r ∈ R, it is intuitive to have g (˜r, y, C) ≤ maxr∈ Rg (r, y, C) = g (r∗, y, C).
+Taken together, Proposition 5.2 is proved.
+□
+47
+
+
+---PAGE 48---
+B Experiment Settings and Numerical Results
+Each transportation task comprises three sub-tasks based on operation ﬂow: unloaded
+travel, rack delivery, and rack return. The dataset contains 5,381 sub-task records, each
+including AMR ID, task ID, sub-task type, optimal travel distance, actual travel distance,
+actual travel time, route adjustments, optimal path, and actual path. The optimal path
+and distance represent the static A∗ route and distance from the sub-task origin to the
+destination. Key descriptive statistics for these operational metrics across sub-task cate-
+gories are summarized in Table 2, where the optimal number of turns is derived from the
+coordinates of the optimal path.
+Table 2: Overview of Descriptive Data Statistics
+Evaluator Sub-Task Category A verage Median Minimum Maximum
+Pick-up 1897 - - -
+Number of Tasks Delivery 1809 - - -
+Return 1683 - - -
+Pick-up 1.45 1 0 8
+Route Adjustments Delivery 1.80 2 0 5
+Return 2.20 2 0 7
+Pick-up 35.24 35.55 0 509.51
+Optimal Distance (m) Delivery 43.77 42.43 4.35 106.4
+Return 43.29 41.90 4.35 106.4
+Pick-up 2.29 2 0 30
+Optimal Number of Turns Delivery 4.96 5 1 19
+Return 5.25 5 1 22
+Pick-up 35.59 25.55 0.0 509.51
+Actual Transport Distance (m) Delivery 55.63 52.90 4.35 158.26
+Return 56.55 54.30 4.35 148.6
+Pick-up 49.25 34.93 0 737.03
+Actual Travel Time (s) Delivery 90.52 83.53 15.36 280.19
+Return 92.84 87.50 11.62 254.02
+Table 3 provides a data sample for Robot 11701005 completing Task 11792. Sample
+48
+
+
+---PAGE 49---
+1 corresponds to the pick-up sub-task, Sample 2 to the delivery sub-task, and Sample 3
+to the return sub-task. While optimal distance and path are predetermined, other metrics
+are derived from actual operations. Our objective is to leverage this data for designing the
+nested ambiguity sets for travel time in the distributionally robust counterpart. To explore
+data relationships, we generated the following statistical visualizations. Notably, since rack
+delivery and return both occur under loaded conditions, we combined them into a single
+”loaded state” category for analysis.
+Table 3: Sample Data from Robotic Travel Dataset
+Data Field Sample 1 Sample 2 Sample 3
+AMR ID 11701005 11701005 11701005
+Task ID 11792 11792 11792
+Sub-Task Type Empty Delivery Pick-up
+Optimal Travel Distance (m) 76.85 69.35 69.35
+Actual Travel Distance (m) 76.85 74.75 77.05
+Actual Travel Time (s) 80.619 109.974 131.657
+Route Adjustments 0 1 2
+[[217.07, 204.641], [[281.42, 217.141], [[250.07, 179.141],
+[223.82, 204.641], [254.92, 217.141], [250.07, 214.641],
+Optimal Path Coordinates [223.82, 212.141], [254.92, 183.391], [280.07, 214.641],
+[280.07, 212.141], [251.42, 183.391], [280.07, 217.141],
+[280.07, 217.141], [251.42, 179.141], [281.42, 217.141]]
+[281.42, 217.141]] [250.07, 179.141]]
+[[217.07, 204.641], [[281.42, 217.141], [[250.07, 179.141],
+[223.82, 204.641], [282.77, 217.141], [250.07, 198.391],
+[223.82, 212.141], [282.77, 190.891], [250.07, 198.391],
+[280.07, 212.141], [282.77, 190.891], [250.07, 219.641],
+Actual Path Coordinates [280.07, 217.141], [282.77, 183.391], [254.92, 219.641],
+[281.42, 217.141]] [248.72, 183.391], [254.92, 219.641],
+[248.72, 182.141], [282.77, 219.641],
+[250.07, 182.141], [282.77, 217.141],
+[250.07, 179.141]] [281.42, 217.141]]
+49
+
+
+---PAGE 50---
+As optimal metrics are known in advance, we ﬁrst analyzed their relationship with
+actual travel time after excluding extreme-distance tasks (ﬁnal dataset: 5,243 sub-tasks).
+Using the number of turns derived from optimal paths, we generated Fig. 3 and Fig. 4 to
+examine how optimal distance and optimal number of turns inﬂuence actual travel time.
+Figure 3: Scatter plot: Optimal path distance vs. actual travel time
+Figure 4: Box plot: Optimal number of turns vs. actual travel time
+50
+
+
+---PAGE 51---
+Fig. 3 reveals a strong positive correlation between travel time and optimal distance.
+The wider dispersion in the upper scatter region indicates prolonged times for some orders,
+suggesting that mean values may not capture this variability. Furthermore, loaded travel
+exhibits slower speeds and greater scatter compared to unloaded travel. Fig. 4 conﬁrms
+that increased number of turns correspond to longer travel times, with loaded travel showing
+greater uncertainty. Fig. 5 displays the distribution of tasks by optimal number of turns.
+Figure 5: Histogram: Task frequency by optimal number of turns
+We subsequently analyzed how actual distance relates to travel time (Fig. 6). Despite
+exhibiting tighter clustering than optimal distance metrics, the metric is unavailable during
+task assignment. Thus, we focus on leveraging predetermined optimal metrics to enhance
+travel time characterization.
+Given the complexity of precise time prediction and the right-skewed distribution of
+travel times (evidenced by elongated upper tails), we employed quantile regression to im-
+prove robustness. This approach generates parameters for diﬀerent conﬁdence levels, facil-
+itating integration with the nested uncertainty sets construction. We ﬁrst present single-
+variable quantile regression results relating travel time to optimal distance. Fig. 7 plots the
+cumulative distributions of travel time per meter for loaded and unloaded states. Both dis-
+tributions are right-skewed, indicating occasional longer times. The 75th percentile times
+51
+
+
+---PAGE 52---
+Figure 6: Scatter plot: Actual travel distance vs. actual travel time
+per meter are 2.06s (unloaded) and 2.58s (loaded), represented by the blue reference lines.
+Figure 7: Cumulative distribution: Travel time per meter of optimal path
+Fig. 8 shows quartile regression lines (blue) against linear regression (red), demonstrat-
+ing quantile regression’s superior encapsulation of data variability across diverse scenarios.
+52
+
+
+---PAGE 53---
+Figure 8: Quantile regression: Actual travel time vs. optimal distance
+Table 4: Quantile Regression Coeﬃcients by AMR Load Status
+Unloaded Loaded Mixed
+Variable q = 0.25 q = 0.50 q = 0.75 q = 0.25 q = 0.50 q = 0.75 q = 0.25 q = 0.50 q = 0.75
+Constant 1.8004 2.1096 2.8549 10.2291 15.2073 36.7511 -0.6716 6.0217 25.3485
+Travel Distance (Unloaded) 1.0471 1.1852 1.3416 – – – 1.1620 1.2657 1.2585
+Number of Turns (Unloaded) 1.6827 1.9927 2.2829 – – – 2.2586 1.3624 0.6493
+Travel Distance (Loaded) – – – 1.3220 1.4615 1.4752 1.5097 1.6511 1.7991
+Number of Turns (Loaded) – – – 0.7152 2.4934 2.5402 2.3879 2.7678 3.0656
+53
+
+
+---PAGE 54---
+Table 5: Experiment Settings on Workstations
+Number of Workstations Total Number of Tasks A verage Processing Time (s)
+1 152 21.19
+2 142 21.27
+3 140 21.86
+4 142 22.11
+5 148 21.35
+6 142 21.27
+7 158 21.53
+8 149 22.42
+9 149 21.75
+Table 6: Algorithm Comparison in Workstation Occupancy With Deterministic Travel Time
+Number of Greedy DRO Absolute Relative
+Workstations Algorithm Algorithm Improvement Improvement
+1 75.64% 83.26% 7.62% 10.07%
+2 71.06% 82.35% 11.29% 15.89%
+3 72.52% 79.72% 7.20% 9.93%
+4 73.39% 81.24% 7.85% 10.70%
+5 74.52% 84.54% 10.02% 13.45%
+6 71.10% 77.89% 6.79% 9.55%
+7 83.03% 88.36% 5.33% 6.42%
+8 77.83% 86.73% 8.90% 11.44%
+9 75.38% 85.37% 9.99% 13.25%
+A verage 74.94% 83.27% 8.33% 11.12%
+54

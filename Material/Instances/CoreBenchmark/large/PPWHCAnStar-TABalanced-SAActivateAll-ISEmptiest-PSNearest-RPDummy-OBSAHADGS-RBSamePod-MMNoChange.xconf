@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ControlConfiguration xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <Name>PPWHCAnStar-TABalanced-SAActivateAll-ISEmptiest-PSNearest-RPDummy-OBHADGS-RBSamePod-MMNoChange</Name>
+  <Name>PPWHCAnStar-TABalanced-SAActivateAll-ISEmptiest-PSNearest-RPDummy-OBSAHADGS-RBSamePod-MMNoChange</Name>
   <PathPlanningConfig xsi:type="WHCAnStarPathPlanningConfiguration">
     <Name />
     <AutoSetParameter>false</AutoSetParameter>
@@ -112,6 +112,7 @@
     <BAEDReferenceSpeed>1.5</BAEDReferenceSpeed>
     <UseReturnPendingBots>false</UseReturnPendingBots>
     <ReturnPendingDistanceThreshold>1</ReturnPendingDistanceThreshold>
+    <UseM1GTriggerGate>true</UseM1GTriggerGate>
     <OrderRewardSec>60</OrderRewardSec>
     <TravelTimeWeight>0.1</TravelTimeWeight>
     <TopKOrders>3</TopKOrders>

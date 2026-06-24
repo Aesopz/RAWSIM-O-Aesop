@@ -90,6 +90,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// 决策变量的命名
         /// </summary>
         private Dictionary<int, List<Symbol>> _IsvariableNames = new Dictionary<int, List<Symbol>>();
+        private readonly Dictionary<int, Dictionary<int, double>> _podStationDistanceCache =
+            new Dictionary<int, Dictionary<int, double>>();
 
         protected virtual RAWSimO.Core.Waypoints.Waypoint GetBotReferenceWaypoint(Bot bot)
         {
@@ -115,16 +117,13 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             return null;
         }
 
-        private double EstimateBotPodDistance(Bot bot, Pod pod)
+        protected double EstimateBotPodDistance(Bot bot, Pod pod)
         {
             if (bot == null || pod == null)
                 return double.PositiveInfinity;
 
             var botWaypoint = GetBotReferenceWaypoint(bot);
             var podWaypoint = GetPodReferenceWaypoint(pod);
-            if (botWaypoint != null && podWaypoint != null)
-                return Distances.CalculateShortestPath(botWaypoint, podWaypoint, Instance);
-
             double botX = botWaypoint != null ? botWaypoint.X : bot.X;
             double botY = botWaypoint != null ? botWaypoint.Y : bot.Y;
             double podX = podWaypoint != null ? podWaypoint.X : pod.X;
@@ -132,23 +131,32 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             return Math.Abs(botX - podX) + Math.Abs(botY - podY);
         }
 
-        private double EstimatePodStationDistance(Pod pod, OutputStation station)
+        protected double EstimatePodStationDistance(Pod pod, OutputStation station)
         {
             if (pod == null || station == null || station.Waypoint == null)
                 return double.PositiveInfinity;
 
             var podWaypoint = GetPodReferenceWaypoint(pod);
-            if (podWaypoint != null &&
-                DistanceSet.ContainsKey(station.Waypoint.ID) &&
-                DistanceSet[station.Waypoint.ID].ContainsKey(podWaypoint.ID))
-                return DistanceSet[station.Waypoint.ID][podWaypoint.ID];
-
             if (podWaypoint != null)
-                return Distances.CalculateShortestPathPodSafe1(podWaypoint, station.Waypoint, Instance);
+            {
+                if (!_podStationDistanceCache.TryGetValue(station.Waypoint.ID, out Dictionary<int, double> stationDistances))
+                {
+                    stationDistances = new Dictionary<int, double>();
+                    _podStationDistanceCache.Add(station.Waypoint.ID, stationDistances);
+                }
 
-            double podX = podWaypoint != null ? podWaypoint.X : pod.X;
-            double podY = podWaypoint != null ? podWaypoint.Y : pod.Y;
-            return Math.Abs(podX - station.Waypoint.X) + Math.Abs(podY - station.Waypoint.Y);
+                if (!stationDistances.TryGetValue(podWaypoint.ID, out double distance))
+                {
+                    distance = Distances.CalculateShortestPathPodSafe(
+                        podWaypoint, station.Waypoint, Instance);
+                    stationDistances.Add(podWaypoint.ID, distance);
+                }
+
+                return distance;
+            }
+
+            return Math.Abs(pod.X - station.Waypoint.X) +
+                Math.Abs(pod.Y - station.Waypoint.Y);
         }
 
         // ── Station-starve-aware cost (gated by SettingConfig.StarveAwareCostEnabled) ──
@@ -210,6 +218,15 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             double penalty = StarveAwareCost.DelayPenalty(taCost, est, _saFixedParam);
             return podStationTime + penalty;
         }
+
+        /// <summary>Hook: extra per-(pod,station) cost added to the pod-&gt;station objective term.
+        /// Base M1G adds nothing; SA-M1G overrides to add a starvation-delay penalty.</summary>
+        protected virtual double PodStationExtraCost(Pod pod, OutputStation station) { return 0.0; }
+
+        /// <summary>Hook: per-solve precompute for cost extras (EST, representative bot-&gt;pod time).
+        /// Base M1G is a no-op.</summary>
+        protected virtual void PrepareDecisionExtras(System.Collections.Generic.IEnumerable<Pod> pods,
+            System.Collections.Generic.Dictionary<OutputStation, int> Cs, System.Collections.Generic.HashSet<Bot> Ra) { }
 
         /// <summary>
         /// Indicates whether a currently unavailable bot should still be included as a near-future available bot.
@@ -633,13 +650,15 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             VariableCollection<string> variablesInteger3 = new VariableCollection<string>(wrapper, VariableType.Integer, 0, 6, (string s) => { return s; });
             // Precompute per-epoch starve-aware cost inputs; no-op when StarveAwareCostEnabled=false.
             PrepareStarveAware(Pods, Cs, Ra);
+            // Precompute SA-M1G decision extras (EST + free-flow arrival); no-op in base M1G.
+            PrepareDecisionExtras(Pods, Cs, Ra);
             if (Ra.Count() > 0)
-                wrapper.SetObjective((LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * M1GPodStationCost(v.pod, v.outputstation)), wrapper)
+                wrapper.SetObjective((LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * (M1GPodStationCost(v.pod, v.outputstation) + PodStationExtraCost(v.pod, v.outputstation))), wrapper)
                     + LinearExpression.Sum(deVarNameyrp.Where(u => Ra.Contains(u.robot) && Instance.ResourceManager.UnusedPods.Contains(u.pod) && u.pod.Waypoint != null).Select(v => variablesBinary[v.name] *
                     M1GBotPodCost(v.robot, v.pod)), wrapper)) * w1 + LinearExpression.Sum(deVarNameyos.Select(v => variablesBinary[v.name])) * w2
                     + LinearExpression.Sum(deVarNameus.Select(v => variablesInteger3[v.name])) * w3, OptimizationSense.Minimize);
             else
-                wrapper.SetObjective(LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * M1GPodStationCost(v.pod, v.outputstation)), wrapper) * w1
+                wrapper.SetObjective(LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * (M1GPodStationCost(v.pod, v.outputstation) + PodStationExtraCost(v.pod, v.outputstation))), wrapper) * w1
                     + LinearExpression.Sum(deVarNameyos.Select(v => variablesBinary[v.name])) * w2
                     + LinearExpression.Sum(deVarNameus.Select(v => variablesInteger3[v.name])) * w3, OptimizationSense.Minimize);
             foreach (var order in pendingOrders)//每个订单最多只能分配给一个工作站

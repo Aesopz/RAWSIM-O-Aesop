@@ -184,6 +184,8 @@ namespace RAWSimO.Core
         public List<int> StatJITEtaStopGoCounts = new List<int>();
         public List<int> StatJITEtaQueueStopGoCounts = new List<int>();
         public List<double> StatJITEtaWaitSecs = new List<double>();
+        /// <summary>Actual extract-leg rows with ETA-surrogate feature columns; written to eta_surrogate_actual_legs.csv.</summary>
+        public List<string> StatEtaSurrogateActualLegRows = new List<string>();
         /// <summary>Backfill-potential probe rows (BackfillProbeEnabled). One row per projected
         /// starvation-gap onset per station; written to backfill_probe.csv at finish.</summary>
         public List<string> StatBackfillProbeRows = new List<string>();
@@ -602,6 +604,7 @@ namespace RAWSimO.Core
             StatJITEtaStopGoCounts.Clear();
             StatJITEtaQueueStopGoCounts.Clear();
             StatJITEtaWaitSecs.Clear();
+            StatEtaSurrogateActualLegRows.Clear();
             StatStopGoEventRows.Clear();
             StatConflictWaitHeatPoints.Clear();
             StatBackfillProbeRows.Clear();
@@ -1947,6 +1950,18 @@ namespace RAWSimO.Core
                 sb.AppendLine("StatJITEtaStopGoMean: " + (sumStopGo / jitN).ToString(IOConstants.FORMATTER));
                 sb.AppendLine("StatJITEtaQueueStopGoMean: " + (sumQueueStopGo / jitN).ToString(IOConstants.FORMATTER));
                 sb.AppendLine("StatJITEtaConflictWaitMeanSec: " + (sumJitWait / jitN).ToString(IOConstants.FORMATTER));
+            }
+
+            if (StatEtaSurrogateActualLegRows.Count > 0 && Directory.Exists(SettingConfig.StatisticsDirectory))
+            {
+                string surrogateCsvPath = Path.Combine(SettingConfig.StatisticsDirectory, "eta_surrogate_actual_legs.csv");
+                using (var sw = new StreamWriter(surrogateCsvPath))
+                {
+                    sw.WriteLine("kind,visit_id,leg_index,source_scope,bot_id,station_queue_wp_id,from_id,to_id,pod_id,station_id,loaded,orientation_bucket,from_x,from_y,to_x,to_y,abs_dx,abs_dy,euclid,manhattan,same_tier,from_storage,to_storage,from_queue,to_queue,from_degree,to_degree,path_found,path_hops,path_distance,path_turns,path_segments,eta_sec,actual_sec,wait_sec,turn_count,stop_go_count,queue_stop_go_count,trip_start_time,loaded_bot_count,station_inbound_count,local_bot_count_src,local_bot_count_dest,codest_bot_count,station_face_bot_count");
+                    foreach (string row in StatEtaSurrogateActualLegRows)
+                        sw.WriteLine(row);
+                }
+                sb.AppendLine("StatEtaSurrogateActualLegSampleCount: " + StatEtaSurrogateActualLegRows.Count.ToString(IOConstants.FORMATTER));
             }
 
             // ─── Station starvation, split into two mutually-exclusive types ───

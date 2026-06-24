@@ -1617,7 +1617,8 @@ namespace RAWSimO.Core.Statistics
             // Rates
             _entryValues[FootPrintEntry.BundleThroughputRate] = instance.StatOverallBundlesHandled / TimeSpan.FromSeconds(instance.SettingConfig.SimulationDuration).TotalHours;
             _entryValues[FootPrintEntry.ItemThroughputRate] = instance.StatOverallItemsHandled / TimeSpan.FromSeconds(instance.SettingConfig.SimulationDuration).TotalHours;
-            _entryValues[FootPrintEntry.ItemThroughputRateUB] = instance.OutputStations.Any() ? UpperBoundHelper.CalcUBItemThroughputRate(instance, instance.OutputStations.Where(s => s.StatNumItemsPicked > 0).Average(s => s.StatItemPileOn)) : 0;
+            var _pickedStations = instance.OutputStations.Where(s => s.StatNumItemsPicked > 0).ToList();
+            _entryValues[FootPrintEntry.ItemThroughputRateUB] = (instance.OutputStations.Any() && _pickedStations.Count > 0) ? UpperBoundHelper.CalcUBItemThroughputRate(instance, _pickedStations.Average(s => s.StatItemPileOn)) : 0;
             _entryValues[FootPrintEntry.ItemThroughputRateScore] = (double)_entryValues[FootPrintEntry.ItemThroughputRate] / (double)_entryValues[FootPrintEntry.ItemThroughputRateUB];
             _entryValues[FootPrintEntry.LineThroughputRate] = instance.StatOverallLinesHandled / TimeSpan.FromSeconds(instance.SettingConfig.SimulationDuration).TotalHours;
             _entryValues[FootPrintEntry.OrderThroughputRate] = instance.StatOverallOrdersHandled / TimeSpan.FromSeconds(instance.SettingConfig.SimulationDuration).TotalHours;

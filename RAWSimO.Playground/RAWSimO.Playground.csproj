@@ -89,6 +89,7 @@
     <Compile Include="Tests\StationReleaseSchedulerSelfTest.cs" />
     <Compile Include="Tests\StarveAwareCostSelfTest.cs" />
     <Compile Include="Tests\SaHadgsScoringSelfTest.cs" />
+    <Compile Include="Tools\EtaSurrogateDatasetExporter.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

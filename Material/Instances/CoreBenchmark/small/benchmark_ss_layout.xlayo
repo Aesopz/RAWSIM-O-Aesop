@@ -2,7 +2,7 @@
 <LayoutConfiguration xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <TierCount>1</TierCount>
   <TierHeight>4</TierHeight>
-  <BotCount>5</BotCount>
+  <BotCount>10</BotCount>
   <BotRadius>0.35</BotRadius>
   <MaxAcceleration>1</MaxAcceleration>
   <MaxDeceleration>1</MaxDeceleration>
