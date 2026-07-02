@@ -21,12 +21,21 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// </summary>
         /// <param name="instance">The instance this manager belongs to.</param>
         public SplitOrderManager(Instance instance) : base(instance)
-        { _config = instance.ControllerConfig.OrderBatchingConfig as SplitHeuristicConfiguration; }
+        {
+            _config = instance.ControllerConfig.OrderBatchingConfig as SplitHeuristicConfiguration;
+            instance.OrderCompleted += LogParentCompleted;
+        }
 
         /// <summary>
         /// The configuration.
         /// </summary>
         private SplitHeuristicConfiguration _config;
+
+        /// <summary>
+        /// Lazily opened CSV logging one row per completed split parent (consolidation detail).
+        /// Same location pattern as the M1G decision log.
+        /// </summary>
+        private System.IO.StreamWriter _splitLog;
 
         /// <summary>
         /// Free order slots of the station right now.
@@ -90,6 +99,38 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     (Instance.ItemManager as ItemManager).TakeAvailableOrder(order);
                 }
             }
+        }
+
+        /// <summary>
+        /// Writes one CSV row when a split parent order completes (consolidation done).
+        /// </summary>
+        private void LogParentCompleted(Order order, OutputStation station)
+        {
+            if (!order.IsSplitParent)
+                return;
+            if (_splitLog == null)
+            {
+                string dir = Instance != null && Instance.SettingConfig != null ? Instance.SettingConfig.StatisticsDirectory : null;
+                if (string.IsNullOrEmpty(dir))
+                    dir = ".";
+                if (!System.IO.Directory.Exists(dir))
+                    System.IO.Directory.CreateDirectory(dir);
+                _splitLog = new System.IO.StreamWriter(System.IO.Path.Combine(dir, "splitorders.csv"), false) { AutoFlush = true };
+                _splitLog.WriteLine("parent,units,children,firstChildDone,lastChildDone,consolidated,consolidationWait,placed,submitted");
+            }
+            double firstDone = order.Children.Min(c => c.TimeStampCompleted);
+            double lastDone = order.Children.Max(c => c.TimeStampCompleted);
+            _splitLog.WriteLine(string.Join(",", new string[] {
+                order.ID.ToString(),
+                order.GetDemandCount().ToString(),
+                order.Children.Count.ToString(),
+                firstDone.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                lastDone.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                order.TimeStampCompleted.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                (lastDone - firstDone).ToString(System.Globalization.CultureInfo.InvariantCulture),
+                order.TimeStamp.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                order.TimeStampSubmit.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            }));
         }
 
         /// <summary>
