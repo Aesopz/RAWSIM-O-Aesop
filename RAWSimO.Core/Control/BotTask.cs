@@ -221,7 +221,13 @@ namespace RAWSimO.Core.Control
             Instance.ResourceManager.RemoveExtractRequest(request);
             if (!ReservedPod.IsContained(request.Item))
                 throw new InvalidOperationException("Cannot add a request for an item that is not available!");
-            if (Instance.ControllerConfig.OrderBatchingConfig is PodMatchingOrderBatchingConfiguration)
+            // SplitHeuristicConfiguration uses the same generic scorer-driven pod/request matching as
+            // PodMatching (see BalancedBotManager), so it needs the identical reserved-counter sync:
+            // without RegisterItem here the pod's available count never decrements on reservation while
+            // Cancel()'s unconditional UnregisterItem still increments it, and the drifting counter
+            // eventually offers requests for items that are physically exhausted.
+            if (Instance.ControllerConfig.OrderBatchingConfig is PodMatchingOrderBatchingConfiguration
+                || Instance.ControllerConfig.OrderBatchingConfig is SplitHeuristicConfiguration)
                 ReservedPod.RegisterItem(request.Item, request);
             Requests.Add(request);
             request.StatInjected = true;
@@ -247,7 +253,9 @@ namespace RAWSimO.Core.Control
             for (int i = 0; i < Requests.Count; i++)
             {
                 Instance.ResourceManager.RemoveExtractRequest(Requests[i]);
-                if (Instance.ControllerConfig.OrderBatchingConfig is PodMatchingOrderBatchingConfiguration)
+                // SplitHeuristicConfiguration mirrors the PodMatching reserved-counter sync (see AddRequest).
+                if (Instance.ControllerConfig.OrderBatchingConfig is PodMatchingOrderBatchingConfiguration
+                    || Instance.ControllerConfig.OrderBatchingConfig is SplitHeuristicConfiguration)
                     ReservedPod.RegisterItem(Requests[i].Item, Requests[i]);
             }
         }
