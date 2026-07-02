@@ -450,6 +450,40 @@ namespace RAWSimO.Core.Management
                 _backlogDemand[pos.Key] += pos.Value;
         }
         /// <summary>
+        /// Moves the extract requests matching the child's positions from the (split) parent order to the child.
+        /// Only requests not yet assigned to a station are moved (a split parent is never allocated itself).
+        /// Net backlog demand stays unchanged, hence no demand-tracking updates here.
+        /// See docs/superpowers/specs/2026-07-02-order-splitting-consolidation-enabler-design.md.
+        /// </summary>
+        /// <param name="parent">The split parent order holding the original requests.</param>
+        /// <param name="child">The freshly created split child (its positions define what to move).</param>
+        public void TransferExtractRequests(Order parent, Order child)
+        {
+            foreach (var position in child.Positions)
+            {
+                List<ExtractRequest> parentRequests = _availableExtractRequestsPerOrder[parent]
+                    .Where(r => r.Item == position.Key && _availableExtractRequests.Contains(r))
+                    .Take(position.Value)
+                    .ToList();
+                if (parentRequests.Count < position.Value)
+                    throw new InvalidOperationException("Parent does not have enough open extract requests for the SKU!");
+                foreach (var request in parentRequests)
+                {
+                    _availableExtractRequests.Remove(request);
+                    _availableExtractRequestsPerOrder[parent].Remove(request);
+                    parent.RemoveRequest(position.Key, request);
+                }
+                for (int i = 0; i < position.Value; i++)
+                {
+                    ExtractRequest childRequest = new ExtractRequest(position.Key, child, null);
+                    child.AddRequest(position.Key, childRequest);
+                    _availableExtractRequests.Add(childRequest);
+                }
+            }
+            if (!_availableExtractRequestsPerOrder.ContainsKey(child))
+                _availableExtractRequestsPerOrder[child] = new HashSet<ExtractRequest>(child.Requests);
+        }
+        /// <summary>
         /// Creates requests for all placed orders.
         /// </summary>
         /// <param name="order">The order that was just placed.</param>
