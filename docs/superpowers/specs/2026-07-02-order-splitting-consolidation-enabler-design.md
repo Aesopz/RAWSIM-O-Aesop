@@ -87,9 +87,11 @@
 
 目的：跨通管線驗證（資料模型＋帳本＋consolidation 記帳），之後被 Spec 2 的 MILP 取代。
 
-- 介面：`ISplitter`（或 OrderManager 內掛鉤）：輸入（母單剩餘量、站容量、pod 庫存快照）→ 輸出 `(station, SKU, qty)` 組合清單。
+- **模組邊界（2026-07-02 使用者定案）：原版 M1G/HADGS 一律不動**。拆單方法另建新的 OrderBatching manager 模組（新類別、新 config token，xconf 選用），ablation 對比 = 原版 manager（不啟用拆單）vs 新模組（啟用拆單）。
+- 介面：`ISplitter`：輸入（母單剩餘量、站容量、pod 庫存快照）→ 輸出 `(station, SKU, qty)` 組合清單；由新 manager 呼叫。
 - 預設實作：貪婪版——依站台既有 pod 覆蓋（Pod-Match 精神）把 line/數量分給覆蓋最好的站；塞不下的量留殘（即 M2 語意）。
-- Config 開關：`OrderBatchingConfiguration` 新增拆單啟用旗標＋模式（Off / M1 / M2）。**Off = 零行為改變**（回歸保證）。
+- 新 manager 內設模式參數（M1 / M2）供消融；**不在原版 manager 加任何旗標**。
+- 核心層改動（Order 的 children/帳本欄位、`OutputStation`/`InstanceEvents` 的完成 gating）只在存在 split child 時生效：原版 manager 從不建 child ⇒ 走原路徑，零行為改變。
 
 ## 6. 風險與對策
 
@@ -98,14 +100,14 @@
 | child 因 pod 缺貨卡住 → 母單永久不完成 | 拆單只對 stock-feasible 的量做（決策當下庫存可行性檢查）；殘餘風險（貨被他站先揀走）記入 Spec 2 的庫存約束；必要時加 stock claim 保留 |
 | `ItemManager.CompleteOrder`/`NotifyOrderCompleted` 記帳漏、KPI 重複計 | §4.1 的 gating：child 不進 KPI 事件；單元測試覆蓋 |
 | M2 殘量長尾滯留 | 沿用 Timestay 急單機制（§3.3），實驗監測母單 cycle time 分布 |
-| 拆單 Off 時行為漂移 | 回歸測試：Off 之下 small/large 標準 case 結果與 baseline 位元級或統計等價 |
+| 核心層改動影響原版 manager | 原版 M1G/HADGS 不動；回歸測試：改動後跑原版 manager 的 small/large 標準 case，結果與 baseline 位元級或統計等價 |
 
 ## 7. 測試
 
 1. **單元測試**：帳本（扣帳/回報/剩餘量）、consolidation 判定（全 children 完成才觸發）、KPI 不重複計數、child 繼承時間戳。
-2. **煙霧測試**：small instance（20 bots）＋貪婪拆單器，跑通 7200s，母單全數完成、無卡單。
-3. **回歸測試**：拆單 Off，small/large 標準 case（HADGS＋WHCA*n）與現行 baseline 比對。
+2. **煙霧測試**：small instance（20 bots）＋新 manager（貪婪拆單器），跑通 7200s，母單全數完成、無卡單。
+3. **回歸測試**：跑**原版** manager（HADGS＋WHCA*n），small/large 標準 case 與現行 baseline 比對（驗證核心層改動對原路徑零影響）。
 
 ## 8. Spec 2 預告（另立文件）
 
-M1G MILP 改動：移除 `shi2`（`M1GManager.cs:707`）；`q[o,i,s] ∈ Z≥0` 數量分配變數；M1 = `Σs q = 剩餘量 or 0`、M2 = `Σs q ≤ 剩餘量`；庫存可行性 `Σp x[p,s]·stock[p,i] ≥ Σo q[o,i,s]`；站容量改 item capacity；目標函數不加拆單懲罰（拆單免費）。實驗階梯：M0（原 M1G）→ M1 → M2。
+**新建 manager 模組**（以 M1G 為基底另立類別，原 `M1GManager` 不動）：不含 `shi2`（原版在 `M1GManager.cs:707`）；`q[o,i,s] ∈ Z≥0` 數量分配變數；M1 = `Σs q = 剩餘量 or 0`、M2 = `Σs q ≤ 剩餘量`；庫存可行性 `Σp x[p,s]·stock[p,i] ≥ Σo q[o,i,s]`；站容量改 item capacity；目標函數不加拆單懲罰（拆單免費）。實驗階梯：M0（原 M1G）→ M1 → M2。
