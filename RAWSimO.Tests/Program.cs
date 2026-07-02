@@ -39,6 +39,7 @@ namespace RAWSimO.Tests
         public static int Main(string[] args)
         {
             OrderSplitTests.Register();
+            SplitPlannerTests.Register();
             return TestRunner.RunAll();
         }
     }
