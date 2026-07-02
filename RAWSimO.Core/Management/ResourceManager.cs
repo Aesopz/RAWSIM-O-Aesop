@@ -451,7 +451,9 @@ namespace RAWSimO.Core.Management
         }
         /// <summary>
         /// Moves the extract requests matching the child's positions from the (split) parent order to the child.
-        /// Only requests not yet assigned to a station are moved (a split parent is never allocated itself).
+        /// Only requests not yet assigned to a station (<code>Station == null</code>) are eligible; the method
+        /// validates all positions before mutating anything, so the transfer is atomic across positions
+        /// (either all positions are transferred or an exception is thrown and no state changes).
         /// Net backlog demand stays unchanged, hence no demand-tracking updates here.
         /// See docs/superpowers/specs/2026-07-02-order-splitting-consolidation-enabler-design.md.
         /// </summary>
@@ -459,24 +461,31 @@ namespace RAWSimO.Core.Management
         /// <param name="child">The freshly created split child (its positions define what to move).</param>
         public void TransferExtractRequests(Order parent, Order child)
         {
+            // Pass 1 (no mutation): select the unassigned parent requests to move per position; throw if insufficient
+            List<Tuple<ItemDescription, List<ExtractRequest>>> planned = new List<Tuple<ItemDescription, List<ExtractRequest>>>();
             foreach (var position in child.Positions)
             {
                 List<ExtractRequest> parentRequests = _availableExtractRequestsPerOrder[parent]
-                    .Where(r => r.Item == position.Key && _availableExtractRequests.Contains(r))
+                    .Where(r => r.Item == position.Key && r.Station == null)
                     .Take(position.Value)
                     .ToList();
                 if (parentRequests.Count < position.Value)
                     throw new InvalidOperationException("Parent does not have enough open extract requests for the SKU!");
-                foreach (var request in parentRequests)
+                planned.Add(new Tuple<ItemDescription, List<ExtractRequest>>(position.Key, parentRequests));
+            }
+            // Pass 2 (mutation only, no throws): move the planned requests from parent to child
+            foreach (var plan in planned)
+            {
+                foreach (var request in plan.Item2)
                 {
                     _availableExtractRequests.Remove(request);
                     _availableExtractRequestsPerOrder[parent].Remove(request);
-                    parent.RemoveRequest(position.Key, request);
+                    parent.RemoveRequest(plan.Item1, request);
                 }
-                for (int i = 0; i < position.Value; i++)
+                for (int i = 0; i < plan.Item2.Count; i++)
                 {
-                    ExtractRequest childRequest = new ExtractRequest(position.Key, child, null);
-                    child.AddRequest(position.Key, childRequest);
+                    ExtractRequest childRequest = new ExtractRequest(plan.Item1, child, null);
+                    child.AddRequest(plan.Item1, childRequest);
                     _availableExtractRequests.Add(childRequest);
                 }
             }
