@@ -134,7 +134,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             return null;
         }
 
-        private HashSet<Bot> GenerateAvailableBots()
+        protected HashSet<Bot> GenerateAvailableBots()
         {
             HashSet<Bot> availableBots = new HashSet<Bot>();
             foreach (var bot in Instance._outputstationbots)
@@ -355,7 +355,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             else
             {
                 //return (CurrentPodtoBot.Sum(v => Distances.CalculateManhattan1(v.Value.CurrentWaypoint, v.Key.Waypoint)) / completeableAssignedOrders);
-                return -(40 * completeableAssignedOrders) + CurrentPodtoBot.Sum(v => EstimateBotPodDistance(v.Value, v.Key) + EstimatePodStationDistance(v.Key, _currentOStation)); //v.Key.Waypoint == null ? v.Bot.CurrentWaypoint.ID 
+                return -(40 * completeableAssignedOrders) + _config.DistanceWeight * CurrentPodtoBot.Sum(v => EstimateBotPodDistance(v.Value, v.Key) + EstimatePodStationDistance(v.Key, _currentOStation)); //v.Key.Waypoint == null ? v.Bot.CurrentWaypoint.ID
             }
 
         }
@@ -906,6 +906,64 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// <summary>SA-HADGS hook: per-decision precompute (e.g. EST per station). Base HADGS no-op.</summary>
         protected virtual void PrepareDecisionExtras() { }
 
+        /// <summary>Diagnostic snapshot timestamp gate (last dump time).</summary>
+        private double _lastDemandSupplySnapshot = double.NegativeInfinity;
+        /// <summary>
+        /// Diagnostic (gated by SettingConfig.DumpDemandSupplySnapshots): at sampled decision epochs, dump
+        /// (a) per-SKU backlog demand vs available free-pod supply, and (b) per-available-pod contents of
+        /// demanded SKUs — to assess SKU scarcity and demand-aware-vs-completable pod-ranking divergence.
+        /// </summary>
+        private void MaybeDumpDemandSupplySnapshot()
+        {
+            if (Instance == null || Instance.SettingConfig == null || !Instance.SettingConfig.DumpDemandSupplySnapshots)
+                return;
+            double now = Instance.Controller != null ? Instance.Controller.CurrentTime : 0.0;
+            if (now - _lastDemandSupplySnapshot < Instance.SettingConfig.DumpSnapshotIntervalSec)
+                return;
+            _lastDemandSupplySnapshot = now;
+            string dir = Instance.SettingConfig.StatisticsDirectory;
+            if (string.IsNullOrEmpty(dir) || !System.IO.Directory.Exists(dir))
+                return;
+            try
+            {
+                // Backlog demand per SKU.
+                var demand = new Dictionary<ItemDescription, int>();
+                foreach (var o in _pendingOrders)
+                    foreach (var pos in o.Positions)
+                        demand[pos.Key] = (demand.TryGetValue(pos.Key, out int dv) ? dv : 0) + pos.Value;
+                // Free (available) pods = supply side.
+                var pods = Instance.ResourceManager.UnusedPods
+                    .Where(p => !Instance.ResourceManager.BottoPod.ContainsValue(p)).ToList();
+
+                string skuFile = System.IO.Path.Combine(dir, "demand_supply_sku.csv");
+                bool skuNew = !System.IO.File.Exists(skuFile);
+                using (var sw = new System.IO.StreamWriter(skuFile, true))
+                {
+                    if (skuNew) sw.WriteLine("Time;SKU;BacklogDemand;AvailPods;AvailStock;BacklogOrders;FreePods");
+                    foreach (var kv in demand)
+                    {
+                        int ap = 0, ast = 0;
+                        foreach (var p in pods) { int c = p.CountAvailable(kv.Key); if (c > 0) { ap++; ast += c; } }
+                        sw.WriteLine(now.ToString("0.0") + ";" + kv.Key.ID + ";" + kv.Value + ";" + ap + ";" + ast + ";" + _pendingOrders.Count + ";" + pods.Count);
+                    }
+                }
+
+                string podFile = System.IO.Path.Combine(dir, "available_pod_sku.csv");
+                bool podNew = !System.IO.File.Exists(podFile);
+                using (var sw = new System.IO.StreamWriter(podFile, true))
+                {
+                    if (podNew) sw.WriteLine("Time;PodID;SKU;Count");
+                    foreach (var p in pods)
+                        foreach (var kv in demand)
+                        {
+                            int c = p.CountAvailable(kv.Key);
+                            if (c > 0) sw.WriteLine(now.ToString("0.0") + ";" + p.ID + ";" + kv.Key.ID + ";" + c);
+                        }
+                }
+            }
+            catch { /* diagnostic only; never disturb the simulation */ }
+        }
+
         protected override void DecideAboutPendingOrders()
         {
             // If not initialized, do it now
@@ -913,6 +971,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 Initialize();
             // SA-HADGS: precompute starvation-aware inputs (EST etc.); no-op in base HADGS.
             PrepareDecisionExtras();
+            // Diagnostic snapshot (gated; no-op unless SettingConfig.DumpDemandSupplySnapshots).
+            MaybeDumpDemandSupplySnapshot();
             // KPI: snapshot per-station inbound-pod count at the moment of decision trigger
             // (one sample per station per trigger). Used to characterize queue congestion at OB decisions.
             foreach (var _kpiStation in Instance.OutputStations)

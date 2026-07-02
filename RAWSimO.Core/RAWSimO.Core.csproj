@@ -115,6 +115,7 @@
     <Compile Include="Control\Defaults\OrderBatching\HADGSManager.cs" />
     <Compile Include="Control\Defaults\OrderBatching\SAHADGSManager.cs" />
     <Compile Include="Control\Defaults\OrderBatching\SAM1GManager.cs" />
+    <Compile Include="Control\Defaults\OrderBatching\ALNSManager.cs" />
     <Compile Include="Control\Defaults\OrderBatching\QueueOrderManager.cs" />
     <Compile Include="Control\Defaults\OrderBatching\RelatedOrderManager.cs" />
     <Compile Include="Control\Defaults\OrderBatching\WorkloadOrderManager.cs" />

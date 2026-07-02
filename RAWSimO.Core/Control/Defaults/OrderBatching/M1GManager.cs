@@ -93,6 +93,48 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         private readonly Dictionary<int, Dictionary<int, double>> _podStationDistanceCache =
             new Dictionary<int, Dictionary<int, double>>();
 
+        // ── Per-decision (per-solve) summary logger ──
+        private System.IO.StreamWriter _decisionLog;
+        private int _decisionIndex = 0;
+        /// <summary>Lazily opens (once) a CSV in the statistics directory and appends one row per M1G solve
+        /// summarizing the model size and the selected decision-variable counts. Diagnostic only.</summary>
+        private void WriteDecisionLog(bool solved, double time, int pendingOrders, int stationsWithCap, int podsInModel,
+            int nRa, int nR, int nPb, int nPa,
+            int nXps, int nYos, int nYaos, int nYrp, double sumUs, int nDops, double objective, double optSec)
+        {
+            if (_decisionLog == null)
+            {
+                string dir = Instance != null && Instance.SettingConfig != null ? Instance.SettingConfig.StatisticsDirectory : null;
+                if (string.IsNullOrEmpty(dir))
+                    dir = ".";
+                if (!System.IO.Directory.Exists(dir))
+                    System.IO.Directory.CreateDirectory(dir);
+                _decisionLog = new System.IO.StreamWriter(System.IO.Path.Combine(dir, "m1g_decision_log.csv"), false) { AutoFlush = true };
+                _decisionLog.WriteLine("decision,time,solved,pendingOrders,stationsWithCap,podsInModel,Ra,R,Pb,Pa,xps,yos,yaos,yrp,sumUs,dops,objective,solveSec");
+            }
+            _decisionLog.WriteLine(string.Join(",", new string[] {
+                _decisionIndex.ToString(),
+                time.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                solved ? "1" : "0",
+                pendingOrders.ToString(),
+                stationsWithCap.ToString(),
+                podsInModel.ToString(),
+                nRa.ToString(),
+                nR.ToString(),
+                nPb.ToString(),
+                nPa.ToString(),
+                nXps.ToString(),
+                nYos.ToString(),
+                nYaos.ToString(),
+                nYrp.ToString(),
+                sumUs.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                nDops.ToString(),
+                objective.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                optSec.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            }));
+            _decisionIndex++;
+        }
+
         protected virtual RAWSimO.Core.Waypoints.Waypoint GetBotReferenceWaypoint(Bot bot)
         {
             if (bot == null)
@@ -720,7 +762,9 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                         <= LinearExpression.Sum(deVarNamedops.Where(v => v.pod.ID == pod.ID && v.outputstation.ID == station.ID).Select(v => variablesBinary[v.name])), "shi13");
             }
             wrapper.Update();
+            DateTime _optStart = DateTime.Now;
             wrapper.Optimize();
+            double _optSec = (DateTime.Now - _optStart).TotalSeconds;
             if (wrapper.HasSolution())
             {
                 Dictionary<OutputStation, List<Order>> _availableStationorder = new Dictionary<OutputStation, List<Order>>();
@@ -907,9 +951,21 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     }
                 }
                 Instance.Observer.TimeOrderBatchingbyziops((DateTime.Now - A).TotalSeconds);
+                // Per-decision summary: committed selected-variable counts (post-cleanup) + objective.
+                double sumUs = 0.0;
+                foreach (var s in deVarNameus)
+                    sumUs += Math.Round(variablesInteger3[s.name].GetValue());
+                WriteDecisionLog(true, Instance.Controller.CurrentTime, pendingOrders.Count, Cs.Count, Pods.Count(),
+                    Ra.Count, R.Count, Pb.Count, Pa.Count,
+                    IsdeVarNamexps.Count, IsdeVarNameyos.Count, IsdeVarNameyaos.Count, IsdeVarNameyrp.Count, sumUs,
+                    IsdeVarNamedops.Count, wrapper.GetObjectiveValue(), _optSec);
             }
-            //else
-            //    Thread.Sleep(1);
+            else
+            {
+                WriteDecisionLog(false, Instance.Controller.CurrentTime, pendingOrders.Count, Cs.Count, Pods.Count(),
+                    Ra.Count, R.Count, Pb.Count, Pa.Count,
+                    0, 0, 0, 0, 0.0, 0, double.NaN, _optSec);
+            }
             return NewZiops;
         }
         /// <summary>

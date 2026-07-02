@@ -487,6 +487,13 @@ namespace RAWSimO.Core.Configurations
         /// </summary>
         public bool UseM1GTriggerGate = false;
         /// <summary>
+        /// Multiplier on the travel (bot→pod + pod→station) term of the Completeable output-pod score,
+        /// relative to the fixed +40 completion reward. 1.0 = baseline HADGS. Raising it makes pod
+        /// selection prefer spatially nearer pods among those completing orders (spatial routing knob;
+        /// used for the distance-vs-completion frontier sweep / adaptive-weight study).
+        /// </summary>
+        public double DistanceWeight = 1.0;
+        /// <summary>
         /// Returns a name identifying the method.
         /// </summary>
         /// <returns>The name of the method.</returns>
@@ -587,6 +594,49 @@ namespace RAWSimO.Core.Configurations
             return "obSAMP" + (FastLane ? "y" : "n") + "-w" + OrderRewardSec.ToString("0")
                 + "-k" + TopKOrders.ToString() + (UseEtaGreedyVariant ? "-v2" : "-v1")
                 + "-t" + TravelTimeWeight.ToString("0.##") + "-h" + CompletableHorizon.ToString();
+        }
+    }
+    /// <summary>
+    /// ALNS (Adaptive Large Neighborhood Search) order-batching configuration. Inherits HADGS knobs;
+    /// optimizes M1G's objective via destroy/repair + simulated-annealing acceptance under a per-epoch
+    /// time budget, warm-started from a HADGS-style greedy. See <see cref="Control.Defaults.OrderBatching.ALNSManager"/>.
+    /// </summary>
+    public class ALNSConfiguration : HADGSConfiguration
+    {
+        /// <summary>Use the M1G-style SituationInvestigated trigger gate by default.</summary>
+        public ALNSConfiguration()
+        {
+            UseM1GTriggerGate = true;
+        }
+        /// <summary>Returns the type of the corresponding method this configuration belongs to.</summary>
+        public override OrderBatchingMethodType GetMethodType() { return OrderBatchingMethodType.ALNS_OB; }
+
+        /// <summary>Per-epoch wall-clock budget (ms) for the ALNS search. 0 ⇒ commit the greedy warm-start only (sanity mode).</summary>
+        public int TimeBudgetMs = 30;
+        /// <summary>Hard cap on ALNS iterations per epoch. 0 ⇒ greedy warm-start only.</summary>
+        public int MaxIterations = 2000;
+        /// <summary>Initial simulated-annealing temperature.</summary>
+        public double InitialTemperature = 50.0;
+        /// <summary>Geometric cooling factor applied per iteration.</summary>
+        public double CoolingRate = 0.999;
+        /// <summary>Minimum fraction of current moves removed by a destroy operator.</summary>
+        public double DestroyMinFraction = 0.15;
+        /// <summary>Maximum fraction of current moves removed by a destroy operator.</summary>
+        public double DestroyMaxFraction = 0.4;
+        /// <summary>Cap on the number of most-urgent pending orders considered per epoch (0 = unlimited).</summary>
+        public int MaxOrdersConsidered = 0;
+        /// <summary>Objective weight on travel (M1G w1). Default 1.</summary>
+        public double ObjW1 = 1.0;
+        /// <summary>Reward per covered order (M1G |w2|). Default 40.</summary>
+        public double ObjOrderReward = 40.0;
+        /// <summary>Penalty per empty station slot (M1G w3). Default 1000.</summary>
+        public double ObjW3 = 1000.0;
+
+        /// <summary>Returns a name identifying the method.</summary>
+        public override string GetMethodName()
+        {
+            if (!string.IsNullOrWhiteSpace(Name)) return Name;
+            return "obALNS" + (FastLane ? "y" : "n") + "-b" + TimeBudgetMs.ToString() + "-i" + MaxIterations.ToString();
         }
     }
     /// <summary>

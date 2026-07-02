@@ -312,6 +312,10 @@ namespace RAWSimO.Core.Configurations
         /// </summary>
         SAM1G,
         /// <summary>
+        /// ALNS: destroy/repair + simulated-annealing metaheuristic optimizing M1G's objective, warm-started from HADGS.
+        /// </summary>
+        ALNS_OB,
+        /// <summary>
         /// An approach selecting an order that is most similar to the ones already assigned to a station.
         /// </summary>
         LinesInCommon,
@@ -750,6 +754,7 @@ namespace RAWSimO.Core.Configurations
     [XmlInclude(typeof(HADGSConfiguration))]
     [XmlInclude(typeof(HADGSReturnPendingConfiguration))]
     [XmlInclude(typeof(SAHADGSConfiguration))]
+    [XmlInclude(typeof(ALNSConfiguration))]
     [XmlInclude(typeof(LinesInCommonOrderBatchingConfiguration))]
     [XmlInclude(typeof(QueueOrderBatchingConfiguration))]
     public abstract class OrderBatchingConfiguration : ControllerConfigurationBase

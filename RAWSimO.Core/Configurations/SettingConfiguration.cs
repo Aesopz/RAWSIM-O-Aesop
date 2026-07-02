@@ -268,6 +268,16 @@ namespace RAWSimO.Core.Configurations
         /// </summary>
         public bool DisableHeavyLogging = false;
         /// <summary>
+        /// Diagnostic: when true, the order manager dumps a per-SKU snapshot (backlog demand vs available
+        /// pod supply) and a per-available-pod SKU-content snapshot at sampled decision epochs, to assess
+        /// SKU scarcity and demand-aware-vs-completable pod-ranking divergence. Default false (no impact).
+        /// </summary>
+        public bool DumpDemandSupplySnapshots = false;
+        /// <summary>
+        /// Minimum sim-seconds between demand/supply diagnostic snapshots when DumpDemandSupplySnapshots is on.
+        /// </summary>
+        public double DumpSnapshotIntervalSec = 600.0;
+        /// <summary>
         /// Order-batching trigger threshold: the order manager (re)solves only when at least one output
         /// station has free capacity &gt;= this value. 1 = maximally reactive (refill on any single open
         /// slot); higher values batch assignments (wait for more open slots before solving), trading
