@@ -215,9 +215,9 @@ namespace RAWSimO.Core.Items
         /// </summary>
         public IReadOnlyList<Order> Children { get { return _children; } }
         /// <summary>
-        /// Number of children that already completed picking.
+        /// The children that already completed picking (set for idempotent completion notifications).
         /// </summary>
-        private int _completedChildren = 0;
+        private HashSet<Order> _completedChildren = new HashSet<Order>();
         /// <summary>
         /// Demand ledger: quantities per SKU already claimed by children.
         /// </summary>
@@ -254,22 +254,32 @@ namespace RAWSimO.Core.Items
         /// </summary>
         public static Order CreateSplitChild(Order parent, IEnumerable<KeyValuePair<ItemDescription, int>> quantities)
         {
-            Order child = new Order();
+            // Pass 1: validate everything (aggregating duplicate SKUs) before mutating any state,
+            // so a failed split leaves the parent's ledger untouched.
+            Dictionary<ItemDescription, int> aggregated = new Dictionary<ItemDescription, int>();
             int units = 0;
             foreach (var q in quantities)
             {
                 if (q.Value <= 0)
                     throw new ArgumentException("Child quantities must be positive!");
-                if (q.Value > parent.GetRemainingDemand(q.Key))
+                if (!aggregated.ContainsKey(q.Key))
+                    aggregated[q.Key] = 0;
+                aggregated[q.Key] += q.Value;
+                if (aggregated[q.Key] > parent.GetRemainingDemand(q.Key))
                     throw new InvalidOperationException("Cannot claim more units than remaining for the SKU!");
-                child.AddPosition(q.Key, q.Value);
-                if (!parent._claimedQuantities.ContainsKey(q.Key))
-                    parent._claimedQuantities[q.Key] = 0;
-                parent._claimedQuantities[q.Key] += q.Value;
                 units += q.Value;
             }
             if (units == 0)
                 throw new ArgumentException("Cannot create an empty split child!");
+            // Pass 2: commit (cannot throw anymore) - build child and claim from the ledger.
+            Order child = new Order();
+            foreach (var q in aggregated)
+            {
+                child.AddPosition(q.Key, q.Value);
+                if (!parent._claimedQuantities.ContainsKey(q.Key))
+                    parent._claimedQuantities[q.Key] = 0;
+                parent._claimedQuantities[q.Key] += q.Value;
+            }
             child.Parent = parent;
             child.TimePlaced = parent.TimePlaced;
             child.TimeStamp = parent.TimeStamp;
@@ -286,8 +296,9 @@ namespace RAWSimO.Core.Items
         {
             if (child.Parent != this)
                 throw new InvalidOperationException("Order is not a child of this order!");
-            _completedChildren++;
-            return IsFullyClaimed && _completedChildren >= _children.Count;
+            // Idempotent: a duplicate notification for the same child does not advance state.
+            _completedChildren.Add(child);
+            return IsFullyClaimed && _completedChildren.Count >= _children.Count;
         }
 
         #endregion

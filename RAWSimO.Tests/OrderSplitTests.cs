@@ -65,6 +65,27 @@ namespace RAWSimO.Tests
                 var c1 = Order.CreateSplitChild(parent, new[] { Q(a, 1) });
                 TestRunner.AssertTrue(!parent.NotifyChildCompleted(c1), "residual demand keeps parent open");
             });
+            TestRunner.Add("CreateSplitChild_PartialOverclaim_LeavesLedgerUntouched", () =>
+            {
+                var a = Sku(); var b = Sku();
+                var parent = new Order();
+                parent.AddPosition(a, 2); parent.AddPosition(b, 1);
+                TestRunner.AssertThrows<InvalidOperationException>(
+                    () => Order.CreateSplitChild(parent, new[] { Q(a, 1), Q(b, 2) }), "partial overclaim must throw");
+                TestRunner.AssertEqual(2, parent.GetRemainingDemand(a), "no partial claim on A");
+                TestRunner.AssertTrue(!parent.IsSplitParent, "no child attached on failed split");
+            });
+            TestRunner.Add("NotifyChildCompleted_DuplicateNotification_Ignored", () =>
+            {
+                var a = Sku();
+                var parent = new Order();
+                parent.AddPosition(a, 2);
+                var c1 = Order.CreateSplitChild(parent, new[] { Q(a, 1) });
+                var c2 = Order.CreateSplitChild(parent, new[] { Q(a, 1) });
+                TestRunner.AssertTrue(!parent.NotifyChildCompleted(c1), "first notification does not complete parent");
+                TestRunner.AssertTrue(!parent.NotifyChildCompleted(c1), "duplicate notification must not consolidate");
+                TestRunner.AssertTrue(parent.NotifyChildCompleted(c2), "last distinct child completes parent");
+            });
             TestRunner.Add("Child_InheritsTiming", () =>
             {
                 var a = Sku();
