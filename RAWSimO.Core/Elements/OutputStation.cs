@@ -337,10 +337,26 @@ namespace RAWSimO.Core.Elements
                 {
                     finishedOrder = order;
                     StatNumOrdersFinished++;
+                    finishedOrder.TimeStampCompleted = currentTime;
                     // Notify the item manager about this
                     Instance.ItemManager.CompleteOrder(finishedOrder);
-                    // Notify completed order
-                    Instance.NotifyOrderCompleted(finishedOrder, this);
+                    if (finishedOrder.Parent != null)
+                    {
+                        // Split child: only bookkeeping towards the parent; parent-level KPI fires
+                        // once ALL children are done (consolidation), attributed to this station.
+                        Order parent = finishedOrder.Parent;
+                        if (parent.NotifyChildCompleted(finishedOrder))
+                        {
+                            parent.TimeStampCompleted = currentTime;
+                            Instance.ItemManager.CompleteOrder(parent);
+                            Instance.NotifyOrderCompleted(parent, this);
+                        }
+                    }
+                    else
+                    {
+                        // Notify completed order
+                        Instance.NotifyOrderCompleted(finishedOrder, this);
+                    }
                     // Break early and block action
                     BlockedUntil = currentTime + OrderCompletionTime;
                     break;
