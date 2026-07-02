@@ -38,7 +38,7 @@ namespace RAWSimO.Tests
     {
         public static int Main(string[] args)
         {
-            // Test classes register here (added by later tasks)
+            OrderSplitTests.Register();
             return TestRunner.RunAll();
         }
     }

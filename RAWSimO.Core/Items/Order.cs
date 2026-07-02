@@ -19,7 +19,7 @@ namespace RAWSimO.Core.Items
         /// <summary>
         /// Creates a new instance of the order.
         /// </summary>
-        internal Order() { TimeStampSubmit = double.PositiveInfinity; DueTime = double.PositiveInfinity; }
+        internal Order() { TimeStampSubmit = double.PositiveInfinity; DueTime = double.PositiveInfinity; TimeStampCompleted = double.PositiveInfinity; }
 
         #endregion
 
@@ -194,6 +194,103 @@ namespace RAWSimO.Core.Items
         /// </summary>
         /// <returns><code>true</code> if the order is complete, <code>false</code> otherwise.</returns>
         public bool IsCompleted() { return _servedPositions >= _quantities.Count; }
+
+        /// <summary>
+        /// The time picking of this order finished at a station (+inf while unfinished).
+        /// </summary>
+        public double TimeStampCompleted { get; set; }
+
+        #region Split orders (order-splitting enabler; see docs/superpowers/specs/2026-07-02-order-splitting-consolidation-enabler-design.md)
+
+        /// <summary>
+        /// The parent order, if this order is a split child. <code>null</code> for normal orders and split parents.
+        /// </summary>
+        public Order Parent { get; private set; }
+        /// <summary>
+        /// The child orders this order was split into.
+        /// </summary>
+        private List<Order> _children = new List<Order>();
+        /// <summary>
+        /// The child orders this order was split into (empty for normal orders).
+        /// </summary>
+        public IReadOnlyList<Order> Children { get { return _children; } }
+        /// <summary>
+        /// Number of children that already completed picking.
+        /// </summary>
+        private int _completedChildren = 0;
+        /// <summary>
+        /// Demand ledger: quantities per SKU already claimed by children.
+        /// </summary>
+        private Dictionary<ItemDescription, int> _claimedQuantities = new Dictionary<ItemDescription, int>();
+        /// <summary>
+        /// Indicates whether this order was split into children.
+        /// </summary>
+        public bool IsSplitParent { get { return _children.Count > 0; } }
+        /// <summary>
+        /// The remaining (not yet claimed by any child) demand of the given SKU.
+        /// </summary>
+        public int GetRemainingDemand(ItemDescription item)
+        { return GetDemandCount(item) - (_claimedQuantities.ContainsKey(item) ? _claimedQuantities[item] : 0); }
+        /// <summary>
+        /// Enumerates all positions with their remaining (unclaimed) quantities; positions without remainder are omitted.
+        /// </summary>
+        public IEnumerable<KeyValuePair<ItemDescription, int>> RemainingPositions
+        {
+            get
+            {
+                return _quantities
+                    .Select(q => new KeyValuePair<ItemDescription, int>(q.Key, GetRemainingDemand(q.Key)))
+                    .Where(q => q.Value > 0);
+            }
+        }
+        /// <summary>
+        /// Indicates whether the complete demand of this order was claimed by children.
+        /// </summary>
+        public bool IsFullyClaimed { get { return _quantities.All(q => GetRemainingDemand(q.Key) <= 0); } }
+        /// <summary>
+        /// Creates a split child of the given parent claiming the given quantities from the parent's demand ledger.
+        /// Claiming and child creation happen atomically so no unit can be assigned twice.
+        /// The child inherits the parent's timing meta-data.
+        /// </summary>
+        public static Order CreateSplitChild(Order parent, IEnumerable<KeyValuePair<ItemDescription, int>> quantities)
+        {
+            Order child = new Order();
+            int units = 0;
+            foreach (var q in quantities)
+            {
+                if (q.Value <= 0)
+                    throw new ArgumentException("Child quantities must be positive!");
+                if (q.Value > parent.GetRemainingDemand(q.Key))
+                    throw new InvalidOperationException("Cannot claim more units than remaining for the SKU!");
+                child.AddPosition(q.Key, q.Value);
+                if (!parent._claimedQuantities.ContainsKey(q.Key))
+                    parent._claimedQuantities[q.Key] = 0;
+                parent._claimedQuantities[q.Key] += q.Value;
+                units += q.Value;
+            }
+            if (units == 0)
+                throw new ArgumentException("Cannot create an empty split child!");
+            child.Parent = parent;
+            child.TimePlaced = parent.TimePlaced;
+            child.TimeStamp = parent.TimeStamp;
+            child.DueTime = parent.DueTime;
+            parent._children.Add(child);
+            return child;
+        }
+        /// <summary>
+        /// Notifies this (parent) order that one of its children completed picking.
+        /// </summary>
+        /// <param name="child">The completed child.</param>
+        /// <returns><code>true</code> if the parent is complete now (all demand claimed and all children done), <code>false</code> otherwise.</returns>
+        public bool NotifyChildCompleted(Order child)
+        {
+            if (child.Parent != this)
+                throw new InvalidOperationException("Order is not a child of this order!");
+            _completedChildren++;
+            return IsFullyClaimed && _completedChildren >= _children.Count;
+        }
+
+        #endregion
 
         #endregion
 
