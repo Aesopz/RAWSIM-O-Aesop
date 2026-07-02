@@ -1,0 +1,3 @@
+Tag;Instance;Setting;Config;Seed;Timestamp
+m1g-vs-hadgs-same-trigger-20260624;.\Material\Instances\CoreBenchmark\small\benchmark_ss_layout.xlayo;.\Material\Instances\CoreBenchmark\small\small_o100_mu100.xsett;.\Material\Instances\CoreBenchmark\small\m1g.xconf;0;20260624-192916
+m1g-vs-hadgs-same-trigger-20260624;.\Material\Instances\CoreBenchmark\small\benchmark_ss_layout.xlayo;.\Material\Instances\CoreBenchmark\small\small_o100_mu100.xsett;.\Material\Instances\CoreBenchmark\small\hadgs_aligned.xconf;0;20260624-193000

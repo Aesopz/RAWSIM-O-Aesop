@@ -1,0 +1,2378 @@
+[[PAGE 1]]
+Omega 138 (2026) 103374
+Contents lists available at ScienceDirect
+Omega
+journal homepage: www.elsevier.com/locate/omega
+Online joint optimization of order picking process in robotic mobile
+(cid:73)
+fulfillment systems
+Guoshuai Jiao a,b , Min Huang a ,∗, Yang Song a , Haobin Li c , Xingwei Wang d
+a College of Information Science and Engineering, Northeastern University, Shenyang, Liaoning, 110819, China
+b College of Economy and Management, Taiyuan University of Science and Technology, Taiyuan, Shanxi, 030024, China
+c Department of Industrial Systems Engineering and Management, National University of Singapore, 117576, Singapore
+d College of Computer Science and Engineering, Northeastern University, Shenyang, Liaoning, 110169, China
+A R T I C L E I N F O A B S T R A C T
+Keywords: A robotic mobile fulfillment system (RMFS) constitutes a highly intricate and interdependent decision-making
+Robotic mobile fulfillment systems system, encompassing numerous closely related and interacting decision challenges. Meanwhile, RMFS is
+Online joint optimization a prime example of a dynamic system in which various types of information, such as inventory levels,
+MILP model order backlogs, robot statuses, and pod locations, continuously change throughout operation. This study
+W
+Dy
+a
+n
+r
+a
+e
+m
+ho
+i
+u
+c
+s
+s
+e
+ystem
+focuses on the online decision-making process for joint optimization of order assignment, pod selection,
+and task allocation within RMFS during the order-picking process. Additionally, it considers the influence
+of current decisions on future decisions to improve online decision-making efficiency. Initially, a dynamic
+system model for RMFS is developed. Subsequently, a novel mixed-integer linear programming (MILP) model
+is formulated to address this critical order-picking challenge effectively. Furthermore, a customized heuristic
+approach, employing alternating decision-making and greedy selection techniques, is proposed to overcome
+computational challenges associated with larger-scale RMFS scenarios. In different scales, the proposed
+approach outperforms a sequential approach commonly used in practice and a MILP model in existing literature
+for online joint optimization of order assignment and pod selection. The findings highlight the efficacy of the
+proposed approach in optimizing the RMFS order-picking process, particularly for larger instances, delivering
+significant benefits in terms of increased throughput and reduced robot travel distances.
+1. Introduction Similar to the automated storage and retrieval system, RMFS is also a
+parts-to-picker system. Mobile robots are employed to transport pods
+The exponential growth of e-commerce has led to an increased de- or racks containing inventory to fixed picking workstations. This ware-
+mand for logistics, particularly in the business-to-consumer market [1, house system eliminates the necessity for manual workers to navigate
+2]. However, market characteristics, such as stringent delivery times, through the warehouse to retrieve items, as robots bring the necessary
+extensive product assortments, and fluctuating workloads, present sig- pods directly to the pickers. By automating transportation, the RMFS
+nificant challenges to the order-picking process [3]. The order-picking optimizes the picking process, eliminates the overhead incurred from
+process is regarded as the most time-intensive and costly operation the pickers’ traveling time, and enables simultaneous picking from
+in conventional manual systems (commonly referred to as picker-to- multiple workstations. This results in a significant increase in order ful-
+parts systems) [4], especially for companies managing numerous stock-
+fillment speed and accuracy while mitigating the labor costs associated
+keeping units (SKUs) in large warehouses. For example, JD.com, a
+with manual walking and searching within large warehouses [5].
+leading e-commerce giant in China, oversees a vast inventory of over 5
+1.1. Decision-making problems and literature review
+million SKUs in its expansive warehouses.
+The emergence of robotic mobile fulfillment system (RMFS) has
+In their review on RMFS, Azadeh et al. [6] classified relevant
+enhanced warehouses efficiency and diminished labor costs for online
+studies into three main areas: system analysis, design optimization, and
+retailers [5]. A notable example is the Kiva System used by Amazon.
+(cid:73)
+Area: Transportation and Logistics This manuscript was processed by Area Editor M. Battarra.
+∗ Correspondence to: Northeastern University (NEU), Shenyang, Liaoning, 110004, PR China.
+E-mail addresses: jiaoguoshuai123@163.com (G. Jiao), mhuang@mail.neu.edu.cn (M. Huang), songyang1@ise.neu.edu.cn (Y. Song), li_haobin@nus.edu.sg
+(H. Li), wangxw@mail.neu.edu.cn (X. Wang).
+https://doi.org/10.1016/j.omega.2025.103374
+Received 15 December 2023; Accepted 27 May 2025
+Available online 11 June 2025
+0305-0483/© 2025 Elsevier Ltd. All rights are reserved, including those for text and data mining, AI training, and similar technologies.
+
+[[PAGE 2]]
+G. Jiao et al. Omega 138 (2026) 103374
+Fig. 1. Decision-making process for RMFS.
+operational planning and control. In contrast, Merschformann et al. unfulfilled orders), robot status, and pod location information changes
+[7] and Xie et al. [8] categorized the decisions relevant to the RMFS over time during operation. Estimating this information accurately in
+into decisions taken at the strategic, tactical, and operational levels. advance constitutes a significant challenge owing to system interdepen-
+This study adopts the latter classification approach. Several notable dencies, hardware malfunctions, and operational delays. As highlighted
+studies, such as Azadeh et al. [6], Boysen et al. [3], Merschformann by Wurman et al. [5], everything within the Kiva warehouse occurs
+et al. [7], Jaghbeer et al. [9], and da Costa Barros and Nascimento [10], in real time. Consequently, there is no time window during the op-
+provide a comprehensive literature review. eration of an RMFS within which operational level decision-making
+The RMFS operation process primarily comprises two procedures: calculations can be made offline. Therefore, effective real time decision-
+the picking (retrieval or outbound) and replenishment (in short: repl., making is imperative to ensure a prompt response to current system
+storage or inbound) processes. The picking process involves retrieving information and circumstances.
+SKUs from the pods to fulfill orders, whereas the replenishment process Current research on the joint optimization of OA, PS, and TA is
+involves putting SKUs into the pods to restock inventory. This study presented in Table 2. Evidently, most existing literature focuses on
+primarily focuses on the picking process. Therefore, we analyze picking offline and joint optimization of OA and PS. Zhang et al. [23] and
+as an illustrative example to discuss the operational level decision- Teck and Dewil [25,26] jointly optimized OA, PS, and TA; however,
+making process for RMFS, as shown in Fig. 1. First, the order must these contributions all represent offline optimization approaches. Ad-
+be assigned to the workstation (order assignment (OA)), and, subse- ditionally, Xie et al. [8] and Jiao et al. [28] conducted online joint
+quently, the corresponding pod must be selected to fulfill the order optimization of OA and PS, whereas Qin et al. [22] conducted online
+(pod selection (PS)). Decisions regarding OA and PS require generating joint optimization of PS and TA. In summary, the literature is deficient
+robot transportation tasks. The workstation determined by OA is the in examinations of online joint optimization of OA, PS, and TA. In
+task end point and the pod determined by PS is the task starting this study, OA, PS, and TA in RMFS are jointly optimized online,
+point. The creation of these transportation tasks is followed by the while considering multiple workstations and inventory. Therefore, this
+allocation of the tasks to the corresponding robots (task allocation contribution aims to address this specific literature gap regarding the
+(TA)), necessitating the determination of the matching relationship requirements of real-world RMFS operational specifications.
+between tasks and robots. Next, the robot must determine the specific
+traveling path (path planning (PP)) to use to execute its assigned task. 1.2. Challenges and contributions
+After the pod completes the picking process at the workstation and
+returns to the storage zone, a parking location must be identified for the We address online decision-making of the joint optimization prob-
+pod (pod repositioning (PR)). In this study, we reviewed the literature lem for OA, PS, and TA, which presents the following challenges:
+relevant to RMFS at the operational level (Table 1). Note that the
+operational level decision-making process for replenishment is similar • Complexity: the problem is intricate owing to the simultaneous
+to that of picking. For replenishment, the terms “ OA” and “ PS” in the consideration of multiple decision variables and constraints as-
+outline above would be substituted with “ ROA” and “ RPS”, where ROA sociated with OA, PS, and TA. Specifically, it is necessary to
+and RPS respectively represent replenishment order assignment and simultaneously determine a matching relationship among orders,
+replenishment pod selection. pods, workstations, and robots, that is, determine which robot
+RMFS is a complex and interdependent decision-making system, transports which pod to which workstation to fulfill which order.
+with numerous closely interconnected decision problems. The optimal • Large-scale: given the potential problem complexity, an efficient
+solution for a single decision may not necessarily be the global optimal computational approach is required to handle larger-scale in-
+solution for the entire system. Therefore, simultaneously optimizing stances without detracting from the solution quality.
+specific decisions in RMFS is crucial for enhancing warehouse opera- • Real-time: the optimization must be performed in real-time, re-
+tional efficiency [48], such as OA on the demand side and PS and TA quiring efficient and swift decision-making to meet operational
+on the supply side. OA and PS aim to generate tasks for robots, whereas requirements. Responding quickly to joint decisions in a dynamic
+TA aims to allocate the generated tasks to robots. The generation environment is a rather intricate challenge.
+and allocation of tasks are highly coupled and mutually influential.
+Therefore, integrating these processes for decision-making, i.e., jointly Addressing the aforementioned challenges is crucial to developing
+optimizing OA, PS, and TA, can effectively improve decision-making ef- an effective and practical solution for online joint optimization in
+ficiency. RMFS is a typical dynamic system; inventory, backlog (i.e., all RMFS. The main contributions of this study are outlined below:
+2
+
+[[PAGE 3]]
+G. Jiao et al. Omega 138 (2026) 103374
+Table 1
+Literature review for RMFS at the operational level.
+Decision problem Publications
+Repl. Lamballais et al. [11] Xiang et al. [12], Weidinger and Boysen [13];
+Merschformann et al. [7], Yuan et al. [14], Kim et al. [15];
+OA and PS
+Li et al. [16], Jiang et al. [17] and Zhang et al. [18]
+Pick Wurman et al. [5], Boysen et al. [19], Merschformann et al. [7];
+Jiang et al. [17], Yang et al. [20], Valle and Beasley [21];
+Xie et al. [8], Qin et al. [22], Zhang et al. [23], Zhuang et al. [24];
+Teck and Dewil [25,26], Wang et al. [27], Jiao et al. [28];
+Justkowiak and Pesch [29,30], Subramanian and Chandrasekar [31];
+Zhao et al. [32], Cheng et al. [33] and Yang et al. [34]
+TA Zou et al. [35], Yoshitake et al. [36], Gharehgozli and Zaerpour [37];
+Li et al. [38], Qin et al. [22], Teck and Dewil [25,26];
+Zhang et al. [23], Zhao et al. [32] and Li et al. [39]
+PP Merschformann et al. [40], Lee et al. [41], Li et al. [42];
+Sun et al. [43], Luo et al. [44] and Li et al. [39]
+PR Weidinger et al. [45], Roy et al. [46], Merschformann et al. [7];
+Yuan et al. [14], Li et al. [16] and Zhuang et al. [47]
+Table 2
+Summary of literature on the joint optimization for OA, PS, and TA.
+Publications OA PS TA Online Multiple workstations Inventory Approach
+Boysen et al. [19]
+√ √
+MILP, Heuristic
+Xie et al. [8]
+√ √ √ √
+MILP, Heuristic
+Yang et al. [20]
+√ √
+MILP, Heuristic
+Valle and Beasley [21]
+√ √ √ √
+MILP, Heuristic
+Qin et al. [22]
+√ √ √ √ √
+MILP, Heuristic
+Teck and Dewil [25]
+√ √ √ √
+Heuristic
+Teck and Dewil [26]
+√ √ √ √
+MILP
+Zhang et al. [23]
+√ √ √ √ √
+MINLP, Heuristic
+Zhuang et al. [24]
+√ √ √
+MILP, Heuristic
+Wang et al. [27]
+√ √ √
+MILP
+Jiao et al. [28]
+√ √ √ √ √
+MILP, Heuristic
+Justkowiak and Pesch [29]
+√ √
+Heuristic
+Justkowiak and Pesch [30]
+√ √
+MILP, Heuristic
+Zhao et al. [32]
+√ √ √
+MILP, Heuristic
+Yang et al. [34]
+√ √ √
+MILP, Heuristic
+This study
+√ √ √ √ √ √
+MILP, Heuristic
+• To the best of our knowledge, this study is the first to investigate 2.1. Problem description
+online joint optimization for OA, PS, and TA, which is hereafter
+referred to as OJOOPT. Furthermore, online decision-making effi- This study focuses on the OJOOPT in RMFS. During the operation
+ciency is improved by considering the impact of current decisions of an RMFS, dynamic changes occur over time in many parameters
+on future decisions. such as backlog, inventory, robot status, and pod locations. Further-
+• We establish a dynamic system model for RMFS and formulate a more, the operation of an RMFS involves continuous human interaction
+novel mixed integer linear programming model (MILP) to address (i.e., picking operations by pickers at workstations); human response
+OJOOPT. time is variable and unpredictable. The consequent variability and
+• We develop a customized heuristic approach that employs alter- unpredictability introduced into the system, along with dynamic system
+nate decision-making and greedy selection (HADGS) strategies to information changes necessitate real-time online decision-making for
+address large-scale instances with high efficiency.
+operational level related issues. Thus, the system gathers real-time
+• These inferences offer valuable managerial insights that chal- information periodically in the course of its operation to make OJOOPT
+lenge the conventional observations in the existing literature, decisions. We introduce the variable “𝑡” to represent the number of
+suggesting that reducing the number of pod movements does not
+times OJOOPT is performed. Therefore, real-time system information
+necessarily improve RMFS operational efficiency.
+is used as OJOOPT input at each new 𝑡.
+The remainder of this paper is organized as follows. Section 2
+In an RMFS, an order is typically placed in a tote at the workstation.
+introduces a detailed problem formulation, encompassing the prob-
+Once all the items in the order are placed in the tote, it means that the
+lem description, dynamic system modeling, and OJOOPT modeling.
+tote is filled and subsequently transported to the packaging workstation
+Section 3 describes the designed HADGS and analyzes its complexity. either via a conveyor belt or by workers. Simultaneously, an empty
+Section 4 presents the simulation-based numerical experiments as well tote is positioned in the original location. The OJOOPT decision-making
+as managerial insights. Finally, Section 5 summarizes this study and process is depicted in Fig. 2. Each time 𝑡 is updated, it is essential to
+discusses potential future research directions. choose multiple orders from the backlog and allocate them to their
+respective workstations. Subsequently, the process involves selecting
+2. Problem description and formulation appropriate pods from the available pods to fulfill assigned orders,
+while simultaneously selecting suitable robots from a set of available
+An RMFS may incorporate three types of workstations: those for re- robots to transport the selected pods. The number of orders assigned
+plenishment, picking, and packaging. To ensure clarity and conciseness, in a single decision should not exceed the total available capacity of
+we refer to the “ picking workstations” as “ workstations”, as the primary all workstations. Two scenarios exist: when the number of available
+focus of this study is decision-making during the picking process. robots is no less than the number of selected pods, this decision assigns
+3
+
+[[PAGE 4]]
+G. Jiao et al. Omega 138 (2026) 103374
+Fig. 2. OJOOPT decision-making process.
+orders equivalent to the total available capacity of all workstations. of different approaches, heuristics, or decision-making rules in a sim-
+In contrast, when the quantity of available robots is less than the ulated RMFS environment. In other words, the relevant optimization
+number of selected pods, this decision assigns fewer orders than the approaches are independent of RAWSim-O. RAWSim-O enables the
+total available capacity of all workstations. The workstation’s available assessment of the effectiveness and efficiency of the proposed ap-
+capacity is determined by the number of empty totes present before the proaches to address the challenges and complexities of real-world RMFS
+decision-making process. The more empty totes there are, the higher scenarios. Overall, by utilizing RAWSim-O, comprehensive simulations
+the available capacity of the workstation. We introduce a threshold and experiments can be conducted to provide valuable insights and
+value, denoted as 𝛿. Whenever a workstation’s available capacity ex- guidance for optimizing RMFS decision-making processes. However, in
+ceeds or equals 𝛿, a new OJOOPT decision is triggered, increasing the RAWSim-O, relevant decision-making issues are optimized individually;
+value of 𝑡 by 1. Therefore, we divide continuous time into a series the joint optimization approach cannot be directly applied. Therefore,
+of discrete time points by defining the OJOOPT decision as a discrete to evaluate the effectiveness of the joint optimization approach, this
+event. Specifically, for each 𝑡, we take the state of the dynamic system study expands RAWSim-O, modifies its decision-making process accord-
+at the current moment as the OJOOPT input and pass the decision result ingly, and uses the newly developed approach to solve OJOOPT. We
+to the system as the output. name the expanded RAWSim-O “ EE-RAWSim-O”.
+Note that the pod set comprises both previously assigned pods at Notably, the agents in EE-RAWSim-O can be classified into two
+workstations and unassigned pods in storage zones. The former includes
+categories: one involves real entities, such as robots and workstations;
+en-route transportation and picking up or queuing at workstations. The
+the other comprises virtual entities, such as managers and solvers.
+pods that are assigned to a workstation in the current decision can
+All agent updates in EE-RAWSim-O are driven by discrete events.
+continue to be involved in future decisions as already assigned pods,
+Furthermore, we utilize event graphs to depict EE-RAWSim-O mod-
+as long as they do not leave the workstation. Consequently, decisions
+eling. Event graphs, which represent discrete event systems clearly
+and concisely, are graphical models. An event graph comprises event
+that were made online can significantly impact future decisions.
+nodes connected by directed edges, which depict the cause-and-effect
+Additionally, the quantity of orders assigned to each workstation
+relationships between events. Each event node represents a specific
+in each OJOOPT decision does not exceed its total available capacity.
+occurrence or activity in the system, such as order arrival, task com-
+This implies that the quantity of orders being processed at any given
+pletion, or resource availability. These events are typically represented
+time is less than or equal to the maximum processing capability of the
+as labeled nodes in the graph. The directed edges between event nodes
+workstation. Therefore, the necessity to sort either order sequence or
+indicate the flow of events and the order in which they occur. For
+pod sequence is negated. The sequence in which the pods arrive at
+instance, an event may trigger another event to occur later, resulting
+the workstation is solely determined by their actual arrival sequence.
+in a directed edge from the initial event node to the subsequent node.
+However, in offline decision-making, the quantity of orders assigned
+Event graphs enable the visual analysis of the behavior and interactions
+at once frequently exceeds the processing capacity of a single work-
+of events in a discrete event system. The relevant parameters, events,
+station; therefore, order and pod sequences must be sorted. Online
+and operators utilized in the event graph are defined in Table 3. In
+decision-making enables better adaptation to dynamic environmen-
+addition to the events defined in Table 3, such as FI, SE, FE, SP, FP, and
+tal changes, saves significant computational resources, and improves
+QA, events in the event graph also include the decision events defined
+system response time.
+in Section 1, such as OJOOPT, PP, and PR. Additionally, an extraction
+request represents removing an SKU from the pod, that is, the picking of
+2.2. Dynamic system modeling a single item of an order. Similarly, an insertion request means putting
+an SKU into the pod.
+We utilize RAWSim-O, a discrete-event-driven and agent-based sim- The EE-RAWSim-O event graph is shown in Fig. 3, where rectangles
+ulation framework created by Merschformann et al. [49], to simulate represent initial events, ellipses represent events other than initial
+a dynamic RMFS environment. By employing RAWSim-O, we create events, black fonts in curly brackets represent changes in related state
+a virtual environment that simulates the dynamics and conditions of variables after events are triggered, and red fonts in small brackets
+a real RMFS. This framework enables us to realistically model and represent trigger conditions between events. For example, when (𝑐 ≥
+𝑤
+simulate various system components such as orders, pods, robots, and 𝛿) is true, that is, when the available capacity of workstation 𝑤 is
+their interactions. With RAWSim-O, we can analyze the performance greater than or equal to the threshold 𝛿, the OJOOPT event will
+4
+
+[[PAGE 5]]
+G. Jiao et al. Omega 138 (2026) 103374
+be triggered, which will cause the parameters in the {𝑐 −, 𝑂−, 𝑃 +,
+𝑤 𝑤
+𝑄∗, 𝐸𝑎+, ℎ𝑐 = 1, ℎ𝑑 = 0} to change. Furthermore, changes in parameters
+𝑝 𝑟 𝑟
+Table 3 such as 𝑐 , 𝑂, 𝑃 , 𝑄, 𝐸𝑎, ℎ𝑐, and ℎ𝑑 can trigger other events in the event
+Some notations involved in the event graph. graph, en
+𝑤
+abling
+𝑤
+the en
+𝑝
+tire
+𝑟
+dynam
+𝑟
+ic system to operate continuously.
+Notation Definition It should be noted that in Fig. 3, there is no one-to-one correspon-
+SI Picker starts executing an insertion request on dence between FE and 𝑐 . Specifically, each FE triggers a decrease in 𝛾
+the repl. workstation. and 𝐸𝑎 in {𝑐 +, 𝛾−, 𝐸𝑎−
+𝑤
+}, however, this does not necessarily trigger an
+SE Picker starts executing an extraction request on 𝑝 𝑤 𝑝
+the picking workstation.
+increase in 𝑐
+𝑤
+. When there are still items in an order that have not yet
+FI Picker has finished an insertion request. been picked, FE will not trigger 𝑐 𝑤 to increase. In this case, multiple
+FE Picker has finished an extraction request. FE work together to complete the picking of an order, because SE and
+PO Generate picking orders. FE form a circular structure together. The 𝑐 increase is only triggered
+RO Generate repl. orders.
+when all items in an order have been pick
+𝑤
+ed. Moreover, items in an
+SP Robot starts its movement along the
+Events
+pre-planned path.
+order may be stored in multiple different pods. Therefore, when the 𝐸
+𝑝
+𝑎
+SM Robot starts its movement within the queuing of a pod is 0, only PR will be triggered, and an increase in 𝑐 𝑤 will not
+zone. necessarily occur.
+FP Robot finishes its movement along the Fig. 3 illustrates that EE-RAWSim-O is a sophisticated discrete event
+pre-planned path.
+FM Robot finishes its movement within the
+system, in which the occurrence of an event leads to changes in certain
+queuing zone. parameters, thereby triggering subsequent events. Note that OJOOPT
+QA Robot has reached the queuing zone of the solely encompasses task allocation in the picking process, while task
+workstation. allocation for the replenishment process must still be executed through
+RTA Task allocation in the replenishment process. TA. Therefore, RTA refers to the task allocation in the replenishment
+𝑤 Index of workstations. process.
+𝑝 Index of pods.
+𝑟 Index of robots.
+𝑊 Set of workstations.
+2.3. OJOOPT modeling
+𝑊 𝑎 Set of available workstations at this time,
+𝑊 𝑎 ⊆ 𝑊 . First, the assumptions and notations underlying OJOOPT are out-
+𝑃 Set of pods. lined in Section 2.3.1. We then introduce the OJOOPT optimization
+𝑄 Set of transportation tasks.
+𝑅 Set of robots.
+objectives in Section 2.3.2. Subsequently, relevant OJOOPT constraints
+𝑂 Set of orders currently in backlog. are detailed in Section 2.3.3. Finally, a complete MILP model of
+𝑄𝑧 Set of robots in the queuing zone. OJOOPT is presented in Section 2.3.4.
+𝑂𝑟 Set of repl. orders.
+𝑃 𝑤 Set of pods previously assigned to workstation 2.3.1. Assumptions and notations
+𝑤 does not include those that have departed
+𝑐 𝑤
+f
+C
+r
+u
+o
+r
+m
+re n
+𝑤
+t
+a
+a
+t
+v a
+th
+il
+e
+a b
+c
+l
+u
+e
+r
+c
+re
+a
+n
+p
+t
+a c
+d
+i
+e
+ty
+c is
+o
+i
+f
+o n
+w
+,
+o
+𝑃
+rk
+𝑤
+st
+⊆
+at
+𝑃
+io
+.
+n 𝑤.
+T
+O
+h
+rd
+e
+e
+r
+r
+e l
+A
+ev
+ll
+a n
+it
+t
+e m
+OJ
+s
+O
+in
+O P
+o
+T
+rd
+a
+e
+s
+r
+s
+s
+u
+c
+m
+an
+p t
+b
+io
+e
+n
+o
+s
+b
+a
+t
+r
+a
+e
+i n
+a
+e
+s
+d
+f o
+in
+ll o
+p
+w
+od
+s:
+s; thus, the ware-
+𝑢 Maximum capacity of picking workstation. house’s inventory can fulfill all orders. The generation of order lines
+Parameters 𝑏 Order quantity in 𝑂 during initialization. and items in each order follows a normal distribution, as detailed in
+ℎ𝑐
+𝑟
+S
+re
+ta
+p
+t
+r
+e
+e s
+o
+e
+f
+n t
+r
+s
+o b
+b
+o
+u
+t
+s y
+𝑟
+.
+: 0 represents idle and 1
+Appendix A.
+ℎ𝑑 The type of task being executed by robot 𝑟: 0 Backlog All unfulfilled orders are in the current backlog. This study
+𝑟
+represents picking task, 1 represents assumes that the backlog is constant, meaning that the backlog size
+replenishment task, 2 represents repositioning remains unchanged during system operation. However, the proposed
+task, 3 represents rest task, and 4 represents model and approach can also accommodate varying backlogs. When an
+dummy task that does nothing.
+𝐸𝑏 Set of requests for inserting into pod 𝑝.
+order is assigned from the backlog, as shown in Fig. 2, an equivalent
+𝐸 𝑝 𝑎 Set of requests of extraction for pod 𝑝. quantity of orders is added to maintain a consistent backlog size at each
+𝑝
+𝑡 Duration required for the robot to complete a OJOOPT decision.
+1
+pre-planned route. Workstation The capacity of the workstation denotes the upper
+𝑡 2 Duration required for the robot to complete a limit of orders that can be processed concurrently. Typically, a work-
+movement in the queuing zone.
+𝑡 Duration required for the picker to complete an
+station can process 6 to 12 orders simultaneously [8,28]. Furthermore,
+3
+insert request. the time required for the picker to pick one unit of each SKU in the
+𝑡 Duration required for the picker to complete an workstation is constant.
+4
+extraction request. Pod Each pod has a predetermined capacity; thus, the quantity
+𝛾 Inventory level of the warehouse.
+of SKUs that can be accommodated in each pod has a finite limit.
+𝑟𝑜 Inventory level when repl. order generation
+1 This study adopts a shared storage policy [13], i.e., one SKU type can
+begins.
+𝑟𝑜 Inventory level when repl. order generation is be accommodated in multiple pods and multiple SKU types can be
+2
+stopped. accommodated in one pod. Moreover, to avoid the influence of the
+𝜌 A workstation, pod, or robot serve as input, relative workstation position and pod delays in the queuing zone on
+while output correspond to their respective the performance valuation of the approach, we assume that only one
+current position. pod can be assigned to one workstation.
+– An decrease in parameter values or quantity of
+Operators elements in the set.
+Queuing zone Each workstation corresponds to a queuing zone. As
++ An increase in parameter values or quantity of long as the workstation has one pod in the process of picking, the
+elements in the set. remaining pods arriving at the workstation must wait in the queuing
+∗ Changes in parameter values or quantity of zone. Note that the movement of pods in the queuing zone is not
+elements in the set, which may increase or
+managed by the PP (i.e., path plan), albeit by a dedicated queue
+decrease.
+manager.
+Table 3 provides descriptions of some notations utilized in OJOOPT,
+while the remaining notations are presented in Table 4. We further
+explain the definitions of 𝑥 and 𝑥̂ . 𝑥 indicates that 𝑜 is assigned
+𝑜,𝑤 𝑜,𝑤 𝑜,𝑤
+5
+
+[[PAGE 6]]
+G. Jiao et al. Omega 138 (2026) 103374
+Fig. 3. EE-RAWSim-O event graph.
+to 𝑤 in the current decision, whereas 𝑥̂ indicates that 𝑜 could
+𝑜,𝑤
+potentially be assigned to 𝑤 in the current decision, although that may Table 4
+not necessarily be the case. As pods assigned to workstation 𝑤 can fulfill Some notations in OJOOPT.
+more orders than required, the number of orders that can be assigned Notation Definition
+can exceed the actual number of orders assigned. 𝑖 Index of SKU.
+As previously stated, OJOOPT utilizes real-time system information Indices 𝑜 Index of order.
+as the input for each decision-making process. Hence, certain parame-
+𝑝𝑟 Index of pod transported by robot 𝑟.
+ters in the model vary with each 𝑡. To distinguish these parameters cor- 𝑃𝑎 Set of unallocated pods still in storage
+zones, 𝑃𝑎 ⊆ 𝑃.
+responding to different 𝑡, we append the notation (𝑡) to them. The state
+𝑃𝑏 Set of previously allocated pods that
+variable 𝐷 of the dynamic system can be mathematically formulated as have not completed the extraction task,
+𝐷(𝑡) = ⟨𝑅𝑎(𝑡), 𝑅𝑏(𝑡), 𝑊 𝑎(𝑡), 𝑂(𝑡), 𝑃 𝑎(𝑡), 𝑃 𝑏(𝑡), 𝑃 𝑤 (𝑡), 𝑃̃ 𝑖 (𝑡), 𝑂̃ 𝑖 (𝑡), 𝑂̂(𝑡), 𝑛̂ 𝑖,𝑝 (𝑡), ∑ 𝑤∈𝑊 𝑃 𝑤 = 𝑃𝑏 and 𝑃𝑏 ⊆ 𝑃.
+𝑐
+𝑤
+(𝑡), 𝐼
+𝑝
+(𝑡)⟩. 𝐼
+𝐼 𝑝
+S
+S
+e
+e
+t
+t
+o
+o
+f
+f
+S
+S
+K
+K
+U
+Us
+ty
+a
+p
+cc
+e
+o
+s
+m
+w
+m
+it
+o
+h
+d
+in
+a t
+t
+e
+h
+d
+e
+in
+w a
+p
+r
+o
+e
+d
+h o
+𝑝
+u
+,
+se.
+2.3.2. Optimization objective
+𝐼 𝑜
+𝐼
+S
+𝑝
+et
+⊆
+o
+𝐼
+f
+.
+SKUs contained in order 𝑜, 𝐼 𝑜 ⊆ 𝐼.
+We design a new optimization objective for OJOOPT. Most studies 𝑂̃ 𝑖 Set of orders containing SKU i, 𝑂̃ 𝑖 ⊆ 𝑂.
+o m n o v jo em in e t n o ts p , t i w m h i i z c a h ti o c n or r f e o s r p o O n A d s a t n o d re P d S u c m in in g i m po iz d e v t i h si e t s q t u o a w nt o it r y k s o ta f ti p o o n d s Parameters 𝑃̃ 𝑖 S 𝑃̃ e 𝑖 t ⊆ o 𝑃 f . pods that accommodate SKU i,
+[8,19–21,24,27,29,30]. Furthermore, typically, the optimization objec-
+𝑅
+𝑅
+𝑎
+𝑏
+S
+S
+e
+e
+t
+t
+o
+o
+f
+f
+i
+b
+d
+u
+l
+s
+e
+y
+ro
+ro
+b
+b
+o
+o
+ts
+ts
+,
+,
+𝑅
+𝑅
+𝑎
+𝑏
+⊆
+⊆
+𝑅
+𝑅
+.
+.
+tive in joint optimization for OA, PS, and TA is to minimize the overall 𝑛̂ 𝑖,𝑝 Quantity of SKU i accommodated in pod
+system cost during operation [23,25,26]. This includes both the trans- 𝑝.
+portation cost incurred by robots and the cost associated with picking 𝑛 𝑖,𝑜 Quantity of SKU 𝑖 contained in order 𝑜.
+operations. The aforementioned studies on joint optimization for OA, 𝜏 Threshold for residence time of order.
+PS, and TA primarily address offline optimization, which calculates 𝑔 𝑂̂ 𝑜 R Se e t s i o d f e n o c r e d e t r i s m t e h a o t f e o x r c d e e e r d 𝑜 t i h n e 𝑂 ti . me
+the overall system cost to fulfill all orders in the backlog. However, threshold, 𝑂̂ ⊆ 𝑂.
+in OJOOPT, a significant amount of important information changes 𝑑 𝑝,𝑤 , 𝑑 𝑟,𝑝 Distance between pod 𝑝 and workstation
+dynamically over time, and only part of the orders in the backlog are 𝑤 and between the current position of
+assigned in each decision. Therefore, it is impossible to calculate the
+robot 𝑟 and pod 𝑝.
+overall cost or total quantity of pod movements required by the system 𝑥 𝑜,𝑤 Binary variable: 1, if order 𝑜 is assigned
+to workstation 𝑤.
+t
+n
+o
+e w
+fu l
+O
+fi
+J
+ll
+O
+a
+O
+ll
+P T
+or d
+o
+e
+p
+r
+t
+s
+im
+in
+iz a
+th
+ti
+e
+o n
+b a
+o
+c
+b
+k
+j
+l
+e
+o
+c
+g
+t iv
+in
+e
+a
+is
+si
+d
+n
+i
+g
+v
+l
+i
+e
+d e
+d
+d
+e c
+in
+is
+t
+i
+o
+o n
+t
+.
+w
+T
+o
+h e
+p
+r
+a
+e
+r
+f
+t
+o
+s:
+r e
+l
+,
+o n
+th
+g
+e
+-
+𝑥̂ 𝑜,𝑤 B
+as
+i
+s
+n
+i
+a
+g
+r
+n
+y
+e d
+v a
+t
+r
+o
+ia
+w
+bl
+o
+e
+r
+:
+k
+1
+st
+,
+a
+i
+t
+f
+i o
+o
+n
+r d
+𝑤
+er
+.
+𝑜 can be
+and short-term. 𝑦 𝑟,𝑝 Binary variable: 1, if robot 𝑟 is allocated
+Specifically, we consider maximizing the quantity of orders in the to pod 𝑝.
+backlog that can be fulfilled on the chosen pods as a long-term ob- Variables 𝑧 𝑝,𝑤 Binary variable: 1, if pod 𝑝 is allocated
+to workstation 𝑤.
+j
+o
+e
+r
+c
+d
+t
+e
+iv
+r
+e
+f
+.
+u
+T
+lf
+h
+il
+i
+l
+s
+m
+i
+e
+n
+n
+v
+t
+o
+a
+lv
+t
+e
+t
+s
+h
+s
+e
+e
+t
+le
+im
+ct
+e
+in
+o
+g
+f
+t
+d
+h
+e
+e
+c i
+p
+s
+o
+io
+d
+n
+s
+- m
+w
+a
+it
+k
+h
+i n
+t
+g
+h
+.
+e
+T
+h
+h
+i
+e
+g h
+s
+e
+e
+s
+l
+t
+e c
+c
+t
+a
+e
+p
+d
+a
+p
+ci
+o
+t
+d
+y
+s
+f o
+in
+r
+𝛿 𝑜,𝑝,𝑤 B
+as
+i
+s
+n
+i
+a
+g
+r
+n
+y
+e d
+v a
+o
+r
+r
+ia
+d
+b
+e
+l
+r
+e :
+𝑜
+1
+a
+,
+r e
+if
+s
+s
+u
+o
+p
+m
+p
+e
+li e
+S
+d
+K U
+by
+s i
+p
+n
+o d
+th
+𝑝
+e
+the current decision fulfill more orders in the backlog, resulting in assigned to workstation 𝑤.
+fewer pods being chosen for future decisions to minimize the total 𝑢 𝑤 Integer variable: unused capacity of
+pod movement required during long-term operation. Furthermore, we
+workstation 𝑤.
+consider minimizing the robot traveling distance required to fulfill
+the orders assigned by the current decision as a short-term objective,
+i.e., selecting the pod and robot with the shortest robot travel distance.
+6
+
+[[PAGE 7]]
+G. Jiao et al. Omega 138 (2026) 103374
+T
+(f
+h
+ro
+e
+m
+ro
+r
+b
+o
+o
+b
+t
+o t
+t r
+t
+a
+o
+v
+p
+el
+o
+i
+d
+n g
+p o
+d
+s
+i
+i
+s
+t
+t
+i
+a
+o
+n
+n
+c
+)
+e
+a n
+co
+d
+m
+fo
+p
+r
+r
+w
+is
+a
+e
+r
+s
+d
+t w
+tr
+o
+ip
+c
+(
+o
+fr
+m
+om
+po
+p
+n
+o
+en
+d
+t
+t
+s
+o
+: p
+w
+i
+o
+ck
+rk
+-u
+st
+p
+a t
+t
+i
+r
+o
+i
+n
+p 𝑦 𝑟,𝑝𝑟 = 1, ∀𝑟 ∈ 𝑅𝑏(𝑡) (11)
+position). Therefore, the robot traveling distance is determined by both
+Constraint (8) ensures that when a pod is assigned to a workstation,
+the selected pod and robot. The shorter the robot travel distance in
+there must be a corresponding robot to transport the pod. Constraint
+a single decision, the less likely they are to travel a lengthy total
+(9) ensures that one pod can only be transported by one robot at most.
+distance over multiple decisions. For example, in a certain decision,
+Constraint (10) means that one robot can transport up to one pod only.
+we choose between selecting a pod that is close but fulfills fewer
+Constraint (11) ensures that the occupied robot continues to perform
+orders or selecting a pod that is far but fulfills more orders. Therefore,
+the current transport task.
+short-term objectives focus more on the current decision, while long-
+(4) Constraints between orders, pods, and workstations
+term objectives focus on the effect of the current decision on future
+decisions. Therefore, we must balance the impact of long- and short- 2 ⋅ 𝛿 ≤ 𝑥 + 𝑧 , ∀𝑤 ∈ 𝑊 𝑎(𝑡), 𝑝 ∈ 𝑃 𝑎(𝑡), 𝑜 ∈ 𝑂(𝑡) (12)
+𝑜,𝑝,𝑤 𝑜,𝑤 𝑝,𝑤
+term objectives on the system. The OJOOPT optimization objective is
+∑
+expressed as follows: 𝑧 𝑝,𝑤 ≤ 𝛿 𝑜,𝑝,𝑤 , ∀𝑤 ∈ 𝑊 𝑎(𝑡), 𝑝 ∈ 𝑃 𝑎(𝑡) (13)
+𝑜∈𝑂(𝑡)
+min 𝛼 × 𝑓 (𝑡) + 𝛼 × 𝑓 (𝑡) (1)
+1 1 2 2 Constraint (12) ensures that when order 𝑜 is supplied by pod 𝑝 at
+where 𝑓 and 𝑓 represent long- and short-term objectives, respectively, workstation 𝑤, 𝑜 and 𝑝 must be assigned to 𝑤. Constraint (13) ensures
+1 2
+and 𝛼 and 𝛼 represent the weights of 𝑓 and 𝑓 . The impact of long- that at least one assigned order can be supplied in the newly assigned
+1 2 1 2
+and short-term objectives on the system can be balanced by adjusting pod. It should be noted that 𝛿 𝑜,𝑝,𝑤 is an auxiliary decision variable, and
+the size of 𝛼 1 and 𝛼 2 , thereby maximizing system operational efficiency. constraints (12)–(13) are all related to 𝛿 𝑜,𝑝,𝑤 . The introduction of 𝛿 𝑜,𝑝,𝑤
+The newly designed optimization objective guides the current de- and its associated constraints in our model aims to ensure that one
+cision through a short-term objective and ensures that the current newly assigned pod supplies at least one newly assigned order.
+decision in OJOOPT has a positive influence on subsequent decisions
+through a long-term objective, although such influence cannot be ac- 2.3.4. MILP model
+curately quantified. We formulate OJOOPT, considering multiple workstations and in-
+ventory, as an MILP model referred to as M1, as follows:
+2.3.3. Constraints ∑ ∑ ∑ ∑
+M1(𝑡) ∶ min 𝛼 𝑥̂ + 𝛼 ( 𝑑 ⋅ 𝑧
+In OJOOPT, there are several constraints that must be satisfied.
+1
+𝑜∈𝑂(𝑡) 𝑤∈𝑊 𝑎(𝑡)
+𝑜,𝑤 2
+𝑝∈𝑃𝑎(𝑡) 𝑤∈𝑊 𝑎(𝑡)
+𝑝,𝑤 𝑝,𝑤
+These constraints can be divided into four categories, as follows: ∑ ∑ ∑
++ 𝑑 ⋅ 𝑦 ) + 𝛼 𝑢 (14)
+(1) Constraints between orders and workstations 𝑟,𝑝 𝑟,𝑝 3 𝑤
+𝑟∈𝑅𝑎(𝑡) 𝑝∈𝑃𝑎(𝑡) 𝑤∈𝑊 𝑎(𝑡)
+∑
+𝑥̂ 𝑜,𝑤 ≤ 1, ∀𝑜 ∈ 𝑂(𝑡) (2) subject to: Constraints (2)–(13)
+𝑤∈𝑊 𝑎(𝑡)
+𝑥 𝑜,𝑤 ≤ 𝑥̂ 𝑜,𝑤 , ∀𝑜 ∈ 𝑂(𝑡), 𝑤 ∈ 𝑊 𝑎(𝑡) (3) 𝑥 𝑜,𝑤 , 𝑥̂ 𝑜,𝑤 , 𝑧 𝑝,𝑤 , 𝛿 𝑜,𝑝,𝑤 , 𝑦 𝑟,𝑝 ∈ {0, 1}, ∀𝑤 ∈ 𝑊 𝑎(𝑡), 𝑝 ∈ 𝑃 , 𝑜 ∈ 𝑂(𝑡), 𝑟 ∈ 𝑅
+∑ (15)
+𝑥 = 𝑐 (𝑡) − 𝑢 , ∀𝑤 ∈ 𝑊 𝑎(𝑡) (4)
+𝑜,𝑤 𝑤 𝑤
+𝑜∈𝑂(𝑡) 𝑢 ∈ Z+, ∀𝑤 ∈ 𝑊 𝑎(𝑡) (16)
+Constraint (2) requires that one order be assigned to one worksta- 𝑤 0
+tion at most. Constraint (3) means that orders that can be assigned to Objective (14) is an expanded version of objective (1), where 𝑓 1 (𝑡) =
+workstations may not necessarily be assigned during this decision, and ∑ 𝑜∈𝑂(𝑡) ∑ 𝑤∈𝑊 𝑎(𝑡) 𝑥̂ 𝑜,𝑤 and 𝑓 2 (𝑡) = ∑ 𝑜∈𝑂(𝑡) ∑ 𝑝∈𝑃 ∑ 𝑤∈𝑊 𝑎(𝑡) 𝑑 𝑝,𝑤 ⋅ 𝛿 𝑜,𝑝,𝑤 +
+orders that are assigned to workstations during this decision must be ∑ 𝑟∈𝑅𝑎(𝑡) ∑ 𝑝∈𝑃𝑎(𝑡) 𝑑 𝑟,𝑝 ⋅ 𝑦 𝑟,𝑝 . Objective (14) has an additional penalty for
+assigned. Constraint (4) indicates that the quantity of orders assigned to workstation unused capacity by comparison to objective (1), aiming
+workstation 𝑤 is equivalent to 𝑤’s available capacity minus its unused to increase 𝑓 1 (𝑡) and decrease 𝑓 2 (𝑡) while minimizing the amount of
+capacity. unused workstation capacity. Therefore, 𝛼 3 is given a larger value to
+(2) Constraints between pods and workstations reduce 𝑢 𝑤 insofar as possible. Constraints Eqs. (15) and (16) define the
+∑ ∑ feasible region for the decision variables, where Eq. (15) ensures that
+𝑛 𝑖,𝑜 ⋅ 𝑥̂ 𝑜,𝑤 ≤ 𝑛̂ 𝑖,𝑝 (𝑡) ⋅ 𝑧 𝑝,𝑤 , ∀𝑖 ∈ 𝐼, 𝑤 ∈ 𝑊 𝑎(𝑡) (5) the relevant variables are binary values and Eq. (16) ensures that 𝑢 𝑤 is a
+𝑜∈𝑂̃ 𝑖(𝑡) 𝑝∈𝑃̃ 𝑖(𝑡) non-negative integer value. It should be noted that M1 is generalizable
+∑
+𝑧 ≤ 1, ∀𝑝 ∈ 𝑃 (6) as it can easily consider other objectives. For example, if the objective
+𝑝,𝑤
+𝑤∈𝑊 𝑎(𝑡) is to minimize the number of pod movements as is commonly the case
+𝑧 = 1, ∀𝑤 ∈ 𝑊 𝑎(𝑡), 𝑝 ∈ 𝑃 (𝑡) (7) in previous studies, formula (14) can be replaced with formula (17). If
+𝑝,𝑤 𝑤
+the objective is to minimize robot travel distance, formula (14) can be
+Constraint (5) ensures that demand does not exceed supply, mean- replaced with formula (18).
+ing that the quantity of SKU 𝑖 required for all orders assigned to ∑ ∑ ∑
+min 𝛼 𝑧 + 𝛼 𝑢 (17)
+workstation 𝑤 cannot exceed the quantity of SKU 𝑖 that can be provided 1 𝑝,𝑤 3 𝑤
+𝑝∈𝑃𝑎(𝑡) 𝑤∈𝑊 𝑎(𝑡) 𝑤∈𝑊 𝑎(𝑡)
+by all pods assigned to 𝑤. Constraint (6) guarantees that a pod can only ∑ ∑ ∑ ∑ ∑
+min 𝛼 ( 𝑑 ⋅𝑧 + 𝑑 ⋅𝑦 )+𝛼 𝑢 (18)
+be assigned to a single workstation at most. Constraint (7) guarantees 2 𝑝,𝑤 𝑝,𝑤 𝑟,𝑝 𝑟,𝑝 3 𝑤
+𝑝∈𝑃𝑎(𝑡) 𝑤∈𝑊 𝑎(𝑡) 𝑟∈𝑅𝑎(𝑡) 𝑝∈𝑃𝑎(𝑡) 𝑤∈𝑊 𝑎(𝑡)
+all pods in 𝑃 can be assigned to workstation 𝑤, indicating that the
+current decisi
+𝑤
+on inherits the pods previously assigned to 𝑤 albeit have
+Furthermore, before calling M1(𝑡), preprocessing must be performed,
+not yet left 𝑤.
+which is achieved using formula (19). This means replacing 𝑂 with
+𝑂̂ when the quantity of orders in 𝑂̂ exceeds 0. This is because the
+(3) Constraints between robots and pods
+proposed model consistently assigns orders with smaller objective
+∑ ∑
+𝑧 ≤ 𝑦 , ∀𝑝 ∈ 𝑃 (8) values at each time 𝑡, which may lead to certain orders in 𝑂 not being
+𝑝,𝑤 𝑟,𝑝
+𝑤∈𝑊 𝑎(𝑡) 𝑟∈𝑅 assigned for an extended period, resulting in delays. To avoid this
+∑
+𝑦 ≤ 1, ∀𝑝 ∈ 𝑃 (9) situation, we append all orders with a residence time greater than 𝜏 to
+𝑟,𝑝
+𝑟∈𝑅 𝑂̂ at each 𝑡; thus, orders in 𝑂̂ can be assigned preferentially in OJOOPT.
+∑
+𝑦 ≤ 1, ∀𝑟 ∈ 𝑅 (10)
+𝑝∈𝑃 𝑟,𝑝 𝑂(𝑡) ← 𝑂̂(𝑡), if | | | 𝑂̂(𝑡)| | | > 0 (19)
+7
+
+[[PAGE 8]]
+G. Jiao et al. Omega 138 (2026) 103374
+The transformation of the state variable 𝐷(𝑡) to 𝐷(𝑡+1) in a dynamic Algorithm 1 Pseudocode for HADGS.
+system can be represented by the function 𝐹 , as follows: Input: 𝑊 𝑎, 𝑂, 𝑐 , 𝑃 , 𝑃 𝑎, 𝑅𝑎
+𝑤 𝑤
+Initialize: 𝑂̂ = ∅;
+𝐷(𝑡 + 1) = 𝐹 (𝐷(𝑡), 𝑆(𝑡), 𝛤 (𝑡)) (20)
+1: Step 1: Preprocessing
+where 𝑆(𝑡) = ⟨𝑧 𝑝,𝑤 , 𝑦 𝑟,𝑝 , 𝑥 𝑜,𝑤 , 𝑥̂ 𝑜,𝑤 , 𝛿 𝑜,𝑝,𝑤 , 𝑢 𝑤⟩(𝑡) denotes the OJOOPT 2: for (each order 𝑜 ∈ 𝑂) do
+decision at 𝑡 and 𝛤 (𝑡) denotes a stochastic factor that arises between 3: if (𝑔 𝑜 > 𝜏) then
+𝑡 and 𝑡 + 1. The relationship between 𝐷(𝑡) and 𝐷(𝑡 + 1) is difficult to 4: add 𝑜 to 𝑂̂;
+express explicitly using mathematical formulas because of the presence 5: end if
+of 𝛤 (𝑡). Specifically, 𝛤 (𝑡) primarily denotes the variations in pertinent 6: end for
+parameters in OJOOPT induced by external events in the dynamic 7: if (|𝑂̂ | > 0) then
+system, as shown in Fig. 3. For example, PR causes a change in 𝑃 , 8: 𝑂 ← 𝑂̂;
+𝑤
+FE causes a change in 𝑐 , and FP causes a change in ℎ𝑐. 9: end if
+𝑤 𝑟
+Moreover, 𝑑 denotes the distance traveled by robot 𝑟 from its 10: Step 2: Joint optimization
+𝑟,𝑝
+current position to the position of pod 𝑝, whereas 𝑑 denotes the 11: for (each workstation 𝑤 ∈ 𝑊 𝑎) do
+𝑝,𝑤
+distance traveled by the robot from the position of pod 𝑝 to workstation 12: OA(𝑤, 𝑂, 𝑐 𝑤 , 𝑃 𝑤 );
+𝑤. In the RMFS map, the driving channels are directional, whereas pod 13: if (𝑐 𝑤 > 0) then
+storage zones are undirected. Therefore, the robot traveling distance 14: PS&TA(𝑤, 𝑂, 𝑐 𝑤 , 𝑃 𝑤 , 𝑃 𝑎, 𝑅𝑎);
+cannot be simply expressed as the Manhattan distance. We utilize the 15: goto 12;
+classic A* method [50] to pre-calculate and store the distance between 16: end if
+any two points on the map in a matrix. Therefore, the values of 𝑑 17: end for
+𝑟,𝑝
+and 𝑑 can be obtained directly from this pre-calculated matrix when
+𝑝,𝑤
+necessary.
+The OJOOPT further considers TA based on online joint optimiza- • OA, PS, and TA joint optimization is realized by alternating deci-
+tion for OA and PS. Jiao et al. [28] has proven that the online joint sions and considering each other’s influence in their respective
+optimization problem for OA and PS is NP-hard. Thus, OJOOPT in this decisions. Specifically, HADGS makes the alternate decision of
+study is also NP-hard. OA and PS-TA through cyclic calls to the OA and PS&TA ap-
+proaches. In the proposed OA approach, the assigned order must
+3. Heuristic be completely fulfilled by the set of pods (i.e., 𝑃 ) that have been
+𝑤
+previously assigned to the workstation. In the proposed PS&TA
+For small-scale instances, we use a commercial solver, such as approach, decisions are made simultaneously for both PS and TA
+Gurobi or Cplex, to solve M1. However, this exact approach does not to ensure that the resulting 𝑃 𝑤 can completely fulfill at least one
+effectively solve large-scale instances. Therefore, a heuristic approach order in 𝑂.
+based on alternate decision-making and greedy selection (i.e., HADGS) • The greedy selection strategy is employed to consider the conse-
+is designed. We embed TA into PS (denoted as PS&TA), which means quences of future decisions during the current decision-making
+selecting the nearest robot while selecting the pod. The alternate deci- process. In the proposed OA approach, we prioritize orders that
+sion refers to an alternate decision between OA and PS&TA. Greedy pods close to the workstation can completely fulfill. In the pro-
+selection refers to selecting orders, pods, and robots greedily in the posed PS&TA approach, priority is afforded to those (robot, pod)
+OA and PS&TA, and considering each other’s influence in the selection pairs with the lowest evaluation value. Evaluation formulae (23)
+process. Therefore, HADGS realizes joint optimization of OA, PS, and and (24) are concrete forms of the formula (1), as described
+TA through the combined effect of alternate decisions and greedy in Section 2.3.2, where the long-term objective focuses on the
+selection. We introduce the overall HADGS approach in Section 3.1, and consequences of current decisions on future decisions.
+the OA and PS&TA approaches in Sections 3.2 and 3.3, respectively. • The computational complexity of HADGS is 𝑜(|𝑊 |⋅|𝑂|⋅|𝑃 𝑎 |(|𝑃 𝑏 |+
+|𝑅𝑎 |)); thus, HADGS is a polynomial-time approach. We transform
+3.1. HADGS
+the joint decision for multiple problems into an alternate decision
+for a single problem, effectively reducing the solution complexity.
+To avoid selecting multiple pods from 𝑃 𝑎 in turn, we incorporate
+The pseudocode for the complete HADGS approach is shown in
+a hybrid approach combining a local search and mathematical
+Algorithm 1. Step 1 represents preprocessing (Lines 2–9), specifically
+model (LSMM) into the PS&TA approach to further reduce the
+designed to facilitate the timely assignment of all orders in 𝑂. Step 2
+solution complexity.
+initiates joint optimization. For each workstation 𝑤, order assignment
+is first performed by invoking the OA approach, which allows only
+orders that can be completely fulfilled by the pods in the 𝑃 (i.e., the
+3.2. OA approach
+𝑤
+set of pods previously assigned to workstation 𝑤) to be assigned to
+workstation 𝑤. The term “ completely fulfilled” refers to the case in In the proposed OA approach, the orders assigned to workstation 𝑤
+which the pods in 𝑃 𝑤 can completely fulfill all items in one order, must be completely fulfilled by the set of pods (i.e., 𝑃 𝑤 ) that have been
+without requiring the assignment of additional pods. If no such order previously assigned to the workstation.
+exists and 𝑐 > 0 at this time, the PS&TA approach is invoked for pod Next, we define the two operators, J and G, in the OA approach
+𝑤
+selection and task assignment (Line 14). This only allows the pod and in Definitions 1 and 2, respectively. J represents an operator used to
+its corresponding robot that can completely fulfill at least one order determine whether an order can be completely fulfilled by the pods in
+in 𝑂 to be assigned to workstation 𝑤; the OA approach is subsequently 𝑃 𝑤 , and G is an operator used to evaluate the order.
+reinvoked (Line 15). The aforementioned process is repeated until 𝑐 =
+𝑤
+0; thus, it is not necessary to continue calling the PS&TA approach, Definition 1. J(𝑜): The input is order 𝑜, and if formula (21) holds, the
+which suggests that order requirements of 𝑤 have been satisfied. output is true; otherwise, the output is false.
+In summary, the proposed HADGS approach has the following ∑ 𝑛̂ ≥ 𝑛 , ∀𝑖 ∈ 𝐼 (21)
+𝑖,𝑝 𝑖,𝑜 𝑜
+advantages:
+𝑝∈𝑃𝑤
+8
+
+[[PAGE 9]]
+G. Jiao et al. Omega 138 (2026) 103374
+Definition 2. G(𝑜, 𝑤): The inputs are order 𝑜 and workstation 𝑤. First, robot closest to 𝑝 is subsequently identified (Line 9), and 𝑝 is evaluated
+the pods in 𝑃 are sorted in ascending order of the distance between the by function K(𝑝). Finally, the 𝑝̇ with the lowest evaluation value is
+𝑤
+pods and workstations. Each pod is then retrieved sequentially based on obtained (Line 11). If 𝑝̇ is an empty set, the quantity of pods that
+this sorted order, and pods capable of supplying items in 𝑜 are added to completely fulfill at least one order is greater than 1. When no single
+𝑃̂ until 𝑜 is completely fulfilled, that is, the pods in 𝑃̂ can completely pod can fulfill at least one order, it is necessary to gradually increase
+fulfill 𝑜. Finally, the sum of the distances between all pods in 𝑃̂ and the number of pods, that is, selecting two pods from 𝑃 𝑎 at a time to con-
+workstation 𝑤 is taken as the output as follows: tinue repeating the above process (Lines 2–14), which will bring huge
+∑ computational burden. Moreover, when no two pods can fulfill at least
+𝐆(𝑜, 𝑤) = 𝑑 (22)
+𝑝,𝑤 one order, we must select three pods from 𝑃 𝑎 at a time, which further
+𝑝∈𝑃̂
+increases the amount of calculation required. Similarly, increasing pod
+Algorithm 2 provides the pseudocode for the OA approach. Specifi-
+quantity will significantly increase the calculation amount. Therefore,
+cally, for each order in 𝑂, operator J is first used to determine whether
+we design the LSMM approach to continue solving PS&TA.
+the pods in 𝑃 can completely fulfill 𝑜. Operator G is subsequently used
+𝑤
+to evaluate the order, and finally, the order with the lowest evaluation
+value is assigned to the workstation. If no order exists that can be Algorithm 3 Pseudocode for PS&TA approach.
+completely fulfilled by the pods in 𝑃 𝑤 , the algorithm terminates (Line Input: 𝑤, 𝑂, 𝑐 𝑤 , 𝑃 𝑤 , 𝑃 𝑎, 𝑅𝑎
+12). The stock level of the pods in the ‘‘for loop’’ (Lines 2–8) remains Initialize: 𝑝̇ = ∅; 𝑟̇ = ∅; 𝑛̇ = ∞
+unchanged, because J(𝑜) in the “ for loop” is only used to determine 1: if (𝑐 𝑤 > 0 && |𝑂| > 0 && |𝑅𝑎 | > 0) then
+whether the pods in 𝑃 𝑤 can completely fulfill 𝑜. After assigning orders 2: for (each pod 𝑝 ∈ 𝑃 𝑎) do
+to 𝑤 (Line 10), the stock level updates such that the corresponding stock 3: add 𝑝 to 𝑃 𝑤 ; 𝑛̈ = 0;
+lock in the pods used to fulfill 𝑜 can no longer participate in subsequent 4: for (each order 𝑜 ∈ 𝑂) do
+decisions. Therefore, the stock level of the pods changes in the ‘‘while 5: if (J(𝑜)) then
+loop’’ (Lines 1–14). Furthermore, the complexity of the proposed OA 6: 𝑛̈ ← 𝑛̈ + 1; update stock;
+approach is 𝑜(𝑐 𝑤 ⋅ |𝑂| ⋅ |𝑃 𝑤|). 7: end if
+8: end for
+( )
+Algorithm 2 Pseudocode for OA approach. 9: 𝑟̇ = arg min 𝑑 𝑟,𝑝 ;
+𝑟∈𝑅𝑎
+Input: 𝑤, 𝑂, 𝑐 , 𝑃 10: if (K(𝑝) < 𝑛̇ ) then
+𝑤 𝑤
+Initialize: 𝑜̇ = ∅; 𝑑̇ = ∞ 11: 𝑛̇ ← K(𝑝); 𝑝̇ ← 𝑝;
+1: while (𝑐 𝑤 > 0 && |𝑂| > 0) do 12: end if
+2: for (each order 𝑜 ∈ 𝑂) do 13: remove 𝑝 from 𝑃 𝑤 ; update stock;
+3: if (J(𝑜)) then 14: end for
+4: if (G(𝑜, 𝑤) < 𝑑̇) then 15: if (𝑝̇ ≡ ∅) then
+5: 𝑑̇ ← G(𝑜, 𝑤); 𝑜̇ ← 𝑜; 16: LSMM(𝑤, 𝑂, 𝑐 𝑤 , 𝑃 𝑤 , 𝑃 𝑎, 𝑅𝑎);
+6: end if 17: else
+7: end if 18: assign 𝑝̇ to 𝑤; assign 𝑟̇ to 𝑝̇; add 𝑝̇ to 𝑃 𝑤 ;
+8: end for 19: remove 𝑝̇ from 𝑃 𝑎; remove 𝑟̇ from 𝑅𝑎;
+9: if (𝑜̇ ≠ ∅) then 20: end if
+10: assign 𝑜̇ to 𝑤; update stock; remove 𝑜̇ from 𝑂; 𝑐 𝑤 ← 𝑐 𝑤 − 1; 21: end if
+11: else
+12: Break; In Algorithm 3, for each pod 𝑝, the “ for loop” (Lines 4–8) is used
+13: end if to calculate the number of orders that 𝑃 can completely fulfill after
+14: end while adding 𝑝. Therefore, after it is determined
+𝑤
+that 𝑃 can completely fulfill
+𝑤
+order 𝑜 (i.e., J(𝑜) = true), the stock of corresponding pods in 𝑃 must
+𝑤
+be reduced at this time (Line 6). However, the aforementioned stock
+3.3. PS& TA approach changes only occur during the calculation process; the actual stock
+changes occur only after the order is assigned to the workstation (for
+After OA is executed, if no order exists that can be completely example, Line 10 in Algorithm 2). Therefore, after removing this 𝑝 from
+fulfilled by the pods in 𝑃 𝑤 and 𝑐 𝑤 remains greater than 0 at this time, 𝑃 𝑤 , the stock must be restored to the original level (Line 13) to calculate
+PS&TA should be executed. We embed TA into PS, i.e., select a robot the number of orders that the 𝑃 can completely fulfill after adding
+𝑤
+closest to the pod while selecting the pod. The concept of the proposed another 𝑝.
+PS&TA approach is to select one pod from 𝑃 𝑎 and add it to 𝑃 𝑤 , which Before presenting the LSMM approach, we first introduce two nota-
+can completely fulfill at least one order in 𝑂. If no such pod exists, tions, one operator, and one evaluation function.
+which may require two, three or even more pods to completely fulfill 𝑃 𝑠 Set where each element is a set of pods that can completely
+𝑖
+an order in 𝑂, a LSMM approach is used for PS&TA. fulfill SKU 𝑖.
+Subsequently, we provide a function K(𝑝) to evaluate pods in 𝑃 𝑠 Set where each element is a set of pods that can completely
+PS&TA, as follows: fulfill order 𝑜. The elements in 𝑃 𝑠 are composed of elements from 𝑃 𝑠.
+𝑖
+𝑲(𝑝) = 𝛼 ⋅ 𝑛̈ + 𝛼 (𝑑 + 𝑑 ) (23)
+1 2 𝑟,𝑝 𝑝,𝑤
+Definition 3. E(𝑜): The input and output are 𝑜 and 𝑃 𝑠, respectively.
+where n¨ represents the maximum quantity of orders that 𝑃 𝑤 can com- The operator first obtains the corresponding 𝑃 𝑠 for all SKU 𝑖 in 𝑜, takes
+pletely fulfill after adding 𝑝, which is then approximated via lines 4–8 in one element from each 𝑃 𝑠 to form 𝑃 𝑠, and ens
+𝑖
+ures that the quantity of
+Algorithm 3 for the purpose of reducing runtime. Notably, formula (23) pods in each element of 𝑃
+𝑖
+𝑠 does not exceed the quantity of idle robots
+can be considered a specific version of formula (1). Therefore, formula in 𝑅𝑎.
+(23) follows the weight coefficients 𝛼 and 𝛼 of formula (1).
+1 2
+The pseudocode for the PS&TA method is shown in Algorithm 3. ∑
+𝑲𝑺(𝑅𝑃 ) = 𝛼 ⋅ 𝑛̈ + 𝛼 (𝑑 + 𝑑 ) (24)
+For each pod 𝑝 in 𝑃 𝑎, n¨ is first approximated through Lines 4–8. The 1 2 𝑟,𝑝 𝑝,𝑤
+(𝑟,𝑝)∈𝑅𝑃
+9
+
+[[PAGE 10]]
+G. Jiao et al. Omega 138 (2026) 103374
+Fig. 4. Example of 𝑃𝑠, 𝑃𝑠, and E(𝑜).
+𝑖
+where 𝑅𝑃 represents the set of tuple (𝑟, 𝑝) and tuple (𝑟, 𝑝) represents the Algorithm 4 Pseudocode for LSMM approach.
+matching relationship between pod 𝑝 and robot 𝑟 (i.e., 𝑝 is transported Input: 𝑤, 𝑂, 𝑐 , 𝑃 , 𝑃 𝑎, 𝑅𝑎;
+𝑤 𝑤
+by 𝑟). Formula (24) can be considered a generalized version of formula Initialize: 𝑃 𝑠 = ∅; 𝑅𝑃 = ∅; 𝑅̇𝑃 = ∅; 𝑛̇ = ∞; 𝑖 = 0
+2
+(23). This is because formula (24) applies to the case of multiple robots 1: if (𝑐 𝑤 > 0 && |𝑂| > 0 && |𝑅𝑎 | > 0) then
+and multiple pods, while formula (23) only applies to the case of one 2: randomly take an order 𝑜 from 𝑂;
+robot and one pod. Therefore, formula (24) also follows the weight 3: 𝑃 𝑠 = E(o); 𝑖 1 = 0;
+coefficients 𝛼 1 and 𝛼 2 of formula (1). Moreover, if other objectives are 4: if (𝑃 𝑠 = ∅) then
+to be considered, we can modify formulae (23) and (24) according to 5: return;
+the modification of formula (14). 6: end if
+Fig. 4 shows a simple example of 𝑃 𝑖 𝑠, 𝑃 𝑠, and E(𝑜). Among these, 𝑃 𝑎 7: while (|𝑃 𝑠 | > 0 && 𝑖 1 < 𝑙 1 ) do
+has four pods: 𝑝 1 , 𝑝 2 , 𝑝 3 , and 𝑝 4 . Order 𝑜 contains three SKU 1 and two 8: randomly take a pods set 𝑃̌ from 𝑃 𝑠 and delete it from 𝑃 𝑠;
+SKU 2. Two sets of pods completely fulfill SKU 1: 𝑃 1 𝑠 = {{𝑝 1 }, {𝑝 3 }}. 9: 𝑅𝑃 ← IP(𝑃̌, 𝑅𝑎);
+Two sets of pods completely fulfill SKU2: 𝑃 2 𝑠 = {{𝑝 2 }, {𝑝 4 }}. Then, 10: if (KS(𝑅𝑃 ) < 𝑛̇ ) then
+one element in 𝑃 𝑖 𝑠 is taken in turn and combined to form 𝑃 𝑠: 𝑃 𝑠 = 11: 𝑛̇ ← KS(𝑅𝑃 ); 𝑅̇𝑃 ← 𝑅𝑃 ;
+{{𝑝 1 , 𝑝 2 }, {𝑝 1 , 𝑝 4 }, {𝑝 3 , 𝑝 2 }, {𝑝 3 , 𝑝 4 }}. Therefore, each element in 𝑃 𝑖 𝑠 can 12: end if
+completely fulfill SKU 𝑖 contained in 𝑜, whereas each element in 𝑃 𝑠 13: 𝑖 1 ← 𝑖 1 + 1;
+can also completely fulfill 𝑜. 14: end while
+LSMM is a hybrid approach that combines local search and mathe- 15: if ( 𝑖 2 < 𝑙 2 ) then
+matical models, and its pseudocode is presented in Algorithm 4. First, 16: 𝑖 2 ← 𝑖 2 + 1;
+one order 𝑜 is randomly extracted from 𝑂, and 𝑃 𝑠 is obtained through 17: goto 1;
+E(𝑜). If 𝑃 𝑠 is an empty set, the number of pods in all elements of 𝑃 𝑠 is 18: end if
+greater than the number of idle robots in 𝑅𝑎, and the algorithm returns 19: end if
+directly. To improve computational efficiency, we do not evaluate all 20: for (each (𝑟, 𝑝) ∈ 𝑅̇𝑃 ) do
+pod sets in 𝑃 𝑠, albeit randomly select one pod set from 𝑃 𝑠 each time 21: assign 𝑝 to 𝑤; assign 𝑟 to 𝑝; add 𝑝 to 𝑃 𝑤 ; remove 𝑝 from 𝑃 𝑎;
+and limit the evaluation times by setting a threshold value 𝑙 1 . We remove 𝑟 from 𝑅𝑎;
+subsequently utilize the 0–1 integer programming (IP) model to solve 22: end for
+the matching relationship (i.e., 𝑅𝑃 ) between pods in 𝑃̌ and robots in
+𝑅𝑎. The 𝑅𝑃 is evaluated by the evaluation function KS (formula (24))
+such that the 𝑅̇𝑃 with the minimum evaluation value can be obtained.
+It should be noted that the manner in which n¨ is obtained in formula Additionally, there are only |𝑅𝑎 |⋅|𝑃̌ | decision variables and constraints
+(23) is similar to that in formula (24), and can be referred to in Lines
+in IP, which can be rapidly solved using commercial software. In
+4–8 of Algorithm 3. Moreover, owing to the randomness in selecting summary, the complexity of LSMM is 𝑜(𝑙 1 ⋅ 𝑙 2 ⋅ |𝑃 𝑎 | ⋅ |𝑅𝑎 |). Furthermore,
+the order (Line 2) and the corresponding pod set (Line 8), a local the complexity of the PS&TA approach is 𝑜(|𝑂| ⋅ |𝑃 𝑎 |(|𝑃 𝑏 | + |𝑅𝑎 |)).
+search strategy is incorporated to enhance the quality of the solution.
+As shown in Lines 15–18, the algorithm returns to Line 1 to repeat the 4. Numerical experiments
+aforementioned process when 𝑖 < 𝑙 , where 𝑙 represents the count of
+2 2 2
+the local search performed. All instances were executed on an x64 PC (Intel Core i7-8650,
+IP is an assignment model suitable for scenarios where the quantity 3.60 GHz, and 32.0 GB RAM). The experimental framework was de-
+of robots is not less than that of the pods. The inputs of IP are 𝑃̌ and veloped using C# 8.0, and Gurobi 9.5.2 was employed to solve mathe-
+𝑅𝑎, and the output is the matching relationship 𝑅𝑃 between 𝑃̌ and 𝑅𝑎, matical models. Next, we introduce the experimental framework, per-
+as follows: formance evaluation, sensitivity analysis, and some managerial insights
+∑ ∑ in Sections 4.1, 4.2, 4.3, and 4.4, respectively.
+IP ∶ min 𝑑 ⋅ 𝑦 (25)
+𝑟,𝑝 𝑟,𝑝
+𝑟∈𝑅𝑎 𝑝∈𝑃̌
+s.t. ∑ 𝑦 = 1, ∀𝑝 ∈ 𝑃̌ (26) 4.1. Experimental framework
+𝑟,𝑝
+𝑟∈𝑅𝑎
+∑ 𝑦 ≤ 1, ∀𝑟 ∈ 𝑅𝑎 (27) RAWSim-O is a simulation framework for RMFS, detailed in Sec-
+𝑟,𝑝
+𝑝∈𝑃̌ tion 2.2. Numerous studies have recently applied RAWSim-O to eval-
+𝑦 ∈ {0, 1}, ∀𝑟 ∈ 𝑅𝑎, 𝑝 ∈ 𝑃̌ (28) uate the performance of related algorithms. RAWSim-O was utilized
+𝑟,𝑝 by Merschformann et al. [7] to examine the effect of various rule com-
+Objective (25) minimizes the sum of distances between robots and binations on diverse performance metrics, including distance traveled
+pods. Constraint (26) ensures that each pod is transported by a robot. per robot, order throughput, order turnaround time, and pile-on. Xie
+Constraint (27) ensures that each robot can only transport a maximum et al. [8] introduced order split into RMFS and applied RAWSim-O for
+of one pod. Constraint (28) defines the domain of the decision variable. evaluation. Jiao et al. [28] conducted online joint optimization for OA
+10
+
+[[PAGE 11]]
+G. Jiao et al. Omega 138 (2026) 103374
+Fig. 5. Layout of small-scale instances. (For interpretation of the references to color in this figure legend, the reader is referred to the web version of this article.)
+Fig. 6. Layout of large-scale instances. (For interpretation of the references to color in this figure legend, the reader is referred to the web version of this article.)
+and PS in RMFS and utilized the extended RAWSim-O to validate their specific layout parameters, including the quantity of pods, storage
+proposed model and methodology. locations, picking and replenishment workstations, picking workstation
+Moreover, this study developed a new solver in the extended EE- capacity, and length of queuing zone, are presented in Table 5. The
+RAWSim-O to solve OJOOPT. Specifically, the new solver includes two top view of the layout for small-scale instances is shown in Fig. 5, and
+options: utilizing Gurobi to solve M1 (referred to as M1G) and HADGS. that for large-scale instances is shown in Fig. 6. In Figs. 5 and 6, a blue
+Whenever a 𝑐 𝑤 is not less than 𝛿, the new solver is triggered. For more square denotes a pod, a gray circle denotes a robot, a red square denotes
+information regarding the EE-RAWSim-O, please refer to the source a picking workstation, and a yellow square denotes a replenishment
+code at https://github.com/LBJiao/EE-RAWSim-O.
+workstation.
+In actual RMFS, robots charge whenever their battery is low; more-
+over, they do not always remain in working mode. However, as this
+4.1.2. Instance configuration
+study primarily focuses on decision-making issues in RMFS at the opera-
+Table 6 provides values for some parameters used to generate differ-
+tional level, the robot charging issue in simulation is considered outside
+the scope of this work; thus, all robots’ battery levels in RAWSim-O
+ent instances, including the number of orders in backlog, robots, work-
+are considered unlimited. RAWSim-O input primarily consists of three
+stations, and capacity threshold. Instance configuration also includes
+parts: layout, instance, and solver configuration. information such as order and inventory generation, robot movement,
+and workstation operations. We set the aforementioned parameters
+4.1.1. Layout configuration based on the study reported in [7], as detailed in Appendix A. Notably,
+To enhance the evaluation of both the model and approach, problem the number of lines and items per order are created from truncated nor-
+instances are categorized into small- and large-scale instances. The mal distributions, which are intended to simulate the characteristics of
+11
+
+[[PAGE 12]]
+G. Jiao et al. Omega 138 (2026) 103374
+Table 5 𝑙 = 10, and the quantity of local searches to 𝑙 = 3. We also set the
+Layout parameters. t
+1
+hreshold of available capacity of the workstation
+2
+that triggers OJOOPT
+Parameter Value to 𝛿 = 1.
+Small-scale Large-scale All results obtained by the model-based method (including M1G and
+Quantity of pods 100 1200 M2G) in the experimental results are optimal solutions; that is, there is
+Quantity of storage locations 120 1352 no optimal gap.
+Quantity of picking workstations 2 12
+Quantity of repl. workstations 2 6
+Picking workstation capacity 6 12
+4.1.4. Performance metrics
+Length of queuing zone 9 15 This study employs the following four performance metrics to eval-
+uate the relevant approaches:
+Table 6 • Throughput (𝑇 𝑃 ), which represents the operational efficiency of
+Parameter information for different instances.
+RMFS, is calculated by dividing the aggregate quantity of orders
+Symbol Description Value
+fulfilled by the hours spent fulfilling them.
+Small-scale Large-scale • Robot distance (𝑅𝐷), which represents the aggregate distance
+|𝑂| Quantity of orders 70,85,100 300,400,500 traveled by all robots, is calculated by summing up the summation
+𝛿
+i
+C
+n
+a p
+b
+a
+a
+c
+c
+i
+k
+ty
+lo g
+threshold 1,2,3,4 1
+of distances traveled by each robot within the simulation horizon.
+|𝑅| Quantity of robots 6,7,8,9,10,11,12 60,70,80,90,100,110,120 A smaller 𝑅𝐷 indicates lower RMFS power consumption and
+|𝑊 | Quantity of 2 4,6,8,10,12 running costs.
+workstations • Order distance (𝑂𝐷), which represents the average distance trav-
+eled by robots per order, is calculated by dividing 𝑅𝐷 by the
+Table 7 aggregate quantity of orders fulfilled. Similar to the 𝑅𝐷, the
+Decision-making approaches in the simulation experiment. smaller the 𝑂𝐷, the less robot power consumption per order on
+Problem SEQU OJOOP OJOOPT average, and the lower the RMFS running cost.
+OA Pod-Match • Pile-on (𝑃 𝑂), which represents the average quantity of orders
+PS Demand
+M2G
+M1G, HADGS fulfilled per pod movement, is calculated by dividing the aggre-
+TA Balanced Balanced gate quantity of fulfilled orders by the aggregate quantity of pod
+P
+P
+R
+P
+N
+W
+e
+H
+a
+C
+re
+A
+s
+∗
+t N
+W
+e
+H
+a
+C
+re
+A
+s
+∗
+t N
+W
+e
+H
+a
+C
+re
+A
+s
+∗
+t
+movements. The larger the 𝑃 𝑂, the more orders are fulfilled per
+ROA Pod-Ba 𝑛 tch Pod-Ba 𝑛 tch Pod-Ba 𝑛 tch pod movement, which improves RMFS operational efficiency.
+RPS Emptiest Emptiest Emptiest
+RTA Balanced Balanced Balanced To mitigate the impact of the dynamic environment on RMFS, each
+instance is run ten times for a simulation horizon of 2 h.
+4.2. Performance evaluation
+online retail orders. In addition, to generating inventory, the type and
+size of SKUs follow exponential and uniform distributions, respectively.
+4.2.1. Small-scale instances
+Table 8 presents the performance evaluation results for small-scale
+4.1.3. Solver configuration
+In the simulation experiment, the sequential decision approach used
+instances (|𝑅| = 10 and |𝑂| = 70, 85, 100). Column “𝑉 ” represents
+the performance metric value. Column “𝛥𝑉 ” (in %) represents the gap
+in practice (SEQU) and the approach for solving the MILP model
+utilizing Gurobi (M2G) proposed by Jiao et al. [28] in the online joint
+between the relevant approaches and M1G regarding 𝑉 . Column “ AT”
+optimization of OA and PS (OJOOP) are compared with the proposed
+(denoted in seconds) represents the average computation time of the
+approach. We conduct small-scale instances for M1G, M2G, HADGS,
+approach and is calculated by dividing the aggregate calculation time
+and SEQU. M1G is a method that utilizes Gurobi to solve mathematical
+of the approach in the simulation horizon by the overall number of
+model M1, which is an exact method that serves as a benchmark for
+calls.
+heuristic methods. Owing to their inability to solve large-scale instances
+Table 8 shows that, for performance metrics 𝑇 𝑃 , 𝑅𝐷, and 𝑂𝐷 in
+within a finite time frame, both M1G and M2G are unsuitable for such small instances, M1G is significantly better than SEQU and M2G under
+scenarios. For example, even after running for 24 h at 𝑡 = 1 in a different |𝑂| conditions. However, for performance metric 𝑃 𝑂, M1G
+large-scale instance, M1G still leaves a gap of 15.4%. Consequently, we is better than SEQU, albeit worse than M2G. Specifically, for the 𝑇 𝑃 ,
+exclusively evaluated HADGS and SEQU in large-scale instances. 𝑅𝐷, 𝑂𝐷, and 𝑃 𝑂, the average 𝛥𝑉 of SEQU is 12.41, 22.05, 39.39, and
+The relevant decision-making problems involved in RMFS at the 34.49%, respectively; the average 𝛥𝑉 of M2G is 1.22, 3.57, 4.58, and
+operational level were defined in Section 1.1. Their corresponding −4.43%, respectively. Furthermore, the 𝛥𝑉 of HADGS is minimal, with
+decision-making approach used in the simulation experiments are pre- average values of 0.22, 1.16, 1.55, and 2.02% for the four performance
+sented in Table 7. The decision-making approach used in SEQU is a metrics, respectively.
+combination of Pod Match, Demand, Balanced, Nearest, WHCA∗, Pod Note that, for 𝑃 𝑂, the 𝛥𝑉 of M2G is negative; thus, the 𝑃 𝑂 of M1G is
+𝑛
+Batch, Emptiest, and Balanced. The choice of these aforementioned smaller than that of M2G. The primary reason for the aforementioned
+approaches in this study is based on the experimental findings reported results is that the optimization objective of M2G is to minimize pod
+by Merschformann et al. [7], because the combination of approaches ul- movements, whereas that of M1G is to minimize the robot travel
+timately achieves the highest throughput. See [7] for further details of distance while maximizing the quantity of orders fulfilled by selected
+such approaches, which are not repeated in this paper. The remaining pods. Therefore, when M1G achieves the optimal objective value, it
+decisions in OJOOPT and OJOOP are the same as SEQU except for the does not necessarily result in an optimal quantity of pod movements.
+approaches for their respective joint decisions. Consequently, the quantity of pod movements in M2G is lower than in
+We set the threshold 𝜏 to 30 min and the value of 𝛼 to 1000. In M1G for fulfilling the same quantity of orders. Consequently, the 𝑃 𝑂
+3
+addition, the values of some important parameters in M1G and HADGS of M1G is smaller than that of M2G.
+are determined by a series of preliminary experiments. The two weight Table 8 shows that in small-scale instances, M1G’s AT is less than
+coefficients of the optimization objectives are set to 𝛼 = −40 and that of M2G, whereas the AT of SEQU and HADGS, less than 0.00 s,
+1
+𝛼 = 1, respectively. We set the pod set quantity of evaluations to is almost insignificant. As the quantity of orders increases, the AT for
+2
+12
+
+[[PAGE 13]]
+G. Jiao et al. Omega 138 (2026) 103374
+Table 8
+Calculation results of small-scale instances.
+|𝑂| Metrics M1G HADGS SEQU M2G
+𝑉 AT 𝑉 𝛥𝑉 AT 𝑉 𝛥𝑉 AT 𝑉 𝛥𝑉 AT
+𝑇 𝑃 310.30 309.95 0.11 275.20 11.31 306.67 1.17
+𝑅𝐷 15 139 15 281 0.94 17 961 18.64 15 422 1.87
+70
+𝑂𝐷 24.39
+0.06
+24.65 1.07
+0.00
+32.63 33.78
+0.00
+25.14 3.08
+0.25
+𝑃𝑂 2.98 2.91 2.35 2.02 32.21 3.08 −3.36
+𝑇 𝑃 313.60 312.90 0.22 275.78 12.06 309.80 1.21
+𝑅𝐷 14 404 14 593 1.31 17 898 24.26 14 994 4.1
+85
+𝑂𝐷 22.97
+0.09
+23.28 1.35
+0.00
+32.45 41.27
+0.00
+24.12 5.01
+0.33
+𝑃𝑂 3.18 3.12 1.89 2.09 34.28 3.38 −6.29
+𝑇 𝑃 314.50 313.48 0.32 270.92 13.86 310.44 1.29
+𝑅𝐷 14 122 14 295 1.23 17 406 23.25 14 791 4.74
+100
+𝑂𝐷 22.45
+0.12
+22.95 2.23
+0.00
+32.13 43.12
+0.00
+23.72 5.66
+0.39
+𝑃𝑂 3.30 3.24 1.82 2.08 36.97 3.42 −3.64
+Table 9
+Calculation results of M1G and HADGS with different parameter combinations.
+ID Parameters M1G HADGS
+|𝑂| |𝑅| |𝑃| 𝑇 𝑃 𝑅𝐷 𝑂𝐷 𝑃𝑂 AT 𝑇 𝑃 𝑅𝐷 𝑂𝐷 𝑃𝑂 𝛥 AT
+1 100 10 100 314 23 325 37.14 3.09 0.12 313 23 523 37.64 3.03 1.12 0.00
+2 100 20 100 316 24 523 38.8 3.29 0.38 314 24 795 39.48 3.25 1.18 0.00
+3 100 10 200 309 23 149 37.46 3.43 0.85 307 23 329 38.05 3.37 1.19 0.01
+4 100 20 200 314 24 365 38.8 3.36 1.13 312 24 564 39.37 3.32 1.03 0.01
+5 100 30 200 313 25 107 40.11 3.41 1.65 312 25 378 40.67 3.34 1.11 0.01
+6 150 10 100 326 22 059 33.83 3.7 0.59 324 22 245 34.38 3.64 1.18 0.01
+7 150 20 200 321 23 820 37.1 3.47 1.29 320 24 026 37.6 3.42 0.99 0.01
+8 150 30 200 321 25 100 39.1 3.45 1.97 319 25 151 39.48 3.41 0.74 0.01
+9 150 30 300 333 27 805 41.75 3.26 2.35 331 28 084 42.48 3.21 1.22 0.02
+10 150 40 400 329 25 514 38.78 3.35 3.19 327 25 702 39.36 3.28 1.24 0.02
+11 200 10 100 328 21 617 32.96 3.71 1.03 327 21 808 33.35 3.67 0.86 0.01
+12 200 20 200 327 23 912 36.56 3.73 1.44 325 24 100 37.08 3.7 0.91 0.02
+13 200 30 100 332 25 733 38.75 3.44 1.25 331 26 007 39.35 3.39 1.09 0.02
+14 200 20 300 339 23 947 35.32 3.81 2.38 337 24 135 35.81 3.75 1.09 0.02
+15 200 30 200 326 25 096 38.49 3.51 2.13 325 25 274 38.88 3.48 0.72 0.02
+16 250 40 200 327 25 711 39.31 3.54 2.49 326 25 866 39.67 3.5 0.74 0.02
+17 250 40 300 338 29 603 43.79 3.54 3.06 337 29 760 44.15 3.49 0.77 0.03
+18 250 50 300 337 28 696 42.57 3.51 3.36 335 28 944 43.2 3.45 1.16 0.03
+19 250 40 400 327 26 010 39.77 3.15 4.01 326 26 163 40.13 3.11 0.77 0.03
+20 250 50 400 327 26 133 39.96 3.2 4.32 325 26 359 40.61 3.17 1.01 0.03
+M1G and M2G shows an upward trend, whereas the AT for SEQU and Table 10
+HADGS remains relatively stable. The aforementioned results indicate Calculation results of large-scale instances.
+that using Gurobi to solve MILP models exhibits a greater sensitivity to |𝑂| Metrics SEQU HADGS
+order quantity fluctuations compared to heuristic approaches. 𝑉 𝛥𝑉 AT 𝑉 AT
+Additionally, for exact approach like M1G, the computation time is 𝑇 𝑃 1676.46 7.73 1816.91
+i
+a
+n
+n
+f
+d
+lu
+r
+e
+o
+n
+b
+c
+o
+e
+t
+d
+s .
+b
+T
+y
+o
+m
+d
+u
+e
+l
+t
+t
+e
+i
+r
+p
+m
+le
+i n
+p
+e
+a r
+t
+a
+h
+m
+e
+e
+s
+t
+i
+e
+z
+r
+e
+s
+o
+s
+f
+u
+i
+c
+n
+h
+s t
+a
+a
+s
+n
+t
+c
+h
+e
+e
+s
+n
+th
+u
+a
+m
+t
+b
+th
+er
+e
+o
+e
+f
+x a
+o
+c
+rd
+t
+e
+a
+r
+p
+s
+p
+,
+r
+p
+o
+o
+a
+d
+c
+s
+h
+, 300 𝑅
+𝑂
+𝑃
+𝐷
+𝑂
+𝐷
+2
+7
+2
+4
+2
+.3
+4
+.9
+4
+6
+7
+10 2
+4
+3
+9
+0
+4
+.
+.
+.
+8
+7
+8
+8
+9
+2
+0.09 1
+5
+3
+8
+1
+.5
+8
+.8
+9
+3
+3
+41 0.17
+can handle, we must modify the layout of Fig. 5 by adding four vertical
+aisles and four horizon aisles to arrange more pods. Other parameters, 𝑇 𝑃 1646.35 11.10 1852.00
+𝑅𝐷 238 881 30.96 182 409
+except for the number of orders, pods, and robots, are consistent with 400
+𝑂𝐷 72.57 47.35
+0.12
+49.25
+0.18
+the small-scale instances. We ran the test on 20 instances of different 𝑃𝑂 2.32 45.67 4.27
+parameter combinations, and the results are shown in Table 9. The
+𝑇 𝑃 1631.90 13.40 1884.33
+column “𝛥” (in %) represents the average gap between HADGS and M1G 𝑅𝐷 235 571 35.23 174 206
+regarding the four performance metrics.
+500
+𝑂𝐷 72.18 56.13
+0.15
+46.23
+0.21
+Table 9 shows that, with the gradual increase of instance scale, the 𝑃𝑂 2.34 50.11 4.69
+AT of M1G increases rapidly, reaching a maximum of 4.32 s; however,
+the AT of HADGS increase slowly, with a maximum of less than 0.03 s.
+In a real RMFS, the decision time is generally required to be no more greater than SEQU’s AT. For example, at |𝑂| = 100, HADGS’s AT is only
+than 3 s [22]. Furthermore, for instances of different scales, the value 0.06 s longer than SEQU’s; however, the four performance metrics im-
+of 𝛥 is relatively small, averaging at 1.01%. proved by 13.40, 35.23, 56.13, and 20.11%, respectively. Furthermore,
+the AT of HADGS exhibits a maximum value of 0.21 s. Thus, the HADGS
+4.2.2. Large-scale instances calculation time, which is specifically designed to address large-scale
+Table 10 presents the performance evaluation results for large-scale instances, can meet practical application requirements.
+instances (|𝑅| = 100 and |𝑂| = 300, 400, 500). Column “𝛥𝑉 ” (in %) Additionally, we further compare the proposed online approach
+represents the gap between SEQU and HADGS regarding 𝑉 . Table 10 (i.e., HADGS) with the offline approach (i.e., bi-level memetic (BLM))
+shows that, in large instances, HADGS significantly outperforms SEQU proposed by Teck and Dewil [25]. Because HADGS is an online ap-
+in terms of all the performance metrics, while its AT is only slightly proach, it must be run in EE-RAWSim-O, while BLM is an offline
+13
+
+[[PAGE 14]]
+G. Jiao et al. Omega 138 (2026) 103374
+Fig. 7. Influence of parameter 𝛿.
+Table 11 performance metrics owing to the increased correlation between these
+Calculation results of HADGS and BLM in large-scale instances. orders. However, a larger 𝛿 results in longer time intervals between
+ID HADGS BLM consecutive decisions, potentially retracting some pods that can still
+𝑀𝑆 𝛥1 𝑅𝐷 𝛥2 AT 𝑀𝑆 𝑅𝐷 AT fulfill orders in |𝑂| back to the storage zone, thereby adversely impact-
+1 1647 11.43 195 13.37 0.11 1478 172 11 744 ing performance metrics. Therefore, the value of 𝛿 significantly impacts
+2 1632 10.2 200 12.99 0.12 1481 177 12 187 the performance of associated decision approaches. The influence of
+3
+4
+1
+1
+6
+6
+4
+8
+3
+5
+1
+1
+0
+1
+.
+.
+1
+7
+9
+4
+2
+1
+0
+9
+2
+7
+1
+1
+2
+3
+.
+.
+2
+2
+2
+2
+0
+0
+.
+.
+1
+1
+0
+3
+1
+1
+4
+5
+9
+0
+1
+8
+1
+1
+8
+7
+0
+4
+1
+1
+1
+1
+8
+6
+2
+8
+8
+3
+d
+il
+i
+l
+f
+u
+f
+s
+e
+t
+r
+r
+e
+a
+n
+te
+t
+d
+𝛿
+i
+v
+n
+a
+F
+lu
+ig
+e
+.
+s
+7
+in
+.
+small-scale instances (|𝑅| = 10 and |𝑂| = 100) is
+5 1663 10.72 196 13.95 0.12 1502 172 11 792
+A 1654 10.86 198 13.15 0.12 1492 175 11 847
+As observed in Fig. 7, for all performance metrics, the performance
+of SEQU, HADGS, and M1G deteriorates with increasing 𝛿, whereas
+the performance of M2G initially improves and subsequently deterio-
+rates. SEQU, HADGS, and M1G demonstrate peak performance when
+approach and can be run directly. Therefore, to compare HADGS with 𝛿 = 1, whereas M2G demonstrates peak performance when 𝛿 = 2.
+BLM, corresponding modifications must be made to EE-RAWSim-O and There are several reasons for these aforementioned disparities. First,
+BLM, as detailed in Appendix B. We use makespan (𝑀𝑆) and robot the correlation between orders is not considered in SEQU and thus
+distance (𝑅𝐷) as performance metrics. The test is conducted on a total cannot positively impact performance. Therefore, the greater the value
+of five instances, with each instance running ten times, and the results of 𝛿, the greater the negative effect and the worse the performance of
+are averaged. The results are shown in Table 11, where column “𝛥1” (in SEQU. Second, the correlation between orders is well considered in
+%) represents the gap between HADGS and BLM regarding 𝑀𝑆, column M2G, which can positively impact performance. Therefore, with the
+“𝛥2” (in %) represents the gap between HADGS and BLM regarding 𝑅𝐷, increase in 𝛿, the negative effect gradually outweighs the positive effect,
+and row “ A” represents the related values average. resulting in an initial improvement and subsequent deterioration in
+As shown in Table 11, compared to HADGS, although BLM reduced M2G performance. Third, HADGS and M1G are joint decision-making
+by an average of 10.86 and 13.15% in 𝑀𝑆 and 𝑅𝐷 respectively, methods that encompass OA, PS, and TA. These methods are effective
+it significantly increased AT to 11 847 s. Although the offline ap- only when the quantity of idle robots is not less than the quantity
+proach performed better, additional computational effort was required of pods that must be transported. Although HADGS and M1G also
+in which further cost was accrued. Obviously, such a significant AT is consider the correlation between orders, it can positively impact per-
+unacceptable for any real-time decision-making system. formance. However, assigning more orders means that more pods must
+be transported, which may negatively impact performance. For HADGS
+4.3. Sensitivity analysis and M1G, the increase in 𝛿 exhibits a greater negative impact on
+their performance than a positive impact, leading to a decline in their
+4.3.1. Capacity threshold of workstations performance. In summary, in the simulation experiment, we set 𝛿 to 1
+As stated in Section 2.1, the 𝛿 parameter represents the threshold for for SEQU, HSDGS, and M1G, while 𝛿 is set to 2 for M2G.
+the workstation available capacity. The solver is triggered when any
+workstation’s available capacity exceeds or equals 𝛿. This subsection 4.3.2. Quantity of robots
+explores the influence of the 𝛿 value on the performance metrics for The scale of the robot fleet deployed in RMFS, that is, the quantity
+small-scale instances. The larger the 𝛿, the greater the quantity of orders of robots, significantly impacts RMFS operational efficiency. The ap-
+assigned in a single decision. This leads to a stronger positive impact on propriate quantity of robots can enhance productivity, improve order
+14
+
+[[PAGE 15]]
+G. Jiao et al. Omega 138 (2026) 103374
+Fig. 8. Influence of different quantities of robots in small-scale instances.
+fulfillment speed, and reduce errors in picking and sorting operations. in the quantity of robots implies a higher quantity of pod movements
+When the quantity of robots deployed in the RMFS is sufficient, all that can be provided. Therefore, per the definition of 𝑃 𝑂, when the
+transportation tasks can be immediately executed by robots. This avoids increase in 𝑇 𝑃 exceeds that of the robots, 𝑃 𝑂 will increase, as observed
+the situation of “ picker waiting parts” insofar as possible. Therefore, in HADGS, M1G, and M2G. Conversely, when the increase in 𝑇 𝑃 is less
+increasing the quantity of robots deployed in RMFS can decrease the than that of the robots, 𝑃 𝑂 will decrease, as observed in SEQU.
+waiting time for pickers and enhance resource utilization, which pos- Fig. 9 shows the influence of different quantities of robots in large-
+itively impacts operational efficiency. Conversely, an increase in the scale instances (|𝑅| = 60, 70, 80, 90, 100, 110, 120, and |𝑂| = 500). As the
+quantity of robots results in longer queuing times in the queuing zone quantity of robots increases, the changing trend of SEQU and HADGS
+and amplifies the likelihood of congestion, collisions, and deadlocks in large-scale instances remains consistent with that in small-scale
+along robots paths, thereby negatively impacting operational efficiency. instances across the four performance metrics. The reasons for these
+Therefore, we conducted experiments to examine the impact of varying changes are also the same as those observed in small-scale instances.
+the quantity of robots on pertinent performance metrics. The only disparity is that, as the quantity of robots increases, the 𝑃 𝑂
+Fig. 8 displays the influence of different quantities of robots in of HADGS exhibits an upward trend in large-scale instances, albeit a
+small-scale instances (|𝑅| = 6, 7, 8, 9, 10, 11, 12 and |𝑂| = 100). The 𝑇 𝑃 downward trend in small-scale instances. The reason for this disparity
+of all four approaches demonstrates an upward trend as the quantity is that in large-scale instances, the increase in the quantity of robots
+of robots increases, eventually stabilizing after reaching a threshold surpasses the corresponding increase in 𝑇 𝑃 for HADGS. Consequently,
+of ten robots. When the quantity of robots is small, there are more the 𝑃 𝑂 of HADGS decreases with the increasing robot quantity.
+transportation tasks than available robots, leading to causes of “ picker The aforementioned results demonstrate that, by optimizing rele-
+waiting parts”. In this scenario, the positive impact of increasing the vant decision-making approaches, the quantity of robots deployed in
+quantity of robots outweighs the negative impact, resulting in improved RMFS could be effectively decreased. This suggests that enhancing
+𝑇 𝑃 as the robot quantity increases. When the robot quantity reaches the performance of the decision-making approach can lead to more
+saturation, where there are consistently more available robots than optimal resource allocation and utilization, resulting in a reduction of
+transportation tasks, leading to causes of “ parts waiting picker”. In the necessity for numerous robots. Specifically, in small-scale instances,
+this scenario, the positive impact initially generated by increasing the the 𝑇 𝑃 of M1G when |𝑅| = 6 remains 8% higher than that of SEQU
+quantity of robots is gradually counterbalanced by the negative impact, when |𝑅| = 12 while reducing the corresponding 𝑅𝐷 by 38%; in large-
+resulting in a plateau of 𝑇 𝑃 growth. For the 𝑅𝐷, an increase in robot scale instances, the 𝑇 𝑃 of HADGS when |𝑅| = 60 remains 6% higher
+quantity involved in transportation inevitably increases the aggregate than that of SEQU when |𝑅| = 120 while reducing the corresponding
+distance traveled by all robots. Additionally, because the quantity of 𝑅𝐷 by 50%. Hence, M1G and HADGS employ at most half the quantity
+orders fulfilled in a transportation task is typically greater than 1 of robots employed in SEQU to achieve an equivalent throughput for
+(i.e., 𝑃 𝑂 > 1), the 𝑂𝐷 also increases with the increase in robot quantity. both small and large instances. Meanwhile, the corresponding distance
+For the 𝑃 𝑂, as the quantity of robots increases, HADGS, M1G, and traveled by robots is only 62 and 57% of that in SEQU, respectively.
+M2G all significantly increase in contrast to SEQU, which decreases.
+This discrepancy can be attributed to the fact that the increase in 𝑇 𝑃 4.3.3. Quantity of workstations
+for HADGS, M1G, and M2G is more pronounced compared to that for Based on a survey of an RMFS owned by a large retail company, we
+SEQU as shown in Fig. 8(a). Moreover, an increase in 𝑇 𝑃 is indicative observed that managers frequently adjust the quantity of workstations
+of a higher quantity of orders that require fulfillment, while an increase (referring to active workstations) based on the total volume of customer
+15
+
+[[PAGE 16]]
+G. Jiao et al. Omega 138 (2026) 103374
+Fig. 9. Influence of different quantities of robots in large-scale instances.
+orders. This proactive adjustment helps to minimize operating costs, • Reducing the number of pod movements does not necessarily en-
+optimize resource allocation, and enhance efficiency. Specifically, man- hance warehouse operational efficiency, which deviates from con-
+agers activate some workstations during the peak season and close some ventional perspectives in existing literature. For example, from
+workstations during the off-season. Therefore, next, we investigate the perspective of system operational costs, Teck and Dewil [26]
+the influence of the quantity of workstations on an RMFS. Fig. 10 found that only minimizing the number of pod movements is
+illustrates the influence of different quantities of workstations in large- insufficient and using distance as the optimization objective is
+scale instances (|𝑅| = 100 and |𝑂| = 500), where DV represents the gap more suitable for optimizing operational costs. From the perspec-
+in performance metric values between HADGS and SEQU.
+tive of system operational efficiency (i.e. throughput), this study
+found no correlation between the number of pod movements and
+As observed in Fig. 10, HADGS outperforms SEQU in all perfor-
+system operational efficiency, that is, a reduction in the number
+mance metrics for different workstation quantities. With the increase
+of pod movements may not necessarily improve system opera-
+in the quantity of workstations, 𝑇 𝑃 and 𝑅𝐷 of HADGS and SEQU
+tional efficiency. Specifically, compared with M1G, although M2G
+increased gradually, 𝑂𝐷 of HADGS and SEQU decreased gradually,
+increased by 4.43% on 𝑃 𝑂, it decreased 𝑇 𝑃 by 1.22%.
+𝑃 𝑂 of SEQU increased gradually, 𝑃 𝑂 of HADGS increased initially
+• OJOOPT can enhance warehouse operational efficiency and re-
+and subsequently decreased. The aforementioned results indicate that
+duce its operational costs. The experimental results in Table 10
+when the quantity of orders from customers is small (i.e., expected
+show that HADGS demonstrated a 10.75% increase in 𝑇 𝑃 and a
+TP is small), the 𝑅𝐷 could be reduced by reducing the quantity of
+32.02% decrease in 𝑅𝐷 in large-scale instances compared to a
+workstations. Therefore, workstation quantity adjustment based on the
+state-of-the-art sequential approach.
+order volume can optimize cost in situations where the expected TP is • OJOOPT can achieve the same throughput with fewer resources
+relatively low. (workstations). Warehouse managers have the flexibility to adjust
+In addition, as the workstation quantity increases, the DV for 𝑇 𝑃 , the number of workstations deployed based on customer orders,
+𝑅𝐷, and 𝑃 𝑂 initially increases and subsequently decreases, while the further reducing warehouse operational costs. The experimental
+DV for 𝑂𝐷 gradually decreases. 𝑂𝐷 is equivalent to the throughput results in Fig. 10(a) demonstrated that in large-scale instances,
+divided by the distance traveled by robots. Therefore, as the work- the number of workstations required for HADGS to achieve the
+station quantity increases, 𝑂𝐷 decreases when the increment of the same 𝑇 𝑃 was only 83% of SEQU.
+𝑇 𝑃 is less than that of the 𝑅𝐷. The aforementioned results show that
+the performance improvement of HADGS over SEQU increases initially 5. Conclusion
+and subsequently decreases as the quantity of workstations increases.
+Moreover, as illustrated in Fig. 10(a), the 𝑇 𝑃 of HADGS at |𝑊 | = 10 is This study investigated the online joint optimization for OA, PS, and
+almost the same as that of SEQU at |𝑊 | = 12, indicating that HADGS TA in RMFS during the order picking process. To enhance decision-
+requires fewer workstations when the same 𝑇 𝑃 is reached.
+making efficiency, the study accounted for the impact of current de-
+cisions on future decisions. A dynamic system model for RMFS was
+established, alongside the development of a novel MILP model to
+4.4. Managerial insights address critical challenges. To solve large-scale instances effectively, a
+customized HADGS was devised.
+Based on the results of these simulation experiments, the following The proposed model and approach were rigorously evaluated using
+warehouse managerial insights were identified: small- and large-scale instances within established dynamic systems.
+16
+
+[[PAGE 17]]
+G. Jiao et al. Omega 138 (2026) 103374
+Fig. 10. Influence of quantity of workstations.
+Computational results revealed that, in small-scale instances, the pro- Declaration of competing interest
+posed M1G outperformed M2G by improving 𝑇 𝑃 , 𝑅𝐷, and 𝑂𝐷 by 1.22,
+3.57, and 4.58%, respectively, although it reduced the performance of The authors declare that they have no known competing finan-
+𝑃 𝑂 by 4.43%. In large-scale instances, compared to SEQU, the proposed cial interests or personal relationships that could have appeared to
+HADGS improved the performance of 𝑇 𝑃 , 𝑅𝐷, 𝑂𝐷, and 𝑃 𝑂 by 10.75, influence the work reported in this paper.
+32.02, 48.09, and 43.61%, respectively. Furthermore, HADGS required
+only 50% of the robots and 83% of the workstations used by SEQU Acknowledgments
+to achieve comparable throughput, indicating superior efficiency and
+resource utilization in optimizing the RMFS order-picking process. This work is supported by the National Key R&D Program of China
+Future research can explore proactive–reactive scheduling frame- (Grant No. 2021YFB3300900); the National Natural Science Foun-
+works, which combine the predictive strengths of proactive scheduling dation of China Key Supported Project of the Major Research Plan
+with the adaptability of reactive scheduling. By leveraging machine (Grant No. 92267206); the National Natural Science Foundation of
+learning algorithms and real-time simulation data, these frameworks China (Grant No. 62032013 and No. 72071183); the Natural Sci-
+could significantly enhance resource allocation and task scheduling ence Foundation of Shanxi Province, China (202203021211194); the
+in RMFS, addressing the challenges of online optimization problems. Taiyuan University of Science and Technology Scientific Research Ini-
+Combining machine learning predictions with data generated from tial Funding (W20242023). The authors also gratefully acknowledge
+real-time simulation can enhance the computational efficiency of real- the helpful comments and suggestions from the anonymous reviewers,
+time decision-making processes [51]. Offline simulation learning offers which significantly helped to improve this paper.
+valuable insights for addressing online decision-making challenges.
+However, its accuracy for offline RMFS prediction requires further val- Appendix A. Parameter information for the instance configura-
+idation, positioning it as a focal point for future research. Additionally, tion
+the Optimal Computing Budget Allocation (OCBA) algorithm [52,53]
+has the potential to reduce simulation model runtime by selecting the Details of certain parameters for the instance configuration are
+optimal parameter combinations and employing confidence interval presented in Table 6, whereas Table A.1 includes additional parameter
+methods to identify the best parameter configurations. Consequently, information pertaining to inventory, order, workstation, and robot.
+utilizing simulation optimization methods such as OCBA to test various
+combinations of optimization methods is a promising direction for Appendix B. Modifications to EE-RAWSim-O and BLM
+future research.
+To compare HADGS with BLM, EE-RAWSim-O and BLM must be
+CRediT authorship contribution statement modified accordingly:
+(1) Modification to EE-RAWSim-O:
+Guoshuai Jiao: Writing – original draft, Software, Methodology,
+Formal analysis. Min Huang: Supervision, Project administration, Con- • Change the pod repositioning (i.e., PR) decision from Nearest to
+ceptualization. Yang Song: Supervision, Software, Conceptualization. Fixed, that is, the storage position of the pod is fixed.
+Haobin Li: Visualization, Supervision, Methodology. Xingwei Wang: • To avoid triggering replenishment operations, we set the initial
+Software, Project administration, Conceptualization. inventory to 0.95.
+17
+
+[[PAGE 18]]
+G. Jiao et al. Omega 138 (2026) 103374
+Table A.1
+Some parameters’ information for the instance configuration.
+Parameter Value
+Initial inventory 70%
+Storage space for a pod 100 slots 500 slots
+Inventory SKU size Uniform distribution between 2 and 8
+Quantity of SKU types 100 1000
+SKU popularity/frequency Exponential distribution: 𝜆 = 0.5
+Quantity of order lines in the picking order Truncated normal distributions: 𝜇 = 1, 𝜎 = 1, 𝑚𝑖𝑛 = 1, 𝑚𝑎𝑥 = 5
+Quantity of items in the order line Truncated normal distributions: 𝜇 = 1, 𝜎 = 1, 𝑚𝑖𝑛 = 1, 𝑚𝑎𝑥 = 5
+Size of backlog of the repl. order 200
+Order
+Quantity of items in the repl. order Uniform distribution between 4 and 12
+𝑟𝑜 65%
+1
+𝑟𝑜 85%
+2
+Time to pick an item 3 s
+Time to handle an item at picking workstation 10 s
+Workstation
+Time to put an item on a pod 10 s
+Repl. workstation’s capacity 1000 slots
+Acceleration/deceleration 1 m/s2
+Maximum velocity 1.5 m/s
+Robot
+Turn time 2.5 s
+Time for lifting and lowering the pod 2.2 s
+• To avoid a large number of idle robots at initialization, we set the [10] da Costa Barros ÍR, Nascimento TP. Robotic mobile fulfillment systems: A
+number of robots to 30. survey on recent developments and research opportunities. Robot Auton Syst
+• Cease operation after the system has finished picking 100 orders 2021;137:103729.
+[11] Lamballais T, Roy D, De Koster RB. Estimating performance in a robotic mobile
+and save these orders as a static backlog to be optimized by BLM.
+fulfillment system. European J Oper Res 2017;256(3):976–90.
+[12] Xiang X, Liu C, Miao L. Storage assignment and order batching problem in Kiva
+The remaining parameters in EE-RAWSim-O are set the same as mobile fulfilment system. Eng Optim 2018;50(11):1941–62.
+those in the large-scale instance. [13] Weidinger F, Boysen N. Scattered storage: How to distribute stock keeping units
+(2) Modification to BLM: all around a mixed-shelves warehouse. Transp Sci 2018;52(6):1412–27.
+[14] Yuan R, Graves SC, Cezik T. Velocity-Based storage assignment in Semi-
+• One order line may contain multiple units. Therefore, when se-
+[15]
+A
+Ki
+u
+m
+to m
+H
+a
+J
+t
+,
+e d
+P a
+s
+i
+t
+s
+o ra
+C
+g
+,
+e
+S
+s
+h
+y
+e
+s
+n
+te m
+Z
+s
+J
+.
+M
+P
+.
+r o
+I
+d
+te m
+Op e
+a
+r
+s s
+M
+ig
+a
+n
+n
+m
+a
+e
+g
+n
+e
+t
+2
+p
+0
+r
+1
+o
+9
+b
+;2
+le
+8
+m
+(2 )
+i
+:
+n
+3 54
+a
+–7
+ro
+3
+b
+.
+otic mobile
+lecting pods, the pods must meet the order line and multiple units
+fulfillment system. IEEE Trans Autom Sci Eng 2020;17(4):1854–67.
+in the order line. [16] Li X, Hua G, Huang A, Sheu J-B, Cheng T, Huang F. Storage assignment policy
+• Inter-station scheduling of pods is not considered, i.e., the robot with awareness of energy consumption in the Kiva mobile fulfilment system.
+must first transport the pod back to the storage area before it can Transp Res E: Logist Transp Rev 2020;144:102158.
+[17] Jiang M, Leung K, Lyu Z, Huang GQ. Picking-replenishment synchronization
+be transported to another workstation.
+for robotic forward-reserve warehouses. Transp Res E: Logist Transp Rev
+• To visually compare calculation time, the one hour stop criterion 2020;144:102138.
+is removed. [18] Zhang J, Zhang N, Tian L, Zhou Z, Wang P. Robots’ picking efficiency and
+pickers’ energy expenditure: the item storage assignment policy in robotic mobile
+The warehouse layout and robot specifications required for BLM are fulfillment system. Comput Ind Eng 2023;176:108918.
+[19] Boysen N, Briskorn D, Emde S. Parts-to-picker based order process-
+consistent with those in EE-RAWSim-O, where |𝑃 | = 1200, |𝑂| = 100, ing in a rack-moving mobile robots environment. European J Oper Res
+|𝑅| = 30, and |𝑊 | = 12. The settings of other parameters involved in 2017;262(2):550–62.
+running BLM are the same as those in [25]. [20] Yang X, Hua G, Hu L, Cheng T, Huang A. Joint optimization of order sequencing
+and rack scheduling in the robotic mobile fulfilment system. Comput Oper Res
+Data availability
+[21]
+2
+V
+0
+a
+2
+ll
+1
+e
+; 1
+C
+3
+A
+5
+,
+: 1
+B
+0
+e
+5
+a
+4
+sl
+6
+e
+7
+y
+.
+JE. Order allocation, rack allocation and rack sequencing for
+pickers in a mobile rack environment. Comput Oper Res 2021;125:105090.
+I have shared the link to my data/code at the manuscript. [22] Qin H, Xiao J, Ge D, Xin L, Gao J, He S, Hu H, Carlsson JG. JD. com: Operations
+research algorithms drive intelligent warehouse robots to work. INFORMS J Appl
+Anal 2022;52(1):42–55.
+References [23] Zhang S, Zhuge D, Tan Z, Zhen L. Order picking optimization in a robotic mobile
+fulfillment system. Expert Syst Appl 2022;209:118338.
+[24] Zhuang Y, Zhou Y, Yuan Y, Hu X, Hassini E. Order picking optimization with
+[1] Schiffer M, Boysen N, Klein PS, Laporte G, Pavone M. Optimal picking policies rack-moving mobile robots and multiple workstations. European J Oper Res
+in e-commerce warehouses. Manag Sci 2022;68(10):7497–517. 2022;300(2):527–44.
+[2] Boysen N, de Koster R. 50 years of warehousing research—An operations research [25] Teck S, Dewil R. A bi-level memetic algorithm for the integrated order and
+perspective. European J Oper Res 2025;320(3):449–64. vehicle scheduling in a RMFS. Appl Soft Comput 2022;121:108770.
+[3] Boysen N, De Koster R, Weidinger F. Warehousing in the e-commerce era: A [26] Teck S, Dewil R. Optimization models for scheduling operations in robotic mobile
+survey. European J Oper Res 2019;277(2):396–411. fulfillment systems. Appl Math Model 2022;111:270–87.
+[4] Polten L, Emde S. Scheduling automated guided vehicles in very narrow aisle [27] Wang B, Yang X, Qi M. Order and rack sequencing in a robotic mobile fulfillment
+warehouses. Omega 2021;99:102204. system with multiple picking stations. Flex Serv Manuf J 2023;35:509–47.
+[5] Wurman PR, D’Andrea R, Mountz M. Coordinating hundreds of cooperative, [28] Jiao G, Li H, Huang M. Online joint optimization of pick order assignment
+autonomous vehicles in warehouses. AI Mag 2008;29(1):9. and pick pod selection in robotic mobile fulfillment systems. Comput Ind Eng
+[6] Azadeh K, De Koster R, Roy D. Robotized and automated warehouse systems: 2023;175:108856.
+Review and recent developments. Transp Sci 2019;53(4):917–45. [29] Justkowiak JE, Pesch E. A column generation driven heuristic for order-
+[7] Merschformann M, Lamballais T, De Koster M, Suhl L. Decision rules for robotic scheduling and rack-sequencing in robotic mobile fulfillment systems. Omega
+mobile fulfillment systems. Oper Res Perspect 2019;6:100128. 2023;120:102897.
+[8] Xie L, Thieme N, Krenzler R, Li H. Introducing split orders and optimizing [30] Justkowiak JE, Pesch E. Stronger mixed-integer programming-formulations for
+operational policies in robotic mobile fulfillment systems. European J Oper Res order-and rack-sequencing in robotic mobile fulfillment systems. European J Oper
+2021;288(1):80–97. Res 2023;305(3):1063–78.
+[9] Jaghbeer Y, Hanson R, Johansson MI. Automated order picking systems and the [31] Subramanian SP, Chandrasekar SK. Simultaneous allocation and sequencing
+links between design and performance: a systematic literature review. Int J Prod of orders for robotic mobile fulfillment system using reinforcement learning
+Res 2020;58(15):4489–505. algorithm. Expert Syst Appl 2024;239:122262.
+18
+
+[[PAGE 19]]
+G. Jiao et al. Omega 138 (2026) 103374
+[32] Zhao Z, Cheng J, Liang J, Liu S, Zhou M, Al-Turki Y. Order picking optimization [43] Sun Y, Zhao N, Lodewijks G. An autonomous vehicle interference-free scheduling
+in smart warehouses with human-robot collaboration. IEEE Internet Things J approach on bidirectional paths in a robotic mobile fulfillment system. Expert
+2024;11(9):16314–24. Syst Appl 2021;178:114932.
+[33] Cheng B, Wang L, Tan Q, Zhou M. A deep reinforcement learning hyper- [44] Luo L, Zhao N, Zhu Y, Sun Y. A* guiding DQN algorithm for automated guided
+heuristic to solve order batching problem with mobile robots. Appl Intell vehicle pathfinding problem of robotic mobile fulfillment systems. Comput Ind
+2024;54(9):6865–87. Eng 2023;178:109112.
+[34] Yang X, Hua G, Zhang L, Cheng TCE, Choi T-M. Joint optimization of order-and [45] Weidinger F, Boysen N, Briskorn D. Storage assignment with rack-moving mobile
+rack-scheduling in KIVA picking systems. Omega 2025;135:103286. robots in KIVA warehouses. Transp Sci 2018;52(6):1479–95.
+[35] Zou B, Gong Y, Xu X, Yuan Z. Assignment rules in robotic mobile fulfilment [46] Roy D, Nigam S, de Koster R, Adan I, Resing J. Robot-storage zone assignment
+systems for online retailers. Int J Prod Res 2017;55(20):6175–92. strategies in mobile fulfillment systems. Transp Res E: Logist Transp Rev
+[36] Yoshitake H, Kamoshida R, Nagashima Y. New automated guided vehicle system 2019;122:119–42.
+using real-time holonic scheduling for warehouse picking. IEEE Robot Autom [47] Zhuang Y, Zhou Y, Hassini E, Yuan Y, Hu X. Rack retrieval and repositioning
+Lett 2019;4(2):1045–52. optimization problem in robotic mobile fulfillment systems. Transp Res E: Logist
+[37] Gharehgozli A, Zaerpour N. Robot scheduling for pod retrieval in a robotic Transp Rev 2022;167:102920.
+mobile fulfillment system. Transp Res E: Logist Transp Rev 2020;142:102087. [48] Boysen N, Schwerdfeger S, Stephan K. A review of synchronization problems in
+[38] Li Z, Barenji AV, Jiang J, Zhong RY, Xu G. A mechanism for scheduling multi parts-to-picker warehouses. European J Oper Res 2023;307(3):1374–90.
+robot intelligent warehouse system face with dynamic demand. J Intell Manuf [49] Merschformann M, Xie L, Li H. RAWSim-O: A simulation framework for robotic
+2020;31:469–80. mobile fulfillment systems. Logist Res 2018;11:8.
+[39] Li K, Liu T, Kumar PR, Han X. A reinforcement learning-based hyper-heuristic for [50] Hart PE, Nilsson NJ, Raphael B. A formal basis for the heuristic determination
+AGV task assignment and route planning in parts-to-picker warehouses. Transp of minimum cost paths. IEEE Trans Syst Sci Cybern 1968;4(2):100–7.
+Res E: Logist Transp Rev 2024;185:103518. [51] Goodwin T, Xu J, Celik N, Chen CH. Real-time digital twin-based optimization
+[40] Merschformann M, Xie L, Erdmann D. Multi-agent path finding with kinematic with predictive simulation learning. J Simul 2024;18(1):47–64.
+constraints for robotic mobile fulfillment systems. 2017, ArXiv E-Prints. [52] Lee LH, Chen Ch, Chew EP, Li J, Pujowidianto NA, Zhang S. A review of optimal
+[41] Lee CK, Lin B, Ng K, Lv Y, Tai W. Smart robotic mobile fulfillment system with computing budget allocation algorithms for simulation optimization problem. Int
+dynamic conflict-free strategies considering cyber-physical integration. Adv Eng J Oper Res (Taichung) 2010;7(2):19–31.
+Inform 2019;42:100998. [53] Chen CH, Lee LH. Stochastic simulation optimization: an optimal computing
+[42] Li J, Tinka A, Kiesel S, Durham JW, Kumar TS, Koenig S. Lifelong multi-agent budget allocation, vol. 1, World scientific; 2011.
+path finding in large-scale warehouses. In: Proceedings of the AAAI conference
+on artificial intelligence. Vol. 35, 2021, p. 11272–81.
+19
