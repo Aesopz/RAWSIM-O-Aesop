@@ -27,8 +27,8 @@
     <RepositionBeforeRest>false</RepositionBeforeRest>
     <PodSelectionConfig>
       <Name />
-      <OnTheFlyExtract>true</OnTheFlyExtract>
-      <OnTheFlyStore>true</OnTheFlyStore>
+      <OnTheFlyExtract>false</OnTheFlyExtract>
+      <OnTheFlyStore>false</OnTheFlyStore>
       <FilterForConsideration>AssignedAndCompleteQueued</FilterForConsideration>
       <FilterForReservation>AssignedAndCompleteQueued</FilterForReservation>
       <StationBoundedJointTAPlusPS>false</StationBoundedJointTAPlusPS>
