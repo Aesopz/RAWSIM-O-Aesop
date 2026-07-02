@@ -117,6 +117,7 @@
     <Compile Include="Control\Defaults\OrderBatching\SAM1GManager.cs" />
     <Compile Include="Control\Defaults\OrderBatching\ALNSManager.cs" />
     <Compile Include="Control\Defaults\OrderBatching\QueueOrderManager.cs" />
+    <Compile Include="Control\Defaults\OrderBatching\SplitOrderManager.cs" />
     <Compile Include="Control\Defaults\OrderBatching\RelatedOrderManager.cs" />
     <Compile Include="Control\Defaults\OrderBatching\WorkloadOrderManager.cs" />
     <Compile Include="Control\Defaults\PodStorage\CachePodStorageManager.cs" />

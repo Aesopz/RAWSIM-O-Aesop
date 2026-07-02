@@ -904,5 +904,36 @@ namespace RAWSimO.Core.Configurations
         }
     }
 
+    /// <summary>
+    /// The configuration for the greedy order-splitting heuristic manager.
+    /// See docs/superpowers/specs/2026-07-02-order-splitting-consolidation-enabler-design.md.
+    /// </summary>
+    public class SplitHeuristicConfiguration : OrderBatchingConfiguration
+    {
+        /// <summary>
+        /// Returns the type of the corresponding method this configuration belongs to.
+        /// </summary>
+        /// <returns>The type of the method.</returns>
+        public override OrderBatchingMethodType GetMethodType() { return OrderBatchingMethodType.SplitHeuristic; }
+        /// <summary>
+        /// Returns a name identifying the method.
+        /// </summary>
+        /// <returns>The name of the method.</returns>
+        public override string GetMethodName() { if (!string.IsNullOrWhiteSpace(Name)) return Name; return "OBSPLITH"; }
+        /// <summary>
+        /// M2 (cross-time) splitting: residual demand may stay in the backlog for later epochs.
+        /// If false (M1, cross-station only), an order is only assigned when its complete remaining demand fits this epoch.
+        /// </summary>
+        public bool CrossTime = true;
+        /// <summary>
+        /// Maximal number of children an order may be split into per epoch.
+        /// </summary>
+        public int MaxChildrenPerOrder = 2;
+        /// <summary>
+        /// Cap of units per child (0 = no cap). Only effective when CrossTime is enabled.
+        /// </summary>
+        public int MaxUnitsPerChild = 0;
+    }
+
     #endregion
 }

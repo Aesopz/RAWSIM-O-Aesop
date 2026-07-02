@@ -327,6 +327,11 @@ namespace RAWSimO.Core.Configurations
         /// An approach exploiting information about the backlog to increase similarities of orders at the stations.
         /// </summary>
         Foresight,
+        /// <summary>
+        /// Greedy order-splitting heuristic manager (enabler for the order-splitting thesis line).
+        /// Originals (M1G / HADGS) stay untouched as the no-splitting ablation baseline.
+        /// </summary>
+        SplitHeuristic,
     }
     /// <summary>
     /// All types of implemented replenishment batching strategies.
@@ -757,6 +762,7 @@ namespace RAWSimO.Core.Configurations
     [XmlInclude(typeof(ALNSConfiguration))]
     [XmlInclude(typeof(LinesInCommonOrderBatchingConfiguration))]
     [XmlInclude(typeof(QueueOrderBatchingConfiguration))]
+    [XmlInclude(typeof(SplitHeuristicConfiguration))]
     public abstract class OrderBatchingConfiguration : ControllerConfigurationBase
     {
         /// <summary>
