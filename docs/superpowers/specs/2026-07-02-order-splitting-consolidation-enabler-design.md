@@ -111,3 +111,28 @@
 ## 8. Spec 2 預告（另立文件）
 
 **新建 manager 模組**（以 M1G 為基底另立類別，原 `M1GManager` 不動）：不含 `shi2`（原版在 `M1GManager.cs:707`）；`q[o,i,s] ∈ Z≥0` 數量分配變數；M1 = `Σs q = 剩餘量 or 0`、M2 = `Σs q ≤ 剩餘量`；庫存可行性 `Σp x[p,s]·stock[p,i] ≥ Σo q[o,i,s]`；站容量改 item capacity；目標函數不加拆單懲罰（拆單免費）。實驗階梯：M0（原 M1G）→ M1 → M2。
+
+## 9. 引擎層偏差（實作期間新增，最終審查已驗證 baseline 安全）
+
+實作期間為了讓 `SplitHeuristicConfiguration` 走通既有引擎路徑，對三個引擎檔案做了小幅改動。這些改動皆以「type-check 加入 `SplitHeuristicConfiguration`」的形式進行，未拆單組態（`PodMatchingOrderBatchingConfiguration`/`M1GConfiguration`/`M2GConfiguration`/`HADGSManager` 等）走既有分支，行為不變。
+
+**(a) 三個引擎檔案的改動：**
+
+- `RAWSimO.Core\Control\Defaults\TaskAllocation\BalancedBotManager.cs`：`SplitHeuristicConfiguration` 走 `PodMatchingOrderBatchingConfiguration` 通用的 scorer-driven 派工路徑（與 PodMatching 共用邏輯，不另開分支）。
+- `RAWSimO.Core\Control\BotTask.cs`：
+  - `ExtractTask.AddRequest`（約 line 229-231）：`ReservedPod.RegisterItem` 的 gate 加入 `SplitHeuristicConfiguration`，與 `PodMatchingOrderBatchingConfiguration` 同等待遇——否則 pod 的可用數量在保留時不會遞減，而 `Cancel()` 的 `UnregisterItem` 仍無條件遞增，計數器會逐漸飄移，最終把已耗盡的品項再次提供出去。
+  - `ExtractTask.Prepare`（約 line 246-249）：`Instance.ResourceManager.ClaimPod(...)` 的 gate 加入 `SplitHeuristicConfiguration`，讓拆單組態在任務建立時把 pod 從 `UnusedPods` 中領出，與 PodMatching/M1G/M2G 一致。
+  - Claim/Release 配對驗證：`ClaimPod`/`ReleasePod`（`RAWSimO.Core\Management\ResourceManager.cs:92,108`）以 `HashSet<Pod> _unusedPods` 追蹤；`ReleasePod` 對未被 claim 的 pod 是安全 no-op（`_unusedPods.Add` 冪等、`_usedPods.Remove` 對不存在的 key 無副作用）。實際釋放路徑（`ExtractTask.Cancel`、`BotManagerCore.PodSetDown`）皆**未**依組態類型 gate，是無條件呼叫 `ReleasePod`；因此新增的 `ClaimPod` gate 與既有的無條件 `ReleasePod` 天然配對平衡，未拆單組態的行為完全不受影響。
+- `RAWSimO.Core\Control\BotManagerPodSelection.cs`：extract 端（約 line 1030）與 store 端（約 line 1505）各有一處 `Waypoint != null` 過濾，用來排除「pod 目前在 bot 上（非停在儲位）」的候選。此過濾對所有組態生效，非拆單專屬改動。
+
+**(b) Waypoint 不變式：**
+
+store 側的 `Waypoint != null` 過濾對所有組態生效，其安全性依賴不變式「pod 在 bot 上 ⇔ `Waypoint == null`」（`PodPickedUp` 清空 `Waypoint`，`PodSetDown` 寫回 `Waypoint`）。若未來有路徑打破此不變式（例如 pod 同時被記錄在 bot 上又保留舊 Waypoint），該過濾會變成影響全組態行為的 silent bug，而不僅限於拆單路徑。目前程式碼未發現此類路徑，但列為後續改動的風險提示。
+
+**(c) 拆單器實作註記：**
+
+enabler 的 `SplitPlanner`（`RAWSimO.Core\Control\Defaults\OrderBatching\SplitOrderManager.cs` 呼叫）以**站台空容量排序均分數量**決定拆單，並**未實作** Spec 1 §5 原述的「依站台既有 pod 覆蓋（Pod-Match 精神）貪婪分配」。此簡化是刻意的：pod-覆蓋貪婪的角色已由 Spec 2 的 MILP（`q[o,i,s]` 數量分配變數）取代，enabler 階段的目的僅是打通資料模型/帳本/consolidation 記帳的管線，不追求拆單策略本身的品質。因此，煙霧測試中觀察到的吞吐量/KPI 數字**不應解讀為「拆單策略無效益」**——拆單策略的效益需在 Spec 2 MILP 版本上量測。
+
+**(d) M1/M2 語意在小規模煙霧測試中不可區分：**
+
+在 small instance（seed 0）的煙霧測試中，M1（`Σs q = 剩餘量 or 0`，全有全無）與 M2（`Σs q ≤ 剩餘量`，允許殘量）在聚合 KPI（如 `StatOverallOrdersHandled`）上數字相同——因為小規模、低壓下站台容量寬裕，兩種語意實際分配結果一致，CrossTime（拆單導致同單跨時間到達的次數）差異未顯現。M1/M2 的行為差異需在較高壓 instance（例如 45 bots，或設定 `MaxUnitsPerChild > 0` 強制產生更多子單）下才能實證觀察到。
