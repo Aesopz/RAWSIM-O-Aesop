@@ -244,7 +244,7 @@ namespace RAWSimO.Core.Control
             //}
             OutputStation.RegisterInboundPod(ReservedPod);
             if (Instance.ControllerConfig.OrderBatchingConfig is PodMatchingOrderBatchingConfiguration || Instance.ControllerConfig.OrderBatchingConfig is M2GConfiguration
-                || Instance.ControllerConfig.OrderBatchingConfig is M1GConfiguration)
+                || Instance.ControllerConfig.OrderBatchingConfig is M1GConfiguration || Instance.ControllerConfig.OrderBatchingConfig is SplitHeuristicConfiguration)
             {
                 Instance.ResourceManager.ClaimPod(ReservedPod, Bot, BotTaskType.Extract);
             }

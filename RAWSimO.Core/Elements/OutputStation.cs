@@ -351,6 +351,12 @@ namespace RAWSimO.Core.Elements
                             Instance.ItemManager.CompleteOrder(parent);
                             Instance.NotifyOrderCompleted(parent, this);
                         }
+                        else
+                        {
+                            // Non-final child: no parent-level KPI event fires, but the freed station
+                            // slot must still wake the order manager (baseline parity).
+                            Instance.Controller.OrderManager.SignalOrderFinished(finishedOrder, this);
+                        }
                     }
                     else
                     {

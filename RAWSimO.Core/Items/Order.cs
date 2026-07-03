@@ -297,7 +297,8 @@ namespace RAWSimO.Core.Items
             if (child.Parent != this)
                 throw new InvalidOperationException("Order is not a child of this order!");
             // Idempotent: a duplicate notification for the same child does not advance state.
-            _completedChildren.Add(child);
+            if (!_completedChildren.Add(child))
+                return false;
             return IsFullyClaimed && _completedChildren.Count >= _children.Count;
         }
 

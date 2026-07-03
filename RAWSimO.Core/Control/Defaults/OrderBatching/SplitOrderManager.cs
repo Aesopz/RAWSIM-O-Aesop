@@ -60,7 +60,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     .ToList();
                 if (stations.Count == 0)
                     return;
-                // Remaining demand capped by the actually available stock
+                // Remaining demand capped by the actually available stock. Note: GetActualStock is a
+                // shared snapshot of system inventory across all orders within this single decision pass
+                // (parity with baseline GetPendingAvailableStockOrders) — it is not decremented as orders
+                // are processed in this loop, so two orders considered in the same pass can both be sized
+                // against the same stock figure.
                 List<KeyValuePair<ItemDescription, int>> remaining = order.RemainingPositions
                     .Select(p => new KeyValuePair<ItemDescription, int>(p.Key, Math.Min(p.Value, Instance.StockInfo.GetActualStock(p.Key))))
                     .Where(p => p.Value > 0)
