@@ -27,12 +27,19 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         public SplitM1GManager(Instance instance) : base(instance)
         {
             _splitConfig = instance.ControllerConfig.OrderBatchingConfig as SplitM1GConfiguration;
+            _logger = new SplitConsolidationLogger(instance);
+            instance.OrderCompleted += _logger.LogParentCompleted;
         }
 
         /// <summary>
         /// The split-specific config of this controller.
         /// </summary>
         private SplitM1GConfiguration _splitConfig;
+
+        /// <summary>
+        /// Shared consolidation CSV logger (splitorders.csv).
+        /// </summary>
+        private SplitConsolidationLogger _logger;
 
         /// <summary>
         /// order 進入 Od 的截止時間（鏡射 base 的 private DueTimeOrderofMP）。
@@ -644,6 +651,57 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     0, 0, 0, 0, 0.0, double.NaN, _optSec);
             }
             return result;
+        }
+
+        /// <summary>
+        /// This is called to decide about potentially pending orders (split MILP version).
+        /// Mirrors the base skeleton: snapshot -> Gurobi solve -> JustRegisterItem -> AllocateOrder,
+        /// plus the split-parent bookkeeping of the Spec 1 enabler (TimeStampSubmit, fully-claimed removal).
+        /// </summary>
+        protected override void DecideAboutPendingOrders()
+        {
+            DateTime A = DateTime.Now;
+            Dictionary<ItemDescription, List<Pod>> PiSKU;
+            Dictionary<ItemDescription, List<Order>> OiSKU;
+            Dictionary<int, List<Symbol>> variableNames;
+            Dictionary<OutputStation, int> Cs;
+            Dictionary<OutputStation, HashSet<Pod>> inboundPods;
+            HashSet<Order> pendingOrders;
+            HashSet<Bot> Ra;
+            HashSet<Bot> Rb;
+            HashSet<Bot> R;
+            HashSet<Pod> Pb;
+            HashSet<Pod> Pa;
+            Dictionary<Pod, Bot> PodToBot;
+            Dictionary<Order, Dictionary<ItemDescription, int>> residuals;
+            HashSet<Pod> allPods = InitializeSplit(out PiSKU, out OiSKU, out variableNames, out Cs, out pendingOrders,
+                out inboundPods, out Ra, out Rb, out R, out Pb, out Pa, out PodToBot, out residuals);
+            if (R.Count() > 0 && pendingOrders.Count > 0)
+            {
+                SplitSolveResult result = SolveSplit(SolverType.Gurobi, PiSKU, OiSKU, allPods, Cs, variableNames,
+                    pendingOrders, inboundPods, Ra, Rb, R, Pb, Pa, PodToBot, residuals);
+                foreach (var symbol in result.NewZiops)
+                {
+                    for (int i = 0; i < symbol.Value; i++)
+                        symbol.Key.pod.JustRegisterItem(symbol.Key.skui);
+                }
+                foreach (var alloc in result.Allocations)
+                {
+                    AllocateOrder(alloc.order, alloc.outputstation);
+                    Instance.StatCustomControllerInfo.CustomLogOB1++;
+                }
+                foreach (var parent in result.SplitParents)
+                {
+                    if (double.IsPositiveInfinity(parent.TimeStampSubmit))
+                        parent.TimeStampSubmit = Instance.Controller.CurrentTime;
+                    if (parent.IsFullyClaimed)
+                    {
+                        _pendingOrders.Remove(parent);
+                        (Instance.ItemManager as ItemManager).TakeAvailableOrder(parent);
+                    }
+                }
+                Instance.Observer.TimeOrderBatchingbyMP((DateTime.Now - A).TotalSeconds);
+            }
         }
     }
 }
