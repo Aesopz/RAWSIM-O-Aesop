@@ -40,6 +40,7 @@ namespace RAWSimO.Tests
         {
             OrderSplitTests.Register();
             SplitPlannerTests.Register();
+            SplitMilpDecoderTests.Register();
             return TestRunner.RunAll();
         }
     }
