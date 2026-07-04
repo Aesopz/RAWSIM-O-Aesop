@@ -935,5 +935,35 @@ namespace RAWSimO.Core.Configurations
         public int MaxUnitsPerChild = 0;
     }
 
+    /// <summary>
+    /// Configuration of the MILP-based order-splitting manager: M1G with shi2 relaxed to a
+    /// unit-level quantity assignment q[o,i,s]. Inherits M1GConfiguration so all engine
+    /// type-routing checks ("is M1GConfiguration") pass without engine changes (SAM1G precedent).
+    /// See docs/superpowers/specs/2026-07-04-order-splitting-milp-design.md.
+    /// </summary>
+    public class SplitM1GConfiguration : M1GConfiguration
+    {
+        /// <summary>
+        /// Returns the type of the corresponding method this configuration belongs to.
+        /// </summary>
+        /// <returns>The type of the method.</returns>
+        public override OrderBatchingMethodType GetMethodType() { return OrderBatchingMethodType.SplitM1G; }
+        /// <summary>
+        /// Returns a name identifying the method.
+        /// </summary>
+        /// <returns>The name of the method.</returns>
+        public override string GetMethodName() { if (!string.IsNullOrWhiteSpace(Name)) return Name; return "OBSPLITM1G"; }
+        /// <summary>
+        /// M2 (cross-time) splitting: Σs q[o,i,s] ≤ residual, leftovers stay in the backlog.
+        /// If false (M1, cross-station only): Σs q[o,i,s] = residual · z[o] (all-or-nothing this epoch).
+        /// </summary>
+        public bool CrossTime = true;
+        /// <summary>
+        /// Per-unit assignment reward w2' in the objective (negative = reward). Replaces the
+        /// per-order reward w2=-40 of plain M1G; -40 keeps the same magnitude per unit.
+        /// </summary>
+        public double UnitRewardWeight = -40;
+    }
+
     #endregion
 }

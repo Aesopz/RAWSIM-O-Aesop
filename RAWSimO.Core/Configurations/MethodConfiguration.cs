@@ -332,6 +332,10 @@ namespace RAWSimO.Core.Configurations
         /// Originals (M1G / HADGS) stay untouched as the no-splitting ablation baseline.
         /// </summary>
         SplitHeuristic,
+        /// <summary>
+        /// The MILP-based order-splitting manager (M1G with shi2 relaxed to unit-level q[o,i,s]).
+        /// </summary>
+        SplitM1G,
     }
     /// <summary>
     /// All types of implemented replenishment batching strategies.
@@ -763,6 +767,7 @@ namespace RAWSimO.Core.Configurations
     [XmlInclude(typeof(LinesInCommonOrderBatchingConfiguration))]
     [XmlInclude(typeof(QueueOrderBatchingConfiguration))]
     [XmlInclude(typeof(SplitHeuristicConfiguration))]
+    [XmlInclude(typeof(SplitM1GConfiguration))]
     public abstract class OrderBatchingConfiguration : ControllerConfigurationBase
     {
         /// <summary>
