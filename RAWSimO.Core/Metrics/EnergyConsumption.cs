@@ -52,7 +52,7 @@ namespace RAWSimO.Core.Metrics
         /// Pod shelf/frame structural mass [kg] (excludes cargo).
         /// Added to mLoad for E5 even when pod carries no items.
         /// </summary>
-        public static double POD_FRAME_MASS = 50.0;
+        public static double POD_FRAME_MASS = 100.0;
 
         /// <summary>
         /// Support power draw [W] when the bot is NOT carrying a pod (Pod == null).
