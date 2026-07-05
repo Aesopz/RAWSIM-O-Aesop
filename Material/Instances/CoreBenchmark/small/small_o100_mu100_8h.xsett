@@ -14,8 +14,8 @@
   <RotatePods>false</RotatePods>
   <QueueHandlingEnabled>true</QueueHandlingEnabled>
   <EnergyRobotMassKg>115</EnergyRobotMassKg>
-  <EnergySupportPowerEmptyW>1080</EnergySupportPowerEmptyW>
-  <EnergySupportPowerLoadedW>1080</EnergySupportPowerLoadedW>
+  <EnergySupportPowerEmptyW>0</EnergySupportPowerEmptyW>
+  <EnergySupportPowerLoadedW>0</EnergySupportPowerLoadedW>
   <SlowStartEnabled>false</SlowStartEnabled>
   <SlowStartInputEnabled>false</SlowStartInputEnabled>
   <SlowStartUseReservationEta>false</SlowStartUseReservationEta>

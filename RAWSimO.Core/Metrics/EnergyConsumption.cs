@@ -15,11 +15,14 @@ namespace RAWSimO.Core.Metrics
         /// <summary>Default AGV empty chassis mass [kg].</summary>
         public const double DEFAULT_ROBOT_MASS_KG = 115.0;
 
-        /// <summary>Default support power draw [W = J/s] when the bot is not carrying a pod.</summary>
-        public const double DEFAULT_SUPPORT_POWER_EMPTY_W = 1080.0;
+        /// <summary>Default support power draw [W = J/s] when the bot is not carrying a pod.
+        /// Set to 0 — the thesis only cares about mechanical drive energy (E1-E5), not the
+        /// constant-draw background/standby component.</summary>
+        public const double DEFAULT_SUPPORT_POWER_EMPTY_W = 0.0;
 
-        /// <summary>Default support power draw [W = J/s] when the bot is carrying a pod.</summary>
-        public const double DEFAULT_SUPPORT_POWER_LOADED_W = 1080.0;
+        /// <summary>Default support power draw [W = J/s] when the bot is carrying a pod.
+        /// Set to 0 for the same reason as DEFAULT_SUPPORT_POWER_EMPTY_W.</summary>
+        public const double DEFAULT_SUPPORT_POWER_LOADED_W = 0.0;
 
         /// <summary>AGV empty chassis mass [kg]. Loaded from SettingConfiguration.</summary>
         public static double ROBOT_MASS = DEFAULT_ROBOT_MASS_KG;
