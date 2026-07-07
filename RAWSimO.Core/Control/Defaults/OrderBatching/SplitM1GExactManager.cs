@@ -42,6 +42,283 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         private SplitConsolidationLogger _logger;
 
         /// <summary>
+        /// Order enters Od (urgent-order set) if due within this many seconds (mirrors the
+        /// base's private DueTimeOrderofMP, copied because it's private in M1GManager).
+        /// </summary>
+        private static readonly double _dueTimeOrderofMP = TimeSpan.FromMinutes(30).TotalSeconds;
+
+        /// <summary>
+        /// Residual-demand version of GenerateOiSKU: indexes pending orders by the SKUs they
+        /// still need (RemainingPositions), not their full demand. Copied verbatim from Spec 2's
+        /// SplitM1GManager (private there, not inherited).
+        /// </summary>
+        private Dictionary<ItemDescription, List<Order>> GenerateOiSKUSplit(HashSet<Order> pendingOrders)
+        {
+            Dictionary<ItemDescription, List<Order>> OiSKU = new Dictionary<ItemDescription, List<Order>>();
+            foreach (var order in pendingOrders)
+            {
+                foreach (var sku in order.RemainingPositions)
+                {
+                    if (OiSKU.ContainsKey(sku.Key))
+                        OiSKU[sku.Key].Add(order);
+                    else
+                        OiSKU.Add(sku.Key, new List<Order>() { order });
+                }
+            }
+            return OiSKU;
+        }
+
+        /// <summary>
+        /// Residual-demand version of GenerateOd. Copied verbatim from Spec 2's SplitM1GManager.
+        /// </summary>
+        private HashSet<Order> GenerateOdSplit(HashSet<Order> pendingOrders, Dictionary<ItemDescription, List<Pod>> PiSKU)
+        {
+            HashSet<Order> Od = new HashSet<Order>();
+            foreach (Order order in pendingOrders)
+            {
+                order.Timestay = order.DueTime - (Instance.SettingConfig.StartTime.AddSeconds(Convert.ToInt32(Instance.Controller.CurrentTime)) - order.TimePlaced).TotalSeconds;
+                if (order.Timestay < _dueTimeOrderofMP)
+                {
+                    bool Isadd = true;
+                    foreach (var sku in order.RemainingPositions)
+                    {
+                        if (PiSKU.ContainsKey(sku.Key) && PiSKU[sku.Key].All(v => v.CountAvailable(sku.Key) >= sku.Value && Instance.ResourceManager.UnusedPods.Contains(v)))
+                            continue;
+                        else
+                            Isadd = false;
+                    }
+                    if (Isadd)
+                        Od.Add(order);
+                }
+            }
+            int i = 0;
+            foreach (Order order in pendingOrders.OrderBy(v => v.Timestay).ThenBy(u => u.DueTime))
+            {
+                order.sequence = i;
+                i++;
+            }
+            return Od;
+        }
+
+        // ── Starve-aware cost wrappers (copied verbatim from Spec 2's SplitM1GManager; base
+        //    members are private there, so this repeats the mirroring rather than inheriting) ──
+        private bool _saEnabledExact;
+        private double _saNominalSpeedExact;
+        private double _saFixedParamExact;
+        private Dictionary<int, double> _saEstByStationExact = new Dictionary<int, double>();
+        private Dictionary<int, double> _saRepBotPodTimeExact = new Dictionary<int, double>();
+
+        private void PrepareStarveAwareExact(IEnumerable<Pod> pods, Dictionary<OutputStation, int> Cs, HashSet<Bot> Ra)
+        {
+            _saEnabledExact = Instance != null && Instance.SettingConfig != null && Instance.SettingConfig.StarveAwareCostEnabled;
+            if (!_saEnabledExact)
+                return;
+            _saFixedParamExact = Instance.SettingConfig.StarveAwareFixedParam;
+            double cfgSpeed = Instance.SettingConfig.StarveAwareNominalSpeed;
+            _saNominalSpeedExact = cfgSpeed > 0.0
+                ? cfgSpeed
+                : (Instance.Bots != null && Instance.Bots.Count > 0
+                    ? Math.Max(0.1, Instance.Bots.Max(b => b.MaxVelocity))
+                    : 1.0);
+            double now = Instance.Controller != null ? Instance.Controller.CurrentTime : 0.0;
+            _saEstByStationExact = new Dictionary<int, double>();
+            foreach (var s in Cs.Keys)
+                _saEstByStationExact[s.ID] = StarveAwareCost.Est(s, now);
+            _saRepBotPodTimeExact = new Dictionary<int, double>();
+            foreach (var p in pods)
+            {
+                double best = double.PositiveInfinity;
+                foreach (var r in Ra)
+                    best = Math.Min(best, StarveAwareCost.TravelTime(EstimateBotPodDistance(r, p), _saNominalSpeedExact));
+                _saRepBotPodTimeExact[p.ID] = best;
+            }
+        }
+
+        private double ExactBotPodCost(Bot robot, Pod pod)
+        {
+            double d = EstimateBotPodDistance(robot, pod);
+            return _saEnabledExact ? StarveAwareCost.TravelTime(d, _saNominalSpeedExact) : d;
+        }
+
+        private double ExactPodStationCost(Pod pod, OutputStation station)
+        {
+            double d = EstimatePodStationDistance(pod, station);
+            if (!_saEnabledExact)
+                return d;
+            double podStationTime = StarveAwareCost.TravelTime(d, _saNominalSpeedExact);
+            double repBotPod = (_saRepBotPodTimeExact.TryGetValue(pod.ID, out var t) && !double.IsPositiveInfinity(t)) ? t : 0.0;
+            double taCost = podStationTime + repBotPod;
+            double est = _saEstByStationExact.TryGetValue(station.ID, out var e) ? e : double.PositiveInfinity;
+            double penalty = StarveAwareCost.DelayPenalty(taCost, est, _saFixedParamExact);
+            return podStationTime + penalty;
+        }
+
+        /// <summary>
+        /// The committed outcome of one SplitM1GExact solve, consumed by DecideAboutPendingOrders.
+        /// </summary>
+        private class SplitExactSolveResult
+        {
+            public Dictionary<Symbol, int> NewZiops = new Dictionary<Symbol, int>();
+            public List<Symbol> Allocations = new List<Symbol>();
+            public HashSet<Order> SplitParents = new HashSet<Order>();
+        }
+
+        // ── Per-decision summary logger (diagnostic; separate file from Spec 2's so the two
+        //    models' decision logs never collide when both are run against the same output dir) ──
+        private System.IO.StreamWriter _exactDecisionLog;
+        private int _exactDecisionIndex = 0;
+        private void WriteExactDecisionLog(bool solved, double time, int pendingOrdersN, int stationsWithCap, int podsInModel,
+            int nXps, int nChildren, int nFastPath, int unitsAssigned, double sumUs, double objective, double optSec)
+        {
+            if (_exactDecisionLog == null)
+            {
+                string dir = Instance != null && Instance.SettingConfig != null ? Instance.SettingConfig.StatisticsDirectory : null;
+                if (string.IsNullOrEmpty(dir))
+                    dir = ".";
+                if (!System.IO.Directory.Exists(dir))
+                    System.IO.Directory.CreateDirectory(dir);
+                _exactDecisionLog = new System.IO.StreamWriter(System.IO.Path.Combine(dir, "splitm1gx_decision_log.csv"), false) { AutoFlush = true };
+                _exactDecisionLog.WriteLine("decision,time,solved,pendingOrders,stationsWithCap,podsInModel,xps,children,fastPath,units,sumUs,objective,solveSec");
+            }
+            _exactDecisionLog.WriteLine(string.Join(",", new string[] {
+                _exactDecisionIndex.ToString(),
+                time.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                solved ? "1" : "0",
+                pendingOrdersN.ToString(),
+                stationsWithCap.ToString(),
+                podsInModel.ToString(),
+                nXps.ToString(),
+                nChildren.ToString(),
+                nFastPath.ToString(),
+                unitsAssigned.ToString(),
+                sumUs.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                objective.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                optSec.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            }));
+            _exactDecisionIndex++;
+        }
+
+        /// <summary>
+        /// Split-exact version of Initialize: snapshots residual demand exactly like Spec 2's
+        /// InitializeSplit, but appends 4D q[i,o,p,s] / ysp[o,s] / completion-flag variable name
+        /// lists (keys 7/8/9) instead of Spec 2's 3D q + M1-only zfull. The pod dimension pulls
+        /// candidates from PiSKU (both Pb and Pa pods that physically carry the SKU) - link-up
+        /// needs a real candidate for every pod actually able to supply the unit, not only
+        /// newly-claimable (Pa) ones the way Spec 2's dops did.
+        /// </summary>
+        private HashSet<Pod> InitializeSplitExact(out Dictionary<ItemDescription, List<Pod>> PiSKU, out Dictionary<ItemDescription, List<Order>> OiSKU,
+            out Dictionary<int, List<Symbol>> variableNames, out Dictionary<OutputStation, int> Cs, out HashSet<Order> pendingOrders,
+            out Dictionary<OutputStation, HashSet<Pod>> inboundPods, out HashSet<Bot> Ra, out HashSet<Bot> Rb,
+            out HashSet<Bot> R, out HashSet<Pod> Pb, out HashSet<Pod> Pa, out Dictionary<Pod, Bot> PodToBot,
+            out Dictionary<Order, Dictionary<ItemDescription, int>> residuals)
+        {
+            HashSet<Order> pendingOrders1 = _splitConfig != null && _splitConfig.CrossTime
+                ? new HashSet<Order>(_pendingOrders.Where(o => o.RemainingPositions.Any(p => Instance.StockInfo.GetActualStock(p.Key) >= 1)))
+                : new HashSet<Order>(_pendingOrders.Where(o => o.RemainingPositions.All(p => Instance.StockInfo.GetActualStock(p.Key) >= p.Value)));
+            OiSKU = GenerateOiSKUSplit(pendingOrders1);
+            Cs = GenerateCs();
+            inboundPods = GeneratePs(Cs);
+            HashSet<ItemDescription> ItemofOiSKU = new HashSet<ItemDescription>(OiSKU.Keys);
+            HashSet<Pod> allPods = new HashSet<Pod>();
+            Ra = new HashSet<Bot>();
+            Rb = new HashSet<Bot>();
+            R = new HashSet<Bot>();
+            Pb = new HashSet<Pod>();
+            PodToBot = new Dictionary<Pod, Bot>();
+            HashSet<Pod> Pa1 = new HashSet<Pod>();
+            foreach (var pods in inboundPods)
+            {
+                foreach (Pod pod in pods.Value)
+                {
+                    if (PodToBot.ContainsKey(pod)) continue;
+                    if (Instance.ResourceManager._usedPods.ContainsKey(pod))
+                    {
+                        allPods.Add(pod);
+                        Rb.Add(Instance.ResourceManager._usedPods[pod]);
+                        R.Add(Instance.ResourceManager._usedPods[pod]);
+                        PodToBot[pod] = Instance.ResourceManager._usedPods[pod];
+                        Pb.Add(pod);
+                    }
+                    else if (Instance.ResourceManager.BottoPod.ContainsValue(pod))
+                    {
+                        var bot = Instance.ResourceManager.BottoPod.Where(V => V.Value.ID == pod.ID).First().Key;
+                        allPods.Add(pod);
+                        Rb.Add(bot);
+                        R.Add(bot);
+                        PodToBot[pod] = bot;
+                        Pb.Add(pod);
+                    }
+                    else
+                    {
+                        // Snapshot can contain a station inbound pod before its pod-bot ownership is visible.
+                    }
+                }
+            }
+            foreach (var pod in Instance.ResourceManager.UnusedPods.Where(v =>
+                v.IsAvailabletoOiSKU(ItemofOiSKU) &&
+                !Instance.ResourceManager.BottoPod.ContainsValue(v) &&
+                !Instance.ResourceManager._usedPods.ContainsKey(v) &&
+                v.Waypoint != null &&
+                v.Waypoint.PodStorageLocation))
+            {
+                allPods.Add(pod);
+                Pa1.Add(pod);
+            }
+            foreach (var bot in Instance._outputstationbots)
+            {
+                if (bot.Pod == null && !Instance.ResourceManager._usedPods.ContainsValue(bot) && !Instance.ResourceManager.BottoPod.ContainsKey(bot))
+                {
+                    R.Add(bot);
+                    Ra.Add(bot);
+                }
+                else if (bot.Pod == null && !Instance.ResourceManager.BottoPod.ContainsKey(bot) && !Rb.Contains(bot) && bot.CurrentTask is RestTask && bot.GetInfoDestinationWaypoint() == null)
+                {
+                    R.Add(bot);
+                    Ra.Add(bot);
+                }
+                else if (CanUseReturnPendingBot(bot))
+                {
+                    R.Add(bot);
+                    Ra.Add(bot);
+                }
+            }
+            PiSKU = GeneratePiSKU(allPods);
+            if (_splitConfig != null && _splitConfig.CrossTime)
+                pendingOrders = new HashSet<Order>(pendingOrders1.Where(o => o.RemainingPositions.Any(p => IsAvailabletoPiSKU(p.Key) >= 1)));
+            else
+                pendingOrders = new HashSet<Order>(pendingOrders1.Where(o => o.RemainingPositions.All(p => IsAvailabletoPiSKU(p.Key) >= p.Value)));
+            HashSet<Order> Od = GenerateOdSplit(pendingOrders, PiSKU);
+            if (Od.Count > Cs.Values.Sum())
+                pendingOrders = new HashSet<Order>(Od);
+            OiSKU = GenerateOiSKUSplit(pendingOrders);
+            residuals = pendingOrders.ToDictionary(o => o, o => o.RemainingPositions.ToDictionary(p => p.Key, p => p.Value));
+            variableNames = CreatedeVarName(PiSKU, OiSKU, allPods, pendingOrders, Cs, R, Pa1, out Pa);
+            var piSkuCopy = PiSKU;  // Capture out parameter for use in lambda
+            bool crossTimeExact = _splitConfig != null && _splitConfig.CrossTime;
+            List<Symbol> deVarNameq = new List<Symbol>();
+            List<Symbol> deVarNamey = new List<Symbol>();
+            List<Symbol> deVarNamez = new List<Symbol>();
+            foreach (var order in pendingOrders)
+            {
+                foreach (var station in Cs.Keys)
+                    deVarNamey.Add(new Symbol { order = order, outputstation = station, name = "yspx" + "_" + order.ID.ToString() + "_" + station.ID.ToString() });
+                foreach (var sku in residuals[order].Where(p => piSkuCopy.ContainsKey(p.Key)))
+                {
+                    foreach (var pod in piSkuCopy[sku.Key])
+                    {
+                        foreach (var station in Cs.Keys)
+                            deVarNameq.Add(new Symbol { order = order, outputstation = station, skui = sku.Key, pod = pod, name = "qx" + "_" + sku.Key.ID.ToString() + "_" + order.ID.ToString() + "_" + pod.ID.ToString() + "_" + station.ID.ToString() });
+                    }
+                }
+                deVarNamez.Add(new Symbol { order = order, name = (crossTimeExact ? "zdonex" : "zfullx") + "_" + order.ID.ToString() });
+            }
+            variableNames.Add(7, deVarNameq);
+            variableNames.Add(8, deVarNamey);
+            variableNames.Add(9, deVarNamez);
+            return allPods;
+        }
+
+        /// <summary>
         /// This is called to decide about potentially pending orders. Full logic lands in
         /// later tasks of this plan (InitializeSplitExact / SolveSplitExact wiring).
         /// </summary>
