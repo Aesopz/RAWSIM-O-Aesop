@@ -119,6 +119,7 @@ namespace RAWSimO.Core.Control
                 case OrderBatchingMethodType.Queue: OrderManager = new QueueOrderManager(instance); break;
                 case OrderBatchingMethodType.SplitHeuristic: OrderManager = new SplitOrderManager(instance); break;
                 case OrderBatchingMethodType.SplitM1G: OrderManager = new SplitM1GManager(instance); break;
+                case OrderBatchingMethodType.SplitM1GExact: OrderManager = new SplitM1GExactManager(instance); break;
                 default: throw new ArgumentException("Unknown order manager: " + instance.ControllerConfig.OrderBatchingConfig.GetMethodType());
             }
             // Init replenishment batching manger

@@ -965,5 +965,31 @@ namespace RAWSimO.Core.Configurations
         public double UnitRewardWeight = -40;
     }
 
+    /// <summary>
+    /// SplitM1G with pod-level attribution decided inside the MILP: q[i,o,p,s] replaces
+    /// q[i,o,s], so the solver itself picks which specific pod serves each unit instead of a
+    /// post-solve greedy pass. Reward switches from per-unit (UnitRewardWeight) to per-order
+    /// completion, fixing the known orders-vs-items confound of plain SplitM1G.
+    /// </summary>
+    public class SplitM1GExactConfiguration : SplitM1GConfiguration
+    {
+        /// <summary>
+        /// Returns the type of the corresponding method this configuration belongs to.
+        /// </summary>
+        /// <returns>The type of the method.</returns>
+        public override OrderBatchingMethodType GetMethodType() { return OrderBatchingMethodType.SplitM1GExact; }
+        /// <summary>
+        /// Returns a name identifying the method.
+        /// </summary>
+        /// <returns>The name of the method.</returns>
+        public override string GetMethodName() { if (!string.IsNullOrWhiteSpace(Name)) return Name; return "OBSPLITM1GX"; }
+        /// <summary>
+        /// Per-order-completion reward w2 in the objective (negative = reward). Applies to
+        /// zfullx[o] (M1e) or zdonex[o] (M2e) — not used the way UnitRewardWeight (inherited,
+        /// unused here) was in SplitM1G.
+        /// </summary>
+        public double OrderRewardWeight = -40;
+    }
+
     #endregion
 }

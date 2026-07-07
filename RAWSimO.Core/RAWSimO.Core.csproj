@@ -120,6 +120,7 @@
     <Compile Include="Control\Defaults\OrderBatching\SplitOrderManager.cs" />
     <Compile Include="Control\Defaults\OrderBatching\SplitPlanner.cs" />
     <Compile Include="Control\Defaults\OrderBatching\SplitM1GManager.cs" />
+    <Compile Include="Control\Defaults\OrderBatching\SplitM1GExactManager.cs" />
     <Compile Include="Control\Defaults\OrderBatching\SplitMilpDecoder.cs" />
     <Compile Include="Control\Defaults\OrderBatching\SplitConsolidationLogger.cs" />
     <Compile Include="Control\Defaults\OrderBatching\RelatedOrderManager.cs" />

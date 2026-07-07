@@ -336,6 +336,11 @@ namespace RAWSimO.Core.Configurations
         /// The MILP-based order-splitting manager (M1G with shi2 relaxed to unit-level q[o,i,s]).
         /// </summary>
         SplitM1G,
+        /// <summary>
+        /// SplitM1G with pod-level attribution decided inside the MILP (q[i,o,p,s], 4D), instead
+        /// of the post-solve greedy Ziops pass. Reward is per-order-completion, not per-unit.
+        /// </summary>
+        SplitM1GExact,
     }
     /// <summary>
     /// All types of implemented replenishment batching strategies.
@@ -768,6 +773,7 @@ namespace RAWSimO.Core.Configurations
     [XmlInclude(typeof(QueueOrderBatchingConfiguration))]
     [XmlInclude(typeof(SplitHeuristicConfiguration))]
     [XmlInclude(typeof(SplitM1GConfiguration))]
+    [XmlInclude(typeof(SplitM1GExactConfiguration))]
     public abstract class OrderBatchingConfiguration : ControllerConfigurationBase
     {
         /// <summary>
