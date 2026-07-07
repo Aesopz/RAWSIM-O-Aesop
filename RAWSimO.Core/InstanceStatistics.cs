@@ -1625,6 +1625,11 @@ namespace RAWSimO.Core
             sb.AppendLine("StatOverallItemsHandled: " + StatOverallItemsHandled);
             sb.AppendLine("StatOverallLinesHandled: " + StatOverallLinesHandled);
             sb.AppendLine("StatOverallOrdersHandled: " + StatOverallOrdersHandled);
+            sb.AppendLine("StatOverallOrdersLate: " + StatOverallOrdersLate);
+            sb.AppendLine("StatOrdersLateRate: " + (StatOverallOrdersHandled > 0 ? ((double)StatOverallOrdersLate / StatOverallOrdersHandled).ToString(IOConstants.FORMATTER) : "0"));
+            var _lateOnlyTimes = _statOrderLatenessTimes.Where(t => t > 0).ToList();
+            sb.AppendLine("StatAverageLatenessSec: " + ((_lateOnlyTimes.Count == 0) ? "0" : _lateOnlyTimes.Average().ToString(IOConstants.FORMATTER)));
+            sb.AppendLine("StatMaxLatenessSec: " + ((_lateOnlyTimes.Count == 0) ? "0" : _lateOnlyTimes.Max().ToString(IOConstants.FORMATTER)));
             sb.AppendLine("StatThroughputOrdersPerHour: " + StatThroughputOrdersPerHour.ToString(IOConstants.FORMATTER));
             sb.AppendLine("StatOrderDistanceM: " + StatOrderDistanceM.ToString(IOConstants.FORMATTER));
             sb.AppendLine("StatInputStationArrivals: " + StatOverallInputStationArrivals);
@@ -1652,6 +1657,7 @@ namespace RAWSimO.Core
             sb.AppendLine("KPI_RD: " + StatOverallDistanceTraveled.ToString(IOConstants.FORMATTER));
             sb.AppendLine("KPI_OD: " + (StatOverallOrdersHandled > 0 ? (StatOverallDistanceTraveled / StatOverallOrdersHandled).ToString(IOConstants.FORMATTER) : "0"));
             sb.AppendLine("KPI_EOR: " + (StatOverallOrdersHandled > 0 ? (StatOverallEnergyTotalJ / 1000.0 / StatOverallOrdersHandled).ToString(IOConstants.FORMATTER) : "0"));
+            sb.AppendLine("KPI_LATE: " + StatOverallOrdersLate);
             // Energy statistics (Rizqi model)
             sb.AppendLine(">>> Energy (Rizqi model)");
             sb.AppendLine("EnergyRobotMassKg: " + Metrics.EnergyConsumption.ROBOT_MASS.ToString(IOConstants.FORMATTER));
