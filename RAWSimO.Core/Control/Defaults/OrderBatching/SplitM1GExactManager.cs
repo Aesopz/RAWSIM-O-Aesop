@@ -376,6 +376,22 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // (elink2) ysp[o,s] <= sum_i sum_p q[i,o,p,s] - forbids an empty child
             foreach (var y in deVarNamey)
                 wrapper.AddConstr(variablesBinary[y.name] <= LinearExpression.Sum(deVarNameq.Where(v => v.order.ID == y.order.ID && v.outputstation.ID == y.outputstation.ID).Select(v => variablesQ[v.name])), "elink2");
+            // (elink3) sum_p q[i,o,p,s] <= r[o,i] * ysp[o,s] - q>0 forces the slot flag on, so
+            // eshi4's capacity accounting sees every order the decoder will allocate. Without it
+            // the solver earns completion rewards with ysp=0 and the decoder over-commits stations
+            // ("Cannot reserve more capacity than this station has!" - second Task 6 smoke crash).
+            // Mirrors Spec 2's slink1 with the pod dimension aggregated.
+            foreach (var order in pendingOrders)
+            {
+                foreach (var sku in residuals[order].Where(p => PiSKU.ContainsKey(p.Key)))
+                {
+                    foreach (var station in Cs.Keys)
+                    {
+                        wrapper.AddConstr(LinearExpression.Sum(deVarNameq.Where(v => v.order.ID == order.ID && v.skui.ID == sku.Key.ID && v.outputstation.ID == station.ID).Select(v => variablesQ[v.name]))
+                            <= sku.Value * variablesBinary["yspx" + "_" + order.ID.ToString() + "_" + station.ID.ToString()], "elink3");
+                    }
+                }
+            }
             // (eshi4) pure slot conservation
             foreach (var station in Cs.Keys)
                 wrapper.AddConstr(LinearExpression.Sum(deVarNamey.Where(v => v.outputstation.ID == station.ID).Select(v => variablesBinary[v.name])) == Cs[station] - variablesUs["us" + "_" + station.ID.ToString()], "eshi4");
