@@ -506,11 +506,54 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         }
 
         /// <summary>
-        /// This is called to decide about potentially pending orders. Full logic lands in
-        /// later tasks of this plan (InitializeSplitExact / SolveSplitExact wiring).
+        /// This is called to decide about potentially pending orders (split-exact MILP version).
+        /// Mirrors Spec 2's SplitM1GManager.DecideAboutPendingOrders wiring exactly - only the
+        /// Initialize/Solve method names and result type differ.
         /// </summary>
         protected override void DecideAboutPendingOrders()
         {
+            DateTime A = DateTime.Now;
+            Dictionary<ItemDescription, List<Pod>> PiSKU;
+            Dictionary<ItemDescription, List<Order>> OiSKU;
+            Dictionary<int, List<Symbol>> variableNames;
+            Dictionary<OutputStation, int> Cs;
+            Dictionary<OutputStation, HashSet<Pod>> inboundPods;
+            HashSet<Order> pendingOrders;
+            HashSet<Bot> Ra;
+            HashSet<Bot> Rb;
+            HashSet<Bot> R;
+            HashSet<Pod> Pb;
+            HashSet<Pod> Pa;
+            Dictionary<Pod, Bot> PodToBot;
+            Dictionary<Order, Dictionary<ItemDescription, int>> residuals;
+            HashSet<Pod> allPods = InitializeSplitExact(out PiSKU, out OiSKU, out variableNames, out Cs, out pendingOrders,
+                out inboundPods, out Ra, out Rb, out R, out Pb, out Pa, out PodToBot, out residuals);
+            if (R.Count() > 0 && pendingOrders.Count > 0)
+            {
+                SplitExactSolveResult result = SolveSplitExact(SolverType.Gurobi, PiSKU, OiSKU, allPods, Cs, variableNames,
+                    pendingOrders, inboundPods, Ra, Rb, R, Pb, Pa, PodToBot, residuals);
+                foreach (var symbol in result.NewZiops)
+                {
+                    for (int i = 0; i < symbol.Value; i++)
+                        symbol.Key.pod.JustRegisterItem(symbol.Key.skui);
+                }
+                foreach (var alloc in result.Allocations)
+                {
+                    AllocateOrder(alloc.order, alloc.outputstation);
+                    Instance.StatCustomControllerInfo.CustomLogOB1++;
+                }
+                foreach (var parent in result.SplitParents)
+                {
+                    if (double.IsPositiveInfinity(parent.TimeStampSubmit))
+                        parent.TimeStampSubmit = Instance.Controller.CurrentTime;
+                    if (parent.IsFullyClaimed)
+                    {
+                        _pendingOrders.Remove(parent);
+                        (Instance.ItemManager as ItemManager).TakeAvailableOrder(parent);
+                    }
+                }
+                Instance.Observer.TimeOrderBatchingbyMP((DateTime.Now - A).TotalSeconds);
+            }
         }
     }
 }
