@@ -363,9 +363,16 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 wrapper.SetObjective(LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * (ExactPodStationCost(v.pod, v.outputstation) + PodStationExtraCost(v.pod, v.outputstation))), wrapper) * w1
                     + LinearExpression.Sum(deVarNamez.Select(v => variablesBinary[v.name])) * w2
                     + LinearExpression.Sum(deVarNameus.Select(v => variablesUs[v.name])) * w3, OptimizationSense.Minimize);
-            // (elink1) q[i,o,p,s] <= stock[p,i] * xps[p,s] - ties demand directly to one specific pod's real inventory
-            foreach (var q in deVarNameq)
-                wrapper.AddConstr(variablesQ[q.name] <= q.pod.CountAvailable(q.skui) * variablesBinary["xps" + "_" + q.pod.ID.ToString() + "_" + q.outputstation.ID.ToString()], "elink1");
+            // (elink1) sum_o q[i,o,p,s] <= stock[p,i] * xps[p,s] - ties the TOTAL demand drawn from
+            // one specific pod's real inventory across ALL orders. A per-order bound alone would let
+            // several orders each draw the full stock of the same pod (Task 6 smoke crash:
+            // "Cannot reserve an item for picking, if there is none left of the kind!").
+            foreach (var group in deVarNameq.GroupBy(v => new { skuId = v.skui.ID, podId = v.pod.ID, stationId = v.outputstation.ID }))
+            {
+                var first = group.First();
+                wrapper.AddConstr(LinearExpression.Sum(group.Select(v => variablesQ[v.name]))
+                    <= first.pod.CountAvailable(first.skui) * variablesBinary["xps" + "_" + first.pod.ID.ToString() + "_" + first.outputstation.ID.ToString()], "elink1");
+            }
             // (elink2) ysp[o,s] <= sum_i sum_p q[i,o,p,s] - forbids an empty child
             foreach (var y in deVarNamey)
                 wrapper.AddConstr(variablesBinary[y.name] <= LinearExpression.Sum(deVarNameq.Where(v => v.order.ID == y.order.ID && v.outputstation.ID == y.outputstation.ID).Select(v => variablesQ[v.name])), "elink2");
