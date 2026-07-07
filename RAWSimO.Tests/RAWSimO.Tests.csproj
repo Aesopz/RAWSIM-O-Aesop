@@ -36,6 +36,7 @@
     <Compile Include="OrderSplitTests.cs" />
     <Compile Include="SplitPlannerTests.cs" />
     <Compile Include="SplitMilpDecoderTests.cs" />
+    <Compile Include="SplitM1GExactAggregatorTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\RAWSimO.Core\RAWSimO.Core.csproj">
