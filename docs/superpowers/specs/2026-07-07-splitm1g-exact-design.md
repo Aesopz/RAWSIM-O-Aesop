@@ -83,6 +83,10 @@ packing station 建模（沿用 Spec 1/2 定案：不建模）。
                                                                                     各自榨滿同一 pod 的同一 SKU，Task 6 煙霧已實證會
                                                                                     在 JustRegisterItem 崩潰）
 (link-down)  ysp[o,s] ≤ Σi Σp q[i,o,p,s]                     ∀ o, s               （禁止空 child，聚合掉 pod 維度）
+(link-up-y)  Σp q[i,o,p,s] ≤ r[o,i] · ysp[o,s]               ∀ o, i∈I_o, s        （有量必佔槽——q>0 強制 ysp=1，鏡像 Spec 2
+                                                                                    slink1 的需求側職責；漏掉它會讓 solver 拿
+                                                                                    完成獎勵卻不佔 slot，decoder 照 q 分配導致
+                                                                                    站台容量超收 ~6x，Task 6 煙霧第二次崩潰實證）
 (shi4')      Σo ysp[o,s] = Cs[s] − us[s]                     ∀ s                  （純 slot 制，沿用 Spec 2）
 (M1e 模式)   Σs Σp q[i,o,p,s] = r[o,i] · zfull[o]            ∀ o, i∈I_o           （全指派或不指派，可跨站/跨 pod）
 (M2e 模式)   Σs Σp q[i,o,p,s] ≤ r[o,i]                       ∀ o, i∈I_o           （sm2，可部分，殘量留 backlog）
