@@ -78,7 +78,10 @@ packing station 建模（沿用 Spec 1/2 定案：不建模）。
 ### 3.3 約束
 
 ```
-(link-up)    q[i,o,p,s] ≤ stock[p,i] · xps[p,s]              ∀ i, o, p∈P_i, s     （逐 pod 焊死庫存，取代 shi5' 的聚合）
+(link-up)    Σo q[i,o,p,s] ≤ stock[p,i] · xps[p,s]           ∀ i, p∈P_i, s        （逐 pod 焊死庫存，取代 shi5' 的站級聚合；
+                                                                                    必須跨訂單加總——per-order 版本會讓多張訂單
+                                                                                    各自榨滿同一 pod 的同一 SKU，Task 6 煙霧已實證會
+                                                                                    在 JustRegisterItem 崩潰）
 (link-down)  ysp[o,s] ≤ Σi Σp q[i,o,p,s]                     ∀ o, s               （禁止空 child，聚合掉 pod 維度）
 (shi4')      Σo ysp[o,s] = Cs[s] − us[s]                     ∀ s                  （純 slot 制，沿用 Spec 2）
 (M1e 模式)   Σs Σp q[i,o,p,s] = r[o,i] · zfull[o]            ∀ o, i∈I_o           （全指派或不指派，可跨站/跨 pod）
