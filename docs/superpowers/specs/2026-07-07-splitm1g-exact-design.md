@@ -85,11 +85,18 @@ packing station 建模（沿用 Spec 1/2 定案：不建模）。
 (M2e 模式)   Σs Σp q[i,o,p,s] ≤ r[o,i]                       ∀ o, i∈I_o           （sm2，可部分，殘量留 backlog）
 (M2e 完成旗標) Σs Σp q[i,o,p,s] ≥ r[o,i] · zdone[o]          ∀ o, i∈I_o           （新增，配合 M2e 模式的 ≤ 上界，
                                                                                     兩者合起來強制 zdone=1 時所有 SKU 皆滿足）
-(shi12')     2 · dops[o,p,s] ≤ ysp[o,s] + xps[p,s]           ∀ o, p∈Pa, s         （沿用 Spec 2）
+(shi13')     xps[p,s] ≤ Σo Σi q[i,o,p,s]                     ∀ p∈Pa, s            （新 pod 至少被真正消耗，直接對 q 求和，取代 Spec 2 的 dops-based shi13）
 ```
 
+**規劃階段修正（相對本文先前草稿）**：原本設想沿用 Spec 2 的 `dops`/shi12' 撐住 shi13
+語意，重新推導後發現 `dops` 只跟 `ysp`/`xps` 掛鉤（shi12'：`2·dops ≤ ysp+xps`），從未
+真正連到 `q` 的實際消耗量——在聚合式 `shi5'` 底下這是可接受的近似，但在精確 `q[i,o,p,s]`
+底下這個近似已經沒有存在理由，且會讓「新 pod 保證被用到」這個宣稱失真。**`dops`/shi12'
+在 SplitM1GExact 整組不需要**，shi13 直接改寫成對 `q` 求和（`shi13'`），既更簡單也是
+真正的保證（不再是「必要條件」層級的鬆散近似）。
+
 以下逐字保留（Spec 2 §3.3 原樣）：shi6（pod 至多一站）、shi7/shi11（繼承在途 pod/bot
-固定 =1）、shi8（pod 需 bot）、shi9/shi10（pod-bot 一對一）、shi13（新 pod 至少服務一單）。
+固定 =1）、shi8（pod 需 bot）、shi9/shi10（pod-bot 一對一）。
 
 **與 Spec 2 的關鍵差異**：`shi5'`（聚合庫存檢查）整條被 `link-up` 取代——每個 `q` 變數
 自己就跟一個具體 pod 的具體庫存綁定，不再需要一個額外的聚合不等式；這正是消除「反悔
@@ -219,8 +226,6 @@ M0 → SplitM1G（M1/M2）→ SplitM1GExact（M1e/M2e）+ H 對照，先在 smal
   需要做**：本 spec 一旦驗證可行，這個診斷工具的存在理由（量測 Spec 2 貪婪法的
   optimality gap）就被 SplitM1GExact 本身取代——診斷工具改為「可選的事後對照」，
   不是本 spec 的前置依賴，兩者可以獨立排期。
-- **`dops`/shi12'/shi13 是否還有必要**：理論上 `link-up` 已經讓 pod 選擇跟 SKU 需求
-  精確綁定，`dops`（Spec 2 用來輔助貪婪比對的變數）在本模型裡失去原本的貪婪比對
-  用途，但 shi13（新 pod 至少服務一單）仍需要 `dops` 撐住這條限制式的語意，故保留；
-  實作時留意 `dops` 現在只服務 shi13，不再服務任何解碼邏輯，避免誤植殘留的 Spec 2
-  比對程式碼進來。
+- **`dops`/shi12' 已確認移除**：見 §3.3 規劃階段修正，`dops` 在 Spec 2 只是貪婪比對用
+  的輔助變數，在精確 `q[i,o,p,s]` 底下沒有存在理由，shi13 直接對 `q` 求和（`shi13'`）
+  更簡單也更正確；實作時不要把 Spec 2 的 `dops`/`IsdeVarNamedops` 相關程式碼複製進來。
