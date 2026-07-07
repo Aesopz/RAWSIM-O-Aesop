@@ -319,6 +319,193 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         }
 
         /// <summary>
+        /// Builds and solves the SplitM1GExact MILP (q[i,o,p,s], 4D pod-exact attribution) and
+        /// commits the solution directly: robot-pod claiming (base parity), child creation via
+        /// SplitMilpDecoder (Spec 2, unchanged - fed pod-aggregated quantities), and per-(sku,
+        /// order-or-child,pod,station) Ziops writes read straight off the solved q values. No
+        /// greedy Ziops pass, no dops, no unused-pod release - link-up + shi13' make every
+        /// selected pod's usage exact by construction (see spec §5/§7).
+        /// </summary>
+        private SplitExactSolveResult SolveSplitExact(SolverType type, Dictionary<ItemDescription, List<Pod>> PiSKU,
+            Dictionary<ItemDescription, List<Order>> OiSKU, IEnumerable<Pod> Pods, Dictionary<OutputStation, int> Cs,
+            Dictionary<int, List<Symbol>> variableNames, HashSet<Order> pendingOrders,
+            Dictionary<OutputStation, HashSet<Pod>> inboundPods, HashSet<Bot> Ra, HashSet<Bot> Rb, HashSet<Bot> R,
+            HashSet<Pod> Pb, HashSet<Pod> Pa, Dictionary<Pod, Bot> PodToBot,
+            Dictionary<Order, Dictionary<ItemDescription, int>> residuals)
+        {
+            LinearModel wrapper = new LinearModel(type, (string s) => { Console.Write(s); });
+            SplitExactSolveResult result = new SplitExactSolveResult();
+            bool crossTime = _splitConfig != null && _splitConfig.CrossTime;
+            List<Symbol> deVarNamexps = variableNames[1];
+            List<Symbol> deVarNameyrp = variableNames[4];
+            List<Symbol> deVarNameus = variableNames[5];
+            List<Symbol> deVarNameq = variableNames[7];
+            List<Symbol> deVarNamey = variableNames[8];
+            List<Symbol> deVarNamez = variableNames[9];
+            double w1 = 1;
+            double w2 = _splitConfig != null ? _splitConfig.OrderRewardWeight : -40;
+            double w3 = 1000;
+            int maxCs = Cs.Count > 0 ? Cs.Values.Max() : 1;
+            int maxR = residuals.Count > 0 ? residuals.Values.SelectMany(d => d.Values).DefaultIfEmpty(1).Max() : 1;
+            VariableCollection<string> variablesBinary = new VariableCollection<string>(wrapper, VariableType.Binary, 0, 1, (string s) => { return s; });
+            VariableCollection<string> variablesUs = new VariableCollection<string>(wrapper, VariableType.Integer, 0, maxCs, (string s) => { return s; });
+            VariableCollection<string> variablesQ = new VariableCollection<string>(wrapper, VariableType.Integer, 0, maxR, (string s) => { return s; });
+            PrepareStarveAwareExact(Pods, Cs, Ra);
+            PrepareDecisionExtras(Pods, Cs, Ra);
+            // Objective: w1*(pod-station + bot-pod distance) + w2*(completion reward) + w3*(idle slots)
+            if (Ra.Count() > 0)
+                wrapper.SetObjective((LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * (ExactPodStationCost(v.pod, v.outputstation) + PodStationExtraCost(v.pod, v.outputstation))), wrapper)
+                    + LinearExpression.Sum(deVarNameyrp.Where(u => Ra.Contains(u.robot) && Instance.ResourceManager.UnusedPods.Contains(u.pod) && u.pod.Waypoint != null).Select(v => variablesBinary[v.name] *
+                    ExactBotPodCost(v.robot, v.pod)), wrapper)) * w1
+                    + LinearExpression.Sum(deVarNamez.Select(v => variablesBinary[v.name])) * w2
+                    + LinearExpression.Sum(deVarNameus.Select(v => variablesUs[v.name])) * w3, OptimizationSense.Minimize);
+            else
+                wrapper.SetObjective(LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * (ExactPodStationCost(v.pod, v.outputstation) + PodStationExtraCost(v.pod, v.outputstation))), wrapper) * w1
+                    + LinearExpression.Sum(deVarNamez.Select(v => variablesBinary[v.name])) * w2
+                    + LinearExpression.Sum(deVarNameus.Select(v => variablesUs[v.name])) * w3, OptimizationSense.Minimize);
+            // (elink1) q[i,o,p,s] <= stock[p,i] * xps[p,s] - ties demand directly to one specific pod's real inventory
+            foreach (var q in deVarNameq)
+                wrapper.AddConstr(variablesQ[q.name] <= q.pod.CountAvailable(q.skui) * variablesBinary["xps" + "_" + q.pod.ID.ToString() + "_" + q.outputstation.ID.ToString()], "elink1");
+            // (elink2) ysp[o,s] <= sum_i sum_p q[i,o,p,s] - forbids an empty child
+            foreach (var y in deVarNamey)
+                wrapper.AddConstr(variablesBinary[y.name] <= LinearExpression.Sum(deVarNameq.Where(v => v.order.ID == y.order.ID && v.outputstation.ID == y.outputstation.ID).Select(v => variablesQ[v.name])), "elink2");
+            // (eshi4) pure slot conservation
+            foreach (var station in Cs.Keys)
+                wrapper.AddConstr(LinearExpression.Sum(deVarNamey.Where(v => v.outputstation.ID == station.ID).Select(v => variablesBinary[v.name])) == Cs[station] - variablesUs["us" + "_" + station.ID.ToString()], "eshi4");
+            // (eshi6) pod assigned to at most one station
+            foreach (var pod in Pods)
+                wrapper.AddConstr(LinearExpression.Sum(deVarNamexps.Where(v => v.pod.ID == pod.ID).Select(v => variablesBinary[v.name])) <= 1, "eshi6");
+            // (eshi7/eshi11) inherited (Pb) pods/bots stay fixed from the previous decision
+            foreach (var station in inboundPods)
+            {
+                foreach (var pod in station.Value)
+                {
+                    if (!Pb.Contains(pod))
+                        continue;
+                    wrapper.AddConstr(variablesBinary["xps" + "_" + pod.ID.ToString() + "_" + station.Key.ID.ToString()] == 1, "eshi7");
+                    wrapper.AddConstr(variablesBinary["yrp" + "_" + PodToBot[pod].ID.ToString() + "_" + pod.ID.ToString()] == 1, "eshi11");
+                }
+            }
+            // (eshi8) a pod assigned to a station needs a bot
+            foreach (var pod in Pods)
+                wrapper.AddConstr(LinearExpression.Sum(deVarNamexps.Where(v => v.pod.ID == pod.ID).Select(v => variablesBinary[v.name])) <= LinearExpression.Sum(deVarNameyrp.Where(v => v.pod.ID == pod.ID).Select(v => variablesBinary[v.name])), "eshi8");
+            // (eshi9) at most one bot per pod
+            foreach (var pod in Pods)
+                wrapper.AddConstr(LinearExpression.Sum(deVarNameyrp.Where(v => v.pod.ID == pod.ID).Select(v => variablesBinary[v.name])) <= 1, "eshi9");
+            // (eshi10) at most one pod per bot
+            foreach (var robot in R)
+                wrapper.AddConstr(LinearExpression.Sum(deVarNameyrp.Where(v => v.robot.ID == robot.ID).Select(v => variablesBinary[v.name])) <= 1, "eshi10");
+            // (eshi13') a newly-claimed pod must actually be consumed - summed directly against q,
+            // not the dops proxy Spec 2 used (see spec §3.3/§7: dops never linked to real q usage)
+            foreach (var pod in Pa)
+            {
+                foreach (var station in Cs.Keys)
+                    wrapper.AddConstr(variablesBinary["xps" + "_" + pod.ID.ToString() + "_" + station.ID.ToString()]
+                        <= LinearExpression.Sum(deVarNameq.Where(v => v.pod.ID == pod.ID && v.outputstation.ID == station.ID).Select(v => variablesQ[v.name])), "eshi13");
+            }
+            // (eM1/eM2/eM2done) per-SKU completion linkage, aggregated across stations AND pods
+            foreach (var order in pendingOrders)
+            {
+                string zname = (crossTime ? "zdonex" : "zfullx") + "_" + order.ID.ToString();
+                foreach (var sku in residuals[order].Where(p => PiSKU.ContainsKey(p.Key)))
+                {
+                    var lhs = LinearExpression.Sum(deVarNameq.Where(v => v.order.ID == order.ID && v.skui.ID == sku.Key.ID).Select(v => variablesQ[v.name]));
+                    if (!crossTime)
+                        wrapper.AddConstr(lhs == sku.Value * variablesBinary[zname], "eM1");
+                    else
+                    {
+                        wrapper.AddConstr(lhs <= sku.Value, "eM2");
+                        wrapper.AddConstr(lhs >= sku.Value * variablesBinary[zname], "eM2done");
+                    }
+                }
+            }
+            wrapper.Update();
+            DateTime _optStart = DateTime.Now;
+            wrapper.Optimize();
+            double _optSec = (DateTime.Now - _optStart).TotalSeconds;
+            if (wrapper.HasSolution())
+            {
+                List<Symbol> IsdeVarNamexps = deVarNamexps.Where(v => Math.Round(variablesBinary[v.name].GetValue()) != 0).ToList();
+                List<Symbol> IsdeVarNameq = deVarNameq.Where(v => Math.Round(variablesQ[v.name].GetValue()) > 0).ToList();
+                foreach (var itemName in deVarNameyrp)
+                {
+                    if (Math.Round(variablesBinary[itemName.name].GetValue()) != 0 && Ra.Contains(itemName.robot))
+                    {
+                        Instance.ResourceManager.BottoPod.Add(itemName.robot, itemName.pod);
+                        Instance.ResourceManager.ClaimPod(itemName.pod, itemName.robot, BotTaskType.Extract);
+                        foreach (var xps in IsdeVarNamexps.Where(v => v.pod.ID == itemName.pod.ID))
+                            xps.outputstation.RegisterInboundPod(itemName.pod);
+                    }
+                }
+                List<OutputStation> stationList = Cs.Keys.OrderBy(s => s.ID).ToList();
+                int nChildren = 0, nFastPath = 0, unitsAssigned = 0;
+                foreach (var order in pendingOrders.OrderBy(o => o.ID))
+                {
+                    List<Dictionary<ItemDescription, int>> perStation = new List<Dictionary<ItemDescription, int>>();
+                    foreach (var station in stationList)
+                    {
+                        var podQuantities = IsdeVarNameq
+                            .Where(v => v.order.ID == order.ID && v.outputstation.ID == station.ID)
+                            .Select(v => new KeyValuePair<ItemDescription, int>(v.skui, (int)Math.Round(variablesQ[v.name].GetValue())));
+                        perStation.Add(SplitM1GExactAggregator.AggregatePodQuantities(podQuantities));
+                    }
+                    bool fullyAssigned;
+                    List<KeyValuePair<int, Dictionary<ItemDescription, int>>> parts =
+                        SplitMilpDecoder.Decode(residuals[order].ToList(), perStation, crossTime, out fullyAssigned);
+                    if (parts.Count == 0)
+                        continue;
+                    unitsAssigned += parts.Sum(p => p.Value.Values.Sum());
+                    if (parts.Count == 1 && fullyAssigned && !order.IsSplitParent)
+                    {
+                        OutputStation station = stationList[parts[0].Key];
+                        result.Allocations.Add(new Symbol { order = order, outputstation = station });
+                        foreach (var q in IsdeVarNameq.Where(v => v.order.ID == order.ID && v.outputstation.ID == station.ID))
+                        {
+                            int units = (int)Math.Round(variablesQ[q.name].GetValue());
+                            Symbol name = new Symbol { pod = q.pod, order = order, outputstation = station, skui = q.skui,
+                                name = "ziops" + "_" + q.skui.ID.ToString() + "_" + order.ID.ToString() + "_" + q.pod.ID.ToString() + "_" + station.ID.ToString() };
+                            result.NewZiops.Add(name, units);
+                            Instance.ResourceManager._Ziops[station].Add(name, units);
+                        }
+                        nFastPath++;
+                    }
+                    else
+                    {
+                        foreach (var part in parts)
+                        {
+                            OutputStation station = stationList[part.Key];
+                            Order child = Order.CreateSplitChild(order, part.Value);
+                            child.ID = idoforder++;
+                            Instance.ResourceManager.TransferExtractRequests(order, child);
+                            result.Allocations.Add(new Symbol { order = child, outputstation = station });
+                            foreach (var q in IsdeVarNameq.Where(v => v.order.ID == order.ID && v.outputstation.ID == station.ID))
+                            {
+                                int units = (int)Math.Round(variablesQ[q.name].GetValue());
+                                Symbol name = new Symbol { pod = q.pod, order = child, outputstation = station, skui = q.skui,
+                                    name = "ziops" + "_" + q.skui.ID.ToString() + "_" + child.ID.ToString() + "_" + q.pod.ID.ToString() + "_" + station.ID.ToString() };
+                                result.NewZiops.Add(name, units);
+                                Instance.ResourceManager._Ziops[station].Add(name, units);
+                            }
+                            nChildren++;
+                        }
+                        result.SplitParents.Add(order);
+                    }
+                }
+                double sumUs = 0.0;
+                foreach (var s in deVarNameus)
+                    sumUs += Math.Round(variablesUs[s.name].GetValue());
+                WriteExactDecisionLog(true, Instance.Controller.CurrentTime, pendingOrders.Count, Cs.Count, Pods.Count(),
+                    IsdeVarNamexps.Count, nChildren, nFastPath, unitsAssigned, sumUs, wrapper.GetObjectiveValue(), _optSec);
+            }
+            else
+            {
+                WriteExactDecisionLog(false, Instance.Controller.CurrentTime, pendingOrders.Count, Cs.Count, Pods.Count(),
+                    0, 0, 0, 0, 0.0, double.NaN, _optSec);
+            }
+            return result;
+        }
+
+        /// <summary>
         /// This is called to decide about potentially pending orders. Full logic lands in
         /// later tasks of this plan (InitializeSplitExact / SolveSplitExact wiring).
         /// </summary>
