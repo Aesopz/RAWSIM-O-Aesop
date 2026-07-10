@@ -989,6 +989,31 @@ namespace RAWSimO.Core.Configurations
         /// unused here) was in SplitM1G.
         /// </summary>
         public double OrderRewardWeight = -40;
+        /// <summary>
+        /// Idle-slot penalty w3 in the objective. Default 1000 reproduces the inherited
+        /// M1G-family slot-forcing behavior exactly. Set to 0 to align the objective with
+        /// PVGS's trip-rationing economics: a pod trip must pay for itself through
+        /// |OrderRewardWeight| per completed order versus distance - no fill-the-slot subsidy.
+        /// </summary>
+        public double IdleSlotWeight = 1000;
+        /// <summary>
+        /// Per-trip fixed cost w4 added to the pod-station cost coefficient of every
+        /// newly-claimable pod assignment (the Xie et al. 2021 pod-visit objective term).
+        /// Default 0 = current behavior; also the natural hook for the energy model's
+        /// per-trip constant (rotation/lift) component.
+        /// </summary>
+        public double PodTripFixedCost = 0;
+        /// <summary>
+        /// Per-unit reward w5 (negative = reward) for every unit drawn from the pod
+        /// CURRENTLY BEING PROCESSED at a station (its bot stands at the station's pick
+        /// waypoint) - NOT from queueing or en-route inbound pods. The processing pod's
+        /// inventory is a perishable opportunity: once its assigned picks finish it leaves,
+        /// while queued pods have many future epochs left. Rewarding all inherited pods
+        /// equally would let queue-servable orders crowd out the closing window. Keep |w5|
+        /// well below |OrderRewardWeight| so completing whole orders always dominates raw
+        /// unit milking. Default 0 = term omitted entirely (bit-identical model).
+        /// </summary>
+        public double ProcessingPodDrawReward = 0;
     }
 
     /// <summary>

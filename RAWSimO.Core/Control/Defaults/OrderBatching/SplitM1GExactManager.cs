@@ -344,7 +344,19 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             List<Symbol> deVarNamez = variableNames[9];
             double w1 = 1;
             double w2 = _splitConfig != null ? _splitConfig.OrderRewardWeight : -40;
-            double w3 = 1000;
+            double w3 = _splitConfig != null ? _splitConfig.IdleSlotWeight : 1000;
+            double w4 = _splitConfig != null ? _splitConfig.PodTripFixedCost : 0;
+            double w5 = _splitConfig != null ? _splitConfig.ProcessingPodDrawReward : 0;
+            // Pods currently being PROCESSED (bot standing at the station's pick waypoint) - the
+            // perishable squeeze targets. Queueing / en-route Pb pods deliberately excluded: their
+            // windows stay open for future epochs, the processing pod's window is closing now.
+            HashSet<Pod> processingPods = new HashSet<Pod>();
+            if (w5 != 0)
+                foreach (var station in Cs.Keys)
+                    foreach (var pod in Pb)
+                        if (station.Waypoint != null && PodToBot.ContainsKey(pod) && PodToBot[pod].CurrentWaypoint != null
+                            && PodToBot[pod].CurrentWaypoint.ID == station.Waypoint.ID)
+                            processingPods.Add(pod);
             int maxCs = Cs.Count > 0 ? Cs.Values.Max() : 1;
             int maxR = residuals.Count > 0 ? residuals.Values.SelectMany(d => d.Values).DefaultIfEmpty(1).Max() : 1;
             VariableCollection<string> variablesBinary = new VariableCollection<string>(wrapper, VariableType.Binary, 0, 1, (string s) => { return s; });
@@ -353,16 +365,24 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             PrepareStarveAwareExact(Pods, Cs, Ra);
             PrepareDecisionExtras(Pods, Cs, Ra);
             // Objective: w1*(pod-station + bot-pod distance) + w2*(completion reward) + w3*(idle slots)
+            // + w4 per newly-claimable pod trip (folded into the xps coefficient; sum_s xps <= 1 per
+            // pod makes the coefficient add-on an exact per-trip fixed cost)
+            // + w5 per unit drawn from the pod currently being PROCESSED at a station (squeeze the
+            // closing window; queued/en-route pods excluded; term omitted at w5=0 = bit-identical).
+            LinearExpression objective;
             if (Ra.Count() > 0)
-                wrapper.SetObjective((LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * (ExactPodStationCost(v.pod, v.outputstation) + PodStationExtraCost(v.pod, v.outputstation))), wrapper)
+                objective = (LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * (ExactPodStationCost(v.pod, v.outputstation) + PodStationExtraCost(v.pod, v.outputstation) + w4)), wrapper)
                     + LinearExpression.Sum(deVarNameyrp.Where(u => Ra.Contains(u.robot) && Instance.ResourceManager.UnusedPods.Contains(u.pod) && u.pod.Waypoint != null).Select(v => variablesBinary[v.name] *
                     ExactBotPodCost(v.robot, v.pod)), wrapper)) * w1
                     + LinearExpression.Sum(deVarNamez.Select(v => variablesBinary[v.name])) * w2
-                    + LinearExpression.Sum(deVarNameus.Select(v => variablesUs[v.name])) * w3, OptimizationSense.Minimize);
+                    + LinearExpression.Sum(deVarNameus.Select(v => variablesUs[v.name])) * w3;
             else
-                wrapper.SetObjective(LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * (ExactPodStationCost(v.pod, v.outputstation) + PodStationExtraCost(v.pod, v.outputstation))), wrapper) * w1
+                objective = LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * (ExactPodStationCost(v.pod, v.outputstation) + PodStationExtraCost(v.pod, v.outputstation) + w4)), wrapper) * w1
                     + LinearExpression.Sum(deVarNamez.Select(v => variablesBinary[v.name])) * w2
-                    + LinearExpression.Sum(deVarNameus.Select(v => variablesUs[v.name])) * w3, OptimizationSense.Minimize);
+                    + LinearExpression.Sum(deVarNameus.Select(v => variablesUs[v.name])) * w3;
+            if (w5 != 0 && processingPods.Count > 0)
+                objective = objective + LinearExpression.Sum(deVarNameq.Where(v => processingPods.Contains(v.pod)).Select(v => variablesQ[v.name])) * w5;
+            wrapper.SetObjective(objective, OptimizationSense.Minimize);
             // (elink1) sum_o q[i,o,p,s] <= stock[p,i] * xps[p,s] - ties the TOTAL demand drawn from
             // one specific pod's real inventory across ALL orders. A per-order bound alone would let
             // several orders each draw the full stock of the same pod (Task 6 smoke crash:
