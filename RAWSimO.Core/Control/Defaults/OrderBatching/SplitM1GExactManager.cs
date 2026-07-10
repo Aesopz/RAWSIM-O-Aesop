@@ -381,7 +381,14 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     + LinearExpression.Sum(deVarNamez.Select(v => variablesBinary[v.name])) * w2
                     + LinearExpression.Sum(deVarNameus.Select(v => variablesUs[v.name])) * w3;
             if (w5 != 0 && processingPods.Count > 0)
-                objective = objective + LinearExpression.Sum(deVarNameq.Where(v => processingPods.Contains(v.pod)).Select(v => variablesQ[v.name])) * w5;
+            {
+                // A processing pod may carry nothing the backlog still needs -> no q variables
+                // reference it; LinearExpression.Sum throws on an empty sequence, so materialize
+                // and guard (the w5 term is simply absent when there is nothing to squeeze).
+                var squeezeVars = deVarNameq.Where(v => processingPods.Contains(v.pod)).Select(v => variablesQ[v.name]).ToList();
+                if (squeezeVars.Count > 0)
+                    objective = objective + LinearExpression.Sum(squeezeVars) * w5;
+            }
             wrapper.SetObjective(objective, OptimizationSense.Minimize);
             // (elink1) sum_o q[i,o,p,s] <= stock[p,i] * xps[p,s] - ties the TOTAL demand drawn from
             // one specific pod's real inventory across ALL orders. A per-order bound alone would let
