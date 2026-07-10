@@ -123,6 +123,7 @@
     <Compile Include="Control\Defaults\OrderBatching\SplitM1GExactManager.cs" />
     <Compile Include="Control\Defaults\OrderBatching\PVGSManager.cs" />
     <Compile Include="Control\Defaults\OrderBatching\PvgsValueIndex.cs" />
+    <Compile Include="Control\Defaults\OrderBatching\PvgsStationSplitPlanner.cs" />
     <Compile Include="Control\Defaults\OrderBatching\SplitM1GExactAggregator.cs" />
     <Compile Include="Control\Defaults\OrderBatching\SplitMilpDecoder.cs" />
     <Compile Include="Control\Defaults\OrderBatching\SplitConsolidationLogger.cs" />
