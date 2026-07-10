@@ -438,11 +438,205 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         }
 
         /// <summary>
-        /// This is called to decide about potentially pending orders. Full logic lands in
-        /// later tasks of this plan (snapshot / sweeps / dispatch loop wiring).
+        /// Phase B: value-driven pod dispatch. Shortlists candidate storage pods by the
+        /// residual-coverage value index, scores (pod, station) pairs by newly completable
+        /// orders (sound attribution: the preceding sweep guarantees nothing was completable
+        /// before) + M2e partial-progress value + parent-closing bonus - distance, and
+        /// commits the best dispatch (bot claim + inbound registration, mirroring the exact
+        /// manager's Ra claiming block). Re-sweeps after every dispatch. Scoring treats each
+        /// order's completability independently (slot interactions among simultaneous new
+        /// completions are ignored in the SCORE; the sweep enforces real slots on COMMIT).
+        /// </summary>
+        private void DispatchLoop(PvgsEpochState st, HashSet<Pod> paCandidates, Dictionary<ItemDescription, List<Order>> OiSKU, bool crossTime)
+        {
+            var dispatched = new HashSet<Pod>();
+            while (st.FreeBots.Count > 0 && st.FreeSlots.Any(f => f > 0))
+            {
+                var shortlist = paCandidates
+                    .Where(p => !dispatched.Contains(p))
+                    .Select(p => new { Pod = p, Value = PvgsValueIndex.ComputeValue(st.Avail[p], st.ResidualTotals, st.SupplyTotals, _config != null ? _config.ScarcityBeta : 1.0) })
+                    .Where(c => c.Value > 0)
+                    .OrderByDescending(c => c.Value)
+                    .Take(_config != null ? _config.ShortlistK : 15)
+                    .ToList();
+                if (shortlist.Count == 0)
+                    break;
+                double completionWeight = _config != null ? _config.CompletionWeight : 40;
+                double distanceWeight = _config != null ? _config.DistanceWeight : 1;
+                double partialUnitWeight = _config != null ? _config.PartialUnitWeight : 1;
+                double parentClosingBonus = _config != null ? _config.ParentClosingBonus : 20;
+                double bestScore = 0;
+                Pod bestPod = null;
+                int bestStation = -1;
+                Bot bestBot = null;
+                foreach (var cand in shortlist)
+                {
+                    Bot bot = null;
+                    double dBot = double.PositiveInfinity;
+                    foreach (var b in st.FreeBots)
+                    {
+                        double d = EstimateBotPodDistance(b, cand.Pod);
+                        if (d < dBot) { dBot = d; bot = b; }
+                    }
+                    if (bot == null)
+                        break;
+                    var touched = new HashSet<Order>();
+                    foreach (var sku in st.Avail[cand.Pod].Keys)
+                    {
+                        List<Order> lst;
+                        if (OiSKU.TryGetValue(sku, out lst))
+                            foreach (var o in lst)
+                                if (!st.Committed.Contains(o) && st.Residuals.ContainsKey(o))
+                                    touched.Add(o);
+                    }
+                    for (int s = 0; s < st.StationList.Count; s++)
+                    {
+                        if (st.FreeSlots[s] <= 0)
+                            continue;
+                        double dPod = EstimatePodStationDistance(cand.Pod, st.StationList[s]);
+                        var merged = new Dictionary<ItemDescription, int>(st.PerStationAvail[s]);
+                        foreach (var e in st.Avail[cand.Pod])
+                        {
+                            int cur;
+                            merged[e.Key] = (merged.TryGetValue(e.Key, out cur) ? cur : 0) + e.Value;
+                        }
+                        var hypo = new List<Dictionary<ItemDescription, int>>(st.PerStationAvail);
+                        hypo[s] = merged;
+                        bool[] slotFree = st.FreeSlots.Select(f => f > 0).ToArray();
+                        int newCompletions = 0, parentCloses = 0;
+                        foreach (var o in touched)
+                        {
+                            var residual = st.Residuals[o].Where(p => p.Value > 0).ToList();
+                            if (residual.Count == 0)
+                                continue;
+                            if (PvgsStationSplitPlanner.PlanCompletion(residual, hypo, slotFree) != null)
+                            {
+                                newCompletions++;
+                                if (o.IsSplitParent)
+                                    parentCloses++;
+                            }
+                        }
+                        double score = completionWeight * newCompletions
+                            + (crossTime ? partialUnitWeight * cand.Value + parentClosingBonus * parentCloses : 0.0)
+                            - distanceWeight * (dBot + dPod);
+                        if (score > bestScore)
+                        {
+                            bestScore = score;
+                            bestPod = cand.Pod;
+                            bestStation = s;
+                            bestBot = bot;
+                        }
+                    }
+                }
+                if (bestPod == null)
+                    break;
+                // Commit the dispatch (mirrors the exact manager's Ra claiming block).
+                Instance.ResourceManager.BottoPod.Add(bestBot, bestPod);
+                Instance.ResourceManager.ClaimPod(bestPod, bestBot, BotTaskType.Extract);
+                st.StationList[bestStation].RegisterInboundPod(bestPod);
+                st.PodsAt[bestStation].Add(bestPod);
+                foreach (var e in st.Avail[bestPod])
+                {
+                    int cur;
+                    st.PerStationAvail[bestStation][e.Key] = (st.PerStationAvail[bestStation].TryGetValue(e.Key, out cur) ? cur : 0) + e.Value;
+                }
+                st.FreeBots.Remove(bestBot);
+                dispatched.Add(bestPod);
+                st.Dispatched++;
+                CompletionSweep(st, bestPod);
+                if (crossTime)
+                    PartialSweep(st);
+            }
+        }
+
+        // ── Per-decision summary logger (speed evidence for the acceptance criteria) ──
+        private System.IO.StreamWriter _pvgsDecisionLog;
+        private int _pvgsDecisionIndex = 0;
+        private void WritePvgsDecisionLog(double time, int pendingOrdersN, int stationsWithCap, int podsInModel,
+            int dispatched, int nChildren, int nFastPath, int unitsAssigned, double decisionSec)
+        {
+            if (_pvgsDecisionLog == null)
+            {
+                string dir = Instance != null && Instance.SettingConfig != null ? Instance.SettingConfig.StatisticsDirectory : null;
+                if (string.IsNullOrEmpty(dir))
+                    dir = ".";
+                if (!System.IO.Directory.Exists(dir))
+                    System.IO.Directory.CreateDirectory(dir);
+                _pvgsDecisionLog = new System.IO.StreamWriter(System.IO.Path.Combine(dir, "pvgs_decision_log.csv"), false) { AutoFlush = true };
+                _pvgsDecisionLog.WriteLine("decision,time,pendingOrders,stationsWithCap,podsInModel,dispatched,children,fastPath,units,decisionSec");
+            }
+            _pvgsDecisionLog.WriteLine(string.Join(",", new string[] {
+                _pvgsDecisionIndex.ToString(),
+                time.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                pendingOrdersN.ToString(),
+                stationsWithCap.ToString(),
+                podsInModel.ToString(),
+                dispatched.ToString(),
+                nChildren.ToString(),
+                nFastPath.ToString(),
+                unitsAssigned.ToString(),
+                decisionSec.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            }));
+            _pvgsDecisionIndex++;
+        }
+
+        /// <summary>
+        /// This is called to decide about potentially pending orders (PVGS heuristic).
+        /// Snapshot -> Phase A completion sweep (inherited pods only) -> Phase B value-driven
+        /// dispatch loop (which re-sweeps after every dispatch) -> M2e trailing partial sweep
+        /// -> commit wiring in strict base parity: JustRegisterItem over all new Ziops FIRST,
+        /// then AllocateOrder, then split-parent bookkeeping.
         /// </summary>
         protected override void DecideAboutPendingOrders()
         {
+            DateTime A = DateTime.Now;
+            Dictionary<ItemDescription, List<Pod>> PiSKU;
+            Dictionary<ItemDescription, List<Order>> OiSKU;
+            Dictionary<OutputStation, int> Cs;
+            Dictionary<OutputStation, HashSet<Pod>> inboundPods;
+            HashSet<Order> pendingOrders;
+            HashSet<Bot> Ra;
+            HashSet<Bot> Rb;
+            HashSet<Bot> R;
+            HashSet<Pod> Pb;
+            HashSet<Pod> Pa;
+            Dictionary<Pod, Bot> PodToBot;
+            Dictionary<Order, Dictionary<ItemDescription, int>> residuals;
+            HashSet<Pod> allPods = InitializePvgs(out PiSKU, out OiSKU, out Cs, out pendingOrders,
+                out inboundPods, out Ra, out Rb, out R, out Pb, out Pa, out PodToBot, out residuals);
+            if (R.Count() > 0 && pendingOrders.Count > 0)
+            {
+                bool crossTime = _config != null && _config.CrossTime;
+                PvgsEpochState st = BuildEpochState(allPods, Cs, inboundPods, Pb, Ra, pendingOrders, residuals);
+                CompletionSweep(st, null);
+                DispatchLoop(st, Pa, OiSKU, crossTime);
+                if (crossTime)
+                    PartialSweep(st);
+                foreach (var symbol in st.Result.NewZiops)
+                {
+                    for (int i = 0; i < symbol.Value; i++)
+                        symbol.Key.pod.JustRegisterItem(symbol.Key.skui);
+                }
+                foreach (var alloc in st.Result.Allocations)
+                {
+                    AllocateOrder(alloc.order, alloc.outputstation);
+                    Instance.StatCustomControllerInfo.CustomLogOB1++;
+                }
+                foreach (var parent in st.Result.SplitParents)
+                {
+                    if (double.IsPositiveInfinity(parent.TimeStampSubmit))
+                        parent.TimeStampSubmit = Instance.Controller.CurrentTime;
+                    if (parent.IsFullyClaimed)
+                    {
+                        _pendingOrders.Remove(parent);
+                        (Instance.ItemManager as ItemManager).TakeAvailableOrder(parent);
+                    }
+                }
+                double decisionSec = (DateTime.Now - A).TotalSeconds;
+                WritePvgsDecisionLog(Instance.Controller.CurrentTime, pendingOrders.Count, Cs.Count, allPods.Count,
+                    st.Dispatched, st.ChildCount, st.FastPathCount, st.UnitsAssigned, decisionSec);
+                Instance.Observer.TimeOrderBatchingbyMP(decisionSec);
+            }
         }
     }
 }
