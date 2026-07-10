@@ -991,5 +991,40 @@ namespace RAWSimO.Core.Configurations
         public double OrderRewardWeight = -40;
     }
 
+    /// <summary>
+    /// Pod-Value Greedy Splitting (PVGS): the fast heuristic counterpart of SplitM1GExact,
+    /// positioned as HADGS is to M1G. Pod-centric greedy driven by a residual-coverage value
+    /// index; commits exact ledger claims through the Spec 1 enabler pipeline - no MILP.
+    /// CrossTime=false selects PVGS-M1e (per-epoch all-or-nothing), true selects PVGS-M2e
+    /// (partial service allowed, residuals stay in the backlog).
+    /// </summary>
+    public class PVGSConfiguration : SplitM1GExactConfiguration
+    {
+        /// <summary>
+        /// Returns the type of the corresponding method this configuration belongs to.
+        /// </summary>
+        /// <returns>The type of the method.</returns>
+        public override OrderBatchingMethodType GetMethodType() { return OrderBatchingMethodType.PVGS; }
+        /// <summary>
+        /// Returns a name identifying the method.
+        /// </summary>
+        /// <returns>The name of the method.</returns>
+        public override string GetMethodName() { if (!string.IsNullOrWhiteSpace(Name)) return Name; return "OBPVGS"; }
+        /// <summary>Dispatch-score weight per newly completable order (mirrors |w2|=40 of the exact objective).</summary>
+        public double CompletionWeight = 40;
+        /// <summary>Dispatch-score weight per meter of bot-to-pod plus pod-to-station distance (mirrors w1=1).</summary>
+        public double DistanceWeight = 1;
+        /// <summary>M2e only: dispatch-score weight per scarcity-weighted unit of partial progress a candidate pod offers.</summary>
+        public double PartialUnitWeight = 1;
+        /// <summary>M2e only: dispatch-score bonus per newly completable order that is an open split parent (closes a consolidation tail).</summary>
+        public double ParentClosingBonus = 20;
+        /// <summary>Scarcity exponent beta in the pod value index: value += min(avail, R) * (1 + beta * R / supply).</summary>
+        public double ScarcityBeta = 1;
+        /// <summary>M2e only: minimum units for a NEW partial child (anti-fragmentation threshold theta).</summary>
+        public int MinPartialUnits = 2;
+        /// <summary>Number of top-value candidate pods evaluated per dispatch iteration.</summary>
+        public int ShortlistK = 15;
+    }
+
     #endregion
 }

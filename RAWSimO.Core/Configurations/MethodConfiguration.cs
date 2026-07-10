@@ -341,6 +341,11 @@ namespace RAWSimO.Core.Configurations
         /// of the post-solve greedy Ziops pass. Reward is per-order-completion, not per-unit.
         /// </summary>
         SplitM1GExact,
+        /// <summary>
+        /// Pod-Value Greedy Splitting: the fast heuristic counterpart of SplitM1GExact
+        /// (as HADGS is to M1G). Pod-centric greedy with exact ledger claims, no Gurobi.
+        /// </summary>
+        PVGS,
     }
     /// <summary>
     /// All types of implemented replenishment batching strategies.
@@ -774,6 +779,7 @@ namespace RAWSimO.Core.Configurations
     [XmlInclude(typeof(SplitHeuristicConfiguration))]
     [XmlInclude(typeof(SplitM1GConfiguration))]
     [XmlInclude(typeof(SplitM1GExactConfiguration))]
+    [XmlInclude(typeof(PVGSConfiguration))]
     public abstract class OrderBatchingConfiguration : ControllerConfigurationBase
     {
         /// <summary>
