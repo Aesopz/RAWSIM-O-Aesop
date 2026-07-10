@@ -42,6 +42,7 @@ namespace RAWSimO.Tests
             SplitPlannerTests.Register();
             SplitMilpDecoderTests.Register();
             SplitM1GExactAggregatorTests.Register();
+            PvgsValueIndexTests.Register();
             return TestRunner.RunAll();
         }
     }
