@@ -234,6 +234,15 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             if (Od.Count > Cs.Values.Sum())
                 pendingOrders = new HashSet<Order>(Od);
             OiSKU = GenerateOiSKUSplit(pendingOrders);
+            // PVGS-E snapshot parity (Task 3 audit): the exact model instantiates q-variables
+            // only for pods carrying a SKU of the FINAL admitted order set - narrow Pa the
+            // same way so the greedy cannot claim pods the MILP would never see. E-mode only:
+            // regular PVGS keeps its historical (wider) candidate set bit-identically.
+            if (_config != null && _config.ExactAlignedScoring)
+            {
+                HashSet<ItemDescription> finalSkus = new HashSet<ItemDescription>(OiSKU.Keys);
+                Pa.RemoveWhere(p => !p.IsAvailabletoOiSKU(finalSkus));
+            }
             residuals = pendingOrders.ToDictionary(o => o, o => o.RemainingPositions.ToDictionary(p => p.Key, p => p.Value));
             return allPods;
         }
@@ -444,6 +453,58 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         }
 
         /// <summary>
+        /// PVGS-E epsilon layer: after all completions and dispatches, fill remaining free
+        /// slots with the largest drawable partial parts from pods already at stations
+        /// (committed supply only - a new trip can never pay for itself at epsilon scale).
+        /// The greedy of the exact objective's UnitDrawReward term. Unlike PartialSweep
+        /// there is no MinPartialUnits floor and no one-child-per-order guard: the exact
+        /// model prices every drawn unit at epsilon with no extra gates, and this runs only
+        /// after every rewarded (completion) action has taken its slots. Active only in
+        /// ExactAlignedScoring mode with UnitDrawReward != 0.
+        /// </summary>
+        private int SqueezeSweep(PvgsEpochState st)
+        {
+            if (_config != null && _config.DisableSplitting)
+                return 0;
+            int created = 0;
+            while (st.FreeSlots.Any(f => f > 0))
+            {
+                Order bestOrder = null;
+                Dictionary<ItemDescription, int> bestPart = null;
+                int bestStation = -1, bestUnits = 0;
+                foreach (var order in st.ScanOrder)
+                {
+                    if (st.Committed.Contains(order))
+                        continue;
+                    var residual = st.Residuals[order].Where(p => p.Value > 0).ToList();
+                    if (residual.Count == 0)
+                        continue;
+                    bool[] slotFree = st.FreeSlots.Select(f => f > 0).ToArray();
+                    int stationIndex;
+                    var part = PvgsExactAligned.PlanSqueeze(residual, st.PerStationAvail, slotFree, out stationIndex);
+                    if (part == null)
+                        continue;
+                    int units = part.Values.Sum();
+                    if (units > bestUnits)
+                    {
+                        bestUnits = units;
+                        bestOrder = order;
+                        bestPart = part;
+                        bestStation = stationIndex;
+                    }
+                }
+                if (bestOrder == null)
+                    break;
+                CommitParts(st, bestOrder,
+                    new List<KeyValuePair<int, Dictionary<ItemDescription, int>>>
+                    { new KeyValuePair<int, Dictionary<ItemDescription, int>>(bestStation, bestPart) },
+                    null);
+                created++;
+            }
+            return created;
+        }
+
+        /// <summary>
         /// Phase B: value-driven pod dispatch. Shortlists candidate storage pods by the
         /// residual-coverage value index, scores (pod, station) pairs by newly completable
         /// orders (sound attribution: the preceding sweep guarantees nothing was completable
@@ -463,7 +524,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     .Select(p => new { Pod = p, Value = PvgsValueIndex.ComputeValue(st.Avail[p], st.ResidualTotals, st.SupplyTotals, _config != null ? _config.ScarcityBeta : 1.0) })
                     .Where(c => c.Value > 0)
                     .OrderByDescending(c => c.Value)
-                    .Take(_config != null ? _config.ShortlistK : 15)
+                    .Take(_config != null && _config.ExactAlignedScoring ? int.MaxValue : (_config != null ? _config.ShortlistK : 15))
                     .ToList();
                 if (shortlist.Count == 0)
                     break;
@@ -471,6 +532,9 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 double distanceWeight = _config != null ? _config.DistanceWeight : 1;
                 double partialUnitWeight = _config != null ? _config.PartialUnitWeight : 1;
                 double parentClosingBonus = _config != null ? _config.ParentClosingBonus : 20;
+                bool exactAligned = _config != null && _config.ExactAlignedScoring;
+                double podTripFixedCost = _config != null ? _config.PodTripFixedCost : 0;
+                double unitDrawReward = _config != null ? _config.UnitDrawReward : 0;
                 double bestScore = 0;
                 Pod bestPod = null;
                 int bestStation = -1;
@@ -509,7 +573,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                         var hypo = new List<Dictionary<ItemDescription, int>>(st.PerStationAvail);
                         hypo[s] = merged;
                         bool[] slotFree = st.FreeSlots.Select(f => f > 0).ToArray();
-                        int newCompletions = 0, parentCloses = 0;
+                        int newCompletions = 0, parentCloses = 0, newUnits = 0;
                         foreach (var o in touched)
                         {
                             var residual = st.Residuals[o].Where(p => p.Value > 0).ToList();
@@ -522,11 +586,19 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                                 newCompletions++;
                                 if (o.IsSplitParent)
                                     parentCloses++;
+                                newUnits += residual.Sum(p => p.Value);
                             }
                         }
-                        double score = completionWeight * newCompletions
-                            + (crossTime ? partialUnitWeight * cand.Value + parentClosingBonus * parentCloses : 0.0)
-                            - distanceWeight * (dBot + dPod);
+                        // E-mode: the score is the exact objective's marginal value of this
+                        // dispatch - no PartialUnitWeight, no ParentClosingBonus (terms the
+                        // exact model does not have); w4 and epsilon enter with their exact-
+                        // model semantics. Regular mode: unchanged legacy score.
+                        double score = exactAligned
+                            ? PvgsExactAligned.Score(newCompletions, newUnits, dBot, dPod,
+                                completionWeight, distanceWeight, podTripFixedCost, unitDrawReward)
+                            : completionWeight * newCompletions
+                                + (crossTime ? partialUnitWeight * cand.Value + parentClosingBonus * parentCloses : 0.0)
+                                - distanceWeight * (dBot + dPod);
                         if (score > bestScore)
                         {
                             bestScore = score;
@@ -552,7 +624,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 dispatched.Add(bestPod);
                 st.Dispatched++;
                 CompletionSweep(st, bestPod);
-                if (crossTime)
+                if (crossTime && !(_config != null && _config.ExactAlignedScoring))
                     PartialSweep(st);
             }
         }
@@ -618,8 +690,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 PvgsEpochState st = BuildEpochState(allPods, Cs, inboundPods, Pb, Ra, pendingOrders, residuals);
                 CompletionSweep(st, null);
                 DispatchLoop(st, Pa, OiSKU, crossTime);
-                if (crossTime)
+                bool exactAligned = _config != null && _config.ExactAlignedScoring;
+                if (crossTime && !exactAligned)
                     PartialSweep(st);
+                if (exactAligned && _config.UnitDrawReward != 0)
+                    SqueezeSweep(st);
                 foreach (var symbol in st.Result.NewZiops)
                 {
                     for (int i = 0; i < symbol.Value; i++)
