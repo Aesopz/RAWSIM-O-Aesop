@@ -1023,6 +1023,16 @@ namespace RAWSimO.Core.Configurations
         /// unit milking. Default 0 = term omitted entirely (bit-identical model).
         /// </summary>
         public double ProcessingPodDrawReward = 0;
+        /// <summary>
+        /// Per-unit reward epsilon (negative = reward) for EVERY assigned unit q[i,o,p,s],
+        /// regardless of pod phase - the lexicographic item-pile-on secondary objective
+        /// (user decision 2026-07-12): keep |epsilon| well below |OrderRewardWeight| so it
+        /// only breaks ties among completion-equivalent solutions toward drawing more
+        /// items per pod visit. Shared by the exact model and PVGS-E (which inherits this
+        /// field), so both sides price the same epsilon by construction. Default 0 = term
+        /// omitted entirely (bit-identical model).
+        /// </summary>
+        public double UnitDrawReward = 0;
     }
 
     /// <summary>
@@ -1066,6 +1076,17 @@ namespace RAWSimO.Core.Configurations
         /// PVGS-NoSplit is the same-engine splitting gain). Default false.
         /// </summary>
         public bool DisableSplitting = false;
+        /// <summary>
+        /// PVGS-E mode: makes PVGS a faithful epoch greedy of the SplitM1GExact objective
+        /// (see docs/superpowers/specs/2026-07-12-pvgs-e-design.md). When true: the dispatch
+        /// score becomes CompletionWeight*newCompletions - UnitDrawReward*units -
+        /// DistanceWeight*distance - PodTripFixedCost (no PartialUnitWeight, no
+        /// ParentClosingBonus), the coverage-only shortlist truncation is disabled (all
+        /// relevant candidates are scored), and the PartialSweep/MinPartialUnits partial
+        /// engine is replaced by the epsilon SqueezeSweep (active only when
+        /// UnitDrawReward != 0). Default false = bit-identical to regular PVGS.
+        /// </summary>
+        public bool ExactAlignedScoring = false;
     }
 
     #endregion
