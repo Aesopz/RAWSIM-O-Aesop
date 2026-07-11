@@ -396,6 +396,10 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 var parts = PvgsStationSplitPlanner.PlanCompletion(residual, st.PerStationAvail, slotFree);
                 if (parts == null)
                     continue;
+                // NoSplit control arm: only single-station full-order commits (HADGS-equivalent
+                // semantics) - cross-station splits are rejected, not committed.
+                if (_config != null && _config.DisableSplitting && parts.Count > 1)
+                    continue;
                 CommitParts(st, order, parts, preferPod);
                 committed++;
             }
@@ -410,6 +414,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// </summary>
         private int PartialSweep(PvgsEpochState st)
         {
+            if (_config != null && _config.DisableSplitting)
+                return 0;
             int created = 0;
             var scan = st.ScanOrder
                 .Where(o => !st.Committed.Contains(o) && !st.PartialThisEpoch.Contains(o))
@@ -509,7 +515,9 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                             var residual = st.Residuals[o].Where(p => p.Value > 0).ToList();
                             if (residual.Count == 0)
                                 continue;
-                            if (PvgsStationSplitPlanner.PlanCompletion(residual, hypo, slotFree) != null)
+                            var plan = PvgsStationSplitPlanner.PlanCompletion(residual, hypo, slotFree);
+                            // NoSplit arm: scoring must count only what the sweep would commit
+                            if (plan != null && (_config == null || !_config.DisableSplitting || plan.Count == 1))
                             {
                                 newCompletions++;
                                 if (o.IsSplitParent)

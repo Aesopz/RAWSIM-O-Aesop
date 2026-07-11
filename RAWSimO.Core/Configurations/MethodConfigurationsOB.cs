@@ -1049,6 +1049,14 @@ namespace RAWSimO.Core.Configurations
         public int MinPartialUnits = 2;
         /// <summary>Number of top-value candidate pods evaluated per dispatch iteration.</summary>
         public int ShortlistK = 15;
+        /// <summary>
+        /// NoSplit control arm: restricts PVGS to single-station full-order commits
+        /// (HADGS-equivalent order semantics) - no cross-station children, no partials.
+        /// Used to isolate the pure splitting increment against regular PVGS with the
+        /// identical engine (PVGS-NoSplit vs HADGS validates engine parity; PVGS vs
+        /// PVGS-NoSplit is the same-engine splitting gain). Default false.
+        /// </summary>
+        public bool DisableSplitting = false;
     }
 
     #endregion
