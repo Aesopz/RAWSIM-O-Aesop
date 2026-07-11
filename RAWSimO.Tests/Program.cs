@@ -44,6 +44,7 @@ namespace RAWSimO.Tests
             SplitM1GExactAggregatorTests.Register();
             PvgsValueIndexTests.Register();
             PvgsStationSplitPlannerTests.Register();
+            PvgsExactAlignedTests.Register();
             return TestRunner.RunAll();
         }
     }
