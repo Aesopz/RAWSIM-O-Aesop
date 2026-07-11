@@ -389,6 +389,14 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 if (squeezeVars.Count > 0)
                     objective = objective + LinearExpression.Sum(squeezeVars) * w5;
             }
+            // (eps) lexicographic item-pile-on layer: every assigned unit earns eps (negative
+            // = reward), phase-blind - among completion-equivalent solutions the solver now
+            // systematically prefers drawing more items per committed pod. |eps| << |w2|, so
+            // it can never trade away a completion. Guarded so eps=0 stays bit-identical
+            // (LinearExpression.Sum throws on an empty sequence).
+            double eps = _splitConfig != null ? _splitConfig.UnitDrawReward : 0;
+            if (eps != 0 && deVarNameq.Count > 0)
+                objective = objective + LinearExpression.Sum(deVarNameq.Select(v => variablesQ[v.name])) * eps;
             wrapper.SetObjective(objective, OptimizationSense.Minimize);
             // (ecap) sequential trip discipline: at most K new pod trips per decision. Restores
             // the one-move-at-a-time cadence (the greedy's structural advantage) while keeping
