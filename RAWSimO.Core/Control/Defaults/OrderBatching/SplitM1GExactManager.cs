@@ -390,6 +390,16 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     objective = objective + LinearExpression.Sum(squeezeVars) * w5;
             }
             wrapper.SetObjective(objective, OptimizationSense.Minimize);
+            // (ecap) sequential trip discipline: at most K new pod trips per decision. Restores
+            // the one-move-at-a-time cadence (the greedy's structural advantage) while keeping
+            // each move jointly optimal. Skipped at K=0 (unlimited, bit-identical default).
+            int tripCap = _splitConfig != null ? _splitConfig.MaxNewPodTripsPerDecision : 0;
+            if (tripCap > 0)
+            {
+                var newTripVars = deVarNamexps.Where(v => Pa.Contains(v.pod)).Select(v => variablesBinary[v.name]).ToList();
+                if (newTripVars.Count > 0)
+                    wrapper.AddConstr(LinearExpression.Sum(newTripVars) <= tripCap, "ecap");
+            }
             // (elink1) sum_o q[i,o,p,s] <= stock[p,i] * xps[p,s] - ties the TOTAL demand drawn from
             // one specific pod's real inventory across ALL orders. A per-order bound alone would let
             // several orders each draw the full stock of the same pod (Task 6 smoke crash:

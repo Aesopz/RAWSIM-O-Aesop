@@ -1004,6 +1004,15 @@ namespace RAWSimO.Core.Configurations
         /// </summary>
         public double PodTripFixedCost = 0;
         /// <summary>
+        /// Caps the number of NEW pod trips (newly claimed Pa pods) a single decision may
+        /// open: sum over p in Pa of xps[p,s] &lt;= K. Restores the sequential trip
+        /// discipline a per-epoch snapshot optimizer cannot express through static prices
+        /// alone (decisions re-trigger on every freed slot, so small K does not starve
+        /// supply - PVGS empirically dispatches ~0.24 pods per decision). 0 = unlimited
+        /// (bit-identical default).
+        /// </summary>
+        public int MaxNewPodTripsPerDecision = 0;
+        /// <summary>
         /// Per-unit reward w5 (negative = reward) for every unit drawn from the pod
         /// CURRENTLY BEING PROCESSED at a station (its bot stands at the station's pick
         /// waypoint) - NOT from queueing or en-route inbound pods. The processing pod's
