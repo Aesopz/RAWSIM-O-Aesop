@@ -326,6 +326,8 @@ namespace RAWSimO.Core
         public double StatOrderDistanceM => StatOverallOrdersHandled > 0 ? StatOverallDistanceTraveled / StatOverallOrdersHandled : 0.0;
         /// <summary>System-wide output-side order pile-on [orders/output_station_arrival].</summary>
         public double StatSystemOrderPileOn { get { int arrivals = StatOverallOutputStationArrivals; return arrivals > 0 ? (double)StatOverallOrdersHandled / arrivals : 0.0; } }
+        /// <summary>System-wide output-side ITEM pile-on [items/output_station_arrival] - the physically meaningful pile-on for the energy analysis (items moved per pod trip).</summary>
+        public double StatSystemItemPileOn { get { int arrivals = StatOverallOutputStationArrivals; return arrivals > 0 ? (double)StatOverallItemsHandled / arrivals : 0.0; } }
         /// <summary>Fleet wait time while loaded [s].</summary>
         public double StatOverallWaitTimeLoadedSec { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatWaitTimeLoadedSec); } }
         /// <summary>Fleet wait time while empty [s].</summary>
@@ -1654,6 +1656,7 @@ namespace RAWSimO.Core
             sb.AppendLine(">>> KPI Summary");
             sb.AppendLine("KPI_TP: " + StatThroughputOrdersPerHour.ToString(IOConstants.FORMATTER));
             sb.AppendLine("KPI_PO: " + StatSystemOrderPileOn.ToString(IOConstants.FORMATTER));
+            sb.AppendLine("KPI_IPO: " + StatSystemItemPileOn.ToString(IOConstants.FORMATTER));
             sb.AppendLine("KPI_RD: " + StatOverallDistanceTraveled.ToString(IOConstants.FORMATTER));
             sb.AppendLine("KPI_OD: " + (StatOverallOrdersHandled > 0 ? (StatOverallDistanceTraveled / StatOverallOrdersHandled).ToString(IOConstants.FORMATTER) : "0"));
             sb.AppendLine("KPI_EOR: " + (StatOverallOrdersHandled > 0 ? (StatOverallEnergyTotalJ / 1000.0 / StatOverallOrdersHandled).ToString(IOConstants.FORMATTER) : "0"));
