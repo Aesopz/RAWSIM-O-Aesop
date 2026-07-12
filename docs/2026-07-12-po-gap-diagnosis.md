@@ -108,3 +108,45 @@ M2e 對 Pb 內「processing vs queueing」不分（w5=0 時）。micro-w5 當 ti
 - 總體敘事 spec：`docs/superpowers/specs/2026-07-10-energy-aware-split-thesis-design.md`（Phase B 待改寫為能耗觀測法）
 - 掃描 xconf 庫：`Material/Instances/CoreBenchmark/small/sweep/`（sw_<w4>_<|w5|> 命名）
 - 代碼錨點：`SplitM1GExactManager.cs:345-481`（權重與限制式）、`PVGSManager.cs`（DispatchLoop/shortlist）
+
+## 9. 槽位佔用診斷（2026-07-12 晚）——M2e 的 TP 貼著槽位回收天花板
+
+CF 配對失敗後，針對「M1G 範式的結構缺陷到底在哪」做的零代碼診斷：全部數據收割自既有 5-seed 驗收 run（`output_acc_m2ea_s0..4` / `output_acc_pvgse_s0..4`）的 statistics.txt、orderprogression.csv、decision log、stationstatistics.csv。**未改任何代碼、未跑任何新模擬。**
+
+### 9.1 訂單槽駐留時間（submit→complete，StatThroughputTime，5-seed 平均）
+
+| | M2e | PVGS-E | Δ |
+|---|---|---|---|
+| avg | 132.9s | 116.7s | **+14%** |
+| median | 125.9s | 114.5s | +10% |
+| UQ | 153.9s | 140.8s | +9% |
+
+### 9.2 槽位佔用率（OStationCapacity=6×2 站×7200s＝86,400 槽·秒預算；orderprogression 逐單加總）
+
+| seed | M2e | PVGS-E |
+|---|---|---|
+| 0 | 95.7% | 87.4% |
+| 1 | 100.8% | 88.2% |
+| 2 | 101.5% | 92.0% |
+| 3 | 99.2% | 79.3% |
+| 4 | 96.7% | 86.2% |
+
+（>100% 因 allocated order 可進站台 queue 超出 6 個 active slot；Little's law 換算：M2e 平均在站 WIP ≈ 11.85/12 槽＝**飽和**，PVGS ≈ 10.3/12＝有 14% 餘裕。）**M2e 的 TP 天花板 = 86,400 ÷ 132.9s ≈ 650 單，實測 642 貼頂；PVGS 的天花板 ≈ 740，實測 637，遠未觸頂。** M2e 已經不可能靠更好的 pod 選擇提高 TP——唯一出路是縮短槽駐留。
+
+### 9.3 承諾形態（decision log，5 seeds）——舊故事被推翻的部分
+
+| | M2e | PVGS-E |
+|---|---|---|
+| 活躍決策數（units>0） | ~474 | ~369 |
+| 每活躍決策 units | 2.9–3.5 | 3.0–5.1 |
+| pendingOrders 均值 | 65.4 | 50.1 |
+| pod 到訪/站（seed0） | 152/154 | **86/82** |
+| pod 站上駐留 | 49.3s | 85.6s |
+
+**修正**：先前「M2e 每期指派量大、抽薄 backlog」的說法**錯了**——M2e 是「更多次、更薄」的承諾，pending 反而更厚（65 vs 50，因為槽位飽和堵住了 allocation）。PVGS 是「更少次、更肥」（squeeze 讓每次 pod 認領載更多 units）。
+
+### 9.4 修正後的結構病理（取代「承諾早且滿」的粗糙版）
+
+**M1G 範式把訂單槽當 WIP 停車場用**：MILP 在求解時刻就把 order→pod→station 綁死，訂單立即進槽開始等它的 pod（駐留 = 等待 + 服務）；槽位變成「等貨的緩衝區」而不是「服務位」。槽飽和 → allocation 被堵 → pending 增厚 → TP 被槽位回收速度封頂。PVGS 的隱性正確行為是**晚綁定**：pod 認領的瞬間才把 order 綁進槽，駐留 ≈ 服務時間，槽位快速回收。
+
+**對新模型的設計意涵**：exact 要贏，必須把「規劃」（哪些 pod 覆蓋 backlog 哪些單——池化中心主義，可以早算）和「槽綁定」（AllocateOrder 落地——必須晚到 pod 臨站才做）**解耦**。註：2026-05-31 的 deferred-binding+backfill 探針（memory: project_backfill_probe_validation）已驗證過晚綁定的可行性命門（gap 時 pod 在站 97%、可完整回填 75%）——機制先行證據已存在。
