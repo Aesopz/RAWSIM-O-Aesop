@@ -121,6 +121,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             public List<Dictionary<ItemDescription, int>> PerStationAvail;
             public Dictionary<ItemDescription, int> ResidualTotals;
             public Dictionary<ItemDescription, int> SupplyTotals;
+            public Dictionary<ItemDescription, int> PoolTotals; // CF mode only: whole-backlog demand pool (first-stage admission, no Od shrink)
             public Dictionary<Order, Dictionary<ItemDescription, int>> Residuals;
             public List<Order> ScanOrder;
             public HashSet<Order> Committed = new HashSet<Order>();
@@ -308,6 +309,23 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     int cur;
                     st.SupplyTotals[e.Key] = (st.SupplyTotals.TryGetValue(e.Key, out cur) ? cur : 0) + e.Value;
                 }
+            if (_config != null && _config.ExactAlignedScoring && _config.CoverageFirstScoring)
+            {
+                st.PoolTotals = new Dictionary<ItemDescription, int>();
+                bool cfCrossTime = _config.CrossTime;
+                foreach (var order in _pendingOrders)
+                {
+                    if (cfCrossTime
+                        ? !order.RemainingPositions.Any(p => Instance.StockInfo.GetActualStock(p.Key) >= 1)
+                        : !order.RemainingPositions.All(p => Instance.StockInfo.GetActualStock(p.Key) >= p.Value))
+                        continue;
+                    foreach (var pos in order.RemainingPositions)
+                    {
+                        int cur;
+                        st.PoolTotals[pos.Key] = (st.PoolTotals.TryGetValue(pos.Key, out cur) ? cur : 0) + pos.Value;
+                    }
+                }
+            }
             st.ScanOrder = pendingOrders.OrderBy(o => o.Timestay).ThenBy(o => o.DueTime).ToList();
             st.FreeBots = new List<Bot>(Ra);
             return st;
@@ -367,6 +385,9 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                         int curTotal;
                         if (st.ResidualTotals.TryGetValue(pos.Key, out curTotal))
                             st.ResidualTotals[pos.Key] = Math.Max(0, curTotal - take);
+                        int curPool;
+                        if (st.PoolTotals != null && st.PoolTotals.TryGetValue(pos.Key, out curPool))
+                            st.PoolTotals[pos.Key] = Math.Max(0, curPool - take);
                         need -= take;
                     }
                     if (need != 0)
@@ -535,7 +556,12 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 bool exactAligned = _config != null && _config.ExactAlignedScoring;
                 double podTripFixedCost = _config != null ? _config.PodTripFixedCost : 0;
                 double unitDrawReward = _config != null ? _config.UnitDrawReward : 0;
+                bool coverageFirst = exactAligned && _config != null && _config.CoverageFirstScoring;
+                double betaPool = _config != null ? _config.PoolCoverWeight : 0;
+                double epsPod = _config != null ? _config.PodSelectTiebreakCost : 0;
                 double bestScore = 0;
+                double bestPrimary = 0;
+                double bestDist = double.PositiveInfinity;
                 Pod bestPod = null;
                 int bestStation = -1;
                 Bot bestBot = null;
@@ -593,18 +619,39 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                         // dispatch - no PartialUnitWeight, no ParentClosingBonus (terms the
                         // exact model does not have); w4 and epsilon enter with their exact-
                         // model semantics. Regular mode: unchanged legacy score.
-                        double score = exactAligned
-                            ? PvgsExactAligned.Score(newCompletions, newUnits, dBot, dPod,
-                                completionWeight, distanceWeight, podTripFixedCost, unitDrawReward)
-                            : completionWeight * newCompletions
-                                + (crossTime ? partialUnitWeight * cand.Value + parentClosingBonus * parentCloses : 0.0)
-                                - distanceWeight * (dBot + dPod);
-                        if (score > bestScore)
+                        if (coverageFirst)
                         {
-                            bestScore = score;
-                            bestPod = cand.Pod;
-                            bestStation = s;
-                            bestBot = bot;
+                            // CF mirror: primary = greedy Solve-1 marginal (completions +
+                            // beta * pool-cover gain - epsS), distance ONLY breaks ties.
+                            double coverGain = st.PoolTotals != null
+                                ? PvgsValueIndex.ComputeValue(st.Avail[cand.Pod], st.PoolTotals, st.SupplyTotals, 0.0)
+                                : 0.0;
+                            double primary = PvgsExactAligned.CoverageFirstPrimary(newCompletions, coverGain, betaPool, epsPod);
+                            double dist = dBot + dPod;
+                            if (primary > 1e-9 && (bestPod == null || PvgsExactAligned.CoverageFirstBetter(primary, dist, bestPrimary, bestDist)))
+                            {
+                                bestPrimary = primary;
+                                bestDist = dist;
+                                bestPod = cand.Pod;
+                                bestStation = s;
+                                bestBot = bot;
+                            }
+                        }
+                        else
+                        {
+                            double score = exactAligned
+                                ? PvgsExactAligned.Score(newCompletions, newUnits, dBot, dPod,
+                                    completionWeight, distanceWeight, podTripFixedCost, unitDrawReward)
+                                : completionWeight * newCompletions
+                                    + (crossTime ? partialUnitWeight * cand.Value + parentClosingBonus * parentCloses : 0.0)
+                                    - distanceWeight * (dBot + dPod);
+                            if (score > bestScore)
+                            {
+                                bestScore = score;
+                                bestPod = cand.Pod;
+                                bestStation = s;
+                                bestBot = bot;
+                            }
                         }
                     }
                 }

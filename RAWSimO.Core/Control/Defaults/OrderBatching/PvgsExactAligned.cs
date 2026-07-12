@@ -73,5 +73,27 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             }
             return best;
         }
+
+        /// <summary>
+        /// Coverage-first PRIMARY key of a dispatch candidate (the greedy mirror of the
+        /// exact model's Solve-1 objective): newCompletions + poolCoverWeight *
+        /// poolCoverGain - podSelectTiebreakCost (one new trip per dispatch). Distance
+        /// is NOT part of the primary - it only breaks ties (CoverageFirstBetter).
+        /// </summary>
+        public static double CoverageFirstPrimary(int newCompletions, double poolCoverGain, double poolCoverWeight, double podSelectTiebreakCost)
+        {
+            return newCompletions + poolCoverWeight * poolCoverGain - podSelectTiebreakCost;
+        }
+
+        /// <summary>
+        /// Lexicographic comparison: candidate A beats B iff its primary is strictly
+        /// higher (1e-9 tolerance), or primaries tie and A is nearer.
+        /// </summary>
+        public static bool CoverageFirstBetter(double primaryA, double distanceA, double primaryB, double distanceB)
+        {
+            if (primaryA > primaryB + 1e-9)
+                return true;
+            return Math.Abs(primaryA - primaryB) <= 1e-9 && distanceA < distanceB - 1e-9;
+        }
     }
 }

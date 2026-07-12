@@ -93,6 +93,27 @@ namespace RAWSimO.Tests
                     new[] { true }, out stationIndex);
                 TestRunner.AssertEqual(4, part[a], "take = min(avail, residual)");
             });
+            TestRunner.Add("ECF_Primary_CompletionsDominatePool", () =>
+            {
+                // 1 completion vs huge pool gain at beta=0.005: 1 + 0.005*100 - 0.01 = 1.49
+                AssertClose(1.49, PvgsExactAligned.CoverageFirstPrimary(1, 100, 0.005, 0.01), "1 + 0.5 - 0.01");
+            });
+            TestRunner.Add("ECF_Primary_PurePoolTrip", () =>
+            {
+                // 0 completions, pool gain 10 at beta=0.005 vs epsS=0.01: 0.05 - 0.01 = 0.04 > 0 -> supply trip allowed
+                AssertClose(0.04, PvgsExactAligned.CoverageFirstPrimary(0, 10, 0.005, 0.01), "pool-only trip clears epsS");
+            });
+            TestRunner.Add("ECF_Better_PrimaryWinsOverDistance", () =>
+            {
+                // higher primary wins even at much worse distance
+                TestRunner.AssertTrue(PvgsExactAligned.CoverageFirstBetter(2.0, 100.0, 1.0, 5.0), "primary dominates");
+                TestRunner.AssertTrue(!PvgsExactAligned.CoverageFirstBetter(1.0, 5.0, 2.0, 100.0), "reverse");
+            });
+            TestRunner.Add("ECF_Better_DistanceBreaksTies", () =>
+            {
+                TestRunner.AssertTrue(PvgsExactAligned.CoverageFirstBetter(1.0, 5.0, 1.0, 10.0), "tie -> nearer wins");
+                TestRunner.AssertTrue(!PvgsExactAligned.CoverageFirstBetter(1.0, 10.0, 1.0, 5.0), "tie -> farther loses");
+            });
         }
     }
 }
