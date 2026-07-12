@@ -76,10 +76,11 @@ Phase B 派遣迴圈（E 評分）：
 0. **KPI 擴充**：`InstanceStatistics` 加 `KPI_IPO` ＝ StatOverallItemsHandled ÷ StatOverallOutputStationArrivals（item pile-on，能耗的物理正解指標；純新增，不動既有 KPI；既有 runs 可由 statistics.txt 回溯計算交叉驗證）。
 1. **回歸（旗標關）**：`pvgs_m2e.xconf` seed0 重跑 ＝ 648/656 精準一致（bit-identical 保證）；M2e 側 `UnitDrawReward=0` 回歸 649/643 精準一致。
 2. **單元測試（TDD）**：E 評分器抽純函式（給定庫存/殘量/槽位狀態，回傳 N(p,s) 邊際可完成數與分數，含 ε 件數項），新測試進 RAWSimO.Tests。
-3. **統治測試（主驗收，使用者定點）**：**w3=0 / w4=0 / w5=0 / ε=0**，small 7200s：
-   - M2e：`sw_0_0` 配置補至 5 seeds（現有 s0/s1）；
-   - PVGS-E：`pvgs_e.xconf`（權重對齊同點）5 seeds；
-   - 判準：**六項（TP/PO/IPO/RD/OD/EOR）5-seed 均值 M2e ≥ PVGS-E，且至少一項嚴格大於（預期為 TP）——全平手不算通過**；逐 seed 明細一併報告。
+3. **統治測試（主驗收，2026-07-12 使用者修訂版判準）**：**w3=0 / w4=0 / w5=0 / ε=0**，small 7200s，各臂 5 seeds：
+   - 三臂：M1G（`m1g.xconf`，論文 baseline 原樣）、M2e（`sweep/sw_0_0.xconf`）、PVGS-E（`pvgs_e.xconf`）；
+   - 判準一（拆單純淨收益）：**M2e ≥ M1G**（5-seed 均值，同 small 7200s 設定）；
+   - 判準二（exact ≥ heuristic，輸而不崩）：**PVGS-E 在五項（TP/PO/RD/OD/EOR）上全部劣於 M2e，且每項差距 ≤ ~5%**（IPO 一併報告）；差距超過 ~5% ＝ 崩盤，不合格；
+   - 逐 seed 明細一併報告。
 4. **次驗收（ε 字典序點）**：**ε=−0.1 雙邊同開**（其餘同主驗收點），5 seeds：統治判準同上逐點成立；並驗證 ε 的正效果（IPO 上升、TP 不掉超過 1%）。
 5. **速度**：`pvgs_decision_log.csv` 決策中位數維持毫秒級。
 6. **後續（不擋合格）**：PVGS-E vs HADGS 三 regime 重跑（small / 4o10b / 4o10b×lines3），縮水即誠實報告；論文表全面換用 PVGS-E＋KPI_IPO。
