@@ -45,6 +45,7 @@ namespace RAWSimO.Tests
             PvgsValueIndexTests.Register();
             PvgsStationSplitPlannerTests.Register();
             PvgsExactAlignedTests.Register();
+            LbLedgerTests.Register();
             return TestRunner.RunAll();
         }
     }

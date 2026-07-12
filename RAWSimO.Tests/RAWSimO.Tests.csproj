@@ -40,6 +40,7 @@
     <Compile Include="PvgsValueIndexTests.cs" />
     <Compile Include="PvgsStationSplitPlannerTests.cs" />
     <Compile Include="PvgsExactAlignedTests.cs" />
+    <Compile Include="LbLedgerTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\RAWSimO.Core\RAWSimO.Core.csproj">
