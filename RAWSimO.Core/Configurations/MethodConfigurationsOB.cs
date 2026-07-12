@@ -1033,6 +1033,29 @@ namespace RAWSimO.Core.Configurations
         /// omitted entirely (bit-identical model).
         /// </summary>
         public double UnitDrawReward = 0;
+        /// <summary>
+        /// Coverage-first lexicographic objective (spec: docs/superpowers/specs/
+        /// 2026-07-12-coverage-first-objective-design.md). Solve 1 maximizes
+        /// completions + PoolCoverWeight * whole-backlog pool coverage
+        /// - PodSelectTiebreakCost * new pod trips, with NO distance term; Solve 2
+        /// minimizes travel within the locked Solve-1 optimum (pod->station->bot
+        /// assignment and split shapes emerge from distance there). PVGS-E mirrors the
+        /// same objective greedily when this flag is set. Default false = bit-identical
+        /// single-solve legacy objective.
+        /// </summary>
+        public bool CoverageFirstScoring = false;
+        /// <summary>
+        /// Beta: weight per unit of whole-backlog pool coverage in Solve 1. Calibrate
+        /// beta * max-per-SKU-pool-demand &lt; 1 so pool coverage never outbids one
+        /// completed order. Only read when CoverageFirstScoring is true.
+        /// </summary>
+        public double PoolCoverWeight = 0.005;
+        /// <summary>
+        /// Epsilon_S: fixed charge per NEW pod trip in Solve 1 (pod-visit minimization
+        /// layer, below beta in the hierarchy). Only read when CoverageFirstScoring is
+        /// true.
+        /// </summary>
+        public double PodSelectTiebreakCost = 0.01;
     }
 
     /// <summary>
