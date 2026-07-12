@@ -346,6 +346,11 @@ namespace RAWSimO.Core.Configurations
         /// (as HADGS is to M1G). Pod-centric greedy with exact ledger claims, no Gurobi.
         /// </summary>
         PVGS,
+        /// <summary>
+        /// Late-binding SplitM1GExact (M2e-LB): same MILP, AllocateOrder deferred to pod-claim
+        /// time via a deferred-binding ledger; PlannedWipCap replaces physical Cs semantics.
+        /// </summary>
+        SplitM1GLB,
     }
     /// <summary>
     /// All types of implemented replenishment batching strategies.

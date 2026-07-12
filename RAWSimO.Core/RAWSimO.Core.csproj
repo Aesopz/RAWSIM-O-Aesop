@@ -125,6 +125,7 @@
     <Compile Include="Control\Defaults\OrderBatching\PvgsValueIndex.cs" />
     <Compile Include="Control\Defaults\OrderBatching\PvgsExactAligned.cs" />
     <Compile Include="Control\Defaults\OrderBatching\LbLedger.cs" />
+    <Compile Include="Control\Defaults\OrderBatching\SplitM1GLBManager.cs" />
     <Compile Include="Control\Defaults\OrderBatching\PvgsStationSplitPlanner.cs" />
     <Compile Include="Control\Defaults\OrderBatching\SplitM1GExactAggregator.cs" />
     <Compile Include="Control\Defaults\OrderBatching\SplitMilpDecoder.cs" />

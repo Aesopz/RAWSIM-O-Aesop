@@ -1059,6 +1059,46 @@ namespace RAWSimO.Core.Configurations
     }
 
     /// <summary>
+    /// Late-binding variant of SplitM1GExact (M2e-LB): identical MILP, but AllocateOrder is
+    /// deferred from solve time to the moment a bot claims the pod trip - planned orders live
+    /// in a deferred-binding ledger and only consume physical slot capacity when bound. The
+    /// planning admission gate uses PlannedWipCap (W) instead of physical free slots, which is
+    /// the load-bearing knob: W=6 reproduces the M2e ceiling, W>6 lets the pod pipeline run
+    /// ahead of slot recycling. See docs/superpowers/specs/2026-07-12-m2e-lb-design.md.
+    /// </summary>
+    public class SplitM1GLBConfiguration : SplitM1GExactConfiguration
+    {
+        /// <summary>
+        /// Returns the type of the corresponding method this configuration belongs to.
+        /// </summary>
+        /// <returns>The type of the method.</returns>
+        public override OrderBatchingMethodType GetMethodType() { return OrderBatchingMethodType.SplitM1GLB; }
+        /// <summary>
+        /// Returns a name identifying the method.
+        /// </summary>
+        /// <returns>The name of the method.</returns>
+        public override string GetMethodName() { if (!string.IsNullOrWhiteSpace(Name)) return Name; return "OBSPLITM1GLB"; }
+        /// <summary>
+        /// W: per-station cap on in-flight orders (bound-incomplete + planned-unbound). Replaces
+        /// the physical-free-slot semantics of Cs in the MILP. 6 = regression anchor (approximates
+        /// legacy M2e admission); sweep upward to let planning run ahead of slot recycling.
+        /// </summary>
+        public int PlannedWipCap = 6;
+        /// <summary>
+        /// Seconds after which a planned-unbound order is force-bound by the watchdog (guards
+        /// against _Ziops entries stranded by rerouted/cancelled pod trips). Binding still
+        /// requires a free reservation slot; blocked watchdog bindings retry each update.
+        /// </summary>
+        public double BindingWatchdogTimeout = 180;
+        /// <summary>
+        /// Stage-2 flag (parsed but INERT in stage 1): opportunistic backfill of pending orders
+        /// from the claimed pod's residual stock at binding time. Implementation lands in a
+        /// follow-up plan only if the W sweep verdict is positive. Default false.
+        /// </summary>
+        public bool LateBindingBackfill = false;
+    }
+
+    /// <summary>
     /// Pod-Value Greedy Splitting (PVGS): the fast heuristic counterpart of SplitM1GExact,
     /// positioned as HADGS is to M1G. Pod-centric greedy driven by a residual-coverage value
     /// index; commits exact ledger claims through the Spec 1 enabler pipeline - no MILP.
