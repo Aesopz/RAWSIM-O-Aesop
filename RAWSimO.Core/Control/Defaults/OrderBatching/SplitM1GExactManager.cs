@@ -397,6 +397,55 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             double eps = _splitConfig != null ? _splitConfig.UnitDrawReward : 0;
             if (eps != 0 && deVarNameq.Count > 0)
                 objective = objective + LinearExpression.Sum(deVarNameq.Select(v => variablesQ[v.name])) * eps;
+            // (CF) coverage-first lexicographic mode: build the Solve-1 objective
+            // (completions + beta * whole-backlog pool coverage - epsS * new trips, NO
+            // distance) and its pool-coverage variables. The demand pool deliberately
+            // uses the FIRST-stage admission over the full backlog (Od shrink does not
+            // apply - the pool is about supply value, not slot eligibility). Constraints
+            // of the model are untouched; c_i is capped by pool demand and by the
+            // selected pods' stock, so it measures what the CHOSEN SET can cover.
+            bool coverageFirst = _splitConfig != null && _splitConfig.CoverageFirstScoring;
+            double betaPool = _splitConfig != null ? _splitConfig.PoolCoverWeight : 0;
+            double epsPod = _splitConfig != null ? _splitConfig.PodSelectTiebreakCost : 0;
+            VariableCollection<string> variablesPool = null;
+            LinearExpression coverageObjective = null;
+            if (coverageFirst && deVarNamez.Count > 0)
+            {
+                bool cfCrossTime = _splitConfig != null && _splitConfig.CrossTime;
+                Dictionary<ItemDescription, int> poolDemand = new Dictionary<ItemDescription, int>();
+                foreach (var order in _pendingOrders)
+                {
+                    if (cfCrossTime
+                        ? !order.RemainingPositions.Any(p => Instance.StockInfo.GetActualStock(p.Key) >= 1)
+                        : !order.RemainingPositions.All(p => Instance.StockInfo.GetActualStock(p.Key) >= p.Value))
+                        continue;
+                    foreach (var pos in order.RemainingPositions)
+                    {
+                        int cur;
+                        poolDemand[pos.Key] = (poolDemand.TryGetValue(pos.Key, out cur) ? cur : 0) + pos.Value;
+                    }
+                }
+                List<ItemDescription> poolSkus = poolDemand.Keys.Where(k => PiSKU.ContainsKey(k)).ToList();
+                variablesPool = new VariableCollection<string>(wrapper, VariableType.Continuous, 0, double.PositiveInfinity, (string s) => { return s; });
+                foreach (var sku in poolSkus)
+                {
+                    string cname = "cpool_" + sku.ID.ToString();
+                    wrapper.AddConstr(variablesPool[cname] <= poolDemand[sku], "cfcap");
+                    var supplyTerms = deVarNamexps.Where(v => v.pod.CountAvailable(sku) > 0)
+                        .Select(v => variablesBinary[v.name] * (double)v.pod.CountAvailable(sku)).ToList();
+                    if (supplyTerms.Count > 0)
+                        wrapper.AddConstr(variablesPool[cname] <= LinearExpression.Sum(supplyTerms), "cfsup");
+                    else
+                        wrapper.AddConstr(variablesPool[cname] <= 0, "cfsup");
+                }
+                coverageObjective = LinearExpression.Sum(deVarNamez.Select(v => variablesBinary[v.name]));
+                if (poolSkus.Count > 0)
+                    coverageObjective = coverageObjective
+                        + LinearExpression.Sum(poolSkus.Select(k => variablesPool["cpool_" + k.ID.ToString()])) * betaPool;
+                var cfNewTrips = deVarNamexps.Where(v => Pa.Contains(v.pod)).Select(v => variablesBinary[v.name]).ToList();
+                if (cfNewTrips.Count > 0)
+                    coverageObjective = coverageObjective - LinearExpression.Sum(cfNewTrips) * epsPod;
+            }
             wrapper.SetObjective(objective, OptimizationSense.Minimize);
             // (ecap) sequential trip discipline: at most K new pod trips per decision. Restores
             // the one-move-at-a-time cadence (the greedy's structural advantage) while keeping
@@ -489,6 +538,27 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             }
             wrapper.Update();
             DateTime _optStart = DateTime.Now;
+            // (CF) Solve 1: coverage layer without distance. Lock its optimum (combined
+            // value, 1e-6 relative tolerance) plus the new-trip count, then hand the
+            // model to the legacy objective as Solve 2 - distance now only arbitrates
+            // WITHIN the L1-optimal set (pod->station->bot assignment, split shapes).
+            if (coverageFirst && !ReferenceEquals(coverageObjective, null))
+            {
+                wrapper.SetObjective(coverageObjective, OptimizationSense.Maximize);
+                wrapper.Update();
+                wrapper.Optimize();
+                if (wrapper.HasSolution())
+                {
+                    double coverageStar = wrapper.GetObjectiveValue();
+                    int tripsStar = deVarNamexps.Count(v => Pa.Contains(v.pod) && Math.Round(variablesBinary[v.name].GetValue()) != 0);
+                    wrapper.AddConstr(coverageObjective >= coverageStar - 1e-6 * Math.Max(1.0, Math.Abs(coverageStar)), "cflockobj");
+                    var lockTrips = deVarNamexps.Where(v => Pa.Contains(v.pod)).Select(v => variablesBinary[v.name]).ToList();
+                    if (lockTrips.Count > 0)
+                        wrapper.AddConstr(LinearExpression.Sum(lockTrips) <= tripsStar, "cflocktrips");
+                    wrapper.SetObjective(objective, OptimizationSense.Minimize);
+                    wrapper.Update();
+                }
+            }
             wrapper.Optimize();
             double _optSec = (DateTime.Now - _optStart).TotalSeconds;
             if (wrapper.HasSolution())
