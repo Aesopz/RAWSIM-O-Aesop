@@ -5,7 +5,7 @@
 ## 0. 設計錨點（brainstorm 定案，2026-07-12）
 
 1. **規劃層目標＝M2e 原目標**，`SolveSplitExact` 的目標與限制式零修改——單一變因，效益百分之百歸因給綁定時機。CF 目標留作後續可疊加旋鈕。
-2. **綁定時刻＝pod 實體進入站台佇列區、服務開始前**。駐留預期從 133s 降至 ~117s 以下（佇列＋服務）。
+2. **綁定時刻＝bot 認領 pod 行程的瞬間**（2026-07-12 修訂，使用者核可）。原案「pod 抵站才綁定」被引擎事實推翻：M1G 家族取貨路徑在認領瞬間就呼叫 `GetPossibleRequestsofMP` 定案 requests（只認已佔槽訂單、破壞性消費 `_Ziops`）——抵站綁定會讓認領配對落空、行程不會發生。認領時綁定＝PVGS 的實際語意（實測駐留 116.7s、天花板 ~740），駐留目標不變。抵站綁定（駐留 ~60-90s、天花板 1000+）需引擎任務結構手術，記為 future work；10 bots 車隊大概率在 740 前先成瓶頸。
 3. **回填做成旗標**（`LateBindingBackfill`，default false）：一期跑純晚綁定（歸因），二期開旗標量第二段增益。
 4. **在途上限 W＝可調旋鈕**（`PlannedWipCap`，default 6），掃 {6, 9, 12, 18}。W 取代 MILP 裡 Cs 的語意；W=6＝內建回歸錨。**W 是承重旋鈕**：Little's law 攤開後，若已規劃訂單仍計入 6 槽容量，天花板一分不升；抬天花板的必要條件是規劃在途量可超過實體槽數、實體槽只被「綁定中」訂單佔用。
 5. **計畫不可逆**（同現行 Ziops 語意）：規劃即鎖庫存與 pod→站→單三層，重解只用剩餘 W 容量規劃新單。晚資訊紅利由回填旗標承接。
@@ -15,6 +15,7 @@
 ## 1. 機械可行性基礎（已驗證）
 
 - **派 pod 與佔槽在引擎裡本來就是兩條線**：`BotManagerPodSelection.cs:1166-1365` 的 pod 取貨派工只讀 `_Ziops[station]`（solve 時寫入的 Symbol→units 計畫帳本），不讀訂單佔槽狀態。現行 manager 只是在同一瞬間both 做了。
+- **但 requests 定案發生在認領瞬間**：全部 9 個呼叫點在 bot 接任務時呼叫 `GetPossibleRequestsofMP(pod, station, ...)`（`BotManagerPodSelection.cs:187-210`），它用 `GetExtractRequestsOfStation`（已佔槽訂單的 requests）配對並破壞性消費 `_Ziops` 分錄——**綁定最晚只能拖到認領時**，這是 §0.2 修訂的依據。
 - 現行落地鏈（`SplitM1GExactManager.cs:673-692`）：`NewZiops`→`pod.JustRegisterItem`（鎖庫存）＋`_Ziops[station]` 寫入 → `AllocateOrder`（佔槽、`TimeStampSubmit`）→ Allocator 鏈 `SupplementExtractRequests`（requests 綁 pod）→ 站台註冊。LB 把箭頭後半段整塊搬進 pod 進站事件。
 - 晚綁定可行性先行證據：2026-05-31 backfill 探針（memory: project_backfill_probe_validation）——槽位 100% 滿是常態（「保留槽/延遲綁定是必要前提」）、pod 離站時 70%+ 可單獨完整救單（回填旗標的供給面命門）。
 
@@ -33,6 +34,7 @@
 | `RAWSimO.Core/Control/Defaults/OrderBatching/SplitM1GLBManager.cs` | `SplitM1GExactManager` 忠實鏡像＋LB 執行層。MILP（Initialize/Solve）逐字照抄，**唯二例外**＝Initialize 內 Cs 的計算改 W 口徑（§3）與 pending 集合排除 Ledger 中訂單；另動 `DecideAboutPendingOrders` 提交塊、新增 Binder/Ledger/Watchdog |
 | `MethodConfigurationsOB.cs` 追加 | `SplitM1GLBConfiguration : SplitM1GExactConfiguration`（繼承鏈技巧，引擎 `is M1GConfiguration` 檢查自動通過） |
 | ControllerFactory | 加一個 case；csproj 手動 `<Compile Include>`（C# 7.3 / net48） |
+| `BotManagerPodSelection.cs` 一行 | `GetPossibleRequestsofMP` 開頭的閘控掛鉤（§4）——唯一引擎改動，null-safe |
 
 **組件**（單一職責）：
 
@@ -73,13 +75,19 @@ MILP 內部 Cs 用法一行不改。W=6 時語意近似現行 M2e（差異僅在
 
 ## 4. 綁定層
 
-**觸發＝三層保險**（由早到晚，功能正確性與掛鉤時點解耦）：
+**觸發＝一行式閘控掛鉤（同步、無事件層）**：`GetPossibleRequestsofMP` 開頭加唯一一行引擎改動：
 
-1. **主掛鉤**：pod 抵達站台佇列事件（plan 階段從既有 Instance 通知選定確切鉤點；若無合用事件，退化為 manager update 輪詢「pod 已在站台佇列」——代價一個 tick 延遲）。
-2. **懶綁定保底**：揀貨執行路徑索取訂單 requests 前，發現該 pod 有未落地分錄 → 當場綁定。**保證就算主掛鉤漏接，模擬不壞**，只是駐留多幾秒。
-3. **Watchdog**：`now − plannedAt > BindingWatchdogTimeout` → 無條件綁定（治 pod 改道/行程異常的尾部）。
+```csharp
+(Instance.Controller.OrderManager as SplitM1GLBManager)?.OnPodRequestResolution(pod, station);
+```
 
-**落地順序**（逐筆）：`AllocateOrder(order, station)` → 既有 Allocator 鏈（`SupplementExtractRequests`＋站台註冊）——與現行 M2e 同一段代碼，只是晚 60-120s 執行。分錄移除、寫 `lb_bindings.csv`。
+其他所有 manager 走到這裡是 null → 完全 no-op（迴歸零風險）。LB manager 的 `OnPodRequestResolution(pod, station)` 把該 (pod, station) 名下的 Ledger 分錄逐筆落地，**同步發生在 requests 配對之前**——不需要事件訂閱、不會漏接。（`BotManagerPodSelection.cs` 不在憲法禁改名單；禁的是 M1GManager/HADGSManager 兩檔。）
+
+**槽位護欄**（W>6 時必要——`Allocator.Allocate` 超容量會 throw，`Allocator.cs:78`）：掛鉤內先檢查 `station.CapacityInUse + station.CapacityReserved < station.Capacity`，槽滿則本輪不綁定 → `GetPossibleRequestsofMP` 配不到已佔槽 requests → 該 pod 被跳過、`_Ziops` 分錄保留 → 之後槽空自然重試（自癒）。
+
+**Watchdog**（保留）：`now − plannedAt > BindingWatchdogTimeout` → 若槽有空則強制綁定（治 `_Ziops` 分錄因 pod 改道/行程異常長期滯留的尾部）；掛在 manager 既有 update 週期。
+
+**落地順序**（逐筆）：`AllocateOrder(order, station)` → 既有 Allocator 鏈（`station.AssignOrder`＋`NewOrderAssignedToStation`）——與現行 M2e 同一段代碼，只是晚到認領時執行。分錄移除、寫 `lb_bindings.csv`。
 
 **回填旗標**（default false）：綁定收尾時用該 pod 剩餘未保留庫存掃 `_pendingOrders`，找「單 pod 可完整服務」的訂單（複用 `PvgsExactAligned.PlanSqueeze` 骨架），命中則立即 `JustRegisterItem`＋`_Ziops` 寫入＋`AllocateOrder`（不走遞延）。受 W 與實體容量雙閘門。
 
@@ -90,7 +98,7 @@ MILP 內部 Cs 用法一行不改。W=6 時語意近似現行 M2e（差異僅在
 
 ## 5. 觀測性
 
-- `lb_bindings.csv`：`order, pod, station, plannedAt, boundAt, gap, trigger(main/lazy/watchdog)`——「規劃→綁定」間隔分佈＝晚綁定機制的直接論文證據；watchdog/lazy 觸發占比＝掛鉤健康度。
+- `lb_bindings.csv`：`order, pod, station, plannedAt, boundAt, gap, trigger(claim/watchdog)`——「規劃→綁定」間隔分佈＝晚綁定機制的直接論文證據；watchdog 觸發占比＝管線健康度。
 - 駐留（`StatThroughputTime`，submit→complete）自動變成「綁定→完成」，與 M2e 同定義可比——**這是機制主指標**（預期 133→≤117s）。
 - 決策 log 沿用 `splitm1gx_decision_log.csv` 格式（欄位不變）。
 
@@ -108,7 +116,8 @@ xconf：`small/lb_w6.xconf`、`lb_w9`、`lb_w12`、`lb_w18`（backfill 全關）
 ## 7. 風險
 
 - **W 大的老病回歸**：W=18 時未綁定庫存鎖定變多，可能重現早承諾病理——掃描要畫的 U 型曲線本身是論文素材。
-- **引擎隱含假設審計**：solve→綁定窗口內，`BotManagerPodSelection` 的 `_Ziops` 消費點（~4 處：1166/1191/1232/1253/1310/1331/1365 帶）是否假設「order 必已佔槽」——**plan 的第一個 task 逐點審計**；審出問題由懶綁定保底兜正確性。
+- **引擎隱含假設審計**：solve→綁定窗口內，`BotManagerPodSelection` 的 `_Ziops` 消費點與 filter 路徑（1115-1130/1166/1191/1232/1253/1310/1331/1365/1656/1709 帶）是否還有掛鉤點之外假設「order 必已佔槽」的路徑——**plan 的第一個 task 逐點審計**（掛鉤位於 `GetPossibleRequestsofMP` 已覆蓋全部 9 個 requests 定案點，審計確認無旁路）。
+- **認領時綁定的天花板上限＝PVGS parity（~740）**：駐留仍含行駛段。抵站綁定（更高上限）需引擎手術，future work；10 bots 車隊可能在 740 前先成瓶頸（TP 卡 ~680 即 bot-bound 訊號）。
 - **站台 KPI 語意位移**：訂單晚進槽，`StatEQueueingAtStation` 等指標口徑改變，報告時註記。
 - **瓶頸上游轉移**：槽位鬆綁後瓶頸可能移到 bot 隊（10 bots）——TP 若卡 ~680 而非 740 是 bot-bound 新資訊，非設計失敗。
 - **兩段時戳語意**：`TimeStampSubmit` 後移會影響所有以 submit 為基準的既有統計（throughput time、BacklogWeight 評分器讀 `TimeStampQueued`/`TimeStampSubmit`）——LB 臂內自洽、跨臂比較時註記口徑；`TimeStampQueued` 仍在綁定時設（`NewOrderQueuedToStation`），與 submit 同步後移。
