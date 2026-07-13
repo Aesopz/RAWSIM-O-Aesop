@@ -1056,6 +1056,24 @@ namespace RAWSimO.Core.Configurations
         /// true.
         /// </summary>
         public double PodSelectTiebreakCost = 0.01;
+        /// <summary>
+        /// (M2e-PR) B: true-completion bonus per order whose REMAINING demand is fully
+        /// assigned this solve, under unfiltered zfin semantics - out-of-stock SKUs force
+        /// zfin=0 instead of being silently skipped the way eM2done does (the missing-SKU
+        /// slice-arbitrage hole). Replaces OrderRewardWeight's zdonex reward when active.
+        /// Only defined for CrossTime=true (eM1 is an all-or-nothing equality - no partial
+        /// exists to reward). 0 = feature off, legacy zdonex/w2 path, bit-identical.
+        /// Spec: docs/superpowers/specs/2026-07-14-m2e-pr-design.md.
+        /// </summary>
+        public double TrueCompletionReward = 0;
+        /// <summary>
+        /// (M2e-PR) R: pro-rata reward. Each assigned unit of order o earns R/D_o where
+        /// D_o is the order's ORIGINAL overall demand (GetDemandCount(), includes
+        /// currently out-of-stock SKUs) so slice rewards across epochs sum to exactly R.
+        /// Only read when TrueCompletionReward &gt; 0. Keep R &lt;= TrueCompletionReward;
+        /// the completion hierarchy R*frac &lt; R &lt; B+R holds structurally for any R&gt;0.
+        /// </summary>
+        public double ProRataReward = 0;
     }
 
     /// <summary>
