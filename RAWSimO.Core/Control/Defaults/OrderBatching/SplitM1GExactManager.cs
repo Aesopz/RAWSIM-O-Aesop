@@ -168,7 +168,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         private System.IO.StreamWriter _exactDecisionLog;
         private int _exactDecisionIndex = 0;
         private void WriteExactDecisionLog(bool solved, double time, int pendingOrdersN, int stationsWithCap, int podsInModel,
-            int nXps, int nChildren, int nFastPath, int unitsAssigned, double sumUs, double objective, double optSec)
+            int nXps, int nChildren, int nFastPath, int unitsAssigned, double sumUs, double objective, double optSec,
+            int partialOrders, int partialOnlyNewTrips)
         {
             if (_exactDecisionLog == null)
             {
@@ -178,7 +179,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 if (!System.IO.Directory.Exists(dir))
                     System.IO.Directory.CreateDirectory(dir);
                 _exactDecisionLog = new System.IO.StreamWriter(System.IO.Path.Combine(dir, "splitm1gx_decision_log.csv"), false) { AutoFlush = true };
-                _exactDecisionLog.WriteLine("decision,time,solved,pendingOrders,stationsWithCap,podsInModel,xps,children,fastPath,units,sumUs,objective,solveSec");
+                _exactDecisionLog.WriteLine("decision,time,solved,pendingOrders,stationsWithCap,podsInModel,xps,children,fastPath,units,sumUs,objective,solveSec,partialOrders,partialOnlyNewTrips");
             }
             _exactDecisionLog.WriteLine(string.Join(",", new string[] {
                 _exactDecisionIndex.ToString(),
@@ -193,7 +194,9 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 unitsAssigned.ToString(),
                 sumUs.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 objective.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                optSec.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                optSec.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                partialOrders.ToString(),
+                partialOnlyNewTrips.ToString()
             }));
             _exactDecisionIndex++;
         }
@@ -347,6 +350,16 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             double w3 = _splitConfig != null ? _splitConfig.IdleSlotWeight : 1000;
             double w4 = _splitConfig != null ? _splitConfig.PodTripFixedCost : 0;
             double w5 = _splitConfig != null ? _splitConfig.ProcessingPodDrawReward : 0;
+            // (PR) M2e-PR mode (spec: docs/superpowers/specs/2026-07-14-m2e-pr-design.md):
+            // TrueCompletionReward B > 0 switches the z reward to unfiltered true-completion
+            // semantics (eZfin, out-of-stock SKUs force zfin=0) and adds the R/D_o pro-rata
+            // layer. Only defined for CrossTime (eM1 is an all-or-nothing equality - no
+            // partial exists to reward); silently inert otherwise. B=0 keeps the legacy
+            // zdonex/w2 path bit-identical.
+            bool prMode = _splitConfig != null && _splitConfig.TrueCompletionReward > 0 && _splitConfig.CrossTime;
+            double prB = prMode ? _splitConfig.TrueCompletionReward : 0;
+            double prR = prMode ? _splitConfig.ProRataReward : 0;
+            double zRewardCoeff = prMode ? -prB : w2;
             // Pods currently being PROCESSED (bot standing at the station's pick waypoint) - the
             // perishable squeeze targets. Queueing / en-route Pb pods deliberately excluded: their
             // windows stay open for future epochs, the processing pod's window is closing now.
@@ -374,11 +387,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 objective = (LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * (ExactPodStationCost(v.pod, v.outputstation) + PodStationExtraCost(v.pod, v.outputstation) + w4)), wrapper)
                     + LinearExpression.Sum(deVarNameyrp.Where(u => Ra.Contains(u.robot) && Instance.ResourceManager.UnusedPods.Contains(u.pod) && u.pod.Waypoint != null).Select(v => variablesBinary[v.name] *
                     ExactBotPodCost(v.robot, v.pod)), wrapper)) * w1
-                    + LinearExpression.Sum(deVarNamez.Select(v => variablesBinary[v.name])) * w2
+                    + LinearExpression.Sum(deVarNamez.Select(v => variablesBinary[v.name])) * zRewardCoeff
                     + LinearExpression.Sum(deVarNameus.Select(v => variablesUs[v.name])) * w3;
             else
                 objective = LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * (ExactPodStationCost(v.pod, v.outputstation) + PodStationExtraCost(v.pod, v.outputstation) + w4)), wrapper) * w1
-                    + LinearExpression.Sum(deVarNamez.Select(v => variablesBinary[v.name])) * w2
+                    + LinearExpression.Sum(deVarNamez.Select(v => variablesBinary[v.name])) * zRewardCoeff
                     + LinearExpression.Sum(deVarNameus.Select(v => variablesUs[v.name])) * w3;
             if (w5 != 0 && processingPods.Count > 0)
             {
@@ -397,6 +410,15 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             double eps = _splitConfig != null ? _splitConfig.UnitDrawReward : 0;
             if (eps != 0 && deVarNameq.Count > 0)
                 objective = objective + LinearExpression.Sum(deVarNameq.Select(v => variablesQ[v.name])) * eps;
+            // (PR) pro-rata layer: every assigned unit of order o earns R/D_o (negative =
+            // reward under Minimize). D_o = the order's ORIGINAL overall demand
+            // (GetDemandCount(), includes currently out-of-stock SKUs) so slice rewards
+            // across epochs sum to exactly R (spec section 3.4) - a remaining-demand
+            // denominator would let every epoch's slice count from 100% and resurrect the
+            // slice arbitrage. Guarded like eps: no q variables = term absent
+            // (LinearExpression.Sum throws on an empty sequence).
+            if (prMode && prR != 0 && deVarNameq.Count > 0)
+                objective = objective + LinearExpression.Sum(deVarNameq.Select(v => variablesQ[v.name] * (-prR / v.order.GetDemandCount())));
             // (CF) coverage-first lexicographic mode: build the Solve-1 objective
             // (completions + beta * whole-backlog pool coverage - epsS * new trips, NO
             // distance) and its pool-coverage variables. The demand pool deliberately
@@ -520,19 +542,44 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     wrapper.AddConstr(variablesBinary["xps" + "_" + pod.ID.ToString() + "_" + station.ID.ToString()]
                         <= LinearExpression.Sum(deVarNameq.Where(v => v.pod.ID == pod.ID && v.outputstation.ID == station.ID).Select(v => variablesQ[v.name])), "eshi13");
             }
-            // (eM1/eM2/eM2done) per-SKU completion linkage, aggregated across stations AND pods
+            // (eM1/eM2/eM2done | eZfin) per-SKU completion linkage, aggregated across stations AND pods
             foreach (var order in pendingOrders)
             {
                 string zname = (crossTime ? "zdonex" : "zfullx") + "_" + order.ID.ToString();
-                foreach (var sku in residuals[order].Where(p => PiSKU.ContainsKey(p.Key)))
+                if (prMode)
                 {
-                    var lhs = LinearExpression.Sum(deVarNameq.Where(v => v.order.ID == order.ID && v.skui.ID == sku.Key.ID).Select(v => variablesQ[v.name]));
-                    if (!crossTime)
-                        wrapper.AddConstr(lhs == sku.Value * variablesBinary[zname], "eM1");
-                    else
+                    // (eZfin) true-completion semantics (spec section 3.3): iterate the FULL
+                    // remaining demand - no PiSKU visibility filter. An out-of-stock SKU has
+                    // no q variables (LHS identically 0), so instead of expanding phantom
+                    // variables one constant constraint zfin<=0 encodes it exactly. RHS stays
+                    // the REMAINING demand (r_rem): an original-demand RHS could never be met
+                    // for previously-split orders (their earlier q are already committed) and
+                    // would render the completion bonus unreachable (spec section 3.4).
+                    foreach (var sku in residuals[order])
                     {
+                        if (!PiSKU.ContainsKey(sku.Key))
+                        {
+                            if (sku.Value > 0)
+                                wrapper.AddConstr(variablesBinary[zname] <= 0, "eZfinOOS");
+                            continue;
+                        }
+                        var lhs = LinearExpression.Sum(deVarNameq.Where(v => v.order.ID == order.ID && v.skui.ID == sku.Key.ID).Select(v => variablesQ[v.name]));
                         wrapper.AddConstr(lhs <= sku.Value, "eM2");
-                        wrapper.AddConstr(lhs >= sku.Value * variablesBinary[zname], "eM2done");
+                        wrapper.AddConstr(lhs >= sku.Value * variablesBinary[zname], "eZfin");
+                    }
+                }
+                else
+                {
+                    foreach (var sku in residuals[order].Where(p => PiSKU.ContainsKey(p.Key)))
+                    {
+                        var lhs = LinearExpression.Sum(deVarNameq.Where(v => v.order.ID == order.ID && v.skui.ID == sku.Key.ID).Select(v => variablesQ[v.name]));
+                        if (!crossTime)
+                            wrapper.AddConstr(lhs == sku.Value * variablesBinary[zname], "eM1");
+                        else
+                        {
+                            wrapper.AddConstr(lhs <= sku.Value, "eM2");
+                            wrapper.AddConstr(lhs >= sku.Value * variablesBinary[zname], "eM2done");
+                        }
                     }
                 }
             }
@@ -632,13 +679,33 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 double sumUs = 0.0;
                 foreach (var s in deVarNameus)
                     sumUs += Math.Round(variablesUs[s.name].GetValue());
+                // (PR diag) partial-draw observability: orders drawn from this solve without
+                // earning the completion flag (deadband-break evidence, Gate 1), and
+                // newly-claimed (Pa) pods whose ENTIRE draw went to such orders (the
+                // fishing-for-frac guardrail, Gate 3). Computed in legacy mode too (zdonex
+                // semantics there) - pure logging, zero behavior change.
+                HashSet<int> zOffOrders = new HashSet<int>();
+                foreach (var z in deVarNamez)
+                    if (Math.Round(variablesBinary[z.name].GetValue()) == 0)
+                        zOffOrders.Add(z.order.ID);
+                int partialOrders = IsdeVarNameq.Where(v => zOffOrders.Contains(v.order.ID)).Select(v => v.order.ID).Distinct().Count();
+                int partialOnlyNewTrips = 0;
+                foreach (var x in IsdeVarNamexps)
+                {
+                    if (!Pa.Contains(x.pod))
+                        continue;
+                    var podDraws = IsdeVarNameq.Where(q => q.pod.ID == x.pod.ID && q.outputstation.ID == x.outputstation.ID).ToList();
+                    if (podDraws.Count > 0 && podDraws.All(q => zOffOrders.Contains(q.order.ID)))
+                        partialOnlyNewTrips++;
+                }
                 WriteExactDecisionLog(true, Instance.Controller.CurrentTime, pendingOrders.Count, Cs.Count, Pods.Count(),
-                    IsdeVarNamexps.Count, nChildren, nFastPath, unitsAssigned, sumUs, wrapper.GetObjectiveValue(), _optSec);
+                    IsdeVarNamexps.Count, nChildren, nFastPath, unitsAssigned, sumUs, wrapper.GetObjectiveValue(), _optSec,
+                    partialOrders, partialOnlyNewTrips);
             }
             else
             {
                 WriteExactDecisionLog(false, Instance.Controller.CurrentTime, pendingOrders.Count, Cs.Count, Pods.Count(),
-                    0, 0, 0, 0, 0.0, double.NaN, _optSec);
+                    0, 0, 0, 0, 0.0, double.NaN, _optSec, 0, 0);
             }
             return result;
         }
