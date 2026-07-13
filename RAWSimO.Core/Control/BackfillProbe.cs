@@ -43,12 +43,27 @@ namespace RAWSimO.Core.Control
             // Context: other pods physically present at the station (excluding the departing one),
             // inbound pods en route (one of which may be the late pod we'd stall for), free slot.
             int otherPresentPods = 0;
+            var presentPods = new List<Pod>();
             foreach (var t in station.GetActiveExtractTasks())
             {
                 var b2 = t?.Bot as BotNormal;
                 if (b2 == null || object.ReferenceEquals(b2, bot) || b2.Pod == null) continue;
                 if (b2.CurrentWaypoint == station.Waypoint || b2.IsQueueing)
+                {
                     otherPresentPods++;
+                    presentPods.Add(b2.Pod);
+                }
+            }
+            // Inbound pods still en route (registered inbound, not the departing pod, not already present).
+            var inboundOnlyPods = new List<Pod>();
+            foreach (var ip in station.InboundPods)
+            {
+                if (ip == null || object.ReferenceEquals(ip, pod)) continue;
+                bool isPresent = false;
+                foreach (var pp in presentPods)
+                    if (object.ReferenceEquals(pp, ip)) { isPresent = true; break; }
+                if (!isPresent)
+                    inboundOnlyPods.Add(ip);
             }
             int freeSlot = (station.CapacityInUse < station.Capacity) ? 1 : 0;
 
@@ -64,6 +79,16 @@ namespace RAWSimO.Core.Control
             int maxUnits = 0;
             int bestFullDemand = 0;
 
+            // Joint-completion extension (2026-07-13): can the departing pod's residual, COMBINED
+            // with the pods physically present (and separately, also the inbound ones en route),
+            // complete backlog orders — and is the departing pod PIVOTAL to that completion (i.e.,
+            // removing it breaks the joint completion)? This decides whether the abandoned residual
+            // is redeemable RIGHT NOW via cross-pod split or only by gambling on future arrivals.
+            int jointPresentFull = 0;      // completable by departing + present pods
+            int jointPresentPivotal = 0;   // ... and NOT completable by present pods alone
+            int jointAllFull = 0;          // completable by departing + present + inbound pods
+            int jointAllPivotal = 0;       // ... and NOT completable by present + inbound alone
+
             var backlog = orderManager.BacklogSnapshot;
             if (backlog != null)
             {
@@ -73,10 +98,23 @@ namespace RAWSimO.Core.Control
                     backlogSize++;
                     int demand = 0;
                     int units = 0;
+                    bool presentOnlyFull = true, withDepartingFull = true;
+                    bool allOthersFull = true, allWithDepartingFull = true;
                     foreach (var line in order.Positions)
                     {
                         demand += line.Value;
-                        units += Math.Min(pod.CountAvailable(line.Key), line.Value);
+                        int availDeparting = pod.CountAvailable(line.Key);
+                        units += Math.Min(availDeparting, line.Value);
+                        int availPresent = 0;
+                        foreach (var pp in presentPods)
+                            availPresent += pp.CountAvailable(line.Key);
+                        int availInbound = 0;
+                        foreach (var ip in inboundOnlyPods)
+                            availInbound += ip.CountAvailable(line.Key);
+                        if (availPresent < line.Value) presentOnlyFull = false;
+                        if (availPresent + availDeparting < line.Value) withDepartingFull = false;
+                        if (availPresent + availInbound < line.Value) allOthersFull = false;
+                        if (availPresent + availInbound + availDeparting < line.Value) allWithDepartingFull = false;
                     }
                     if (demand <= 0) continue;
                     if (units > maxUnits) maxUnits = units;
@@ -88,6 +126,16 @@ namespace RAWSimO.Core.Control
                     else if (units > 0)
                     {
                         partialMatch++;
+                    }
+                    if (withDepartingFull)
+                    {
+                        jointPresentFull++;
+                        if (!presentOnlyFull && units > 0) jointPresentPivotal++;
+                    }
+                    if (allWithDepartingFull)
+                    {
+                        jointAllFull++;
+                        if (!allOthersFull && units > 0) jointAllPivotal++;
                     }
                 }
             }
@@ -110,7 +158,11 @@ namespace RAWSimO.Core.Control
                 fullMatch.ToString(),
                 partialMatch.ToString(),
                 maxUnits.ToString(),
-                bestFullDemand.ToString()
+                bestFullDemand.ToString(),
+                jointPresentFull.ToString(),
+                jointPresentPivotal.ToString(),
+                jointAllFull.ToString(),
+                jointAllPivotal.ToString()
             }));
         }
 

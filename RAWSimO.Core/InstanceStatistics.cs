@@ -1784,7 +1784,7 @@ namespace RAWSimO.Core
                 string backfillCsvPath = Path.Combine(SettingConfig.StatisticsDirectory, "backfill_probe.csv");
                 using (var sw = new StreamWriter(backfillCsvPath))
                 {
-                    sw.WriteLine("time_sec;station_id;cap_in_use;cap;free_slot;other_present_pods;inbound_pods;pod_id;pod_remaining_units;assigned_match;backlog_size;full_match_orders;partial_match_orders;max_match_units;best_full_demand");
+                    sw.WriteLine("time_sec;station_id;cap_in_use;cap;free_slot;other_present_pods;inbound_pods;pod_id;pod_remaining_units;assigned_match;backlog_size;full_match_orders;partial_match_orders;max_match_units;best_full_demand;joint_present_full;joint_present_pivotal;joint_all_full;joint_all_pivotal");
                     foreach (var row in StatBackfillProbeRows)
                         sw.WriteLine(row);
                 }
