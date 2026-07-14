@@ -43,7 +43,22 @@ HADGS 吞吐 **+7~15%**，同時 pile-on 較低、距離較高——它用更多
 
 acceptance（2 站 10 bots，同論文 regime）：PVGS-M1e 656 vs M1e-exact 649、PVGS-M2e(θ=6) 648 vs M2e-exact 643（+0.8~1.1%）；同情境 pile-on **8.28 vs 4.60（×1.8）**。TP 被 slot 回收天花板（≈650）壓住，所以效率差距顯示在 pile-on/趟數，不在 TP。
 
-**校正後的正確命題**：統治方向由「哪個資源綁定」決定——travel/打包品質綁定時 exact 微勝；時機/bot 機會成本綁定時 heuristic 勝。拆單與 bot 稀缺是同一個 margin 的兩個放大器。
+### 1.2b 補充（2026-07-14）：acceptance 同版面的直接對決——本環境中 M1G 從未統治過 HADGS
+
+`output_acc_m1g_s0-4` vs `output_ref_hadgs_s0-4`（同版面 1-2-2-10、small_o100_mu100、7200s、5 seeds）：
+
+| seed | M1G orders | HADGS orders | M1G pile-on | HADGS pile-on | M1G dist/item | HADGS dist/item |
+|---|---|---|---|---|---|---|
+| 0 | 654 | 635 | 3.83 | 6.73 | 17.14 | 10.78 |
+| 1 | 623 | 652 | 3.74 | 7.25 | 17.58 | 10.39 |
+| 2 | 642 | 657 | 3.38 | 7.14 | 19.16 | 10.60 |
+| 3 | **265**⚠ | 645 | 2.20 | 6.93 | 27.38 | 10.69 |
+| 4 | 641 | 652 | 3.63 | 7.03 | 17.84 | 10.56 |
+| 均（M1G 除 s3） | 640.0 | 648.2 | 3.65 | 7.02 | 17.93 | 10.60 |
+
+即使在論文的 regime（5 bots/站）：HADGS orders +1.3%、pile-on **×1.9**、每 item 距離 **−41%**、且 s3 M1G 崩潰（265）時 HADGS 穩守 645。**在本環境（WHCA* 壅塞、本版面、aligned 變體）中，論文 Table 8 的 M1G 微勝從未重現——HADGS 在所有 KPI 上全面佔優。** 這把 §0 的結論推得更強：論文的 exact 微勝是其實驗條件下的邊界現象；當路徑壅塞（Γ）真實存在時，快照批次承諾的衰減成本在任何 regime 都吃掉了打包品質的微利。（注意變體差異 caveat：本組 HADGS 為 aligned 配置、M1G 用 m1g.xconf 預設 w3=1000，非論文原機逐位重現。）
+
+**校正後的正確命題**：統治方向由「哪個資源綁定」決定——travel/打包品質綁定時 exact 微勝（僅論文環境觀察到）；時機/bot 機會成本綁定時 heuristic 勝。拆單與 bot 稀缺是同一個 margin 的兩個放大器；在本模擬環境中，這個 margin 從一開始就大到讓 heuristic 全面統治。
 
 ---
 
