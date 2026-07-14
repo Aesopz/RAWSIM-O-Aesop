@@ -58,6 +58,18 @@ acceptance（2 站 10 bots，同論文 regime）：PVGS-M1e 656 vs M1e-exact 649
 
 即使在論文的 regime（5 bots/站）：HADGS orders +1.3%、pile-on **×1.9**、每 item 距離 **−41%**、且 s3 M1G 崩潰（265）時 HADGS 穩守 645。**在本環境（WHCA* 壅塞、本版面、aligned 變體）中，論文 Table 8 的 M1G 微勝從未重現——HADGS 在所有 KPI 上全面佔優。** 這把 §0 的結論推得更強：論文的 exact 微勝是其實驗條件下的邊界現象；當路徑壅塞（Γ）真實存在時，快照批次承諾的衰減成本在任何 regime 都吃掉了打包品質的微利。（注意變體差異 caveat：本組 HADGS 為 aligned 配置、M1G 用 m1g.xconf 預設 w3=1000，非論文原機逐位重現。）
 
+### 1.2c 補充（2026-07-14）：排除「M1G 輸在貪婪歸因」假說
+
+M1G 的 MILP 只精確決定 order→station/pod→station/bot→pod；sku→order→pod 單位歸因是模型外後處理（`M1GManager.cs:818`「模型外求Ziops」，至 :969）。為排除「exact 被貪婪歸因拖累」假說，補跑 M1e-exact（`SplitM1GExactManager` CrossTime=false：q[i,o,p,s] 在模型內精確歸因、零貪婪）同版面 5 seeds：
+
+| 臂 | orders（5-seed 均） | item pile-on | dist/item | s3 表現 |
+|---|---|---|---|---|
+| M1G（貪婪歸因） | 640.0（除 s3 崩潰 265） | 3.65 | 17.93 | 崩潰 |
+| M1e-exact（精確歸因） | 642.4 | 4.59 | 13.23 | 635 穩定 |
+| HADGS | 648.2 | 7.02 | 10.60 | 645 穩定 |
+
+精確歸因（＋附帶的跨站拆單）把 exact 從 640.0 推到 642.4（+0.4%，雜訊級）、pile-on 3.65→4.59；對 HADGS 的落後（648.2/7.02/10.60）幾乎原封不動。**歸因層不是勝負手**——這與 M2e-exact（全精確歸因）輸給 PVGS（全貪婪）互為印證。附帶發現：M1e-exact 均值 642.4 與 M2e-exact 642.4 完全相同——在此版面跨期能力增益為零，一致於 §1.3。唯一實質改善是穩健性：貪婪歸因版的 s3 崩潰（265）在精確歸因版消失。
+
 **校正後的正確命題**：統治方向由「哪個資源綁定」決定——travel/打包品質綁定時 exact 微勝（僅論文環境觀察到）；時機/bot 機會成本綁定時 heuristic 勝。拆單與 bot 稀缺是同一個 margin 的兩個放大器；在本模擬環境中，這個 margin 從一開始就大到讓 heuristic 全面統治。
 
 ---
