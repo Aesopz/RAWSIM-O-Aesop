@@ -106,24 +106,28 @@
 
 **（B）新增 P1：拆單 child 只綁 committed pod（本 spec 核心）**
 ```
-(P1a)  whole[o] ≤ zdone[o]                    ∀ o            // whole ⟹ 本期整單完成
-(P1b)  whole[o] ≤ 2 − Σ_s ysp[o,s]            ∀ o            // whole ⟹ 至多一個站（≥2 站則 whole=0）
-(P1c)  whole[o] = 0                           ∀ o ∈ SplitParents  // 既有跨期 parent 已是拆單，永非 whole
-(P1d)  Σ_i q[i,o,p,s] ≤ D_o · whole[o]        ∀ o, p∈P^U, s  // unused pod 只服務 whole 訂單
+(P1a)   whole[o] ≤ zdone[o]                              ∀ o        // whole ⟹ 本期整單完成
+(P1b)   Σ_s ysp[o,s] + (|S|−1)·whole[o] ≤ |S|            ∀ o        // whole=1 ⟹ 至多一站；whole=0 不設限
+(P1c)   whole[o] = 0                                     ∀ o ∈ SplitParents  // 既有 parent 永非 whole
+(P1oos) whole[o] = 0        ∀ o 含任一 r[o,i]>0 且 i 不在 PiSKU（缺貨/不可見 SKU）
+(P1d)   Σ_{i,s} Σ_{p∈P^U} q[i,o,p,s] ≤ D_o · whole[o]    ∀ o        // unused pod 只服務 whole 訂單
 ```
-**語意**：任一訂單若從**任何 unused pod（`P^U`）**抽貨（`q>0`），則 `whole[o]=1` → 它必是單站、整單、非既有 parent。逆否命題：**只要是拆單（多站 / 部分滿足 / 既有跨期 parent），其所有 `q` 只能來自 `P^C`（在場+在途）**。= 使用者的規則「order 被拆只能分配到 inbounded pod」。
+**語意**：任一訂單若從**任何 unused pod（`P^U`）**抽貨（`q>0`），則 `whole[o]=1` → 它必是單站、整單、非既有 parent、且無缺貨殘量。逆否命題：**只要是拆單（多站 / 部分滿足 / 既有跨期 parent），其所有 `q` 只能來自 `P^C`（在場+在途）**。= 使用者的規則「order 被拆只能分配到 inbounded pod」。
 
-> P1b 的正確性：在 C4 填槽壓力下，`Σ_s ysp[o,s]` = 訂單觸及的站數。=1 → `whole≤1`（允許）；≥2 → `whole≤0`（禁 unused）；=0 → 無服務、`zdone=0`、P1a 逼 `whole=0`。三情況皆對。
+> **P1b 為何是 big-M 形式（planning 階段修正）**：草稿版 `whole ≤ 2 − Σysp` 在 `Σysp ≥ 3` 時給出 `whole ≤ 負數`，與 binary 下界 0 矛盾 → **整個模型不可行**（等於禁止任何訂單跨 ≥3 站，small 兩站看不出來、4o10b 四站會炸）。改為 `Σysp + (|S|−1)·whole ≤ |S|`：`whole=1` ⟹ `Σysp ≤ 1`；`whole=0` ⟹ `Σysp ≤ |S|`（無效約束），永不不可行。
+>
+> **P1oos 為何必要（planning 階段修正）**：legacy `zdonex` 語意會**跳過**缺貨 SKU（只檢查可見 SKU）。若無 P1oos，一張含缺貨 SKU 的單可以 `zdone=1`＋`whole=1`＋從 `P^U` 抽貨，但 decoder 對照完整殘量會判 `fullyAssigned=false` → 走 **split path** → child 綁到 unused pod——**正面違反本模型的核心規則**。P1oos 把這個洞焊死（同時使 whole 計數與 decoder fast-path 判準完全對齊）。
 
 **（C）新增 packing cap（D6，config-gated；`C≤0` 時整組省略、baseline bit-identical）**
 ```
-(PK1a) ypack[o] ≥ ysp[o,s] − whole[o]         ∀ o∉已在packing, s   // 有 child 且非 whole → 佔 packing
-(PK1b) ypack[o] ≤ Σ_s ysp[o,s]                ∀ o                  // 無 child 不佔
-(PK1c) ypack[o] ≤ 1 − whole[o]                ∀ o                  // whole 單直接出貨、不進 packing
-(PK2)  B_occ + Σ_o ypack[o] ≤ C                                     // 同時在製 split 母單 ≤ C（=78）
+(PK1a) ypack[o] + whole[o] ≥ ysp[o,s]         ∀ 新鮮 o（¬IsSplitParent）, s   // 有 part 且非 whole → 開一箱
+(PK1b) ypack[o] ≤ Σ_s ysp[o,s]                ∀ 新鮮 o                        // 無 part 不開箱
+(PK1c) ypack[o] + whole[o] ≤ 1                ∀ 新鮮 o                        // whole 單直接出貨、不進 packing
+(PK2)  Σ_{新鮮 o} ypack[o] ≤ max(0, C − B_occ)                                 // 本期新開箱數 ≤ 剩餘預算
 ```
-- 忠實 Xie2021：**一個 split 母單佔一個 packing 箱格**（非 per-child），從第一個 part 到站起、到全員整併止；`C=78` = 附錄 B 的一架 shelf 箱數。
-- 既有跨期 parent 已計入 `B_occ`（引擎狀態），`ypack` 只數**本期新成為 split** 的 fresh 單，避免雙重計數（精確 bookkeeping 交 writing-plans）。
+- 忠實 Xie2021：**一個 split 母單佔一個 packing 箱格**（非 per-child）；`C=78` = 附錄 B 的一架 shelf 箱數。
+- **箱位預留時點 = decode 時（planning 階段修正）**：母單在**首次被拆**（decode split path）當下即預留箱位，整併時釋放——比 Xie 的「第一個 part 實體到站」**更早、更保守**（絕不超收）。這使 `B_occ` 定義乾淨（= 目前存活的已登記 split 母單數，含 child 尚在途者），且 PK2 在決策時刻即完整計入所有管線中的母單——**by construction 永不溢出，不需要引擎側 back-pressure 牆**（草稿版 §6 的後備牆作廢）。
+- 既有跨期 parent 首拆時已登記 → 已在 `B_occ` 內；`ypack` 只對 `¬IsSplitParent` 的新鮮單建變數，無雙重計數。
 
 ### 4.4 目標式
 
@@ -164,11 +168,11 @@ min   w1·[ Σ_{p∈P^U,s} xps[p,s]·d(p,s)  +  Σ_{r∈Ra,p∈P^U} yrp[r,p]·d(
 ## 6. 解碼與 packing 記帳
 
 - **解碼**（沿用 M2e §5 精簡管線）：讀 `q[i,o,p,s]` 落地，單站全數且 `whole` → 快路徑不建 child；否則對每站建 child（`Order.CreateSplitChild`），殘量留 backlog（demand ledger 自動保留）。
-- **packing 記帳**（D6 開啟時，掛既有 consolidation 事件鏈，**不動 `OutputStation` 完成即釋槽的行為**——揀貨 slot 仍在 child 完成時釋放）：
-  - 決策開始：`B_occ` = 現存未整併 split 母單數（`PackingBuffer.Occupied`，per-parent 計）。
-  - 非最終 child 完成 → 該母單若尚未在 packing 佔格則 `Occupied++`（per-**母單**一格，非 per-child）。
-  - 母單整併（最後一 child）→ 釋放該母單那一格。
-  - 後備牆：`Occupied==C` 時不在本 tick 完成會「開新母單格」的 child（back-pressure）；完整單/最終 child 永不反壓。
+- **packing 記帳**（per-母單一箱；**不動 `OutputStation` 完成即釋槽的行為**——揀貨 slot 仍在 child 完成時釋放）：
+  - **登記**：decode split path 建 child 當下 `PackingBuffer.RegisterParent(parent)`（idempotent，再拆不重複計）。
+  - **釋放**：母單整併（`NotifyChildCompleted` 回 true 的分支）→ `PackingBuffer.ReleaseParent(parent)`——引擎側唯一掛點（null-safe，非 IC manager 不受影響）。
+  - 決策開始：`B_occ = PackingBuffer.AliveParentCount`（已登記未整併的母單數）。
+  - **無 back-pressure 牆**：預留發生在決策時刻、受 PK2 管制，by construction 不溢出（見 §4.3(C) 修正）。
 - **inbound 供給**：`P^U` 被派（C7）後成為在途，下一 epoch 變 `P^C` 才被綁 child——「規劃 pod 覆蓋（早）／槽綁定（pod 臨站才做）」解耦，靠週期性重解自然達成。
 
 ---
@@ -226,7 +230,7 @@ M0 → M1/M2 → M1e/M2e → **M2e-IC** → H；大規模 vs PVGS/HADGS。故事
 
 1. **供給枯竭（D8）**：拆單 child 只能綁 `P^C`，若 inbound 管線斷、站台無 `P^C` 可用 → 拆單無法推進。緩解：D2 保留整單走 `P^U`；週期重解補充 inbound。**8.3 probe 為前置驗證**，若真 starve 需引入「`P^U` 覆蓋派遣」（放寬 C7、加覆蓋項）——列為後續，非本 spec。
 2. **whole 單仍可能早綁定 `P^U`（D2）**：整單走 fresh pod 仍有駐留膨脹（等 pod 到），但**無 consolidation 尾巴**（單一 child、無手足）。使用者優先項是尾巴，此為次要，8.2 監測 whole 單佔比與其駐留。
-3. **`w3` 必須 >0**：本模型的榨乾驅動力來自填槽壓力（§5）。若沿用 M2e-PR 的 `w3=0` 會回到死區。**明文固定 `w3=1000`**，writing-plans 不得誤設 0。
+3. **`w3` 必須 >0，且注意歸因**：本模型的榨乾驅動力來自填槽壓力（§5）。若沿用 acc_m2ea 的 `w3=0` 會回到死區。**明文固定 `w3=1000`**（xconf 顯式寫出）。歸因注意：現行 5-seed M2e 基準（acc_m2ea, TP=642.4）是 `w3=0` 臂——IC(w3=1000) vs acc_m2ea 混了兩個因子。乾淨隔離 P1 需同時對照 **M2e(w3=1000)**（= 既有 `split_milp_m2e.xconf`，IdleSlotWeight 未寫出＝預設 1000）。敘事線：`w3` 填槽壓力在無限制綁定下是毒藥（早綁定停車場的推手），P1 把它變成藥（只准用在場供給填槽）——這本身就是可報告的機制發現。
 4. **on-the-fly extract 窗口**：現場 pod 接新 child 需 `Requests.Any()` 窗口（`BotManagerPodSelection.cs:1711-1729`）。slot 空出瞬間 pod 須未離站；巧合率現況 15–27%。本模型靠 §5 填槽壓力**主動**在同一次解裡把殘量塞給空槽（不等事件），部分繞開此窗口，但仍需 8.3 probe 確認「現場 pod 殘量被實際接走」。
 5. **packing per-母單 vs per-child 語意**：本 spec 依 Xie2021 採 **per-母單一格**（一箱一單）；與 2026-07-15 packing-buffer spec 的 per-child 計法不同。以 Xie2021 為準（78 的來源），writing-plans 記帳依此。
 6. **變數/限制式規模**：`whole`/`ypack` 各 `|O|` 個、P1d 為 `|O|×|P^U|×|S|`。與 M2e 同階，`P^U` 過濾（僅含需要 SKU 的儲區 pod）沿用。solveSec 監測。
