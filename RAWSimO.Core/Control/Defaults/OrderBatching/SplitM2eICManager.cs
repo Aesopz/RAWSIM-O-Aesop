@@ -1374,7 +1374,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                         result.SplitParents.Add(order);
                         // (IC) P1 ground truth: a split-path order must not have drawn from
                         // any storage-area (Pa) pod in this solution.
-                        int icPaUnits = deVarNameq.Where(v => v.order.ID == order.ID && Pa.Contains(v.pod))
+                        int icPaUnits = IsdeVarNameq.Where(v => v.order.ID == order.ID && Pa.Contains(v.pod))
                             .Sum(v => (int)Math.Round(variablesQ[v.name].GetValue()));
                         if (M2eICMath.SplitOrderDrawsFromStorage(true, icPaUnits))
                             throw new InvalidOperationException("M2e-IC: split order " + order.ID
