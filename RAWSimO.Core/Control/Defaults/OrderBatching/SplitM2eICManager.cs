@@ -481,7 +481,9 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // perishable squeeze targets. Queueing / en-route Pb pods deliberately excluded: their
             // windows stay open for future epochs, the processing pod's window is closing now.
             HashSet<Pod> processingPods = new HashSet<Pod>();
-            if (w5 != 0 || adaptiveExact)
+            // (IC) always collected: the Pp/Pq partition and icProcUnits probe need it
+            // regardless of w5 (mirror deviation - original gates on w5/adaptive).
+            if (true)
                 foreach (var station in Cs.Keys)
                     foreach (var pod in Pb)
                         if (station.Waypoint != null && PodToBot.ContainsKey(pod) && PodToBot[pod].CurrentWaypoint != null
@@ -511,6 +513,78 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     if (focusPod != null)
                         processingPods.Add(focusPod);
                 }
+            }
+            // ── (IC/v4) per-station pod-state partition (Pp/Pq/future) + pool scarcity ──
+            // Decision-time constants driving the SG gate, the D11 floor, the D15
+            // scarcity weights and the strict-gate opportunity-cost probe.
+            Dictionary<int, HashSet<int>> icPpByStation = new Dictionary<int, HashSet<int>>();
+            Dictionary<int, int> icPqCountByStation = new Dictionary<int, int>();
+            Dictionary<int, int> icFutureByStation = new Dictionary<int, int>();
+            foreach (var station in Cs.Keys)
+            {
+                HashSet<int> icProc = new HashSet<int>();
+                int icQueued = 0;
+                int icCommittedHere = 0;
+                HashSet<Pod> icStationPods;
+                if (inboundPods.TryGetValue(station, out icStationPods))
+                    foreach (var pod in icStationPods)
+                    {
+                        if (!Pb.Contains(pod) || !PodToBot.ContainsKey(pod))
+                            continue;
+                        icCommittedHere++;
+                        var icWayp = PodToBot[pod].CurrentWaypoint;
+                        if (icWayp != null && station.Waypoint != null && icWayp.ID == station.Waypoint.ID)
+                            icProc.Add(pod.ID);
+                        else if (icWayp != null && icWayp.IsQueueWaypoint)
+                            icQueued++;
+                    }
+                icPpByStation[station.ID] = icProc;
+                icPqCountByStation[station.ID] = icQueued;
+                icFutureByStation[station.ID] = icCommittedHere - icProc.Count;
+            }
+            bool icSgEnabled = _icConfig == null || _icConfig.SplitGateEnabled;
+            bool icSgStrict = _icConfig == null || _icConfig.SplitGateStrict;
+            Dictionary<int, bool> icSgOpenByStation = new Dictionary<int, bool>();
+            foreach (var station in Cs.Keys)
+                icSgOpenByStation[station.ID] = M2eICMath.SplitGateOpen(
+                    icPpByStation[station.ID].Count > 0, icPqCountByStation[station.ID], icSgStrict);
+            int icSgOpenCount = icSgOpenByStation.Values.Count(v => v);
+            // (D15) pool-local scarcity per SKU id
+            Dictionary<int, int> icDemById = new Dictionary<int, int>();
+            foreach (var icPair in residuals)
+                foreach (var icLine in icPair.Value)
+                {
+                    int icCur;
+                    icDemById[icLine.Key.ID] = (icDemById.TryGetValue(icLine.Key.ID, out icCur) ? icCur : 0) + icLine.Value;
+                }
+            Dictionary<int, int> icSupById = new Dictionary<int, int>();
+            foreach (var pod in Pods)
+                foreach (var icItem in pod.ItemDescriptionsContained)
+                {
+                    int icCur;
+                    icSupById[icItem.ID] = (icSupById.TryGetValue(icItem.ID, out icCur) ? icCur : 0) + pod.CountAvailable(icItem);
+                }
+            Dictionary<int, double> icScarcity = new Dictionary<int, double>();
+            foreach (var icDem in icDemById)
+            {
+                int icSupVal;
+                icScarcity[icDem.Key] = M2eICMath.PoolScarcity(icDem.Value,
+                    icSupById.TryGetValue(icDem.Key, out icSupVal) ? icSupVal : 0);
+            }
+            // (probe) strict-gate opportunity cost: backlog-matching residual sitting on the
+            // processing pods of gate-CLOSED stations (units the strict gate declines to harvest)
+            int icGateForegone = 0;
+            foreach (var station in Cs.Keys)
+            {
+                if (!icSgEnabled || icSgOpenByStation[station.ID])
+                    continue;
+                foreach (var pod in Pods.Where(p => icPpByStation[station.ID].Contains(p.ID)))
+                    foreach (var icItem in pod.ItemDescriptionsContained)
+                    {
+                        int icDemHere;
+                        if (icDemById.TryGetValue(icItem.ID, out icDemHere) && icDemHere > 0)
+                            icGateForegone += Math.Min(pod.CountAvailable(icItem), icDemHere);
+                    }
             }
             int maxCs = Cs.Count > 0 ? Cs.Values.Max() : 1;
             int maxR = residuals.Count > 0 ? residuals.Values.SelectMany(d => d.Values).DefaultIfEmpty(1).Max() : 1;
@@ -751,6 +825,81 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                             wrapper.AddConstr(lhs >= sku.Value * variablesBinary[zname], "eM2done");
                         }
                     }
+                }
+            }
+            // ── (IC/P1) inbound-committed gate ─────────────────────────────────────────
+            // An order drawing ANY unit from a storage-area pod (Pa) must be WHOLE:
+            // completed this solve (icP1a), at most one station (icP1b, big-M form),
+            // not an existing split parent and no out-of-stock residual (icP1c/icP1oos -
+            // legacy zdonex skips OOS SKUs, so without the oos leg a "complete" order
+            // could decode into split children bound to a Pa pod).
+            List<string> icWholeVarNames = new List<string>();
+            int icStationCount = Cs.Count;
+            foreach (var order in pendingOrders.OrderBy(o => o.ID))
+            {
+                string icWname = "icwholex_" + order.ID.ToString();
+                string icZname = (crossTime ? "zdonex" : "zfullx") + "_" + order.ID.ToString();
+                icWholeVarNames.Add(icWname);
+                bool icHasInvisibleResidual = residuals[order].Any(p => p.Value > 0 && !PiSKU.ContainsKey(p.Key));
+                if (!M2eICMath.IsWholeEligible(order.IsSplitParent, icHasInvisibleResidual))
+                {
+                    wrapper.AddConstr(variablesBinary[icWname] <= 0, "icP1c");
+                }
+                else
+                {
+                    wrapper.AddConstr(variablesBinary[icWname] <= variablesBinary[icZname], "icP1a");
+                    var icOrderY = deVarNamey.Where(v => v.order.ID == order.ID)
+                        .Select(v => variablesBinary[v.name]).ToList();
+                    if (icOrderY.Count > 0 && icStationCount > 1)
+                        wrapper.AddConstr(LinearExpression.Sum(icOrderY)
+                            + (icStationCount - 1) * variablesBinary[icWname] <= icStationCount, "icP1b");
+                }
+                var icPaQ = deVarNameq.Where(v => v.order.ID == order.ID && Pa.Contains(v.pod))
+                    .Select(v => variablesQ[v.name]).ToList();
+                if (icPaQ.Count > 0)
+                    wrapper.AddConstr(LinearExpression.Sum(icPaQ)
+                        <= M2eICMath.PaDrawBigM(residuals[order].Values) * variablesBinary[icWname], "icP1d");
+            }
+            // ── (IC/SG) split gate ─────────────────────────────────────────────────────
+            // Gate-closed stations: fresh orders may take a slot only if they COMPLETE this
+            // solve (whole or multi-station completion); new partials are bridge actions for
+            // a dying processing pod. Existing parents exempt (finishing them shrinks WIP).
+            // (SG2) fresh partials additionally draw from the station's PROCESSING pod only
+            // - a bridge must be pickable NOW (Pa is already gated by icP1d).
+            if (icSgEnabled)
+            {
+                foreach (var y in deVarNamey)
+                {
+                    if (y.order.IsSplitParent || icSgOpenByStation[y.outputstation.ID])
+                        continue;
+                    string icZn = (crossTime ? "zdonex" : "zfullx") + "_" + y.order.ID.ToString();
+                    wrapper.AddConstr(variablesBinary[y.name] <= variablesBinary[icZn], "icSG1");
+                }
+                foreach (var order in pendingOrders.OrderBy(o => o.ID))
+                {
+                    if (order.IsSplitParent)
+                        continue;
+                    var icNonPpQ = deVarNameq.Where(v => v.order.ID == order.ID && Pb.Contains(v.pod)
+                        && !icPpByStation[v.outputstation.ID].Contains(v.pod.ID))
+                        .Select(v => variablesQ[v.name]).ToList();
+                    if (icNonPpQ.Count > 0)
+                    {
+                        string icZn = (crossTime ? "zdonex" : "zfullx") + "_" + order.ID.ToString();
+                        wrapper.AddConstr(LinearExpression.Sum(icNonPpQ)
+                            <= M2eICMath.PaDrawBigM(residuals[order].Values) * variablesBinary[icZn], "icSG2");
+                    }
+                }
+            }
+            // ── (IC/D9) multi-part linearization: sum_s ysp <= ep + 1 ──────────────────
+            if (_icConfig != null && _icConfig.MultiPartPenalty != 0)
+            {
+                foreach (var order in pendingOrders.OrderBy(o => o.ID))
+                {
+                    var icOrderY = deVarNamey.Where(v => v.order.ID == order.ID)
+                        .Select(v => variablesBinary[v.name]).ToList();
+                    if (icOrderY.Count > 0)
+                        wrapper.AddConstr(LinearExpression.Sum(icOrderY)
+                            <= variablesUs["icepx_" + order.ID.ToString()] + 1, "icD9");
                 }
             }
             // Order-first control: the normal pass admits only z=1 complete residuals. A
@@ -1223,6 +1372,13 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                             nChildren++;
                         }
                         result.SplitParents.Add(order);
+                        // (IC) P1 ground truth: a split-path order must not have drawn from
+                        // any storage-area (Pa) pod in this solution.
+                        int icPaUnits = deVarNameq.Where(v => v.order.ID == order.ID && Pa.Contains(v.pod))
+                            .Sum(v => (int)Math.Round(variablesQ[v.name].GetValue()));
+                        if (M2eICMath.SplitOrderDrawsFromStorage(true, icPaUnits))
+                            throw new InvalidOperationException("M2e-IC: split order " + order.ID
+                                + " drew " + icPaUnits + " unit(s) from storage-area pods (P1 violated).");
                     }
                 }
                 double sumUs = 0.0;
