@@ -46,6 +46,9 @@ namespace RAWSimO.Tests
             PvgsStationSplitPlannerTests.Register();
             PvgsExactAlignedTests.Register();
             LbLedgerTests.Register();
+            M2eSunkFirstMathTests.Register();
+            M2eAdaptiveExactMathTests.Register();
+            M2eICMathTests.Register();
             return TestRunner.RunAll();
         }
     }
