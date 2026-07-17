@@ -624,8 +624,12 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // it can never trade away a completion. Guarded so eps=0 stays bit-identical
             // (LinearExpression.Sum throws on an empty sequence).
             double eps = _splitConfig != null ? _splitConfig.UnitDrawReward : 0;
+            // (IC/D15) scarcity-weighted squeeze: eps * poolScarcity[i] per drawn unit.
+            // P1d + icSG2 cap the dose structurally (partial draws are Pp-only), so unlike
+            // the flat eps arm (TP 623) no fishing trip can ever be provoked by this term.
             if (eps != 0 && deVarNameq.Count > 0)
-                objective = objective + LinearExpression.Sum(deVarNameq.Select(v => variablesQ[v.name])) * eps;
+                objective = objective + LinearExpression.Sum(deVarNameq.Select(v =>
+                    variablesQ[v.name] * (eps * (icScarcity.ContainsKey(v.skui.ID) ? icScarcity[v.skui.ID] : 0.0))), wrapper);
             // (PR) pro-rata layer: every assigned unit of order o earns R/D_o (negative =
             // reward under Minimize). D_o = the order's ORIGINAL overall demand
             // (GetDemandCount(), includes currently out-of-stock SKUs) so slice rewards
@@ -635,6 +639,73 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // (LinearExpression.Sum throws on an empty sequence).
             if (prMode && prR != 0 && deVarNameq.Count > 0)
                 objective = objective + LinearExpression.Sum(deVarNameq.Select(v => variablesQ[v.name] * (-prR / v.order.GetDemandCount())));
+            // ── (IC/v4) objective additions: D9 wp, D11 pipeline floor, D14 coverage ──
+            double icWpPen = _icConfig != null ? _icConfig.MultiPartPenalty : 0;
+            if (icWpPen != 0 && pendingOrders.Count > 0)
+                objective = objective + LinearExpression.Sum(pendingOrders.OrderBy(o => o.ID)
+                    .Select(o => variablesUs["icepx_" + o.ID.ToString()])) * icWpPen;
+            List<string> icShortfallNames = new List<string>();
+            bool icFloorOn = _icConfig != null && _icConfig.PipelineFloorEnabled && _icConfig.PipelineFloorWeight != 0;
+            if (icFloorOn)
+            {
+                int icT = Math.Max(1, _icConfig.PipelineFloorTarget);
+                foreach (var station in Cs.Keys)
+                {
+                    var icNewXps = deVarNamexps.Where(v => v.outputstation.ID == station.ID && Pa.Contains(v.pod))
+                        .Select(v => variablesBinary[v.name]).ToList();
+                    int icFuture = icFutureByStation[station.ID];
+                    // (icLGcap) hard anti-oversupply: future + new <= T (AE target=3 counterexample)
+                    if (icNewXps.Count > 0)
+                        wrapper.AddConstr(LinearExpression.Sum(icNewXps) <= Math.Max(0, icT - icFuture), "icLGcap");
+                    // (icLG1) soft floor while the lead gate is open: dispatch is clock-driven,
+                    // not exhaustion-driven - squeeze and dispatch coexist in one solve.
+                    bool icGateOpen = M2eICMath.PipelineGateOpen(icPpByStation[station.ID].Count > 0,
+                        station.GetInfoCurrentPodReleaseLeft(), _icConfig.PipelineFloorLeadSec);
+                    if (!icGateOpen || icT - icFuture <= 0)
+                        continue;
+                    string icSfName = "icsfx_" + station.ID.ToString();
+                    icShortfallNames.Add(icSfName);
+                    if (icNewXps.Count > 0)
+                        wrapper.AddConstr(LinearExpression.Sum(icNewXps) + variablesUs[icSfName]
+                            >= icT - icFuture, "icLG1");
+                    else
+                        wrapper.AddConstr(variablesUs[icSfName] >= icT - icFuture, "icLG1");
+                }
+                if (icShortfallNames.Count > 0)
+                    objective = objective + LinearExpression.Sum(icShortfallNames.Select(n => variablesUs[n])) * _icConfig.PipelineFloorWeight;
+            }
+            double icCov = _icConfig != null ? _icConfig.CoverageRewardWeight : 0;
+            if (icCov != 0)
+            {
+                // (IC/D14) selected-pod-set residual coverage as a SMALL additive tie-break
+                // (not CF's failed lexicographic stage): c_i <= pool demand, c_i <= selected
+                // supply. Among equal-completion pod sets total coverage differs exactly by
+                // the leftover coverage - the residual-SKU sizing tie-break, no subtraction.
+                VariableCollection<string> icCovVars = new VariableCollection<string>(wrapper, VariableType.Continuous, 0, double.PositiveInfinity, (string s) => { return s; });
+                List<string> icCovNames = new List<string>();
+                foreach (var icSku in OiSKU.Keys.Where(k => PiSKU.ContainsKey(k)))
+                {
+                    int icDemandHere = 0;
+                    foreach (var icPair in residuals)
+                    {
+                        int icLine;
+                        if (icPair.Value.TryGetValue(icSku, out icLine))
+                            icDemandHere += icLine;
+                    }
+                    if (icDemandHere <= 0)
+                        continue;
+                    var icSupplyTerms = deVarNamexps.Where(v => v.pod.CountAvailable(icSku) > 0)
+                        .Select(v => variablesBinary[v.name] * (double)v.pod.CountAvailable(icSku)).ToList();
+                    if (icSupplyTerms.Count == 0)
+                        continue;
+                    string icCn = "iccov_" + icSku.ID.ToString();
+                    icCovNames.Add(icCn);
+                    wrapper.AddConstr(icCovVars[icCn] <= icDemandHere, "iccovd");
+                    wrapper.AddConstr(icCovVars[icCn] <= LinearExpression.Sum(icSupplyTerms), "iccovs");
+                }
+                if (icCovNames.Count > 0)
+                    objective = objective + LinearExpression.Sum(icCovNames.Select(n => icCovVars[n])) * icCov;
+            }
             // (CF) coverage-first lexicographic mode: build the Solve-1 objective
             // (completions + beta * whole-backlog pool coverage - epsS * new trips, NO
             // distance) and its pool-coverage variables. The demand pool deliberately
