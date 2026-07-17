@@ -243,7 +243,9 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             int nXps, int nChildren, int nFastPath, int unitsAssigned, double sumUs, double objective, double optSec,
             int partialOrders, int partialOnlyNewTrips, int odCount, bool odFired,
             int sunkOrdersStar, int sunkItemsStar, int sunkUnitsFinal, int newTripsFinal,
-            double solve1Sec, double solve2Sec)
+            double solve1Sec, double solve2Sec,
+            int icWhole, int icPackOcc, int icPackBudget, int icProcUnits,
+            int icEpSum, int icShortfall, int icSgOpen, int icGateForegone)
         {
             if (_exactDecisionLog == null)
             {
@@ -253,7 +255,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 if (!System.IO.Directory.Exists(dir))
                     System.IO.Directory.CreateDirectory(dir);
                 _exactDecisionLog = new System.IO.StreamWriter(System.IO.Path.Combine(dir, "splitm2eic_decision_log.csv"), false) { AutoFlush = true };
-                _exactDecisionLog.WriteLine("decision,time,solved,pendingOrders,stationsWithCap,podsInModel,xps,children,fastPath,units,sumUs,objective,solveSec,partialOrders,partialOnlyNewTrips,odCount,odFired,sunkOrdersStar,sunkItemsStar,sunkUnitsFinal,newTripsFinal,solve1Sec,solve2Sec");
+                _exactDecisionLog.WriteLine("decision,time,solved,pendingOrders,stationsWithCap,podsInModel,xps,children,fastPath,units,sumUs,objective,solveSec,partialOrders,partialOnlyNewTrips,odCount,odFired,sunkOrdersStar,sunkItemsStar,sunkUnitsFinal,newTripsFinal,solve1Sec,solve2Sec,icWhole,icPackOcc,icPackBudget,icProcUnits,icEpSum,icShortfall,icSgOpen,icGateForegone");
             }
             _exactDecisionLog.WriteLine(string.Join(",", new string[] {
                 _exactDecisionIndex.ToString(),
@@ -278,7 +280,15 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 sunkUnitsFinal.ToString(),
                 newTripsFinal.ToString(),
                 solve1Sec.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                solve2Sec.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                solve2Sec.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                icWhole.ToString(),
+                icPackOcc.ToString(),
+                icPackBudget.ToString(),
+                icProcUnits.ToString(),
+                icEpSum.ToString(),
+                icShortfall.ToString(),
+                icSgOpen.ToString(),
+                icGateForegone.ToString()
             }));
             _exactDecisionIndex++;
         }
@@ -973,6 +983,33 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                             <= variablesUs["icepx_" + order.ID.ToString()] + 1, "icD9");
                 }
             }
+            // ── (IC/PK) downstream packing budget (Xie Appx B; one box per split parent,
+            // reserved at decode, released at consolidation; <=0 disables the block) ──
+            int icPackCapacity = _icConfig != null ? _icConfig.PackingBufferCapacity : 0;
+            if (icPackCapacity > 0)
+            {
+                int icBOcc = Instance.PackingBuffer != null ? Instance.PackingBuffer.AliveParentCount : 0;
+                List<string> icYpackNames = new List<string>();
+                foreach (var order in pendingOrders.OrderBy(o => o.ID))
+                {
+                    if (order.IsSplitParent)
+                        continue; // box already reserved at its first split (inside icBOcc)
+                    string icPname = "icypackx_" + order.ID.ToString();
+                    string icWn = "icwholex_" + order.ID.ToString();
+                    icYpackNames.Add(icPname);
+                    var icPkY = deVarNamey.Where(v => v.order.ID == order.ID).ToList();
+                    foreach (var y in icPkY)
+                        wrapper.AddConstr(variablesBinary[icPname] + variablesBinary[icWn]
+                            >= variablesBinary[y.name], "icPK1a");
+                    if (icPkY.Count > 0)
+                        wrapper.AddConstr(variablesBinary[icPname]
+                            <= LinearExpression.Sum(icPkY.Select(v => variablesBinary[v.name])), "icPK1b");
+                    wrapper.AddConstr(variablesBinary[icPname] + variablesBinary[icWn] <= 1, "icPK1c");
+                }
+                if (icYpackNames.Count > 0)
+                    wrapper.AddConstr(LinearExpression.Sum(icYpackNames.Select(n => variablesBinary[n]))
+                        <= M2eICMath.PackingBudget(icPackCapacity, icBOcc), "icPK2");
+            }
             // Order-first control: the normal pass admits only z=1 complete residuals. A
             // second pass is opened only when that pass cannot complete an order; it may
             // create at most one z=0 child, preventing item pile-on from spraying partial
@@ -1301,6 +1338,10 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 solve2Sec = (DateTime.Now - solve2Start).TotalSeconds;
             }
             double _optSec = (DateTime.Now - _optStart).TotalSeconds;
+            // (IC) probe values for the decision log
+            int icLogPackCap = _icConfig != null ? _icConfig.PackingBufferCapacity : 0;
+            int icLogPackOcc = Instance.PackingBuffer != null ? Instance.PackingBuffer.AliveParentCount : 0;
+            int icLogPackBudget = icLogPackCap > 0 ? M2eICMath.PackingBudget(icLogPackCap, icLogPackOcc) : -1;
             if (wrapper.HasSolution())
             {
                 result.HasSolution = true;
@@ -1450,6 +1491,10 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                         if (M2eICMath.SplitOrderDrawsFromStorage(true, icPaUnits))
                             throw new InvalidOperationException("M2e-IC: split order " + order.ID
                                 + " drew " + icPaUnits + " unit(s) from storage-area pods (P1 violated).");
+                        // (IC/PK) reserve the parent's packing box at first split (idempotent
+                        // for re-split parents; conservative - never overshoots capacity).
+                        if (Instance.PackingBuffer != null)
+                            Instance.PackingBuffer.RegisterParent(order.ID);
                     }
                 }
                 double sumUs = 0.0;
@@ -1475,16 +1520,26 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     if (podDraws.Count > 0 && podDraws.All(q => zOffOrders.Contains(q.order.ID)))
                         partialOnlyNewTrips++;
                 }
+                int icWholeCount = icWholeVarNames.Count(n => Math.Round(variablesBinary[n].GetValue()) != 0);
+                int icEpSum = 0;
+                if (_icConfig != null && _icConfig.MultiPartPenalty != 0)
+                    foreach (var icOrd in pendingOrders)
+                        icEpSum += (int)Math.Round(variablesUs["icepx_" + icOrd.ID.ToString()].GetValue());
+                int icShortfallSum = icShortfallNames.Count == 0 ? 0
+                    : icShortfallNames.Sum(n => (int)Math.Round(variablesUs[n].GetValue()));
                 WriteExactDecisionLog(true, Instance.Controller.CurrentTime, pendingOrders.Count, Cs.Count, Pods.Count(),
                     IsdeVarNamexps.Count, nChildren, nFastPath, unitsAssigned, sumUs, wrapper.GetObjectiveValue(), _optSec,
                     partialOrders, partialOnlyNewTrips, odCount, odFired, sunkOrdersStar, sunkItemsStar,
-                    sunkUnitsFinal, newTripsFinal, solve1Sec, solve2Sec);
+                    sunkUnitsFinal, newTripsFinal, solve1Sec, solve2Sec,
+                    icWholeCount, icLogPackOcc, icLogPackBudget, result.ProcessingUnitCount,
+                    icEpSum, icShortfallSum, icSgOpenCount, icGateForegone);
             }
             else
             {
                 WriteExactDecisionLog(false, Instance.Controller.CurrentTime, pendingOrders.Count, Cs.Count, Pods.Count(),
                     0, 0, 0, 0, 0.0, double.NaN, _optSec, 0, 0, odCount, odFired,
-                    sunkOrdersStar, sunkItemsStar, 0, 0, solve1Sec, solve2Sec);
+                    sunkOrdersStar, sunkItemsStar, 0, 0, solve1Sec, solve2Sec,
+                    0, icLogPackOcc, icLogPackBudget, 0, 0, 0, icSgOpenCount, icGateForegone);
             }
             return result;
         }
