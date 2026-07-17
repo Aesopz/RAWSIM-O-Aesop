@@ -1074,6 +1074,131 @@ namespace RAWSimO.Core.Configurations
         /// the completion hierarchy R*frac &lt; R &lt; B+R holds structurally for any R&gt;0.
         /// </summary>
         public double ProRataReward = 0;
+        /// <summary>
+        /// M2e-SF: before the legacy objective, lexicographically maximize parent orders
+        /// fully supplied by inherited Pb pods, then the residual item count of those
+        /// completed orders. Active only when CrossTime is true. Default false keeps the
+        /// existing one-solve path behavior-identical. Spec: docs/superpowers/specs/
+        /// 2026-07-14-m2e-sunk-first-design.md.
+        /// </summary>
+        public bool SunkFirstScoring = false;
+        /// <summary>
+        /// M2e-AE: pod-centric adaptive control. Each event first exhausts full orders from
+        /// inherited/processing pods, then repeatedly fixes the new pod/station with the
+        /// greatest marginal completed-order value and re-solves exact SKU-order-pod-station
+        /// OA while slots remain. Partial progress is a final fallback. Default false
+        /// preserves the existing one-shot M2e path.
+        /// </summary>
+        public bool AdaptiveExactResweeps = false;
+        /// <summary>
+        /// Normal cross-event supply target behind the pod physically at a station. Positive-
+        /// value resweeps may exceed it inside the same decision event while slots remain.
+        /// </summary>
+        public int AdaptiveFuturePodTarget = 1;
+        /// <summary>
+        /// Maximum pods fixed into one exact OA burst. The first pods satisfy periodic
+        /// station supply; every additional pod must add at least one completable order to
+        /// the already selected bundle. Default 1 is conservative and inert while M2e-AE is
+        /// disabled.
+        /// </summary>
+        public int AdaptiveMaxPodBurst = 1;
+        /// <summary>
+        /// Allows one additional future pod only when the station already has its normal
+        /// pipeline target but the live work projection still contains a starvation gap.
+        /// Default false keeps the conservative fixed-target behavior.
+        /// </summary>
+        public bool AdaptiveRiskPrefetch = false;
+        /// <summary>
+        /// Minimum projected station starvation gap, in seconds, required to open the
+        /// risk-triggered second-future-pod allowance.
+        /// </summary>
+        public double AdaptiveRiskPrefetchGapSec = 1.0;
+        /// <summary>
+        /// When positive, a station whose physical processing pod has more than this many
+        /// seconds of committed work first receives a Pb-only OA sweep. Periodic PS opens
+        /// once the release window is shorter, or immediately when Pb cannot complete an
+        /// order. Zero disables this timing gate.
+        /// </summary>
+        public double AdaptivePeriodicSupplyLeadTimeSec = 0.0;
+        /// <summary>
+        /// Optional ablation: prioritize 2*completed-orders - station-parts before raw
+        /// completions. Default false keeps raw throughput first and parts as its next guard.
+        /// </summary>
+        public bool AdaptiveSlotEfficientCompletion = false;
+        /// <summary>
+        /// Maximum number of committed completion/supply resweeps in one external decision.
+        /// </summary>
+        public int AdaptiveExactResweepLimit = 32;
+    }
+
+    /// <summary>
+    /// M2e-IC (Inbound-Committed Split, spec v4): SplitM1GExact plus (P1) split orders draw
+    /// only from committed pods while storage pods serve WHOLE orders only, (SG) a
+    /// state-conditional split gate (new partials bridge a dying processing pod only),
+    /// (D9) a multi-part penalty, (D11) a lead-gated pipeline floor, (D14) a selected-pod
+    /// residual-coverage tie-break, (D15) pool-scarcity-weighted squeeze and (PK) an
+    /// optional per-split-parent packing budget (Xie et al. 2021 Appx B).
+    /// Spec: docs/superpowers/specs/2026-07-16-pod-centric-inbound-split-design.md.
+    /// </summary>
+    public class SplitM2eICConfiguration : SplitM1GExactConfiguration
+    {
+        /// <summary>
+        /// Returns the type of the corresponding method this configuration belongs to.
+        /// </summary>
+        /// <returns>The type of the method.</returns>
+        public override OrderBatchingMethodType GetMethodType() { return OrderBatchingMethodType.SplitM2eIC; }
+        /// <summary>
+        /// Returns a name identifying the method.
+        /// </summary>
+        /// <returns>The name of the method.</returns>
+        public override string GetMethodName() { if (!string.IsNullOrWhiteSpace(Name)) return Name; return "OBSPLITM2EIC"; }
+        /// <summary>
+        /// (PK) Downstream packing buffer capacity C (Xie et al. 2021 Appendix B derives
+        /// 78 boxes per shelf). One box per split parent from first split until
+        /// consolidation. &lt;= 0 = unlimited (constraint absent) - the default.
+        /// </summary>
+        public int PackingBufferCapacity = 0;
+        /// <summary>
+        /// (D9) wp: penalty per station-part beyond an order's first. Soft whole-preference:
+        /// keep 2*IdleSlotWeight &lt; MultiPartPenalty &lt; |OrderRewardWeight| so gratuitous
+        /// multi-station shredding loses while genuinely-needed multi-station completions
+        /// stay affordable. 0 = off.
+        /// </summary>
+        public double MultiPartPenalty = 12;
+        /// <summary>
+        /// (D11) w_pipe: penalty per unit of per-station pipeline shortfall while the lead
+        /// gate is open. Size between the net new-trip completion value and
+        /// |OrderRewardWeight| so a slot+trip gets dedicated to the NEXT pod even while
+        /// the current one still offers completions.
+        /// </summary>
+        public double PipelineFloorWeight = 20;
+        /// <summary>
+        /// (D11) Lead: dispatch the next pod once the processing pod's remaining committed
+        /// work is within this many seconds (AE-validated 70; lead=0 over-supplies).
+        /// </summary>
+        public double PipelineFloorLeadSec = 70;
+        /// <summary>
+        /// (D11) T: future pods (queued + en-route) targeted per station beyond the
+        /// physical one. AE-validated 1 (i.e. two-pod pipeline); also the hard cap.
+        /// </summary>
+        public int PipelineFloorTarget = 1;
+        /// <summary>(D11) Master switch for the pipeline floor.</summary>
+        public bool PipelineFloorEnabled = true;
+        /// <summary>(SG) Master switch for the split gate.</summary>
+        public bool SplitGateEnabled = true;
+        /// <summary>
+        /// (SG) Strict = new partials only when the station has a processing pod AND no
+        /// queued successor (bridge window = successor's travel window). False (loose) =
+        /// processing pod present suffices (harvests the post-queue tail; ablation arm).
+        /// </summary>
+        public bool SplitGateStrict = true;
+        /// <summary>
+        /// (D14) Epsilon_cov: reward per unit of selected-pod-set coverage of the backlog
+        /// residual pool (negative = reward). Among equal-completion pod sets this is
+        /// exactly the leftover-coverage tie-break. Keep |value|*max-coverage well below
+        /// |OrderRewardWeight|. 0 = off.
+        /// </summary>
+        public double CoverageRewardWeight = -0.2;
     }
 
     /// <summary>

@@ -351,6 +351,13 @@ namespace RAWSimO.Core.Configurations
         /// time via a deferred-binding ledger; PlannedWipCap replaces physical Cs semantics.
         /// </summary>
         SplitM1GLB,
+        /// <summary>
+        /// M2e-IC (Inbound-Committed Split, v4): SplitM1GExact plus the P1/SG gates
+        /// (splits draw from committed pods; new partials bridge a dying processing pod
+        /// only), multi-part penalty, lead-gated pipeline floor, coverage/scarcity
+        /// tie-breaks and an optional per-split-parent packing budget.
+        /// </summary>
+        SplitM2eIC,
     }
     /// <summary>
     /// All types of implemented replenishment batching strategies.
@@ -784,7 +791,9 @@ namespace RAWSimO.Core.Configurations
     [XmlInclude(typeof(SplitHeuristicConfiguration))]
     [XmlInclude(typeof(SplitM1GConfiguration))]
     [XmlInclude(typeof(SplitM1GExactConfiguration))]
+    [XmlInclude(typeof(SplitM1GLBConfiguration))]
     [XmlInclude(typeof(PVGSConfiguration))]
+    [XmlInclude(typeof(SplitM2eICConfiguration))]
     public abstract class OrderBatchingConfiguration : ControllerConfigurationBase
     {
         /// <summary>
