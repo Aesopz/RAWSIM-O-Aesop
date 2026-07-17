@@ -214,6 +214,7 @@
     <Compile Include="Elements\Compound.cs" />
     <Compile Include="Elements\InputStation.cs" />
     <Compile Include="Elements\OutputStation.cs" />
+    <Compile Include="Elements\PackingBuffer.cs" />
     <Compile Include="Elements\Tier.cs" />
     <Compile Include="Generator\InstanceGenerator.cs" />
     <Compile Include="Generator\OrderGenerator.cs" />

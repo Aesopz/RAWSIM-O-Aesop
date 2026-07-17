@@ -251,6 +251,13 @@ namespace RAWSimO.Core.Elements
                                 bot.WaitUntil(currentTime + ItemPickTime);
                                 // Track when the currently processed pod can leave the station.
                                 UpdateCurrentProcessingPodRelease(bot, currentTime);
+                                // (M2e-IC / D16) one pick left on this task -> wake the order
+                                // manager so a re-solve can extend the pod while the on-the-fly
+                                // window (Requests.Any) is still open. Null-safe: only IC-family
+                                // managers create the buffer; all other configs bit-identical.
+                                if (Instance.PackingBuffer != null && bot.CurrentTask is Control.ExtractTask _icNr0
+                                    && _icNr0.Requests != null && _icNr0.Requests.Count == 1)
+                                    Instance.Controller.OrderManager.SignalOrderFinished(null, this);
                                 // Count the number of picked items
                                 StatNumItemsPicked++;
                                 // Keep track of injected item picks
@@ -291,6 +298,10 @@ namespace RAWSimO.Core.Elements
                             bot.WaitUntil(currentTime + ItemPickTime);
                             // Track when the currently processed pod can leave the station.
                             UpdateCurrentProcessingPodRelease(bot, currentTime);
+                            // (M2e-IC / D16) see the twin branch above.
+                            if (Instance.PackingBuffer != null && bot.CurrentTask is Control.ExtractTask _icNr1
+                                && _icNr1.Requests != null && _icNr1.Requests.Count == 1)
+                                Instance.Controller.OrderManager.SignalOrderFinished(null, this);
                             // Count the number of picked items
                             StatNumItemsPicked++;
                             // Keep track of injected item picks
@@ -350,6 +361,10 @@ namespace RAWSimO.Core.Elements
                             parent.TimeStampCompleted = currentTime;
                             Instance.ItemManager.CompleteOrder(parent);
                             Instance.NotifyOrderCompleted(parent, this);
+                            // (M2e-IC) consolidation releases the parent's packing box.
+                            // Null-safe no-op for every manager that does not create the buffer.
+                            if (Instance.PackingBuffer != null)
+                                Instance.PackingBuffer.ReleaseParent(parent.ID);
                         }
                         else
                         {

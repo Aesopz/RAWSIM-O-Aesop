@@ -49,6 +49,7 @@ namespace RAWSimO.Tests
             M2eSunkFirstMathTests.Register();
             M2eAdaptiveExactMathTests.Register();
             M2eICMathTests.Register();
+            PackingBufferTests.Register();
             return TestRunner.RunAll();
         }
     }

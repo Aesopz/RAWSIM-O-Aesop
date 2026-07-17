@@ -44,6 +44,7 @@
     <Compile Include="M2eSunkFirstMathTests.cs" />
     <Compile Include="M2eAdaptiveExactMathTests.cs" />
     <Compile Include="M2eICMathTests.cs" />
+    <Compile Include="PackingBufferTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\RAWSimO.Core\RAWSimO.Core.csproj">
