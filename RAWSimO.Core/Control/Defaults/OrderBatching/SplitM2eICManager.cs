@@ -386,7 +386,21 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             odCount = Od.Count;
             odFired = odCount > Cs.Values.Sum();
             if (odFired)
-                pendingOrders = new HashSet<Order>(Od);
+            {
+                // (IC/adm) parent admission priority: when the urgent set replaces the
+                // backlog, existing split parents survive the replacement like deadline
+                // orders - their residuals must stay visible to the solver (the documented
+                // Od-replacement exclusion dropped open parents from 26% of decisions).
+                if (_icConfig != null && _icConfig.ParentAdmissionPriority)
+                {
+                    HashSet<Order> icKeep = new HashSet<Order>(Od);
+                    foreach (var icParent in pendingOrders.Where(o => o.IsSplitParent))
+                        icKeep.Add(icParent);
+                    pendingOrders = icKeep;
+                }
+                else
+                    pendingOrders = new HashSet<Order>(Od);
+            }
             OiSKU = GenerateOiSKUSplit(pendingOrders);
             residuals = pendingOrders.ToDictionary(o => o, o => o.RemainingPositions.ToDictionary(p => p.Key, p => p.Value));
             variableNames = CreatedeVarName(PiSKU, OiSKU, allPods, pendingOrders, Cs, R, Pa1, out Pa);
@@ -950,8 +964,17 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 var icPaQ = deVarNameq.Where(v => v.order.ID == order.ID && Pa.Contains(v.pod))
                     .Select(v => variablesQ[v.name]).ToList();
                 if (icPaQ.Count > 0)
+                {
+                    // (IC/close) parent closing-only dispatch: an existing split parent may
+                    // draw from storage pods ONLY when the draw closes it entirely this
+                    // solve (zdone-gated) - a dedicated tail-ending trip. Partial fishing
+                    // from Pa stays impossible (z=0 -> zero Pa draws). Fresh orders keep
+                    // the whole-gate unchanged.
+                    bool icParentClose = _icConfig != null && _icConfig.ParentClosingDispatch && order.IsSplitParent;
                     wrapper.AddConstr(LinearExpression.Sum(icPaQ)
-                        <= M2eICMath.PaDrawBigM(residuals[order].Values) * variablesBinary[icWname], "icP1d");
+                        <= M2eICMath.PaDrawBigM(residuals[order].Values)
+                        * variablesBinary[icParentClose ? icZname : icWname], "icP1d");
+                }
             }
             // ── (IC/SG) split gate ─────────────────────────────────────────────────────
             // Gate-closed stations: fresh orders may take a slot only if they COMPLETE this
@@ -1497,10 +1520,13 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                         }
                         result.SplitParents.Add(order);
                         // (IC) P1 ground truth: a split-path order must not have drawn from
-                        // any storage-area (Pa) pod in this solution.
+                        // any storage-area (Pa) pod in this solution - EXCEPT a parent's
+                        // closing-only dispatch (flag on + fully closed this solve; the MILP
+                        // icP1d z-gate guarantees fresh orders still have zero Pa draws).
                         int icPaUnits = IsdeVarNameq.Where(v => v.order.ID == order.ID && Pa.Contains(v.pod))
                             .Sum(v => (int)Math.Round(variablesQ[v.name].GetValue()));
-                        if (M2eICMath.SplitOrderDrawsFromStorage(true, icPaUnits))
+                        bool icClosingException = _icConfig != null && _icConfig.ParentClosingDispatch && fullyAssigned;
+                        if (M2eICMath.SplitOrderDrawsFromStorage(true, icPaUnits) && !icClosingException)
                             throw new InvalidOperationException("M2e-IC: split order " + order.ID
                                 + " drew " + icPaUnits + " unit(s) from storage-area pods (P1 violated).");
                         // (IC/PK) reserve the parent's packing box at first split (idempotent

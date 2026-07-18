@@ -1208,6 +1208,24 @@ namespace RAWSimO.Core.Configurations
         /// three-times-dead partial-reward family. 0 = off, bit-identical.
         /// </summary>
         public double ParentClosingReward = 0;
+        /// <summary>
+        /// (adm) Parent admission priority: when the urgent-order set (Od) overflows the
+        /// slots and replaces the backlog for this solve, existing split parents survive
+        /// the replacement (treated like deadline orders). Fixes the documented
+        /// Od-replacement exclusion (26% of M2e decisions dropped open parents entirely,
+        /// see docs/2026-07-14-m2e-sunk-first-negative-result.md section 4).
+        /// false = legacy replacement, bit-identical.
+        /// </summary>
+        public bool ParentAdmissionPriority = false;
+        /// <summary>
+        /// (close) Parent closing-only dispatch: an existing split parent may draw from
+        /// storage-area (Pa) pods ONLY when the draw fully closes it this solve
+        /// (zdone-gated icP1d) - a dedicated tail-ending trip, the MILP counterpart of
+        /// PVGS's dispatch-side parent hunting (ParentClosingBonus). Partial fishing from
+        /// Pa remains impossible (z=0 forces zero Pa draws). false = strict P1,
+        /// bit-identical.
+        /// </summary>
+        public bool ParentClosingDispatch = false;
     }
 
     /// <summary>
