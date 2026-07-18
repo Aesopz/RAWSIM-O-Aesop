@@ -1199,6 +1199,15 @@ namespace RAWSimO.Core.Configurations
         /// |OrderRewardWeight|. 0 = off.
         /// </summary>
         public double CoverageRewardWeight = -0.2;
+        /// <summary>
+        /// (w2p) Parent-closing bonus: extra completion reward for orders that are
+        /// existing split parents (their zdone closes a consolidation tail and frees a
+        /// packing box). MILP counterpart of PVGS's ParentClosingBonus (=20, half of
+        /// |OrderRewardWeight|); PVGS's 48s consolidation waits vs M2e-IC's 721s traced
+        /// to exactly this missing priority. Rewards COMPLETION only - not in the
+        /// three-times-dead partial-reward family. 0 = off, bit-identical.
+        /// </summary>
+        public double ParentClosingReward = 0;
     }
 
     /// <summary>

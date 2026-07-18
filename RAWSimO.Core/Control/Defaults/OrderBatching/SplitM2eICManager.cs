@@ -654,6 +654,18 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             if (icWpPen != 0 && pendingOrders.Count > 0)
                 objective = objective + LinearExpression.Sum(pendingOrders.OrderBy(o => o.ID)
                     .Select(o => variablesUs["icepx_" + o.ID.ToString()])) * icWpPen;
+            // (w2p) parent-closing bonus: completing an existing split parent closes a
+            // consolidation tail (and frees a packing box), so its zdone earns w2 + w2p.
+            // MILP counterpart of PVGS's ParentClosingBonus - completion-targeted, never
+            // rewards partial draws.
+            double icW2p = _icConfig != null ? _icConfig.ParentClosingReward : 0;
+            if (icW2p != 0)
+            {
+                var icParentZ = deVarNamez.Where(v => v.order.IsSplitParent)
+                    .Select(v => variablesBinary[v.name]).ToList();
+                if (icParentZ.Count > 0)
+                    objective = objective - LinearExpression.Sum(icParentZ) * icW2p;
+            }
             List<string> icShortfallNames = new List<string>();
             bool icFloorOn = _icConfig != null && _icConfig.PipelineFloorEnabled && _icConfig.PipelineFloorWeight != 0;
             if (icFloorOn)
