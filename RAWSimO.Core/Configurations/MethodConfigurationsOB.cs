@@ -1348,6 +1348,14 @@ namespace RAWSimO.Core.Configurations
         /// false = strict whole-only P1d, bit-identical.
         /// </summary>
         public bool SplitCanDriveDispatch = false;
+
+        /// <summary>(Fill fairness) When true, a split parent is released from the ItemManager's
+        /// available-order backlog on its FIRST split - freeing a Fill replenishment slot so a
+        /// fresh order is injected at the same cadence M1G gets from whole-order assignment -
+        /// while staying in _pendingOrders to serve its residual across periods. It is NOT marked
+        /// complete; the parent completes only via child consolidation. Default false = release
+        /// only at IsFullyClaimed (current behavior, bit-identical). Only affects Fill mode.</summary>
+        public bool ReleaseParentOnFirstSplit = false;
     }
 
     /// <summary>

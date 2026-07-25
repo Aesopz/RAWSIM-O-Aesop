@@ -210,6 +210,24 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         private System.IO.StreamWriter _exactDecisionLog;
         private int _exactDecisionIndex = 0;
         private System.IO.StreamWriter _adaptiveExactLog;
+        private System.IO.StreamWriter _earlyReleaseLog;
+
+        // (Fill fairness diagnostic) one row per parent released early from the Fill backlog.
+        // Only ever called on the flag-on path, so no file appears when the feature is off.
+        private void WriteEarlyRelease(int parentId, int remainingUnitsAtRelease)
+        {
+            if (_earlyReleaseLog == null)
+            {
+                string dir = Instance != null && Instance.SettingConfig != null ? Instance.SettingConfig.StatisticsDirectory : null;
+                if (string.IsNullOrEmpty(dir)) dir = ".";
+                if (!System.IO.Directory.Exists(dir)) System.IO.Directory.CreateDirectory(dir);
+                _earlyReleaseLog = new System.IO.StreamWriter(System.IO.Path.Combine(dir, "early_release.csv"), false) { AutoFlush = true };
+                _earlyReleaseLog.WriteLine("time,parentId,remainingUnitsAtRelease");
+            }
+            _earlyReleaseLog.WriteLine(
+                Instance.Controller.CurrentTime.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + "," + parentId + "," + remainingUnitsAtRelease);
+        }
         private int _adaptiveExactEpoch = 0;
         private System.IO.StreamWriter _adaptiveReplenishmentLog;
         private System.IO.StreamWriter _adaptivePipelineProbeLog;
@@ -1763,6 +1781,18 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             {
                 if (double.IsPositiveInfinity(parent.TimeStampSubmit))
                     parent.TimeStampSubmit = Instance.Controller.CurrentTime;
+                // (Fill fairness) On the parent's FIRST split, free its Fill backlog slot so a
+                // fresh order is injected, while keeping it in _pendingOrders for residual
+                // service. Fires exactly once (guarded by IsOrderAvailable). Whole block is
+                // unreachable when the flag is off => bit-identical to current behavior.
+                if (_icConfig != null && _icConfig.ReleaseParentOnFirstSplit
+                    && parent.IsSplitParent
+                    && (Instance.ItemManager as ItemManager).IsOrderAvailable(parent))
+                {
+                    int remUnits = parent.RemainingPositions.Sum(p => p.Value);
+                    (Instance.ItemManager as ItemManager).TakeAvailableOrder(parent);
+                    WriteEarlyRelease(parent.ID, remUnits);
+                }
                 if (parent.IsFullyClaimed)
                 {
                     _pendingOrders.Remove(parent);
