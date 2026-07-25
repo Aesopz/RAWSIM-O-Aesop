@@ -19,6 +19,38 @@ namespace RAWSimO.Tests
                 TestRunner.AssertTrue(!M2eICMath.IsWholeEligible(true, false), "parent"));
             TestRunner.Add("M2eICMath.IsWholeEligible OOS residual never whole (P1oos)", () =>
                 TestRunner.AssertTrue(!M2eICMath.IsWholeEligible(false, true), "oos"));
+            TestRunner.Add("M2eICMath.SplitGateOpenTwilight opens in twilight with successor secured", () =>
+                TestRunner.AssertTrue(M2eICMath.SplitGateOpenTwilight(true, 42.0, 70, true), "releaseLeft<=twilight"));
+            TestRunner.Add("M2eICMath.SplitGateOpenTwilight closed while pod is fresh", () =>
+                TestRunner.AssertTrue(!M2eICMath.SplitGateOpenTwilight(true, 71.0, 70, true), "releaseLeft>twilight"));
+            TestRunner.Add("M2eICMath.SplitGateOpenTwilight closed until successor secured", () =>
+                TestRunner.AssertTrue(!M2eICMath.SplitGateOpenTwilight(true, 42.0, 70, false), "squeeze must not cannibalize dispatch"));
+            TestRunner.Add("M2eICMath.SplitGateOpenTwilight no processing pod = closed", () =>
+                TestRunner.AssertTrue(!M2eICMath.SplitGateOpenTwilight(false, double.NaN, 70, true), "nothing to squeeze"));
+            TestRunner.Add("M2eICMath.SplitGateOpenTwilight NaN releaseLeft = closed", () =>
+                TestRunner.AssertTrue(!M2eICMath.SplitGateOpenTwilight(true, double.NaN, 70, true), "NaN closed"));
+            TestRunner.Add("M2eICMath.SplitGateOpenTwilight rejects non-positive window", () =>
+                TestRunner.AssertThrows<ArgumentOutOfRangeException>(() => M2eICMath.SplitGateOpenTwilight(true, 10, 0, true), "twilight<=0"));
+            TestRunner.Add("M2eICMath.AnticipatoryDispatchOpen opens when all three align", () =>
+                TestRunner.AssertTrue(M2eICMath.AnticipatoryDispatchOpen(true, 1, 2.0), "gate+shortfall+coverage"));
+            TestRunner.Add("M2eICMath.AnticipatoryDispatchOpen closed when gate not open", () =>
+                TestRunner.AssertTrue(!M2eICMath.AnticipatoryDispatchOpen(false, 1, 2.0), "gate closed"));
+            TestRunner.Add("M2eICMath.AnticipatoryDispatchOpen closed when pipeline not short", () =>
+                TestRunner.AssertTrue(!M2eICMath.AnticipatoryDispatchOpen(true, 0, 2.0), "shortfall<=0"));
+            TestRunner.Add("M2eICMath.AnticipatoryDispatchOpen closed when pod has no coverage", () =>
+                TestRunner.AssertTrue(!M2eICMath.AnticipatoryDispatchOpen(true, 1, 0.0), "no backlog match"));
+            TestRunner.Add("M2eICMath.AnticipatoryDispatchOpen rejects negative shortfall", () =>
+                TestRunner.AssertThrows<ArgumentOutOfRangeException>(() => M2eICMath.AnticipatoryDispatchOpen(true, -1, 1.0), "negative shortfall"));
+            TestRunner.Add("M2eICMath.AnticipatoryDispatchOpen rejects negative coverage", () =>
+                TestRunner.AssertThrows<ArgumentOutOfRangeException>(() => M2eICMath.AnticipatoryDispatchOpen(true, 1, -1.0), "negative coverage"));
+            TestRunner.Add("M2eICMath.TotalPackingCapacity linear growth", () =>
+                TestRunner.AssertEqual(156, M2eICMath.TotalPackingCapacity(2, 78), "2x78"));
+            TestRunner.Add("M2eICMath.TotalPackingCapacity single station default", () =>
+                TestRunner.AssertEqual(78, M2eICMath.TotalPackingCapacity(1, 78), "1x78"));
+            TestRunner.Add("M2eICMath.TotalPackingCapacity zero stations = unlimited sentinel", () =>
+                TestRunner.AssertEqual(0, M2eICMath.TotalPackingCapacity(0, 78), "count<=0"));
+            TestRunner.Add("M2eICMath.TotalPackingCapacity zero per-station = unlimited sentinel", () =>
+                TestRunner.AssertEqual(0, M2eICMath.TotalPackingCapacity(3, 0), "cap<=0"));
             TestRunner.Add("M2eICMath.PackingBudget normal clamp", () =>
                 TestRunner.AssertEqual(3, M2eICMath.PackingBudget(78, 75), "78-75"));
             TestRunner.Add("M2eICMath.PackingBudget floor at zero", () =>

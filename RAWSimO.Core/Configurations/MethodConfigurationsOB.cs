@@ -1153,11 +1153,17 @@ namespace RAWSimO.Core.Configurations
         /// <returns>The name of the method.</returns>
         public override string GetMethodName() { if (!string.IsNullOrWhiteSpace(Name)) return Name; return "OBSPLITM2EIC"; }
         /// <summary>
-        /// (PK) Downstream packing buffer capacity C (Xie et al. 2021 Appendix B derives
-        /// 78 boxes per shelf). One box per split parent from first split until
-        /// consolidation. &lt;= 0 = unlimited (constraint absent) - the default.
+        /// (PK) Box slots per abstract packing station (Xie et al. 2021 Appendix B derives
+        /// 78 boxes per shelf). Total capacity C = PackingStationCount * this, no
+        /// per-station attribution: any split parent occupies one box from first split
+        /// until consolidation. &lt;= 0 = unlimited (constraint absent).
         /// </summary>
-        public int PackingBufferCapacity = 0;
+        public int PackingBufferCapacity = 78;
+        /// <summary>
+        /// (PK) Number of abstract packing stations; capacity grows linearly
+        /// (C = PackingStationCount * PackingBufferCapacity). &lt;= 0 = unlimited.
+        /// </summary>
+        public int PackingStationCount = 1;
         /// <summary>
         /// (D9) wp: penalty per station-part beyond an order's first. Soft whole-preference:
         /// keep 2*IdleSlotWeight &lt; MultiPartPenalty &lt; |OrderRewardWeight| so gratuitous
@@ -1184,6 +1190,101 @@ namespace RAWSimO.Core.Configurations
         public int PipelineFloorTarget = 1;
         /// <summary>(D11) Master switch for the pipeline floor.</summary>
         public bool PipelineFloorEnabled = true;
+        /// <summary>
+        /// (No-artificial-cap) M1G has no per-round limit on how many new pods a station may
+        /// claim - it dispatches however many genuinely-justified (order-demand-backed, per
+        /// eshi13') pods it needs, bounded only by real resources (bots, pod uniqueness).
+        /// When false (default = TRUE, i.e. cap ENABLED, current behavior unchanged), the
+        /// icLGcap constraint (new dispatches this round &lt;= PipelineFloorTarget - future)
+        /// is skipped entirely - eshi13'/P1/SG remain fully in force, so a new Pa pod still
+        /// requires a genuinely justifying order; this only removes the ARTIFICIAL ceiling on
+        /// how many such justified dispatches may happen in the same round. icLG1's soft
+        /// shortfall push (using the same PipelineFloorTarget) is unaffected either way.
+        /// </summary>
+        public bool DispatchCapEnabled = true;
+        /// <summary>
+        /// (Scout) Anticipatory dispatch: reward per unit of backlog-matching supply for a
+        /// NEW Pa pod dispatched while the D11 lead gate is open, WITHOUT requiring any
+        /// order to consume it this solve (relaxes eshi13' for that pod/station pair only).
+        /// Decouples "when to send a bot for a pod" from "which order it serves" - the
+        /// order binds honestly in whatever future epoch actually claims it, under the
+        /// unchanged P1/SG rules. Shares D11's per-station new-dispatch budget
+        /// (PipelineFloorTarget - future), so it can never inflate trip volume beyond the
+        /// existing pipeline target; it only lets that budget be spent early. 0 = off
+        /// (bit-identical - no scout term, eshi13' unconditional as before).
+        /// </summary>
+        public double AnticipatoryDispatchWeight = 0;
+        /// <summary>
+        /// (Value-dispatch) Removes eshi13's requirement that a newly-claimed Pa pod be
+        /// consumed (q&gt;0) THIS solve. A Pa pod's dispatch is then justified purely by its
+        /// backlog-coverage VALUE (the existing D14 CoverageRewardWeight term, elevated to a
+        /// real magnitude rather than a tiny tie-break) competing against distance/PodTripFixedCost
+        /// in the SAME objective - no order needs to complete or even partially draw from it
+        /// this round. Safe: P1 (icP1a-d) is untouched and still forbids a fresh SPLIT order
+        /// from ever drawing on a Pa pod - only a WHOLE order (or a closing parent) may, exactly
+        /// as before. Once claimed, the pod leaves Pa and is governed entirely by the unchanged
+        /// SG gate in later epochs, same as any other committed pod. Pair with
+        /// PipelineFloorWeight=0 (removes the artificial per-station new-dispatch count cap,
+        /// icLGcap) so bot count and station slot count are the only real limits, per design.
+        /// False = eshi13' unconditional, bit-identical to all prior arms.
+        /// </summary>
+        public bool NewPodDispatchByValue = false;
+        /// <summary>
+        /// (Defer-to-processing) A decode-side filter, not a solver constraint: an order this
+        /// solve would allocate is only actually committed (AllocateOrder + Ziops
+        /// registration + split-child creation) when EVERY pod it draws from is currently the
+        /// one being actively processed at its station. If not, the order is skipped entirely
+        /// this round - no mutation happens - so it stays fully pending and gets freshly
+        /// re-decided next epoch (perhaps against a different, by-then-available pod). Content
+        /// matching (which pod serves which order) still comes straight out of the same MILP
+        /// solve as today: only the physical act of filling a station slot is deferred. Adds no
+        /// new solver constraint, so it cannot make the model infeasible. Pairs naturally with
+        /// NewPodDispatchByValue: pods can be fetched speculatively, but a station slot is
+        /// never spent on one that has not actually arrived. False = unchanged (every
+        /// allocation this solve decides is committed immediately, as today).
+        /// </summary>
+        public bool DeferAllocationUntilProcessing = false;
+        /// <summary>
+        /// (Pod-tier draw cost) Penalty per unit drawn from a QUEUED (arrived, waiting behind
+        /// the processing pod) pod, on top of the existing distance/completion terms. Drawing
+        /// from the currently-processing pod stays free (0 cost, unchanged from today).
+        /// Creates a soft high-to-low preference - processing pod first, queued pod only when
+        /// it is still worth the penalty - without banning anything (no infeasibility risk,
+        /// unlike a hard pod-state gate). 0 = off (bit-identical).
+        /// </summary>
+        public double QueuedPodDrawPenalty = 0;
+        /// <summary>
+        /// (Pod-tier draw cost) Penalty per unit drawn from an ON-THE-WAY (committed, neither
+        /// processing nor queued yet) pod. Should be &gt;= QueuedPodDrawPenalty so the
+        /// high-to-low preference (processing &gt; queued &gt; on-the-way) holds. 0 = off
+        /// (bit-identical).
+        /// </summary>
+        public double OnTheWayPodDrawPenalty = 0;
+        /// <summary>
+        /// (Squeeze-coupled dispatch) When true, the D11 pipeline floor's soft gate opens
+        /// EITHER when releaseLeft &lt;= PipelineFloorLeadSec (as today) OR whenever the SG
+        /// squeeze window is already open at that station (Pp present, no queued successor -
+        /// the same signal that permits splitting). Closes the gap where squeezing can start
+        /// (successor not yet arrived) well before releaseLeft drops low enough to wake the
+        /// floor - by the time squeezing is happening, supply is already proven thin, so the
+        /// soft push to fetch a successor should fire then, not later. Still only a SOFT
+        /// (icLG1) push under the SAME icLGcap budget - no new hard constraint, cannot make
+        /// the model infeasible. False = unchanged (D11 gate is releaseLeft-only, as today).
+        /// </summary>
+        public bool CoupleDispatchToSqueezeWindow = false;
+        /// <summary>
+        /// (Split-fed dispatch) When true, the D11 pipeline floor's soft gate ALSO opens for
+        /// a station if the PREVIOUS completed decode actually assigned a split (non-whole)
+        /// order there - a REALIZED fact (the solver already confirmed no whole order fit,
+        /// per the w2/wp weight tower's whole-first preference), not merely an eligibility
+        /// precondition like CoupleDispatchToSqueezeWindow's SG-gate check. One-epoch lag
+        /// (next solve reacts to the last one's outcome - avoids the circularity of a solve
+        /// needing to know its own split decision before it runs), which given epochs fire
+        /// every few seconds is effectively immediate. Still only a SOFT (icLG1) push under
+        /// the SAME icLGcap budget - no new hard constraint, cannot make the model infeasible.
+        /// False = unchanged (D11 gate is releaseLeft-only, as today).
+        /// </summary>
+        public bool CoupleDispatchToRecentSplit = false;
         /// <summary>(SG) Master switch for the split gate.</summary>
         public bool SplitGateEnabled = true;
         /// <summary>
@@ -1192,6 +1293,14 @@ namespace RAWSimO.Core.Configurations
         /// processing pod present suffices (harvests the post-queue tail; ablation arm).
         /// </summary>
         public bool SplitGateStrict = true;
+        /// <summary>
+        /// (SG-twilight) &gt; 0 switches the split gate from position-based (no queued
+        /// successor) to clock-based: new partials open while the CURRENT processing
+        /// pod's releaseLeft &lt;= this many seconds, regardless of successor position.
+        /// Decouples the split window from dispatch timing (pair with a large
+        /// PipelineFloorLeadSec for always-on dispatch). 0 = legacy position mode.
+        /// </summary>
+        public double SplitGateTwilightSec = 0;
         /// <summary>
         /// (D14) Epsilon_cov: reward per unit of selected-pod-set coverage of the backlog
         /// residual pool (negative = reward). Among equal-completion pod sets this is
@@ -1226,6 +1335,19 @@ namespace RAWSimO.Core.Configurations
         /// bit-identical.
         /// </summary>
         public bool ParentClosingDispatch = false;
+        /// <summary>
+        /// (Split-driven dispatch) When true, ANY fresh order that COMPLETES this solve
+        /// (zdone=1) may draw from storage-area (Pa) pods - i.e. a completing split can
+        /// summon a fresh trip, not just a single-station whole. icP1d switches its gate
+        /// variable from whole to zdone for fresh orders (OOS-residual orders excluded,
+        /// same as the parent-closing path, since legacy zdonex skips out-of-stock SKUs and
+        /// its z=1 is not a true close). Partial fishing stays impossible (zdone=0 forces
+        /// zero Pa draws), so the anti-fishing seal is preserved - the distinction moves
+        /// from "whole vs split" to "completes vs merely fishes". Fixes the sparse-supply
+        /// deadlock where no whole order is feasible so no fresh pod is ever dispatched.
+        /// false = strict whole-only P1d, bit-identical.
+        /// </summary>
+        public bool SplitCanDriveDispatch = false;
     }
 
     /// <summary>
@@ -1320,6 +1442,41 @@ namespace RAWSimO.Core.Configurations
         /// UnitDrawReward != 0). Default false = bit-identical to regular PVGS.
         /// </summary>
         public bool ExactAlignedScoring = false;
+        /// <summary>
+        /// (Pod-tier draw preference) Greedy analogue of SplitM2eIC's pod-tier draw cost:
+        /// when filling an order's units from the pods at a station, drain PROCESSING pods
+        /// (bot at the station pick waypoint) first, then QUEUED pods (bot at a queue
+        /// waypoint), and only last the ON-THE-WAY / freshly-dispatched pods. This makes
+        /// PVGS squeeze already-present sunk supply before leaning on incoming trips - the
+        /// same intent the MILP encodes as QueuedPodDrawPenalty/OnTheWayPodDrawPenalty, here
+        /// realised as a hard ordering (a greedy fill has no soft objective to price into).
+        /// Overrides the legacy "prefer the newly-dispatched pod" bias within each tier only.
+        /// Default false = legacy prefer-dispatched ordering, bit-identical.
+        /// </summary>
+        public bool PodTierDrawPreference = false;
+        /// <summary>
+        /// (Force-fill empty slots) Greedy analogue of M1G's w3=1000 IdleSlotWeight: when the
+        /// value-driven dispatch loop would otherwise stop with free slots still open and
+        /// uncommitted orders remaining (no candidate pod has a positive completion score),
+        /// force-dispatch the highest-COVERAGE candidate anyway - even if it completes nothing
+        /// this epoch. This guarantees the decode never leaves a station idle while work and
+        /// capacity exist, so it can never fall into the empty-output state that (with Fill's
+        /// pull-based generation + the event-driven trigger) freezes the whole system. Mirrors
+        /// the hypothesis that the observed PVGS/nocap deadlock is caused by NOT forcing slots
+        /// filled (unconditional idle-slot pressure), the same lever that cured the nocap
+        /// deadlock on the MILP side. Default false = value-only dispatch, bit-identical.
+        /// </summary>
+        public bool ForceFillEmptySlots = false;
+        /// <summary>
+        /// (Force-fill budget) Max number of coverage-fallback dispatches ForceFillEmptySlots
+        /// may make PER decode epoch. 0 = unlimited (fills every idle slot - brute-force, most
+        /// M1G-like, lowest pile-on). A small positive value (e.g. 1) keeps PVGS alive with a
+        /// minimal keep-awake dispatch only when the value-driven loop would otherwise produce
+        /// nothing, letting the efficient value logic dominate the rest of the epoch - so
+        /// pile-on / EOR sit BETWEEN brute-force M1G and the optimal MILP. Tunes the heuristic's
+        /// efficiency-vs-liveness point. Ignored when ForceFillEmptySlots is false.
+        /// </summary>
+        public int ForceFillMaxPerEpoch = 0;
     }
 
     #endregion

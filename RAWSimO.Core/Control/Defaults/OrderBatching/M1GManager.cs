@@ -470,6 +470,14 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             //List<Symbol> deVarNameziops = new List<Symbol>();
             List<Symbol> deVarNamedops = new List<Symbol>();
             HashSet<Pod> podset = new HashSet<Pod>();
+            // (Perf, 2026-07-22) Pure performance fix, semantics unchanged, byte-identical
+            // output verified: the original duplicate check re-scanned the whole (growing)
+            // deVarNamedops list via LINQ .Where(...).Count()==0 for every (sku,pod,station,
+            // order) tuple - O(n^2) in the total tuple count, which scales badly with more
+            // stations/orders. A HashSet keyed on the identical (order,pod,station) identity
+            // makes the check O(1) while producing the EXACT same sequence of adds (same
+            // triples, same insertion order, same waypointID/name construction per triple).
+            HashSet<(int orderId, int podId, int stationId)> dopsSeen = new HashSet<(int, int, int)>();
             foreach (var sku in OiSKU.Where(v => PiSKU.ContainsKey(v.Key)))
             {
                 List<Pod> listofpod = PiSKU[sku.Key];
@@ -489,7 +497,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                             //    name = "ziops" + "_" + sku.Key.ID.ToString() + "_" +
                             //    order.ID.ToString() + "_" + pod.ID.ToString() + "_" + outputstation.ID.ToString()
                             //});
-                            if (deVarNamedops.Where(v => v.order.ID == order.ID && v.pod.ID == pod.ID && v.outputstation.ID == outputstation.ID).Count() == 0)
+                            if (dopsSeen.Add((order.ID, pod.ID, outputstation.ID)))
                             {
                                 int waypointID;
                                 if (pod.Waypoint != null)

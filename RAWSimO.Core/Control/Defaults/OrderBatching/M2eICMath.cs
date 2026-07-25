@@ -43,6 +43,52 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         }
 
         /// <summary>
+        /// (SG-twilight) clock-gated split window: splitting opens during the CURRENT
+        /// processing pod's twilight (releaseLeft &lt;= twilightSec), but ONLY once the
+        /// station's successor supply is secured (successorSecured = in-flight pods >=
+        /// pipeline target). Ordering is load-bearing: without it, twilight squeezing
+        /// cannibalizes the whole orders that justify successor trips (eshi13'/P1) and
+        /// the seams it was built to close get WORSE (tw-v1: 22 seams vs close 15).
+        /// No processing pod or NaN releaseLeft = closed (nothing to squeeze).
+        /// </summary>
+        public static bool SplitGateOpenTwilight(bool hasProcessingPod, double releaseLeft, double twilightSec, bool successorSecured)
+        {
+            if (twilightSec <= 0)
+                throw new ArgumentOutOfRangeException(nameof(twilightSec));
+            if (!hasProcessingPod || double.IsNaN(releaseLeft))
+                return false;
+            return successorSecured && releaseLeft <= twilightSec;
+        }
+
+        /// <summary>
+        /// (Scout) Whether an anticipatory dispatch is justified for a (pod, station) pair:
+        /// the D11 lead gate must be open, the station's pipeline must still be short of
+        /// its target (shortfall &gt; 0, so scout dispatch competes for the SAME per-station
+        /// budget as an ordinary D11 successor), and the pod must carry positive
+        /// backlog-matching supply (won't be a wasted trip).
+        /// </summary>
+        public static bool AnticipatoryDispatchOpen(bool pipeGateOpen, int pipelineShortfall, double podCoverage)
+        {
+            if (pipelineShortfall < 0)
+                throw new ArgumentOutOfRangeException(nameof(pipelineShortfall));
+            if (podCoverage < 0)
+                throw new ArgumentOutOfRangeException(nameof(podCoverage));
+            return pipeGateOpen && pipelineShortfall > 0 && podCoverage > 0;
+        }
+
+        /// <summary>
+        /// Total downstream packing capacity C: abstract packing stations grow the box
+        /// pool linearly (stationCount x perStationCapacity, no per-station attribution).
+        /// Either factor &lt;= 0 = unlimited (returns the 0 sentinel PackingBudget expects).
+        /// </summary>
+        public static int TotalPackingCapacity(int stationCount, int perStationCapacity)
+        {
+            if (stationCount <= 0 || perStationCapacity <= 0)
+                return 0;
+            return stationCount * perStationCapacity;
+        }
+
+        /// <summary>
         /// Remaining packing budget for NEW split parents this solve (icPK2 RHS).
         /// capacity &lt;= 0 = unlimited (int.MaxValue sentinel; PK block skipped anyway).
         /// </summary>

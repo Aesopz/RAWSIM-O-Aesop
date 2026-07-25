@@ -34,10 +34,12 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 || _splitConfig.CoverageFirstScoring || _splitConfig.TrueCompletionReward > 0))
                 throw new InvalidOperationException("SplitM2eIC does not support AdaptiveExactResweeps/SunkFirstScoring/CoverageFirstScoring/TrueCompletionReward.");
             // (IC) global downstream packing buffer; probe tracking always on, the PK
-            // budget constraint additionally requires PackingBufferCapacity > 0. Creating
-            // the buffer also arms the two null-safe engine hooks (release + D16 trigger).
+            // budget constraint additionally requires a positive total capacity
+            // (PackingStationCount x PackingBufferCapacity). Creating the buffer also
+            // arms the two null-safe engine hooks (release + D16 trigger).
             if (instance.PackingBuffer == null)
-                instance.PackingBuffer = new PackingBuffer(_icConfig != null ? _icConfig.PackingBufferCapacity : 0);
+                instance.PackingBuffer = new PackingBuffer(_icConfig != null
+                    ? M2eICMath.TotalPackingCapacity(_icConfig.PackingStationCount, _icConfig.PackingBufferCapacity) : 0);
             _logger = new SplitConsolidationLogger(instance);
             instance.OrderCompleted += _logger.LogParentCompleted;
         }
@@ -54,6 +56,17 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// Shared consolidation CSV logger (splitorders.csv) - same class Spec 2 extracted.
         /// </summary>
         private SplitConsolidationLogger _logger;
+
+        /// <summary>
+        /// (Split-fed dispatch) station IDs where the PREVIOUS completed decode actually
+        /// assigned a split (non-whole) order to a slot - a realized fact, not a mere
+        /// eligibility check. Read at the START of the next solve (one epoch lag, effectively
+        /// immediate given epochs fire every few seconds) to couple the pipeline floor's gate
+        /// to genuine squeeze activity rather than the SG gate's permissive precondition.
+        /// Overwritten (not accumulated) each decode so it only ever reflects the most recent
+        /// solve's realized splits.
+        /// </summary>
+        private HashSet<int> _icPrevSplitStations = new HashSet<int>();
 
         /// <summary>
         /// Order enters Od (urgent-order set) if due within this many seconds (mirrors the
@@ -544,9 +557,14 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             Dictionary<int, HashSet<int>> icPpByStation = new Dictionary<int, HashSet<int>>();
             Dictionary<int, int> icPqCountByStation = new Dictionary<int, int>();
             Dictionary<int, int> icFutureByStation = new Dictionary<int, int>();
+            // (Pod-tier draw cost) which SPECIFIC pods are queued (Pq) at each station - the
+            // count above is enough for the SG/D11 gates, but pricing q by tier needs the
+            // actual pod IDs, mirroring icPpByStation.
+            Dictionary<int, HashSet<int>> icQueuedByStation = new Dictionary<int, HashSet<int>>();
             foreach (var station in Cs.Keys)
             {
                 HashSet<int> icProc = new HashSet<int>();
+                HashSet<int> icQueuedIds = new HashSet<int>();
                 int icQueued = 0;
                 int icCommittedHere = 0;
                 HashSet<Pod> icStationPods;
@@ -560,18 +578,28 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                         if (icWayp != null && station.Waypoint != null && icWayp.ID == station.Waypoint.ID)
                             icProc.Add(pod.ID);
                         else if (icWayp != null && icWayp.IsQueueWaypoint)
+                        {
                             icQueued++;
+                            icQueuedIds.Add(pod.ID);
+                        }
                     }
                 icPpByStation[station.ID] = icProc;
                 icPqCountByStation[station.ID] = icQueued;
+                icQueuedByStation[station.ID] = icQueuedIds;
                 icFutureByStation[station.ID] = icCommittedHere - icProc.Count;
             }
             bool icSgEnabled = _icConfig == null || _icConfig.SplitGateEnabled;
             bool icSgStrict = _icConfig == null || _icConfig.SplitGateStrict;
+            double icSgTwilight = _icConfig != null ? _icConfig.SplitGateTwilightSec : 0;
+            int icSgT = Math.Max(1, _icConfig != null ? _icConfig.PipelineFloorTarget : 1);
             Dictionary<int, bool> icSgOpenByStation = new Dictionary<int, bool>();
             foreach (var station in Cs.Keys)
-                icSgOpenByStation[station.ID] = M2eICMath.SplitGateOpen(
-                    icPpByStation[station.ID].Count > 0, icPqCountByStation[station.ID], icSgStrict);
+                icSgOpenByStation[station.ID] = icSgTwilight > 0
+                    ? M2eICMath.SplitGateOpenTwilight(icPpByStation[station.ID].Count > 0,
+                        station.GetInfoCurrentPodReleaseLeft(), icSgTwilight,
+                        icFutureByStation[station.ID] >= icSgT)
+                    : M2eICMath.SplitGateOpen(
+                        icPpByStation[station.ID].Count > 0, icPqCountByStation[station.ID], icSgStrict);
             int icSgOpenCount = icSgOpenByStation.Values.Count(v => v);
             // (D15) pool-local scarcity per SKU id
             Dictionary<int, int> icDemById = new Dictionary<int, int>();
@@ -610,6 +638,40 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                             icGateForegone += Math.Min(pod.CountAvailable(icItem), icDemHere);
                     }
             }
+            // (Scout) anticipatory dispatch precompute: per-station eligibility (D11 lead
+            // gate open AND pipeline still short of target) and per-Pa-pod backlog coverage
+            // value. 0 weight = both dicts computed but inert (guarded at point of use).
+            double icScoutW = _icConfig != null ? _icConfig.AnticipatoryDispatchWeight : 0;
+            int icScoutT = Math.Max(1, _icConfig != null ? _icConfig.PipelineFloorTarget : 1);
+            double icScoutLead = _icConfig != null ? _icConfig.PipelineFloorLeadSec : 70;
+            bool icScoutFloorOn = _icConfig != null && _icConfig.PipelineFloorEnabled;
+            Dictionary<int, bool> icScoutGateOpenByStation = new Dictionary<int, bool>();
+            Dictionary<int, int> icScoutShortfallByStation = new Dictionary<int, int>();
+            foreach (var station in Cs.Keys)
+            {
+                icScoutGateOpenByStation[station.ID] = icScoutFloorOn && M2eICMath.PipelineGateOpen(
+                    icPpByStation[station.ID].Count > 0, station.GetInfoCurrentPodReleaseLeft(), icScoutLead);
+                icScoutShortfallByStation[station.ID] = Math.Max(0, icScoutT - icFutureByStation[station.ID]);
+            }
+            Dictionary<int, double> icScoutValueByPod = new Dictionary<int, double>();
+            if (icScoutW != 0)
+                foreach (var pod in Pa)
+                {
+                    double val = 0;
+                    foreach (var icItem in pod.ItemDescriptionsContained)
+                    {
+                        int dem;
+                        if (icDemById.TryGetValue(icItem.ID, out dem) && dem > 0)
+                            val += Math.Min(pod.CountAvailable(icItem), dem);
+                    }
+                    icScoutValueByPod[pod.ID] = val;
+                }
+            // (Scout) per-(pod,station) eligibility, computed once and reused by both the
+            // objective reward term and the eshi13' relaxation below.
+            Func<int, int, bool> icScoutEligible = (podId, stationId) =>
+                icScoutW != 0 && icScoutValueByPod.ContainsKey(podId)
+                && M2eICMath.AnticipatoryDispatchOpen(icScoutGateOpenByStation[stationId],
+                    icScoutShortfallByStation[stationId], icScoutValueByPod[podId]);
             int maxCs = Cs.Count > 0 ? Cs.Values.Max() : 1;
             int maxR = residuals.Count > 0 ? residuals.Values.SelectMany(d => d.Values).DefaultIfEmpty(1).Max() : 1;
             VariableCollection<string> variablesBinary = new VariableCollection<string>(wrapper, VariableType.Binary, 0, 1, (string s) => { return s; });
@@ -641,6 +703,34 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 var squeezeVars = deVarNameq.Where(v => processingPods.Contains(v.pod)).Select(v => variablesQ[v.name]).ToList();
                 if (squeezeVars.Count > 0)
                     objective = objective + LinearExpression.Sum(squeezeVars) * w5;
+            }
+            // (Pod-tier draw cost) high-to-low preference for WHICH committed pod an order
+            // draws from: processing pod stays free (w5 above already prices it separately),
+            // a QUEUED pod costs QueuedPodDrawPenalty per unit, anything else not yet arrived
+            // (still traveling, or a pod freshly dispatched this same solve out of Pa) costs
+            // OnTheWayPodDrawPenalty per unit. Soft preference, not a ban - a big enough
+            // completion reward can still outweigh it, so this can never make the model
+            // infeasible (unlike a hard pod-state gate). Both 0 = bit-identical.
+            double icQueuedPen = _icConfig != null ? _icConfig.QueuedPodDrawPenalty : 0;
+            double icOnTheWayPen = _icConfig != null ? _icConfig.OnTheWayPodDrawPenalty : 0;
+            if ((icQueuedPen != 0 || icOnTheWayPen != 0) && deVarNameq.Count > 0)
+            {
+                var icTierTerms = new List<LinearExpression>();
+                foreach (var v in deVarNameq)
+                {
+                    HashSet<int> icProcHere, icQueuedHere;
+                    bool icIsProcessing = icPpByStation.TryGetValue(v.outputstation.ID, out icProcHere)
+                        && icProcHere.Contains(v.pod.ID);
+                    if (icIsProcessing)
+                        continue;
+                    bool icIsQueued = icQueuedByStation.TryGetValue(v.outputstation.ID, out icQueuedHere)
+                        && icQueuedHere.Contains(v.pod.ID);
+                    double icPen = icIsQueued ? icQueuedPen : icOnTheWayPen;
+                    if (icPen != 0)
+                        icTierTerms.Add(variablesQ[v.name] * icPen);
+                }
+                if (icTierTerms.Count > 0)
+                    objective = objective + LinearExpression.Sum(icTierTerms);
             }
             // (eps) lexicographic item-pile-on layer: every assigned unit earns eps (negative
             // = reward), phase-blind - among completion-equivalent solutions the solver now
@@ -680,6 +770,18 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 if (icParentZ.Count > 0)
                     objective = objective - LinearExpression.Sum(icParentZ) * icW2p;
             }
+            // (Scout) anticipatory dispatch reward: -w_scout * coverage for a NEW Pa pod at a
+            // station whose D11 gate is open and pipeline is short - the ONLY thing that can
+            // make x=1 attractive without an order consuming it this round (eshi13' relaxed
+            // below for exactly these pairs). 0 weight = no term (bit-identical).
+            if (icScoutW != 0)
+            {
+                var icScoutTerms = deVarNamexps.Where(v => Pa.Contains(v.pod)
+                    && icScoutEligible(v.pod.ID, v.outputstation.ID))
+                    .Select(v => variablesBinary[v.name] * (-icScoutW * icScoutValueByPod[v.pod.ID])).ToList();
+                if (icScoutTerms.Count > 0)
+                    objective = objective + LinearExpression.Sum(icScoutTerms);
+            }
             List<string> icShortfallNames = new List<string>();
             bool icFloorOn = _icConfig != null && _icConfig.PipelineFloorEnabled && _icConfig.PipelineFloorWeight != 0;
             if (icFloorOn)
@@ -690,13 +792,26 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     var icNewXps = deVarNamexps.Where(v => v.outputstation.ID == station.ID && Pa.Contains(v.pod))
                         .Select(v => variablesBinary[v.name]).ToList();
                     int icFuture = icFutureByStation[station.ID];
-                    // (icLGcap) hard anti-oversupply: future + new <= T (AE target=3 counterexample)
-                    if (icNewXps.Count > 0)
+                    // (icLGcap) hard anti-oversupply: future + new <= T (AE target=3 counterexample).
+                    // (No-artificial-cap) skippable: eshi13' still requires genuine order
+                    // justification for every new dispatch either way - this only removes the
+                    // ARTIFICIAL per-round count ceiling, matching M1G (which has none).
+                    if (icNewXps.Count > 0 && (_icConfig == null || _icConfig.DispatchCapEnabled))
                         wrapper.AddConstr(LinearExpression.Sum(icNewXps) <= Math.Max(0, icT - icFuture), "icLGcap");
                     // (icLG1) soft floor while the lead gate is open: dispatch is clock-driven,
                     // not exhaustion-driven - squeeze and dispatch coexist in one solve.
                     bool icGateOpen = M2eICMath.PipelineGateOpen(icPpByStation[station.ID].Count > 0,
                         station.GetInfoCurrentPodReleaseLeft(), _icConfig.PipelineFloorLeadSec);
+                    // (Squeeze-coupled dispatch) also open the moment squeezing is already
+                    // permitted at this station - closes the "already squeezing but supply
+                    // hasn't been told yet" gap between the two independent gates.
+                    if (_icConfig != null && _icConfig.CoupleDispatchToSqueezeWindow && icSgOpenByStation[station.ID])
+                        icGateOpen = true;
+                    // (Split-fed dispatch) also open if the LAST completed decode actually
+                    // assigned a split at this station - a realized, whole-first-confirmed
+                    // fact, one epoch lagged to avoid circularity.
+                    if (_icConfig != null && _icConfig.CoupleDispatchToRecentSplit && _icPrevSplitStations.Contains(station.ID))
+                        icGateOpen = true;
                     if (!icGateOpen || icT - icFuture <= 0)
                         continue;
                     string icSfName = "icsfx_" + station.ID.ToString();
@@ -886,12 +1001,26 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             foreach (var robot in R)
                 wrapper.AddConstr(LinearExpression.Sum(deVarNameyrp.Where(v => v.robot.ID == robot.ID).Select(v => variablesBinary[v.name])) <= 1, "eshi10");
             // (eshi13') a newly-claimed pod must actually be consumed - summed directly against q,
-            // not the dops proxy Spec 2 used (see spec Â§3.3/Â§7: dops never linked to real q usage)
+            // not the dops proxy Spec 2 used (see spec Â§3.3/Â§7: dops never linked to real q usage).
+            // (Scout) relaxed for a (pod,station) pair the anticipatory-dispatch reward term
+            // already made eligible above: that trip is justified by backlog coverage, not
+            // this-round consumption - the order binds honestly whenever a future epoch
+            // actually claims the pod, under the unchanged P1/SG rules.
+            // (Value-dispatch) when NewPodDispatchByValue is on, this constraint is dropped
+            // entirely for every Pa pod: dispatch is justified by the D14 coverage term in the
+            // objective instead of by this-round consumption. P1/SG are untouched (they gate
+            // WHICH orders may draw on a pod, not whether the pod may be fetched at all), so a
+            // fresh split order still cannot draw on a Pa pod - only a whole/closing-parent can.
+            bool icValueDispatch = _icConfig != null && _icConfig.NewPodDispatchByValue;
             foreach (var pod in Pa)
             {
                 foreach (var station in Cs.Keys)
+                {
+                    if (icValueDispatch || icScoutEligible(pod.ID, station.ID))
+                        continue;
                     wrapper.AddConstr(variablesBinary["xps" + "_" + pod.ID.ToString() + "_" + station.ID.ToString()]
                         <= LinearExpression.Sum(deVarNameq.Where(v => v.pod.ID == pod.ID && v.outputstation.ID == station.ID).Select(v => variablesQ[v.name])), "eshi13");
+                }
             }
             // (eM1/eM2/eM2done | eZfin) per-SKU completion linkage, aggregated across stations AND pods
             foreach (var order in pendingOrders)
@@ -969,11 +1098,20 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     // draw from storage pods ONLY when the draw closes it entirely this
                     // solve (zdone-gated) - a dedicated tail-ending trip. Partial fishing
                     // from Pa stays impossible (z=0 -> zero Pa draws). Fresh orders keep
-                    // the whole-gate unchanged.
-                    bool icParentClose = _icConfig != null && _icConfig.ParentClosingDispatch && order.IsSplitParent;
+                    // the whole-gate unchanged. OOS-residual parents are excluded: legacy
+                    // zdonex skips out-of-stock SKUs, so their z=1 is NOT a true close and
+                    // the decode P1 assert (full-residual semantics) rightly rejects the
+                    // draw (8h seed0 crash at t=13352, order 684).
+                    bool icParentClose = _icConfig != null && _icConfig.ParentClosingDispatch
+                        && order.IsSplitParent && !icHasInvisibleResidual;
+                    // (Split-driven dispatch) a completing split may also summon a fresh Pa
+                    // trip - gate switches to zdone for fresh orders too. OOS-residual orders
+                    // excluded (zdonex skips OOS SKUs, so their z=1 is not a true close).
+                    bool icSplitDrive = _icConfig != null && _icConfig.SplitCanDriveDispatch
+                        && !icHasInvisibleResidual;
                     wrapper.AddConstr(LinearExpression.Sum(icPaQ)
                         <= M2eICMath.PaDrawBigM(residuals[order].Values)
-                        * variablesBinary[icParentClose ? icZname : icWname], "icP1d");
+                        * variablesBinary[(icParentClose || icSplitDrive) ? icZname : icWname], "icP1d");
                 }
             }
             // ── (IC/SG) split gate ─────────────────────────────────────────────────────
@@ -1020,7 +1158,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             }
             // ── (IC/PK) downstream packing budget (Xie Appx B; one box per split parent,
             // reserved at decode, released at consolidation; <=0 disables the block) ──
-            int icPackCapacity = _icConfig != null ? _icConfig.PackingBufferCapacity : 0;
+            int icPackCapacity = _icConfig != null
+                ? M2eICMath.TotalPackingCapacity(_icConfig.PackingStationCount, _icConfig.PackingBufferCapacity) : 0;
             if (icPackCapacity > 0)
             {
                 int icBOcc = Instance.PackingBuffer != null ? Instance.PackingBuffer.AliveParentCount : 0;
@@ -1374,7 +1513,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             }
             double _optSec = (DateTime.Now - _optStart).TotalSeconds;
             // (IC) probe values for the decision log
-            int icLogPackCap = _icConfig != null ? _icConfig.PackingBufferCapacity : 0;
+            int icLogPackCap = _icConfig != null
+                ? M2eICMath.TotalPackingCapacity(_icConfig.PackingStationCount, _icConfig.PackingBufferCapacity) : 0;
             int icLogPackOcc = Instance.PackingBuffer != null ? Instance.PackingBuffer.AliveParentCount : 0;
             int icLogPackBudget = icLogPackCap > 0 ? M2eICMath.PackingBudget(icLogPackCap, icLogPackOcc) : -1;
             if (wrapper.HasSolution())
@@ -1468,6 +1608,9 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     }
                 }
                 List<OutputStation> stationList = Cs.Keys.OrderBy(s => s.ID).ToList();
+                // (Split-fed dispatch) stations where THIS decode actually assigns a split -
+                // becomes _icPrevSplitStations for the NEXT solve to react to.
+                HashSet<int> icThisSplitStations = new HashSet<int>();
                 int nChildren = 0, nFastPath = 0, unitsAssigned = 0;
                 foreach (var order in pendingOrders.OrderBy(o => o.ID))
                 {
@@ -1484,6 +1627,21 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                         SplitMilpDecoder.Decode(residuals[order].ToList(), perStation, crossTime, out fullyAssigned);
                     if (parts.Count == 0)
                         continue;
+                    // (Defer-to-processing) this order's plan is decided, but not yet acted on:
+                    // skip it (untouched, still fully pending) unless every pod it draws from is
+                    // genuinely the one being processed at its station right now. No solver
+                    // constraint involved - purely which of this solve's decisions get committed.
+                    if (_icConfig != null && _icConfig.DeferAllocationUntilProcessing)
+                    {
+                        bool icAllPodsProcessing = IsdeVarNameq.Where(v => v.order.ID == order.ID).All(v =>
+                        {
+                            HashSet<int> icProcHere;
+                            return icPpByStation.TryGetValue(v.outputstation.ID, out icProcHere)
+                                && icProcHere.Contains(v.pod.ID);
+                        });
+                        if (!icAllPodsProcessing)
+                            continue;
+                    }
                     unitsAssigned += parts.Sum(p => p.Value.Values.Sum());
                     if (parts.Count == 1 && fullyAssigned && !order.IsSplitParent)
                     {
@@ -1504,6 +1662,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                         foreach (var part in parts)
                         {
                             OutputStation station = stationList[part.Key];
+                            icThisSplitStations.Add(station.ID);
                             Order child = Order.CreateSplitChild(order, part.Value);
                             child.ID = idoforder++;
                             Instance.ResourceManager.TransferExtractRequests(order, child);
@@ -1526,7 +1685,10 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                         int icPaUnits = IsdeVarNameq.Where(v => v.order.ID == order.ID && Pa.Contains(v.pod))
                             .Sum(v => (int)Math.Round(variablesQ[v.name].GetValue()));
                         bool icClosingException = _icConfig != null && _icConfig.ParentClosingDispatch && fullyAssigned;
-                        if (M2eICMath.SplitOrderDrawsFromStorage(true, icPaUnits) && !icClosingException)
+                        // (Split-driven dispatch) a completing split (fully assigned this solve)
+                        // is allowed to have drawn from Pa; partial splits still may not.
+                        bool icSplitDriveException = _icConfig != null && _icConfig.SplitCanDriveDispatch && fullyAssigned;
+                        if (M2eICMath.SplitOrderDrawsFromStorage(true, icPaUnits) && !icClosingException && !icSplitDriveException)
                             throw new InvalidOperationException("M2e-IC: split order " + order.ID
                                 + " drew " + icPaUnits + " unit(s) from storage-area pods (P1 violated).");
                         // (IC/PK) reserve the parent's packing box at first split (idempotent
@@ -1535,6 +1697,9 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                             Instance.PackingBuffer.RegisterParent(order.ID);
                     }
                 }
+                // (Split-fed dispatch) overwrite (not accumulate) with THIS decode's realized
+                // split stations - read at the start of the NEXT solve.
+                _icPrevSplitStations = icThisSplitStations;
                 double sumUs = 0.0;
                 foreach (var s in deVarNameus)
                     sumUs += Math.Round(variablesUs[s.name].GetValue());

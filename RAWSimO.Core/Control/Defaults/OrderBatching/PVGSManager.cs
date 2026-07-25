@@ -117,6 +117,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             public List<OutputStation> StationList;
             public int[] FreeSlots;
             public List<HashSet<Pod>> PodsAt;
+            public Dictionary<Pod, Bot> PodToBot; // (Pod-tier draw preference) pod->bot, for processing/queued/on-the-way classification
             public Dictionary<Pod, Dictionary<ItemDescription, int>> Avail;
             public List<Dictionary<ItemDescription, int>> PerStationAvail;
             public Dictionary<ItemDescription, int> ResidualTotals;
@@ -256,9 +257,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// </summary>
         private PvgsEpochState BuildEpochState(HashSet<Pod> allPods, Dictionary<OutputStation, int> Cs,
             Dictionary<OutputStation, HashSet<Pod>> inboundPods, HashSet<Pod> Pb, HashSet<Bot> Ra,
-            HashSet<Order> pendingOrders, Dictionary<Order, Dictionary<ItemDescription, int>> residuals)
+            HashSet<Order> pendingOrders, Dictionary<Order, Dictionary<ItemDescription, int>> residuals,
+            Dictionary<Pod, Bot> podToBot)
         {
             PvgsEpochState st = new PvgsEpochState();
+            st.PodToBot = podToBot;
             st.StationList = Cs.Keys.OrderBy(s => s.ID).ToList();
             st.FreeSlots = st.StationList.Select(s => Cs[s]).ToArray();
             st.PodsAt = st.StationList.Select(s => new HashSet<Pod>()).ToList();
@@ -339,6 +342,25 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// is not wasted - the soft eshi13' analogue) and written to Ziops in lock step with
         /// the working-copy decrements, so books and reality cannot diverge.
         /// </summary>
+        /// <summary>
+        /// (Pod-tier draw preference) Classifies a committed pod at a station: 0 = processing
+        /// (its bot is at the station's pick waypoint), 1 = queued (bot at a queue waypoint),
+        /// 2 = on-the-way / freshly dispatched / unknown. Faithful mirror of SplitM2eIC's
+        /// Pp/Pq/on-the-way partition (icProc/icQueued classification).
+        /// </summary>
+        private static int PodDrawTier(PvgsEpochState st, Pod pod, OutputStation station)
+        {
+            Bot bot;
+            if (st.PodToBot == null || !st.PodToBot.TryGetValue(pod, out bot) || bot == null)
+                return 2;
+            var wp = bot.CurrentWaypoint;
+            if (wp != null && station.Waypoint != null && wp.ID == station.Waypoint.ID)
+                return 0;
+            if (wp != null && wp.IsQueueWaypoint)
+                return 1;
+            return 2;
+        }
+
         private void CommitParts(PvgsEpochState st, Order order, List<KeyValuePair<int, Dictionary<ItemDescription, int>>> parts, Pod preferPod)
         {
             int partUnits = parts.Sum(p => p.Value.Values.Sum());
@@ -362,10 +384,14 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     st.ChildCount++;
                 }
                 st.Result.Allocations.Add(new Symbol { order = target, outputstation = station });
+                bool tierPref = _config != null && _config.PodTierDrawPreference;
                 foreach (var pos in part.Value)
                 {
                     int need = pos.Value;
-                    foreach (var pod in st.PodsAt[part.Key].OrderBy(p => p == preferPod ? 0 : 1).ThenByDescending(p => GetAvail(st, p, pos.Key)).ToList())
+                    foreach (var pod in st.PodsAt[part.Key]
+                        .OrderBy(p => tierPref ? PodDrawTier(st, p, station) : 0)
+                        .ThenBy(p => p == preferPod ? 0 : 1)
+                        .ThenByDescending(p => GetAvail(st, p, pos.Key)).ToList())
                     {
                         if (need == 0)
                             break;
@@ -538,6 +564,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         private void DispatchLoop(PvgsEpochState st, HashSet<Pod> paCandidates, Dictionary<ItemDescription, List<Order>> OiSKU, bool crossTime)
         {
             var dispatched = new HashSet<Pod>();
+            int ffCount = 0; // (Force-fill) coverage-fallback dispatches used this epoch
+            int ffBudget = _config != null ? _config.ForceFillMaxPerEpoch : 0;
             while (st.FreeBots.Count > 0 && st.FreeSlots.Any(f => f > 0))
             {
                 var shortlist = paCandidates
@@ -565,6 +593,10 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 Pod bestPod = null;
                 int bestStation = -1;
                 Bot bestBot = null;
+                // (Force-fill) highest-coverage fallback candidate, used only when no pod has a
+                // positive score but slots + uncommitted work remain (idle-slot pressure).
+                bool forceFill = _config != null && _config.ForceFillEmptySlots;
+                Pod fillPod = null; int fillStation = -1; Bot fillBot = null; int fillUnits = 0;
                 foreach (var cand in shortlist)
                 {
                     Bot bot = null;
@@ -589,6 +621,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     {
                         if (st.FreeSlots[s] <= 0)
                             continue;
+                        // (Force-fill) remember the first free-slot placement of the highest-
+                        // coverage candidate (shortlist is Value-sorted) as the idle-slot
+                        // fallback, used only if no pod earns a positive completion score.
+                        if (forceFill && fillPod == null)
+                        { fillPod = cand.Pod; fillStation = s; fillBot = bot; fillUnits = 1; }
                         double dPod = EstimatePodStationDistance(cand.Pod, st.StationList[s]);
                         var merged = new Dictionary<ItemDescription, int>(st.PerStationAvail[s]);
                         foreach (var e in st.Avail[cand.Pod])
@@ -656,7 +693,15 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     }
                 }
                 if (bestPod == null)
-                    break;
+                {
+                    // (Force-fill) no positive-score dispatch, but slots + coverage remain:
+                    // dispatch the highest-coverage fallback so the epoch is never empty -
+                    // capped at ForceFillMaxPerEpoch (0 = unlimited brute fill).
+                    if (forceFill && fillPod != null && fillUnits > 0 && (ffBudget <= 0 || ffCount < ffBudget))
+                    { bestPod = fillPod; bestStation = fillStation; bestBot = fillBot; ffCount++; }
+                    else
+                        break;
+                }
                 // Commit the dispatch (mirrors the exact manager's Ra claiming block).
                 Instance.ResourceManager.BottoPod.Add(bestBot, bestPod);
                 Instance.ResourceManager.ClaimPod(bestPod, bestBot, BotTaskType.Extract);
@@ -734,7 +779,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             if (R.Count() > 0 && pendingOrders.Count > 0)
             {
                 bool crossTime = _config != null && _config.CrossTime;
-                PvgsEpochState st = BuildEpochState(allPods, Cs, inboundPods, Pb, Ra, pendingOrders, residuals);
+                PvgsEpochState st = BuildEpochState(allPods, Cs, inboundPods, Pb, Ra, pendingOrders, residuals, PodToBot);
                 CompletionSweep(st, null);
                 DispatchLoop(st, Pa, OiSKU, crossTime);
                 bool exactAligned = _config != null && _config.ExactAlignedScoring;
