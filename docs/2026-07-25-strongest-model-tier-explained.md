@@ -125,16 +125,15 @@ tier 不把所有貨架當同一回事，而是依「離站台多近」分四類
 
 ---
 
-## 7. 目標式（Minimize，九項，現行值）
+## 7. 目標式（Minimize，現行值）
 
 $$
 \begin{aligned}
-\min\ \ & w_1\!\Big[\sum_{p\in P_a,s}(d^{PS}_{p,s}+w_4)\,x_{p,s} + \sum_{b,p\in P_a} d^{BP}_{b,p}\,y^R_{b,p}\Big] && \text{(a) 距離＋每趟固定成本} \\
+\min\ \ & w_1\!\Big[\sum_{p\in P_a,s} d^{PS}_{p,s}\,x_{p,s} + \sum_{b,p\in P_a} d^{BP}_{b,p}\,y^R_{b,p}\Big] && \text{(a) 距離成本（純物理，w4 已刪）} \\
 +\ & w_2 \textstyle\sum_o z_o && \text{(b) 完成獎勵} \\
 +\ & \mathbf{w_3} \textstyle\sum_s u_s && \text{(c) 空槽壓力} \\
 +\ & w_p \textstyle\sum_o e_o && \text{(d) 多部位懲罰} \\
 +\ & w_{pipe} \textstyle\sum_s \sigma_s && \text{(e) pipeline 短缺} \\
--\ & w_{2p} \textstyle\sum_{o\in O_{parent}} z_o && \text{(f) parent 收單加碼} \\
 +\ & \varepsilon \textstyle\sum \text{scarcity}_i\, q && \text{(g) 稀缺榨取} \\
 +\ & \varepsilon_{cov} \textstyle\sum_i c_i && \text{(h) 覆蓋 tie-break} \\
 +\ & \textstyle\sum_{o,i,s}\sum_{p\notin P_p(s)} \pi(p,s)\, q_{o,i,p,s} && \text{(i) pod 分層取貨代價}
@@ -148,17 +147,17 @@ $$
 | 符號 | 項 | 值 | 來源 |
 |---|---|---|---|
 | $w_1$ | 距離權重 | 1 | 預設 |
-| $w_4$ | 每趟固定成本 | 10 | 預設 |
 | $w_2$ | 完成獎勵 | **−40** | `OrderRewardWeight` |
 | $\mathbf{w_3}$ | **空槽壓力** | **1000** | `IdleSlotWeight` ← **§10 病灶** |
 | $w_p$ | 多部位懲罰 | 12 | 預設 |
 | $w_{pipe}$ | pipeline 短缺 | **20** | `PipelineFloorWeight` |
 | $T$ | pipeline 地板目標 | **1** | `PipelineFloorTarget` |
-| $w_{2p}$ | parent 收單加碼 | 20 | 預設 |
 | $\varepsilon$ | 稀缺榨取 | −0.5 | 預設 |
 | $\varepsilon_{cov}$ | 覆蓋 tie-break | **−0.2** | `CoverageRewardWeight` |
 | $\alpha$ | 排隊中每單位 | **1** | `QueuedPodDrawPenalty` |
 | $\beta$ | 路上每單位 | **3** | `OnTheWayPodDrawPenalty` |
+
+> **2026-07-27 精簡（權重塔清理）**：$w_4$（每趟固定成本，原 10）與 $w_{2p}$（parent 收單加碼，原 20）已從 tier 移除。$w_4$ 無解釋性——距離已是物理趟成本，而每趟固定能耗(加速+舉升)佔比隨 fleet/map 變動、不存在統一值(硬編任何常數只對單一場景成立)。$w_{2p}$ 實測近乎惰性(Fixed/Fill 雙測差 ±1%、符號不定)。移除後 tier(w4=0,w2p=0)Fixed 為 1048 訂單/1.888 pile-on/3.302 kJ，仍**完勝 M1G**(959/1.228/4.605；pile-on +54%、能耗 −28%)。
 
 **(i) 是軟性偏好、不是禁令**：只要完成獎勵夠大（$|w_2|=40 \gg \alpha,\beta$），模型仍可選擇吃排隊中甚至路上貨架的內容；$q=0$ 永遠可行，故此項**不可能造成無解**。這正是 tier 一路踩雷後學到的教訓——軟性代價安全落地、硬規則撞共用引擎（§10 延伸）。
 

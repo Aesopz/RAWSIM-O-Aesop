@@ -111,7 +111,7 @@
     <CrossTime>true</CrossTime>
     <OrderRewardWeight>-40</OrderRewardWeight>
     <IdleSlotWeight>1000</IdleSlotWeight>
-    <PodTripFixedCost>10</PodTripFixedCost>
+    <PodTripFixedCost>0</PodTripFixedCost>
     <UnitDrawReward>-0.5</UnitDrawReward>
     <PackingBufferCapacity>0</PackingBufferCapacity>
     <MultiPartPenalty>12</MultiPartPenalty>
@@ -122,7 +122,7 @@
     <SplitGateEnabled>true</SplitGateEnabled>
     <SplitGateStrict>true</SplitGateStrict>
     <CoverageRewardWeight>-0.2</CoverageRewardWeight>
-    <ParentClosingReward>20</ParentClosingReward>
+    <ParentClosingReward>0</ParentClosingReward>
     <ParentClosingDispatch>true</ParentClosingDispatch>
     <QueuedPodDrawPenalty>1</QueuedPodDrawPenalty>
     <OnTheWayPodDrawPenalty>3</OnTheWayPodDrawPenalty>
