@@ -1125,7 +1125,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 }
                 var icPaQ = deVarNameq.Where(v => v.order.ID == order.ID && Pa.Contains(v.pod))
                     .Select(v => variablesQ[v.name]).ToList();
-                if (icPaQ.Count > 0)
+                if (icPaQ.Count > 0 && !(_icConfig != null && _icConfig.SoftInboundCommitted))
                 {
                     // (IC/close) parent closing-only dispatch: an existing split parent may
                     // draw from storage pods ONLY when the draw closes it entirely this
@@ -1153,7 +1153,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // a dying processing pod. Existing parents exempt (finishing them shrinks WIP).
             // (SG2) fresh partials additionally draw from the station's PROCESSING pod only
             // - a bridge must be pickable NOW (Pa is already gated by icP1d).
-            if (icSgEnabled)
+            if (icSgEnabled && !(_icConfig != null && _icConfig.SoftInboundCommitted))
             {
                 foreach (var y in deVarNamey)
                 {
@@ -1721,7 +1721,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                         // (Split-driven dispatch) a completing split (fully assigned this solve)
                         // is allowed to have drawn from Pa; partial splits still may not.
                         bool icSplitDriveException = _icConfig != null && _icConfig.SplitCanDriveDispatch && fullyAssigned;
-                        if (M2eICMath.SplitOrderDrawsFromStorage(true, icPaUnits) && !icClosingException && !icSplitDriveException)
+                        if (M2eICMath.SplitOrderDrawsFromStorage(true, icPaUnits) && !icClosingException && !icSplitDriveException
+                            && !(_icConfig != null && _icConfig.SoftInboundCommitted))
                             throw new InvalidOperationException("M2e-IC: split order " + order.ID
                                 + " drew " + icPaUnits + " unit(s) from storage-area pods (P1 violated).");
                         // (IC/PK) reserve the parent's packing box at first split (idempotent
