@@ -1349,6 +1349,30 @@ namespace RAWSimO.Core.Configurations
         /// </summary>
         public bool SplitCanDriveDispatch = false;
 
+        /// <summary>(Set-level redesign, master switch) When true, the inbound-committed
+        /// hard gates (icP1d / icSG1 / icSG2 constraints and the decode P1 assert) are
+        /// NOT generated; dispatch is justified by the set-level "completion + order-level
+        /// progress" objective instead, and new-pod partial draws are priced by
+        /// NewPodPartialPenalty. Default false = current tier, bit-identical (whole gated
+        /// blocks are skipped, not coefficient-zeroed). ProgressRewardWeight and
+        /// NewPodPartialPenalty only take effect when this is true.</summary>
+        public bool SoftInboundCommitted = false;
+
+        /// <summary>(Set-level redesign) Order-level LINEAR progress reward magnitude
+        /// (&gt;=0). Each assigned unit of order o earns -ProgressRewardWeight / D_o where
+        /// D_o = order's ORIGINAL total demand (GetDemandCount), so per-epoch slices sum to
+        /// the reward over the order's life. Structurally mirrors the PR pro-rata term but
+        /// is decoupled from prMode/true-completion. Only applied when SoftInboundCommitted
+        /// is true. 0 = no term.</summary>
+        public double ProgressRewardWeight = 0;
+
+        /// <summary>(Set-level redesign) Pod-tier draw cost 4th tier (gamma): per-unit cost
+        /// of drawing from a brand-new storage (Pa) pod, on top of the existing
+        /// Queued/OnTheWay tiers. Should be &gt;= OnTheWayPodDrawPenalty (a new pod is further
+        /// from committed than an on-the-way one). Only applied when SoftInboundCommitted is
+        /// true (else Pa pods keep the current OnTheWay penalty). 0 = no extra cost.</summary>
+        public double NewPodPartialPenalty = 0;
+
         /// <summary>(Fill fairness) When true, a split parent is released from the ItemManager's
         /// available-order backlog on its FIRST split - freeing a Fill replenishment slot so a
         /// fresh order is injected at the same cadence M1G gets from whole-order assignment -
