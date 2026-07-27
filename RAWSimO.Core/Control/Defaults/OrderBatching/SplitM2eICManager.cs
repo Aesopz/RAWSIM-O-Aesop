@@ -731,7 +731,13 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // infeasible (unlike a hard pod-state gate). Both 0 = bit-identical.
             double icQueuedPen = _icConfig != null ? _icConfig.QueuedPodDrawPenalty : 0;
             double icOnTheWayPen = _icConfig != null ? _icConfig.OnTheWayPodDrawPenalty : 0;
-            if ((icQueuedPen != 0 || icOnTheWayPen != 0) && deVarNameq.Count > 0)
+            // (Set-level redesign) 4th tier: a brand-new Pa pod serving a partial costs
+            // NewPodPartialPenalty (gamma). Only when SoftInboundCommitted - else Pa pods
+            // keep falling into icOnTheWayPen exactly as before (bit-identical; and P1
+            // pins their q to 0 anyway when the gate is on).
+            bool icSoftInbound = _icConfig != null && _icConfig.SoftInboundCommitted;
+            double icNewPodPen = icSoftInbound ? _icConfig.NewPodPartialPenalty : 0;
+            if ((icQueuedPen != 0 || icOnTheWayPen != 0 || icNewPodPen != 0) && deVarNameq.Count > 0)
             {
                 var icTierTerms = new List<LinearExpression>();
                 foreach (var v in deVarNameq)
@@ -743,7 +749,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                         continue;
                     bool icIsQueued = icQueuedByStation.TryGetValue(v.outputstation.ID, out icQueuedHere)
                         && icQueuedHere.Contains(v.pod.ID);
-                    double icPen = icIsQueued ? icQueuedPen : icOnTheWayPen;
+                    double icPen = (icSoftInbound && Pa.Contains(v.pod)) ? icNewPodPen
+                        : (icIsQueued ? icQueuedPen : icOnTheWayPen);
                     if (icPen != 0)
                         icTierTerms.Add(variablesQ[v.name] * icPen);
                 }
@@ -771,6 +778,14 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // (LinearExpression.Sum throws on an empty sequence).
             if (prMode && prR != 0 && deVarNameq.Count > 0)
                 objective = objective + LinearExpression.Sum(deVarNameq.Select(v => variablesQ[v.name] * (-prR / v.order.GetDemandCount())));
+            // (Set-level redesign) order-level LINEAR progress reward: each assigned unit of
+            // order o earns -ProgressRewardWeight / D_o (D_o = original demand GetDemandCount,
+            // so per-epoch slices sum to the reward over the order's life). Mirrors the PR
+            // term's formula but decoupled from prMode/true-completion, and gated by the
+            // SoftInboundCommitted master switch => flag off is a whole-block skip.
+            if (icSoftInbound && _icConfig.ProgressRewardWeight != 0 && deVarNameq.Count > 0)
+                objective = objective + LinearExpression.Sum(deVarNameq.Select(v =>
+                    variablesQ[v.name] * (-_icConfig.ProgressRewardWeight / v.order.GetDemandCount())));
             // ── (IC/v4) objective additions: D9 wp, D11 pipeline floor, D14 coverage ──
             double icWpPen = _icConfig != null ? _icConfig.MultiPartPenalty : 0;
             if (icWpPen != 0 && pendingOrders.Count > 0)
