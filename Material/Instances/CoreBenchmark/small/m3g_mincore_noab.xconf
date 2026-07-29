@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <ControlConfiguration xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <Name>split_milp_m3g</Name>
+  <Name>m3g_mincore_noab</Name>
   <PathPlanningConfig xsi:type="WHCAnStarPathPlanningConfiguration">
     <Name />
     <AutoSetParameter>false</AutoSetParameter>
@@ -128,9 +128,8 @@
     <ReleaseParentOnFirstSplit>true</ReleaseParentOnFirstSplit>
     <ParentClosingReward>0</ParentClosingReward>
     <ParentClosingDispatch>true</ParentClosingDispatch>
-    <QueuedPodDrawPenalty>1</QueuedPodDrawPenalty>
-    <OnTheWayPodDrawPenalty>3</OnTheWayPodDrawPenalty>
-    <LineClosureWeight>30</LineClosureWeight>
+    <QueuedPodDrawPenalty>0</QueuedPodDrawPenalty>
+    <OnTheWayPodDrawPenalty>0</OnTheWayPodDrawPenalty>
   </OrderBatchingConfig>
   <ReplenishmentBatchingConfig xsi:type="SamePodReplenishmentBatchingConfiguration">
     <Name />

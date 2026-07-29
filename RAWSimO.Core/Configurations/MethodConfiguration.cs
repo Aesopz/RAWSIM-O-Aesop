@@ -346,6 +346,7 @@ namespace RAWSimO.Core.Configurations
         /// (as HADGS is to M1G). Pod-centric greedy with exact ledger claims, no Gurobi.
         /// </summary>
         PVGS,
+        GreedyM3G,
         /// <summary>
         /// Late-binding SplitM1GExact (M2e-LB): same MILP, AllocateOrder deferred to pod-claim
         /// time via a deferred-binding ledger; PlannedWipCap replaces physical Cs semantics.
@@ -793,6 +794,7 @@ namespace RAWSimO.Core.Configurations
     [XmlInclude(typeof(SplitM1GExactConfiguration))]
     [XmlInclude(typeof(SplitM1GLBConfiguration))]
     [XmlInclude(typeof(PVGSConfiguration))]
+    [XmlInclude(typeof(GreedyM3GConfiguration))]
     [XmlInclude(typeof(SplitM2eICConfiguration))]
     public abstract class OrderBatchingConfiguration : ControllerConfigurationBase
     {

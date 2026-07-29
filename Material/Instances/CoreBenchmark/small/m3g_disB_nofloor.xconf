@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <ControlConfiguration xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <Name>split_milp_m3g</Name>
+  <Name>m3g_disB_nofloor</Name>
   <PathPlanningConfig xsi:type="WHCAnStarPathPlanningConfiguration">
     <Name />
     <AutoSetParameter>false</AutoSetParameter>
@@ -114,12 +114,12 @@
     <PodTripFixedCost>0</PodTripFixedCost>
     <UnitDrawReward>-0.5</UnitDrawReward>
     <PackingBufferCapacity>0</PackingBufferCapacity>
-    <MultiPartPenalty>0</MultiPartPenalty>
+    <MultiPartPenalty>12</MultiPartPenalty>
     <PipelineFloorWeight>20</PipelineFloorWeight>
     <PipelineFloorLeadSec>70</PipelineFloorLeadSec>
     <PipelineFloorTarget>1</PipelineFloorTarget>
-    <PipelineFloorEnabled>true</PipelineFloorEnabled>
-    <SplitGateEnabled>false</SplitGateEnabled>
+    <PipelineFloorEnabled>false</PipelineFloorEnabled>
+    <SplitGateEnabled>true</SplitGateEnabled>
     <SplitGateStrict>true</SplitGateStrict>
     <CoverageRewardWeight>0</CoverageRewardWeight>
     <SoftInboundCommitted>true</SoftInboundCommitted>
@@ -130,7 +130,6 @@
     <ParentClosingDispatch>true</ParentClosingDispatch>
     <QueuedPodDrawPenalty>1</QueuedPodDrawPenalty>
     <OnTheWayPodDrawPenalty>3</OnTheWayPodDrawPenalty>
-    <LineClosureWeight>30</LineClosureWeight>
   </OrderBatchingConfig>
   <ReplenishmentBatchingConfig xsi:type="SamePodReplenishmentBatchingConfiguration">
     <Name />

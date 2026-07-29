@@ -713,6 +713,31 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 objective = LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * (ExactPodStationCost(v.pod, v.outputstation) + PodStationExtraCost(v.pod, v.outputstation) + w4)), wrapper) * w1
                     + LinearExpression.Sum(deVarNamez.Select(v => variablesBinary[v.name])) * zRewardCoeff
                     + LinearExpression.Sum(deVarNameus.Select(v => variablesUs[v.name])) * w3;
+            // (Starvation-aware dispatch) explicit station-starvation reward on xps. Added
+            // outside the *w1 scaling as an independent objective term. For each candidate
+            // pod->station dispatch whose station is projected to starve (gap>0) and that a
+            // free-flow-arriving pod can reach before the station's EST, reward the dispatch by
+            // -w_starve*gap so the MILP feeds stations before they idle. Gated: off = M3G MINCORE.
+            if (_icConfig != null && _icConfig.StarvationAwareDispatch && _icConfig.StarvationWeight != 0)
+            {
+                double saW = _icConfig.StarvationWeight;
+                double saCfgSpeed = Instance.SettingConfig != null ? Instance.SettingConfig.StarveAwareNominalSpeed : 0.0;
+                double saSpeed = saCfgSpeed > 0.0 ? saCfgSpeed : Math.Max(0.1, Instance.Bots.Max(b => b.MaxVelocity));
+                double saNow = Instance.Controller.CurrentTime;
+                Dictionary<int, double> saEst = new Dictionary<int, double>();
+                Dictionary<int, double> saGap = new Dictionary<int, double>();
+                foreach (var saStation in Cs.Keys)
+                {
+                    var saProj = SlowStartController.ComputeStationWorkProjection(saStation, saNow);
+                    saEst[saStation.ID] = saProj.FirstStarveSec;
+                    saGap[saStation.ID] = saProj.StarvationGapSec;
+                }
+                objective = objective + LinearExpression.Sum(deVarNamexps.Where(u =>
+                        Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)
+                        && saGap.ContainsKey(u.outputstation.ID) && saGap[u.outputstation.ID] > 0.0
+                        && StarveAwareCost.TravelTime(EstimatePodStationDistance(u.pod, u.outputstation), saSpeed) <= saEst[u.outputstation.ID])
+                    .Select(v => variablesBinary[v.name] * (-saW * saGap[v.outputstation.ID])), wrapper);
+            }
             if (w5 != 0 && processingPods.Count > 0)
             {
                 // A processing pod may carry nothing the backlog still needs -> no q variables
@@ -845,6 +870,9 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     // fact, one epoch lagged to avoid circularity.
                     if (_icConfig != null && _icConfig.CoupleDispatchToRecentSplit && _icPrevSplitStations.Contains(station.ID))
                         icGateOpen = true;
+                    // (Remove soft floor) skip icLG1 entirely when disabled; icLGcap above stays.
+                    if (_icConfig != null && _icConfig.PipelineSoftFloorDisabled)
+                        continue;
                     if (!icGateOpen || icT - icFuture <= 0)
                         continue;
                     string icSfName = "icsfx_" + station.ID.ToString();
@@ -857,6 +885,30 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 }
                 if (icShortfallNames.Count > 0)
                     objective = objective + LinearExpression.Sum(icShortfallNames.Select(n => variablesUs[n])) * _icConfig.PipelineFloorWeight;
+            }
+            // (Force-feed constraint) HARD, no penalty: a station that will starve within the
+            // planning horizon and CAN still be reached by a storage pod before its EST MUST get
+            // one such timely dispatch. Re-couples supply to station work (M1G-analog for split)
+            // without any objective term. Feasibility-bounded: only added when a timely candidate
+            // exists, so it can never make the model infeasible.
+            if (_icConfig != null && _icConfig.ForceFeedConstraint)
+            {
+                double ffSpeed0 = Instance.SettingConfig != null ? Instance.SettingConfig.StarveAwareNominalSpeed : 0.0;
+                double ffSpeed = ffSpeed0 > 0.0 ? ffSpeed0 : Math.Max(0.1, Instance.Bots.Max(b => b.MaxVelocity));
+                double ffNow = Instance.Controller.CurrentTime;
+                double ffHorizon = _icConfig.ForceFeedHorizonSec;
+                foreach (var ffStation in Cs.Keys)
+                {
+                    double ffEst = SlowStartController.ComputeStationWorkProjection(ffStation, ffNow).FirstStarveSec;
+                    if (!(ffEst > 0.0) || ffEst > ffHorizon)
+                        continue;
+                    var ffTimely = deVarNamexps.Where(v => v.outputstation.ID == ffStation.ID && Pa.Contains(v.pod)
+                            && Instance.ResourceManager.UnusedPods.Contains(v.pod)
+                            && StarveAwareCost.TravelTime(EstimatePodStationDistance(v.pod, ffStation), ffSpeed) <= ffEst)
+                        .Select(v => variablesBinary[v.name]).ToList();
+                    if (ffTimely.Count > 0)
+                        wrapper.AddConstr(LinearExpression.Sum(ffTimely) >= 1, "icFeed");
+                }
             }
             double icCov = _icConfig != null ? _icConfig.CoverageRewardWeight : 0;
             if (icCov != 0)
@@ -942,6 +994,26 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 var cfNewTrips = deVarNamexps.Where(v => Pa.Contains(v.pod)).Select(v => variablesBinary[v.name]).ToList();
                 if (cfNewTrips.Count > 0)
                     coverageObjective = coverageObjective - LinearExpression.Sum(cfNewTrips) * epsPod;
+            }
+            // (Line-closure reward) MILP counterpart of HGS's lexicographic "close order-lines"
+            // tier. Per order-line (o, SKU i): c[o,i]=1 requires the full SKU demand served
+            // (Σ_s q[o,i,s] >= demand·c); reward -W_line·Σc so the objective values a finished
+            // SKU-position above raw item coverage (which is NOT rewarded, to avoid flooding).
+            // Keep |w2| ≫ W_line ≫ distance for near-strict lexicographic. 0 = off (bit-identical).
+            if (_icConfig != null && _icConfig.LineClosureWeight != 0)
+            {
+                double icLineW = _icConfig.LineClosureWeight;
+                var icLineVars = new List<Symbol>();
+                foreach (var order in pendingOrders)
+                    foreach (var sku in residuals[order].Where(p => PiSKU.ContainsKey(p.Key) && p.Value > 0))
+                    {
+                        string icCname = "cline_" + order.ID.ToString() + "_" + sku.Key.ID.ToString();
+                        var icLineLhs = LinearExpression.Sum(deVarNameq.Where(v => v.order.ID == order.ID && v.skui.ID == sku.Key.ID).Select(v => variablesQ[v.name]));
+                        wrapper.AddConstr(icLineLhs >= sku.Value * variablesBinary[icCname], "icLine");
+                        icLineVars.Add(new Symbol { name = icCname });
+                    }
+                if (icLineVars.Count > 0)
+                    objective = objective + LinearExpression.Sum(icLineVars.Select(v => variablesBinary[v.name])) * (-icLineW);
             }
             wrapper.SetObjective(objective, OptimizationSense.Minimize);
             // (ecap) sequential trip discipline: at most K new pod trips per decision. Restores

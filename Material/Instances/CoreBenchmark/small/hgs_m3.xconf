@@ -1,6 +1,6 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <ControlConfiguration xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <Name>split_milp_m3g</Name>
+  <Name>hgs_m3</Name>
   <PathPlanningConfig xsi:type="WHCAnStarPathPlanningConfiguration">
     <Name />
     <AutoSetParameter>false</AutoSetParameter>
@@ -102,35 +102,20 @@
   <RepositioningConfig xsi:type="DummyRepositioningConfiguration">
     <Name />
   </RepositioningConfig>
-  <OrderBatchingConfig xsi:type="SplitM2eICConfiguration">
+  <OrderBatchingConfig xsi:type="GreedyM3GConfiguration">
     <Name />
     <TieBreaker>EarliestDueTime</TieBreaker>
     <FastLane>true</FastLane>
     <LateBeforeMatch>false</LateBeforeMatch>
     <FastLaneTieBreaker>EarliestDueTime</FastLaneTieBreaker>
     <CrossTime>true</CrossTime>
-    <OrderRewardWeight>-40</OrderRewardWeight>
-    <IdleSlotWeight>0</IdleSlotWeight>
-    <PodTripFixedCost>0</PodTripFixedCost>
-    <UnitDrawReward>-0.5</UnitDrawReward>
-    <PackingBufferCapacity>0</PackingBufferCapacity>
-    <MultiPartPenalty>0</MultiPartPenalty>
+    <UnitDrawReward>-0.1</UnitDrawReward>
+    <MinPartialUnits>6</MinPartialUnits>
+    <ExactAlignedScoring>true</ExactAlignedScoring>
+    <PodTierDrawPreference>true</PodTierDrawPreference>
     <PipelineFloorWeight>20</PipelineFloorWeight>
     <PipelineFloorLeadSec>70</PipelineFloorLeadSec>
     <PipelineFloorTarget>1</PipelineFloorTarget>
-    <PipelineFloorEnabled>true</PipelineFloorEnabled>
-    <SplitGateEnabled>false</SplitGateEnabled>
-    <SplitGateStrict>true</SplitGateStrict>
-    <CoverageRewardWeight>0</CoverageRewardWeight>
-    <SoftInboundCommitted>true</SoftInboundCommitted>
-    <ProgressRewardWeight>0</ProgressRewardWeight>
-    <NewPodPartialPenalty>0</NewPodPartialPenalty>
-    <ReleaseParentOnFirstSplit>true</ReleaseParentOnFirstSplit>
-    <ParentClosingReward>0</ParentClosingReward>
-    <ParentClosingDispatch>true</ParentClosingDispatch>
-    <QueuedPodDrawPenalty>1</QueuedPodDrawPenalty>
-    <OnTheWayPodDrawPenalty>3</OnTheWayPodDrawPenalty>
-    <LineClosureWeight>30</LineClosureWeight>
   </OrderBatchingConfig>
   <ReplenishmentBatchingConfig xsi:type="SamePodReplenishmentBatchingConfiguration">
     <Name />

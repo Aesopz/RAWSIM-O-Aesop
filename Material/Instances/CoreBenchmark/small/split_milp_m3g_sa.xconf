@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <ControlConfiguration xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <Name>split_milp_m3g</Name>
+  <Name>split_milp_m3g_sa</Name>
   <PathPlanningConfig xsi:type="WHCAnStarPathPlanningConfiguration">
     <Name />
     <AutoSetParameter>false</AutoSetParameter>
@@ -130,7 +130,8 @@
     <ParentClosingDispatch>true</ParentClosingDispatch>
     <QueuedPodDrawPenalty>1</QueuedPodDrawPenalty>
     <OnTheWayPodDrawPenalty>3</OnTheWayPodDrawPenalty>
-    <LineClosureWeight>30</LineClosureWeight>
+    <StarvationAwareDispatch>true</StarvationAwareDispatch>
+    <StarvationWeight>1.0</StarvationWeight>
   </OrderBatchingConfig>
   <ReplenishmentBatchingConfig xsi:type="SamePodReplenishmentBatchingConfiguration">
     <Name />

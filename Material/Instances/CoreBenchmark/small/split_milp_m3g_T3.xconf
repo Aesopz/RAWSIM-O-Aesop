@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <ControlConfiguration xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <Name>split_milp_m3g</Name>
+  <Name>split_milp_m3g_T3</Name>
   <PathPlanningConfig xsi:type="WHCAnStarPathPlanningConfiguration">
     <Name />
     <AutoSetParameter>false</AutoSetParameter>
@@ -117,7 +117,7 @@
     <MultiPartPenalty>0</MultiPartPenalty>
     <PipelineFloorWeight>20</PipelineFloorWeight>
     <PipelineFloorLeadSec>70</PipelineFloorLeadSec>
-    <PipelineFloorTarget>1</PipelineFloorTarget>
+    <PipelineFloorTarget>3</PipelineFloorTarget>
     <PipelineFloorEnabled>true</PipelineFloorEnabled>
     <SplitGateEnabled>false</SplitGateEnabled>
     <SplitGateStrict>true</SplitGateStrict>

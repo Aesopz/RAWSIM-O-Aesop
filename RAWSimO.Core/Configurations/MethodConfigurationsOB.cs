@@ -1191,6 +1191,51 @@ namespace RAWSimO.Core.Configurations
         /// <summary>(D11) Master switch for the pipeline floor.</summary>
         public bool PipelineFloorEnabled = true;
         /// <summary>
+        /// (Starvation-aware dispatch) Master switch: add an explicit station-starvation
+        /// reward to the xps (pod->station) objective term. For each candidate dispatch whose
+        /// station is projected to starve (StarvationGapSec > 0) and that a free-flow-arriving
+        /// pod can reach before the station's EST, the objective is rewarded by
+        /// StarvationWeight * StarvationGapSec — so the MILP dispatches pods to feed stations
+        /// before they go idle (fixes M3G under-feeding vs the greedy HGS-M3). Off = whole-block
+        /// skip, bit-identical to M3G MINCORE. See docs/superpowers/specs/2026-07-28-m3g-starvation-aware-design.md.
+        /// </summary>
+        public bool StarvationAwareDispatch = false;
+        /// <summary>(Starvation-aware dispatch) w_starve: reward weight per second of station
+        /// starvation gap relieved by an in-time dispatch. Initial 1.0; sweep later. Ignored when
+        /// StarvationAwareDispatch is false.</summary>
+        public double StarvationWeight = 1.0;
+        /// <summary>
+        /// (Remove soft floor) When true, skip the icLG1 soft pipeline floor entirely — the
+        /// penalized "dispatch up to T when the lead gate is open" pressure is removed, so
+        /// dispatch is driven purely by the completion/distance objective (no pod-count floor).
+        /// The hard icLGcap anti-oversupply cap is UNAFFECTED. Off = current M3G (bit-identical).
+        /// </summary>
+        public bool PipelineSoftFloorDisabled = false;
+        /// <summary>
+        /// (Force-feed constraint) When true, add a HARD constraint (no penalty): a station that
+        /// will starve within ForceFeedHorizonSec AND for which at least one storage pod can
+        /// free-flow-arrive before its EST MUST receive at least one such timely pod dispatch.
+        /// Re-couples pod supply to station work at the unit/timing level (M1G-analog for the
+        /// split model) instead of a penalty/floor. Feasibility-bounded: only applied when a
+        /// timely candidate exists, so it can never make the MILP infeasible. Off = no constraint.
+        /// Intended to be used with PipelineSoftFloorDisabled=true and DispatchCapEnabled=false.
+        /// </summary>
+        public bool ForceFeedConstraint = false;
+        /// <summary>(Force-feed) planning horizon in seconds: only force-feed a station whose EST
+        /// is within this window (0 &lt; EST &lt;= horizon). Beyond it there is still ample time, so a
+        /// later epoch handles it. Default 120. Ignored when ForceFeedConstraint is false.</summary>
+        public double ForceFeedHorizonSec = 120;
+        /// <summary>
+        /// (Line-closure reward) W_line: adds a per-order-line closure variable c[o,i] (=1 iff
+        /// SKU i's full demand for order o is served, Σ_s q[o,i,s] &gt;= demand·c) and rewards it in
+        /// the objective by -W_line·Σc. Realises the MILP counterpart of HGS's lexicographic
+        /// "close order-lines" tier: value structural progress (a finished SKU-position) above raw
+        /// item coverage, suppressing partial-item flooding. Keep |OrderRewardWeight| ≫ W_line ≫
+        /// distance for near-strict lexicographic (orders completed ≫ lines closed ≫ distance).
+        /// 0 = off, bit-identical to MINCORE. Items are NOT rewarded (that would flood).
+        /// </summary>
+        public double LineClosureWeight = 0;
+        /// <summary>
         /// (No-artificial-cap) M1G has no per-round limit on how many new pods a station may
         /// claim - it dispatches however many genuinely-justified (order-demand-backed, per
         /// eshi13') pods it needs, bounded only by real resources (bots, pod uniqueness).
@@ -1509,6 +1554,32 @@ namespace RAWSimO.Core.Configurations
         /// efficiency-vs-liveness point. Ignored when ForceFillEmptySlots is false.
         /// </summary>
         public int ForceFillMaxPerEpoch = 0;
+    }
+
+    /// <summary>
+    /// HGS-M3: greedy heuristic counterpart of M3G (SplitM2eIC MINCORE), as HADGS is to M1G.
+    /// Inherits PVGS's engine config; GetMethodType routes to GreedyM3GManager. Adds the
+    /// PipelineFloor parameters (mirrored from SplitM2eIC) that the faithful M3G marginal
+    /// dispatch score needs. Solution space is a subset of M3G by construction.
+    /// </summary>
+    public class GreedyM3GConfiguration : PVGSConfiguration
+    {
+        public override OrderBatchingMethodType GetMethodType() { return OrderBatchingMethodType.GreedyM3G; }
+        public override string GetMethodName() { if (!string.IsNullOrWhiteSpace(Name)) return Name; return "OBGREEDYM3G"; }
+        /// <summary>w_pipe: soft-objective weight per unit of per-station pipeline shortfall while the lead gate is open. Mirrors SplitM2eIC PipelineFloorWeight (20).</summary>
+        public double PipelineFloorWeight = 20;
+        /// <summary>Lead seconds for the pipeline gate. Mirrors SplitM2eIC PipelineFloorLeadSec (70).</summary>
+        public double PipelineFloorLeadSec = 70;
+        /// <summary>Target future (inbound-minus-processing) pods per station; hard anti-oversupply cap. Mirrors SplitM2eIC PipelineFloorTarget (1).</summary>
+        public int PipelineFloorTarget = 1;
+        /// <summary>
+        /// (Lexicographic scoring) When true, the dispatch scorer ranks candidates by strict
+        /// lexicographic tiers instead of a weighted sum: (orders completed, order-lines closed,
+        /// items served, feeds-a-gate-open-starving-station, then nearest). A pod-set's value is
+        /// "complete orders first, then close lines, then serve items"; starvation feed and
+        /// distance are only tie-breaks. Off = weighted-sum score (bit-identical to prior HGS).
+        /// </summary>
+        public bool LexicographicScoring = false;
     }
 
     #endregion

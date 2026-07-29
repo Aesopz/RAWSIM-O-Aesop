@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <ControlConfiguration xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <Name>split_milp_m3g</Name>
+  <Name>split_milp_m2eic_ao</Name>
   <PathPlanningConfig xsi:type="WHCAnStarPathPlanningConfiguration">
     <Name />
     <AutoSetParameter>false</AutoSetParameter>
@@ -110,27 +110,20 @@
     <FastLaneTieBreaker>EarliestDueTime</FastLaneTieBreaker>
     <CrossTime>true</CrossTime>
     <OrderRewardWeight>-40</OrderRewardWeight>
-    <IdleSlotWeight>0</IdleSlotWeight>
-    <PodTripFixedCost>0</PodTripFixedCost>
+    <IdleSlotWeight>5</IdleSlotWeight>
+    <PodTripFixedCost>10</PodTripFixedCost>
     <UnitDrawReward>-0.5</UnitDrawReward>
     <PackingBufferCapacity>0</PackingBufferCapacity>
-    <MultiPartPenalty>0</MultiPartPenalty>
+    <MultiPartPenalty>12</MultiPartPenalty>
     <PipelineFloorWeight>20</PipelineFloorWeight>
-    <PipelineFloorLeadSec>70</PipelineFloorLeadSec>
+    <PipelineFloorLeadSec>999999</PipelineFloorLeadSec>
     <PipelineFloorTarget>1</PipelineFloorTarget>
     <PipelineFloorEnabled>true</PipelineFloorEnabled>
-    <SplitGateEnabled>false</SplitGateEnabled>
+    <SplitGateEnabled>true</SplitGateEnabled>
     <SplitGateStrict>true</SplitGateStrict>
-    <CoverageRewardWeight>0</CoverageRewardWeight>
-    <SoftInboundCommitted>true</SoftInboundCommitted>
-    <ProgressRewardWeight>0</ProgressRewardWeight>
-    <NewPodPartialPenalty>0</NewPodPartialPenalty>
-    <ReleaseParentOnFirstSplit>true</ReleaseParentOnFirstSplit>
-    <ParentClosingReward>0</ParentClosingReward>
+    <CoverageRewardWeight>-0.2</CoverageRewardWeight>
+    <ParentClosingReward>20</ParentClosingReward>
     <ParentClosingDispatch>true</ParentClosingDispatch>
-    <QueuedPodDrawPenalty>1</QueuedPodDrawPenalty>
-    <OnTheWayPodDrawPenalty>3</OnTheWayPodDrawPenalty>
-    <LineClosureWeight>30</LineClosureWeight>
   </OrderBatchingConfig>
   <ReplenishmentBatchingConfig xsi:type="SamePodReplenishmentBatchingConfiguration">
     <Name />
