@@ -5,6 +5,7 @@ using RAWSimO.Core.Configurations;
 using RAWSimO.Core.Control;
 using RAWSimO.Core.Elements;
 using RAWSimO.Core.Items;
+using RAWSimO.Core.Management;
 using RAWSimO.SolverWrappers;
 using static RAWSimO.Core.Management.ResourceManager;
 
@@ -518,7 +519,126 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             Instance.Observer.TimeOrderBatchingbyMP((DateTime.Now - start).TotalSeconds);
         }
 
-        /// <summary>Applies the binding layer. Implemented in Task 5.</summary>
-        private void CommitM4G(M4GSnapshot snap, M4GResult result) { }
+        /// <summary>
+        /// Applies the binding layer and only the binding layer (spec 5.4). Whatever the
+        /// valuation layer scored but the binding layer did not take has no side effect at
+        /// all - it is priced once and discarded with the solve. Nothing is promised; the
+        /// next decision re-solves the split shape against a fresh backlog.
+        /// </summary>
+        private void CommitM4G(M4GSnapshot snap, M4GResult result)
+        {
+            if (result.BoundDraws.Count == 0) return;
+
+            // Claim newly-dispatched (Pa) pods to their bots and register them as inbound at
+            // the station their bound draws target - without this the solver's xps/yrp
+            // decision never becomes a real bot dispatch, so the picks registered below are
+            // never delivered (mirrors SplitM2eICManager's decode block, restricted to pods
+            // that actually carry a bound draw: a pod the valuation layer picked for xps=1
+            // purely to price a line that the binding layer never took must not move - that
+            // is exactly the "no side effect" invariant this method exists to enforce).
+            foreach (var podGroup in result.BoundDraws.Keys.Where(k => snap.Pa.Contains(k.pod)).GroupBy(k => k.pod.ID))
+            {
+                Pod pod = podGroup.First().pod;
+                Bot bot;
+                if (!result.BotByPodId.TryGetValue(pod.ID, out bot)) continue;
+                if (Instance.ResourceManager.IsPodClaimed(pod)) continue;
+                Instance.ResourceManager.BottoPod.Add(bot, pod);
+                Instance.ResourceManager.ClaimPod(pod, bot, BotTaskType.Extract);
+                foreach (var station in podGroup.Select(k => k.outputstation).Distinct())
+                    station.RegisterInboundPod(pod);
+            }
+
+            // Register the picks on the pods so the trip carries a real request.
+            foreach (var entry in result.BoundDraws)
+                for (int i = 0; i < entry.Value; i++)
+                    entry.Key.pod.JustRegisterItem(entry.Key.skui);
+
+            int closedLines = 0, completedOrders = 0;
+            foreach (var order in snap.PendingOrders.OrderBy(o => o.ID))
+            {
+                var mine = result.BoundDraws.Where(e => e.Key.order.ID == order.ID).ToList();
+                if (mine.Count == 0) continue;
+
+                // Group this order's bound draws by station: one child (or one plain
+                // allocation) per station touched.
+                foreach (var stationGroup in mine.GroupBy(e => e.Key.outputstation.ID))
+                {
+                    OutputStation station = stationGroup.First().Key.outputstation;
+                    Dictionary<ItemDescription, int> quantities = new Dictionary<ItemDescription, int>();
+                    foreach (var e in stationGroup)
+                    {
+                        if (!quantities.ContainsKey(e.Key.skui)) quantities[e.Key.skui] = 0;
+                        quantities[e.Key.skui] += e.Value;
+                    }
+                    bool coversWholeOrder = snap.Residuals[order]
+                        .All(p => quantities.ContainsKey(p.Key) && quantities[p.Key] >= p.Value);
+                    // Fast path: the whole residual is served here and the order was never split
+                    // before - no child needed, the order itself takes the slot.
+                    Order target;
+                    if (coversWholeOrder && stationGroup.Count() == mine.Count && !order.IsSplitParent)
+                        target = order;
+                    else
+                    {
+                        target = Order.CreateSplitChild(order, quantities);
+                        // Child IDs follow the base OrderManager convention used by every other
+                        // split manager in this codebase (SplitM1GManager, SplitM1GExactManager,
+                        // SplitM1GLBManager, SplitM2eICManager, PVGSManager): idoforder is the
+                        // same monotonic counter that assigns IDs to freshly-arriving orders
+                        // (OrderManager.cs), so reusing it here cannot collide with any live
+                        // order or any other split child.
+                        target.ID = idoforder++;
+                        Instance.ResourceManager.TransferExtractRequests(order, target);
+                    }
+                    AllocateOrder(target, station);
+                    Instance.StatCustomControllerInfo.CustomLogOB1++;
+                    foreach (var e in stationGroup)
+                    {
+                        Symbol ziop = new Symbol { pod = e.Key.pod, order = target, outputstation = station,
+                            skui = e.Key.skui,
+                            name = "ziops_" + e.Key.skui.ID + "_" + target.ID + "_" + e.Key.pod.ID + "_" + station.ID };
+                        Instance.ResourceManager._Ziops[station].Add(ziop, e.Value);
+                    }
+                }
+
+                // Bookkeeping for the price calibration.
+                foreach (var sku in snap.Residuals[order])
+                {
+                    int drawn = mine.Where(e => e.Key.skui.ID == sku.Key.ID).Sum(e => e.Value);
+                    if (drawn >= sku.Value)
+                    {
+                        closedLines++;
+                        _pricing.RegisterLineClosed(M4GPricing.LineKey(order.ID, sku.Key.ID));
+                    }
+                }
+                // "Completed" here means the order's entire snapshot-time residual was bound
+                // this decision - this is what mu's denominator counts. order.IsFullyClaimed
+                // alone is not sufficient: it is driven by Order.CreateSplitChild's demand
+                // ledger, which the fast path above deliberately never touches (target == order,
+                // no child created), so a whole never-split order fully served this decision
+                // would otherwise be silently skipped here. The residual-coverage check below
+                // is therefore the primary (and sufficient) test; IsFullyClaimed is kept as an
+                // ADDITIONAL trigger only for removal, since it is the authoritative signal for
+                // "this split parent has no residual left" independent of how this decision's
+                // draws happen to be grouped.
+                bool residualFullyBoundThisDecision = snap.Residuals[order]
+                    .All(p => mine.Where(e => e.Key.skui.ID == p.Key.ID).Sum(e => e.Value) >= p.Value);
+                if (residualFullyBoundThisDecision || order.IsFullyClaimed)
+                    completedOrders++;
+                if (order.IsFullyClaimed)
+                {
+                    // AllocateOrder already dropped the fast-path case (target == order) from
+                    // _pendingOrders internally; this Remove is a no-op there and is the only
+                    // removal path for a split parent, which is never itself passed to
+                    // AllocateOrder (only its children are).
+                    _pendingOrders.Remove(order);
+                    (Instance.ItemManager as ItemManager).TakeAvailableOrder(order);
+                }
+            }
+            _pricing.RegisterClosedLines(closedLines);
+            _pricing.RegisterCompletedOrders(completedOrders);
+            // Lines the valuation layer scored but the binding layer left behind: they enter
+            // the delta denominator now and credit the numerator if they close later.
+            _pricing.RegisterValuedButUnbound(result.ValuedLineKeys.Where(k => !result.BoundLineKeys.Contains(k)));
+        }
     }
 }
