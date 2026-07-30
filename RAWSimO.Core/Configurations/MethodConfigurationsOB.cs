@@ -1632,12 +1632,28 @@ namespace RAWSimO.Core.Configurations
         public double LambdaFixed = 0;
         /// <summary>&gt; 0 overrides the running delta with this fixed value (open-loop ablation).</summary>
         public double DeltaFixed = 0;
+        /// <summary>Warm-up rho in metres per unit picked (pod-tier draw pricing fallback).</summary>
+        public double RhoFallback = 15.0;
 
         // ── Ablation (spec 6) ──
         /// <summary>true forces q == q-hat, degenerating the valuation layer. Should reproduce M3G-like behaviour.</summary>
         public bool DegenerateToBindingOnly = false;
         /// <summary>Cap on orders admitted to the valuation layer (0 = no cap). Solve-time convergence knob.</summary>
         public int ValuationOrderLimit = 0;
+        /// <summary>Caps the valuation credit a single dispatched pod can receive at the station's
+        /// total slot capacity times the mean residual units per pending order (V5). false reproduces
+        /// the uncapped behaviour that over-dispatched.</summary>
+        public bool PodCreditCapEnabled = true;
+        /// <summary>Prices each bound draw by the pod's tier: processing pods are rewarded rho per
+        /// unit (their window is closing), queued and en-route pods are free (sunk), and newly
+        /// dispatched storage pods pay rho per unit. rho is measured, not tuned. false = no tier
+        /// pricing, reproducing the flat behaviour where every draw is free.</summary>
+        public bool PodTierDrawPricingEnabled = true;
+        /// <summary>Values newly dispatched storage pods only against demand that pods already
+        /// committed to a station cannot supply, so the same demand does not justify fetching a
+        /// fresh pod on every consecutive decision. false = value every pod against the raw
+        /// backlog (the behaviour that over-dispatched).</summary>
+        public bool IncrementalValuationEnabled = true;
 
         // ── Diagnostics (spec 4) ──
         /// <summary>Enables the no-split counterfactual solve that measures the marginal value of splitting.</summary>

@@ -80,6 +80,22 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         public double Epsilon(double cumulativeDistanceMetres)
         { return _config.EpsilonScale * Lambda(cumulativeDistanceMetres); }
 
+        /// <summary>
+        /// Metres per unit picked, for pod-tier draw pricing: a unit drawn from a newly
+        /// dispatched (Pa) pod costs +rho (it genuinely requires an extra trip), a unit drawn
+        /// from a processing (Pp) pod is rewarded -rho (not taking it now means paying for a
+        /// future trip to fetch that item later), and queued/en-route (Pq/Pb) draws are free.
+        /// Measured live from cumulative distance / cumulative units picked, same warm-up gate
+        /// as the other prices - not a tuned constant.
+        /// </summary>
+        /// <param name="cumulativeDistanceMetres">Instance.StatOverallDistanceTraveled at decision time.</param>
+        /// <param name="cumulativeUnitsPicked">Instance.StatOverallItemsHandled at decision time.</param>
+        public double Rho(double cumulativeDistanceMetres, double cumulativeUnitsPicked)
+        {
+            if (InWarmup) return _config.RhoFallback;
+            return cumulativeDistanceMetres / Math.Max(1, cumulativeUnitsPicked);
+        }
+
         /// <summary>Records lines closed by this decision.</summary>
         public void RegisterClosedLines(int count)
         { if (count > 0) _closedLines += count; }

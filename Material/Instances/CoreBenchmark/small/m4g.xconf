@@ -120,6 +120,7 @@
     <DeltaFixed>0</DeltaFixed>
     <DegenerateToBindingOnly>false</DegenerateToBindingOnly>
     <ValuationOrderLimit>0</ValuationOrderLimit>
+    <PodCreditCapEnabled>true</PodCreditCapEnabled>
     <SplitMarginalProbeEnabled>false</SplitMarginalProbeEnabled>
     <SplitMarginalProbeEveryNDecisions>50</SplitMarginalProbeEveryNDecisions>
     <SplitMarginalProbeTimeLimitSec>10</SplitMarginalProbeTimeLimitSec>
