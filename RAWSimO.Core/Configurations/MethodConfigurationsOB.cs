@@ -1248,6 +1248,21 @@ namespace RAWSimO.Core.Configurations
         /// </summary>
         public bool DispatchCapEnabled = true;
         /// <summary>
+        /// (Dual-price probe) Diagnostic only, never influences a decision. When enabled, every
+        /// DualPriceProbeEveryNDecisions-th decision additionally solves the relaxed "ideal
+        /// allocation" LP for the same snapshot and logs its shadow prices - the marginal metre
+        /// value of a station slot, of a unit of each SKU, and of a bot. Those are the quantities
+        /// the online objective currently approximates with hand-tuned constants
+        /// (IdleSlotWeight, LineClosureWeight, UnitDrawReward, the pod-tier draw penalties), so
+        /// the log answers whether shadow prices are stable enough, discriminating enough, and
+        /// how far the tuned constants sit from them. false = off, no extra solve.
+        /// </summary>
+        public bool DualPriceProbeEnabled = false;
+        /// <summary>Probe cadence in decisions. Ignored when DualPriceProbeEnabled is false.</summary>
+        public int DualPriceProbeEveryNDecisions = 50;
+        /// <summary>Seconds allowed for one probe LP. &lt;= 0 = no limit.</summary>
+        public double DualPriceProbeTimeLimitSec = 10;
+        /// <summary>
         /// (Scout) Anticipatory dispatch: reward per unit of backlog-matching supply for a
         /// NEW Pa pod dispatched while the D11 lead gate is open, WITHOUT requiring any
         /// order to consume it this solve (relaxes eshi13' for that pod/station pair only).

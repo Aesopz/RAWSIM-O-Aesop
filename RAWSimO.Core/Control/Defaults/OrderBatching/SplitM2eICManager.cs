@@ -484,6 +484,129 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 selected, adaptiveAllowPartial);
         }
 
+        private System.IO.StreamWriter _dualProbeSummaryLog;
+        private System.IO.StreamWriter _dualProbeDetailLog;
+        private int _dualProbeCallIndex = 0;
+
+        /// <summary>
+        /// Diagnostic: solve the relaxed "ideal allocation" LP for this decision's snapshot and log
+        /// its shadow prices. Purely observational - it builds a separate model and throws it away,
+        /// so the decision this runs alongside is bit-identical either way. Off unless
+        /// DualPriceProbeEnabled.
+        /// </summary>
+        private void RunDualPriceProbe(IEnumerable<Pod> Pods, Dictionary<OutputStation, int> Cs,
+            HashSet<Order> pendingOrders, Dictionary<Order, Dictionary<ItemDescription, int>> residuals,
+            HashSet<Bot> R)
+        {
+            if (_icConfig == null || !_icConfig.DualPriceProbeEnabled)
+                return;
+            int every = Math.Max(1, _icConfig.DualPriceProbeEveryNDecisions);
+            if (_dualProbeCallIndex++ % every != 0)
+                return;
+
+            DualPriceProbeInput input = new DualPriceProbeInput
+            {
+                BotCount = R != null ? R.Count : 0,
+                CompletionValue = Math.Abs(_splitConfig != null ? _splitConfig.OrderRewardWeight : -40)
+            };
+            foreach (var station in Cs)
+                input.SlotsByStation[station.Key.ID] = station.Value;
+            foreach (var order in pendingOrders)
+            {
+                Dictionary<ItemDescription, int> residual;
+                if (!residuals.TryGetValue(order, out residual))
+                    continue;
+                DualProbeOrder probeOrder = new DualProbeOrder { OrderId = order.ID };
+                foreach (var line in residual.Where(l => l.Value > 0))
+                    probeOrder.Residual[line.Key.ID] = line.Value;
+                if (probeOrder.Residual.Count > 0)
+                    input.Orders.Add(probeOrder);
+            }
+            foreach (var pod in Pods)
+            {
+                Dictionary<int, int> stock = new Dictionary<int, int>();
+                foreach (var item in pod.ItemDescriptionsContained)
+                {
+                    int available = pod.CountAvailable(item);
+                    if (available > 0)
+                        stock[item.ID] = available;
+                }
+                if (stock.Count == 0)
+                    continue;
+                input.PodStock[pod.ID] = stock;
+                Dictionary<int, double> distances = new Dictionary<int, double>();
+                foreach (var station in Cs.Keys)
+                    distances[station.ID] = EstimatePodStationDistance(pod, station);
+                input.PodStationDistance[pod.ID] = distances;
+            }
+
+            DualPriceProbeResult probe;
+            try
+            {
+                probe = DualPriceProbe.Solve(input, _icConfig.DualPriceProbeTimeLimitSec);
+            }
+            catch (Exception ex)
+            {
+                // A probe must never take the simulation down with it.
+                Console.WriteLine("DualPriceProbe failed: " + ex.Message);
+                return;
+            }
+
+            double now = Instance != null && Instance.Controller != null ? Instance.Controller.CurrentTime : 0.0;
+            int probeIndex = _dualProbeCallIndex - 1;
+            if (_dualProbeSummaryLog == null)
+            {
+                string dir = Instance != null && Instance.SettingConfig != null ? Instance.SettingConfig.StatisticsDirectory : null;
+                if (string.IsNullOrEmpty(dir))
+                    dir = ".";
+                if (!System.IO.Directory.Exists(dir))
+                    System.IO.Directory.CreateDirectory(dir);
+                _dualProbeSummaryLog = new System.IO.StreamWriter(
+                    System.IO.Path.Combine(dir, "dualprice_summary.csv"), false) { AutoFlush = true };
+                _dualProbeSummaryLog.WriteLine("probe,time,solved,solveSec,qVars,orders,pods,objective,botPrice,slotPriceMin,slotPriceMean,slotPriceMax,skuCount,skuPriceNonZero,skuPriceMean,skuPriceMax");
+                _dualProbeDetailLog = new System.IO.StreamWriter(
+                    System.IO.Path.Combine(dir, "dualprice_detail.csv"), false) { AutoFlush = true };
+                _dualProbeDetailLog.WriteLine("probe,time,kind,id,priceMax,priceMean");
+            }
+
+            System.Globalization.CultureInfo ic = System.Globalization.CultureInfo.InvariantCulture;
+            var slotPrices = probe.SlotPrice.Values.ToList();
+            var skuMax = probe.SkuPriceMax.Values.ToList();
+            _dualProbeSummaryLog.WriteLine(string.Join(",", new string[] {
+                probeIndex.ToString(),
+                now.ToString(ic),
+                probe.Solved ? "1" : "0",
+                probe.SolveSeconds.ToString(ic),
+                probe.VariableCount.ToString(),
+                input.Orders.Count.ToString(),
+                input.PodStock.Count.ToString(),
+                probe.ObjectiveValue.ToString(ic),
+                probe.BotPrice.ToString(ic),
+                (slotPrices.Count > 0 ? slotPrices.Min() : 0.0).ToString(ic),
+                (slotPrices.Count > 0 ? slotPrices.Average() : 0.0).ToString(ic),
+                (slotPrices.Count > 0 ? slotPrices.Max() : 0.0).ToString(ic),
+                skuMax.Count.ToString(),
+                skuMax.Count(v => Math.Abs(v) > 1e-9).ToString(),
+                (skuMax.Count > 0 ? skuMax.Average() : 0.0).ToString(ic),
+                (skuMax.Count > 0 ? skuMax.Max() : 0.0).ToString(ic)
+            }));
+            foreach (var slot in probe.SlotPrice.OrderBy(v => v.Key))
+                _dualProbeDetailLog.WriteLine(string.Join(",", new string[] {
+                    probeIndex.ToString(), now.ToString(ic), "SLOT", slot.Key.ToString(),
+                    slot.Value.ToString(ic), slot.Value.ToString(ic) }));
+            foreach (var sku in probe.SkuPriceMax.OrderBy(v => v.Key))
+            {
+                double mean;
+                probe.SkuPriceMean.TryGetValue(sku.Key, out mean);
+                _dualProbeDetailLog.WriteLine(string.Join(",", new string[] {
+                    probeIndex.ToString(), now.ToString(ic), "SKU", sku.Key.ToString(),
+                    sku.Value.ToString(ic), mean.ToString(ic) }));
+            }
+            _dualProbeDetailLog.WriteLine(string.Join(",", new string[] {
+                probeIndex.ToString(), now.ToString(ic), "BOT", "0",
+                probe.BotPrice.ToString(ic), probe.BotPrice.ToString(ic) }));
+        }
+
         private SplitExactSolveResult SolveSplitExact(SolverType type, Dictionary<ItemDescription, List<Pod>> PiSKU,
             Dictionary<ItemDescription, List<Order>> OiSKU, IEnumerable<Pod> Pods, Dictionary<OutputStation, int> Cs,
             Dictionary<int, List<Symbol>> variableNames, HashSet<Order> pendingOrders,
@@ -494,6 +617,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         {
             LinearModel wrapper = new LinearModel(type, (string s) => { Console.Write(s); });
             SplitExactSolveResult result = new SplitExactSolveResult();
+            RunDualPriceProbe(Pods, Cs, pendingOrders, residuals, R);
             bool crossTime = _splitConfig != null && _splitConfig.CrossTime;
             bool adaptiveReplenishmentTrip = false;
             List<Symbol> deVarNamexps = variableNames[1];

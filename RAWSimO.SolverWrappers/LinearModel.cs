@@ -104,6 +104,33 @@ namespace RAWSimO.SolverWrappers
             GurobiModel.AddConstr(expression.Expression, name);
         }
 
+        private List<KeyValuePair<string, GRBConstr>> _trackedConstrs = new List<KeyValuePair<string, GRBConstr>>();
+
+        /// <summary>
+        /// Adds a constraint and retains its Gurobi handle so its dual price can be read back
+        /// after solving. Identical to AddConstr in every other respect; the plain AddConstr
+        /// path is left untouched so existing models are unaffected.
+        /// </summary>
+        public void AddConstrTracked(LinearExpression expression, string name)
+        {
+            _trackedConstrs.Add(new KeyValuePair<string, GRBConstr>(
+                name, GurobiModel.AddConstr(expression.Expression, name)));
+        }
+
+        /// <summary>
+        /// Dual price (shadow price) of every constraint added through AddConstrTracked, keyed
+        /// by the name it was added under. Only meaningful for a continuous model that solved to
+        /// optimality - Gurobi does not define Pi for a MIP, so this throws there rather than
+        /// returning a silently meaningless number.
+        /// </summary>
+        public IEnumerable<KeyValuePair<string, double>> GetDuals()
+        {
+            if (GurobiModel.Get(GRB.IntAttr.IsMIP) != 0)
+                throw new InvalidOperationException("Dual prices are undefined for a MIP; relax all variables to Continuous before calling GetDuals.");
+            foreach (var tracked in _trackedConstrs)
+                yield return new KeyValuePair<string, double>(tracked.Key, tracked.Value.Get(GRB.DoubleAttr.Pi));
+        }
+
         public void SetParam(string paramName, string paramValue)
         {
             GurobiModel.GetEnv().Set(paramName, paramValue);
