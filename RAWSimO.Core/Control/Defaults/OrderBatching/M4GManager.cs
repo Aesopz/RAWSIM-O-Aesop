@@ -230,21 +230,45 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             VariableCollection<string> bin)
         {
             // (R1) each pod goes to at most one station
+            // Guard: LinearExpression.Sum(IEnumerable<Variable>) calls .First() with no empty
+            // check, so an empty filtered sequence throws. Materialise then skip when empty -
+            // for R1 this is defensive only (Xps always has >=1 entry per pod given Cs is
+            // non-empty, which the caller already guarantees before invoking SolveM4G).
             foreach (var pod in snap.AllPods)
-                wrapper.AddConstr(LinearExpression.Sum(sym.Xps.Where(v => v.pod.ID == pod.ID)
-                    .Select(v => bin[v.name])) <= 1, "R1");
+            {
+                var xpsList = sym.Xps.Where(v => v.pod.ID == pod.ID).Select(v => bin[v.name]).ToList();
+                if (xpsList.Count == 0) continue;
+                wrapper.AddConstr(LinearExpression.Sum(xpsList) <= 1, "R1");
+            }
             // (R2) dispatching a storage pod requires a bot
             foreach (var pod in snap.Pa)
-                wrapper.AddConstr(LinearExpression.Sum(sym.Xps.Where(v => v.pod.ID == pod.ID).Select(v => bin[v.name]))
-                    <= LinearExpression.Sum(sym.Yrp.Where(v => v.pod.ID == pod.ID).Select(v => bin[v.name])), "R2");
+            {
+                var xpsList = sym.Xps.Where(v => v.pod.ID == pod.ID).Select(v => bin[v.name]).ToList();
+                if (xpsList.Count == 0) continue;
+                var yrpList = sym.Yrp.Where(v => v.pod.ID == pod.ID).Select(v => bin[v.name]).ToList();
+                if (yrpList.Count == 0)
+                    // No bot can carry this pod this tick. Skipping the constraint outright
+                    // would NOT be vacuous here - it would leave xps unconstrained and let the
+                    // solver dispatch a pod with no carrier. Force no-dispatch instead, which is
+                    // exactly what R2 means when its right-hand side is empty.
+                    wrapper.AddConstr(LinearExpression.Sum(xpsList) <= 0, "R2");
+                else
+                    wrapper.AddConstr(LinearExpression.Sum(xpsList) <= LinearExpression.Sum(yrpList), "R2");
+            }
             // (R3) each bot carries at most one pod
             foreach (var bot in snap.Ra)
-                wrapper.AddConstr(LinearExpression.Sum(sym.Yrp.Where(v => v.robot.ID == bot.ID)
-                    .Select(v => bin[v.name])) <= 1, "R3");
+            {
+                var yrpList = sym.Yrp.Where(v => v.robot.ID == bot.ID).Select(v => bin[v.name]).ToList();
+                if (yrpList.Count == 0) continue;   // vacuous: bot has no candidate pod at all
+                wrapper.AddConstr(LinearExpression.Sum(yrpList) <= 1, "R3");
+            }
             // (R4) each pod is carried by at most one bot
             foreach (var pod in snap.Pa)
-                wrapper.AddConstr(LinearExpression.Sum(sym.Yrp.Where(v => v.pod.ID == pod.ID)
-                    .Select(v => bin[v.name])) <= 1, "R4");
+            {
+                var yrpList = sym.Yrp.Where(v => v.pod.ID == pod.ID).Select(v => bin[v.name]).ToList();
+                if (yrpList.Count == 0) continue;   // vacuous: no bot can carry this pod
+                wrapper.AddConstr(LinearExpression.Sum(yrpList) <= 1, "R4");
+            }
             // (R5) already-committed pods are fixed to their destination and carrier
             foreach (var entry in snap.InboundPods)
                 foreach (var pod in entry.Value.Where(p => snap.Pb.Contains(p)))
@@ -280,5 +304,221 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     wrapper.AddConstr(bin["ch_" + order.ID + "_" + sku.Key.ID] >= bin["zh_" + order.ID], "V4");
                 }
         }
+
+        /// <summary>
+        /// Mirrors M1GManager.M1GBotPodCost (private in the base class, so inaccessible to a
+        /// subclass - constitution requires mirroring rather than touching M1GManager.cs). The
+        /// base version branches on starve-aware travel time; M4G's constructor hard-throws if
+        /// StarveAwareCostEnabled is set (metres-only invariant, spec 3.5), so that branch is
+        /// unreachable here and this mirror is just the raw-distance path.
+        /// </summary>
+        private double M1GBotPodCost(Bot robot, Pod pod)
+        {
+            return EstimateBotPodDistance(robot, pod);
+        }
+
+        /// <summary>Mirrors M1GManager.M1GPodStationCost for the same reason as
+        /// <see cref="M1GBotPodCost"/> - only the non-starve-aware (raw distance) path applies.</summary>
+        private double M1GPodStationCost(Pod pod, OutputStation station)
+        {
+            return EstimatePodStationDistance(pod, station);
+        }
+
+        /// <summary>Outcome of one M4G solve. Only BoundDraws has side effects downstream.</summary>
+        private sealed class M4GResult
+        {
+            public bool HasSolution;
+            public double Objective;
+            public double SolveSec;
+            public int NewTripCount;
+            /// <summary>Binding-layer draws: (sku, order, pod, station) -> units.</summary>
+            public Dictionary<Symbol, int> BoundDraws = new Dictionary<Symbol, int>();
+            /// <summary>Bot chosen for each newly dispatched pod.</summary>
+            public Dictionary<int, Bot> BotByPodId = new Dictionary<int, Bot>();
+            /// <summary>Line keys the valuation layer closed.</summary>
+            public HashSet<string> ValuedLineKeys = new HashSet<string>();
+            /// <summary>Line keys the binding layer closed.</summary>
+            public HashSet<string> BoundLineKeys = new HashSet<string>();
+            public int ValuedOrders;
+            public int BoundOrders;
+        }
+
+        /// <summary>
+        /// Builds and solves the M4G model. One solve decides pods, bots, the valuation-layer
+        /// split shape and the binding-layer subset jointly (spec D2) - never in two passes.
+        /// </summary>
+        private M4GResult SolveM4G(M4GSnapshot snap)
+        {
+            M4GResult result = new M4GResult();
+            M4GSymbols sym = BuildSymbols(snap);
+            if (sym.Qhat.Count == 0) return result;
+
+            LinearModel wrapper = new LinearModel(SolverType.Gurobi, (string s) => { Console.Write(s); });
+            int maxUnits = snap.Residuals.Count > 0
+                ? snap.Residuals.Values.SelectMany(d => d.Values).DefaultIfEmpty(1).Max() : 1;
+            int maxSlots = snap.Cs.Count > 0 ? snap.Cs.Values.DefaultIfEmpty(1).Max() : 1;
+            VariableCollection<string> bin = new VariableCollection<string>(wrapper, VariableType.Binary, 0, 1,
+                (string s) => { return s; });
+            VariableCollection<string> qh = new VariableCollection<string>(wrapper, VariableType.Integer, 0, maxUnits,
+                (string s) => { return s; });
+            VariableCollection<string> qb = new VariableCollection<string>(wrapper, VariableType.Integer, 0, maxUnits,
+                (string s) => { return s; });
+
+            AddSharedConstraints(wrapper, snap, sym, bin);
+            AddValuationConstraints(wrapper, snap, sym, bin, qh);
+
+            // ── Binding layer B1-B7 (spec 3.4) ──
+            foreach (var v in sym.Qhat)
+            {
+                string qbName = "q_" + v.skui.ID + "_" + v.order.ID + "_" + v.pod.ID + "_" + v.outputstation.ID;
+                // (B1) binding is a subset of valuation. DegenerateToBindingOnly forces equality,
+                // collapsing the layers back to M3G-like behaviour for the ablation arm.
+                if (_m4gConfig.DegenerateToBindingOnly)
+                    wrapper.AddConstr(qb[qbName] == qh[v.name], "B1eq");
+                else
+                    wrapper.AddConstr(qb[qbName] <= qh[v.name], "B1");
+            }
+            foreach (var order in snap.PendingOrders)
+            {
+                int totalResidual = snap.Residuals[order].Values.Sum();
+                foreach (var station in snap.Cs.Keys)
+                {
+                    var draws = sym.Qhat.Where(v => v.order.ID == order.ID && v.outputstation.ID == station.ID)
+                        .Select(v => qb["q_" + v.skui.ID + "_" + v.order.ID + "_" + v.pod.ID + "_" + v.outputstation.ID])
+                        .ToList();
+                    if (draws.Count == 0) continue;
+                    string yName = "y_" + order.ID + "_" + station.ID;
+                    // (B2) drawing for an order at a station occupies one of its slots
+                    wrapper.AddConstr(LinearExpression.Sum(draws) <= totalResidual * bin[yName], "B2");
+                    // (B4) no empty binding
+                    wrapper.AddConstr(bin[yName] <= LinearExpression.Sum(draws), "B4");
+                }
+                foreach (var sku in snap.Residuals[order].Where(p => snap.PiSKU.ContainsKey(p.Key)))
+                {
+                    var skuDraws = sym.Qhat.Where(v => v.order.ID == order.ID && v.skui.ID == sku.Key.ID)
+                        .Select(v => qb["q_" + v.skui.ID + "_" + v.order.ID + "_" + v.pod.ID + "_" + v.outputstation.ID])
+                        .ToList();
+                    // Guard: structurally this can't be empty (any sku that survives the
+                    // PiSKU-containment filter has >=1 pod x >=1 station, since Cs is
+                    // non-empty), but keep the guard for consistency with the other summed
+                    // sequences rather than relying on that invariant never breaking.
+                    if (skuDraws.Count == 0) continue;
+                    string cName = "c_" + order.ID + "_" + sku.Key.ID;
+                    // (B5) a bound line closure needs the full residual bound
+                    wrapper.AddConstr(LinearExpression.Sum(skuDraws) >= sku.Value * bin[cName], "B5");
+                    // (B6) binding closures are a subset of valued closures
+                    wrapper.AddConstr(bin[cName] <= bin["ch_" + order.ID + "_" + sku.Key.ID], "B6c");
+                    // (B7) a bound completion needs every line bound-closed
+                    wrapper.AddConstr(bin[cName] >= bin["z_" + order.ID], "B7");
+                }
+                wrapper.AddConstr(bin["z_" + order.ID] <= bin["zh_" + order.ID], "B6z");
+            }
+            // (B3) slot capacity - an inequality, unlike M3G's eshi4 equality
+            foreach (var station in snap.Cs.Keys)
+            {
+                var ys = snap.PendingOrders.Select(o => bin["y_" + o.ID + "_" + station.ID]).ToList();
+                if (ys.Count > 0)
+                    wrapper.AddConstr(LinearExpression.Sum(ys) <= snap.Cs[station], "B3");
+            }
+
+            // ── Objective T1-T5 (spec 3.3), everything denominated in metres ──
+            double cumDist = Instance.StatOverallDistanceTraveled;
+            double lambda = _pricing.Lambda(cumDist);
+            double mu = _pricing.Mu(cumDist);
+            double delta = _pricing.Delta();
+            double epsilon = _pricing.Epsilon(cumDist);
+
+            // T1/T2: only newly dispatched (Pa) pods pay travel - Pb trips are sunk.
+            // Both terms use the (expressions, defaultSolver) Sum overload, which already
+            // returns a zero expression for an empty sequence - no guard needed here.
+            LinearExpression objective =
+                LinearExpression.Sum(sym.Xps.Where(v => snap.Pa.Contains(v.pod))
+                    .Select(v => bin[v.name] * (M1GPodStationCost(v.pod, v.outputstation)
+                        + PodStationExtraCost(v.pod, v.outputstation))), wrapper)
+                + LinearExpression.Sum(sym.Yrp.Where(v => snap.Pa.Contains(v.pod) && v.pod.Waypoint != null)
+                    .Select(v => bin[v.name] * M1GBotPodCost(v.robot, v.pod)), wrapper);
+            // T3: bound line closures at full price, valued-but-unbound at the realisation rate.
+            // Guard: these use the plain Sum(IEnumerable<Variable>) overload, which throws on an
+            // empty sequence. sym.Chat can only be empty if sym.Qhat is empty too (Qhat is built
+            // strictly inside the Chat loop), and that case already returned above - so this is
+            // defensive, not load-bearing, but kept for consistency and future-proofing.
+            var chatBoundVars = sym.Chat.Select(v => bin["c_" + v.order.ID + "_" + v.skui.ID]).ToList();
+            if (chatBoundVars.Count > 0)
+                objective = objective + LinearExpression.Sum(chatBoundVars) * (-lambda * (1.0 - delta));
+            var chatValuedVars = sym.Chat.Select(v => bin[v.name]).ToList();
+            if (chatValuedVars.Count > 0)
+                objective = objective + LinearExpression.Sum(chatValuedVars) * (-lambda * delta);
+            // T4: same split for completed orders. Same guard rationale as T3.
+            var zhatBoundVars = sym.Zhat.Select(v => bin["z_" + v.order.ID]).ToList();
+            if (zhatBoundVars.Count > 0)
+                objective = objective + LinearExpression.Sum(zhatBoundVars) * (-mu * (1.0 - delta));
+            var zhatValuedVars = sym.Zhat.Select(v => bin[v.name]).ToList();
+            if (zhatValuedVars.Count > 0)
+                objective = objective + LinearExpression.Sum(zhatValuedVars) * (-mu * delta);
+            // T5: tie-break that prefers executing now among equally valued solutions. sym.Qhat
+            // is guaranteed non-empty by the early return above, but guard anyway for consistency.
+            var qbTieVars = sym.Qhat.Select(v =>
+                qb["q_" + v.skui.ID + "_" + v.order.ID + "_" + v.pod.ID + "_" + v.outputstation.ID]).ToList();
+            if (qbTieVars.Count > 0)
+                objective = objective + LinearExpression.Sum(qbTieVars) * (-epsilon);
+            wrapper.SetObjective(objective, OptimizationSense.Minimize);
+
+            DateTime solveStart = DateTime.Now;
+            wrapper.Update();
+            wrapper.Optimize();
+            result.SolveSec = (DateTime.Now - solveStart).TotalSeconds;
+            if (!wrapper.HasSolution()) return result;
+
+            result.HasSolution = true;
+            result.Objective = wrapper.GetObjectiveValue();
+            foreach (var v in sym.Qhat)
+            {
+                int units = (int)Math.Round(qb["q_" + v.skui.ID + "_" + v.order.ID + "_" + v.pod.ID
+                    + "_" + v.outputstation.ID].GetValue());
+                if (units > 0) result.BoundDraws[v] = units;
+            }
+            foreach (var v in sym.Chat)
+            {
+                if (Math.Round(bin[v.name].GetValue()) != 0)
+                    result.ValuedLineKeys.Add(M4GPricing.LineKey(v.order.ID, v.skui.ID));
+                if (Math.Round(bin["c_" + v.order.ID + "_" + v.skui.ID].GetValue()) != 0)
+                    result.BoundLineKeys.Add(M4GPricing.LineKey(v.order.ID, v.skui.ID));
+            }
+            result.ValuedOrders = sym.Zhat.Count(v => Math.Round(bin[v.name].GetValue()) != 0);
+            result.BoundOrders = sym.Zhat.Count(v => Math.Round(bin["z_" + v.order.ID].GetValue()) != 0);
+            foreach (var v in sym.Xps.Where(v => snap.Pa.Contains(v.pod)))
+                if (Math.Round(bin[v.name].GetValue()) != 0)
+                {
+                    result.NewTripCount++;
+                    var carrier = sym.Yrp.FirstOrDefault(y => y.pod.ID == v.pod.ID
+                        && Math.Round(bin[y.name].GetValue()) != 0);
+                    if (carrier != null) result.BotByPodId[v.pod.ID] = carrier.robot;
+                }
+            return result;
+        }
+
+        /// <summary>Entry point called by the engine whenever a station has a free slot.</summary>
+        protected override void DecideAboutPendingOrders()
+        {
+            DateTime start = DateTime.Now;
+            M4GSnapshot snap = BuildSnapshot();
+            if (snap.PendingOrders.Count == 0 || snap.Cs.Count == 0
+                || !snap.Cs.Values.Any(v => v > 0) || snap.AllPods.Count == 0)
+                return;
+            M4GResult result = SolveM4G(snap);
+            double cumDist = Instance.StatOverallDistanceTraveled;
+            WriteDecision(result.HasSolution, snap.PendingOrders.Count, snap.Cs.Count(c => c.Value > 0),
+                snap.Pa.Count, snap.Pb.Count, snap.Ra.Count,
+                _pricing.Lambda(cumDist), _pricing.Mu(cumDist), _pricing.Delta(), _pricing.Epsilon(cumDist),
+                result.ValuedLineKeys.Count, result.BoundLineKeys.Count, result.ValuedOrders, result.BoundOrders,
+                result.NewTripCount, result.BoundDraws.Values.Sum(), result.Objective, result.SolveSec);
+            _decisionIndex++;
+            if (result.HasSolution)
+                CommitM4G(snap, result);
+            Instance.Observer.TimeOrderBatchingbyMP((DateTime.Now - start).TotalSeconds);
+        }
+
+        /// <summary>Applies the binding layer. Implemented in Task 5.</summary>
+        private void CommitM4G(M4GSnapshot snap, M4GResult result) { }
     }
 }
