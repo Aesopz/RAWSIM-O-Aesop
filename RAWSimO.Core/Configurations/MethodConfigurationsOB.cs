@@ -1662,6 +1662,12 @@ namespace RAWSimO.Core.Configurations
         public int SplitMarginalProbeEveryNDecisions = 50;
         /// <summary>Seconds allowed for one probe solve. &lt;= 0 = no limit.</summary>
         public double SplitMarginalProbeTimeLimitSec = 10;
+
+        /// <summary>(Fill fairness) On a parent's FIRST split, release its slot in the Fill backlog
+        /// pool so a fresh order is injected, while keeping the parent in the pending set so its
+        /// residual demand is still served. Mirrors M3G's ReleaseParentOnFirstSplit. Inert in Fixed
+        /// order mode, where the order stream is predetermined. false = current behaviour.</summary>
+        public bool ReleaseParentOnFirstSplit = false;
     }
 
     #endregion

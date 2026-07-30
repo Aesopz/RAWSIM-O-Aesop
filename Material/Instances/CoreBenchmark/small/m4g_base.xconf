@@ -126,6 +126,7 @@
     <SplitMarginalProbeEnabled>false</SplitMarginalProbeEnabled>
     <SplitMarginalProbeEveryNDecisions>50</SplitMarginalProbeEveryNDecisions>
     <SplitMarginalProbeTimeLimitSec>10</SplitMarginalProbeTimeLimitSec>
+    <ReleaseParentOnFirstSplit>true</ReleaseParentOnFirstSplit>
   </OrderBatchingConfig>
   <ReplenishmentBatchingConfig xsi:type="SamePodReplenishmentBatchingConfiguration">
     <Name />

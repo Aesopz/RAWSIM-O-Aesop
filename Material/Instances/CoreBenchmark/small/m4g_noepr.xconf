@@ -122,11 +122,11 @@
     <ValuationOrderLimit>0</ValuationOrderLimit>
     <PodCreditCapEnabled>false</PodCreditCapEnabled>
     <PodTierDrawPricingEnabled>true</PodTierDrawPricingEnabled>
-    <IncrementalValuationEnabled>false</IncrementalValuationEnabled>
+    <IncrementalValuationEnabled>true</IncrementalValuationEnabled>
     <SplitMarginalProbeEnabled>false</SplitMarginalProbeEnabled>
     <SplitMarginalProbeEveryNDecisions>50</SplitMarginalProbeEveryNDecisions>
     <SplitMarginalProbeTimeLimitSec>10</SplitMarginalProbeTimeLimitSec>
-    <ReleaseParentOnFirstSplit>true</ReleaseParentOnFirstSplit>
+    <ReleaseParentOnFirstSplit>false</ReleaseParentOnFirstSplit>
   </OrderBatchingConfig>
   <ReplenishmentBatchingConfig xsi:type="SamePodReplenishmentBatchingConfiguration">
     <Name />

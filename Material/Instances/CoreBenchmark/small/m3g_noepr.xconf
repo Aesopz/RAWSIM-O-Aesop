@@ -1,6 +1,6 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <ControlConfiguration xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <Name>m1g</Name>
+  <Name>split_milp_m3g</Name>
   <PathPlanningConfig xsi:type="WHCAnStarPathPlanningConfiguration">
     <Name />
     <AutoSetParameter>false</AutoSetParameter>
@@ -102,31 +102,35 @@
   <RepositioningConfig xsi:type="DummyRepositioningConfiguration">
     <Name />
   </RepositioningConfig>
-  <OrderBatchingConfig xsi:type="M4GConfiguration">
+  <OrderBatchingConfig xsi:type="SplitM2eICConfiguration">
     <Name />
     <TieBreaker>EarliestDueTime</TieBreaker>
     <FastLane>true</FastLane>
     <LateBeforeMatch>false</LateBeforeMatch>
     <FastLaneTieBreaker>EarliestDueTime</FastLaneTieBreaker>
-    <LambdaScale>1</LambdaScale>
-    <MuScale>1</MuScale>
-    <DeltaScale>1</DeltaScale>
-    <EpsilonScale>0.001</EpsilonScale>
-    <WarmupLines>50</WarmupLines>
-    <LambdaFallback>10</LambdaFallback>
-    <DeltaFallback>0.05</DeltaFallback>
-    <LinesPerOrderFallback>2.4</LinesPerOrderFallback>
-    <LambdaFixed>0</LambdaFixed>
-    <DeltaFixed>0</DeltaFixed>
-    <DegenerateToBindingOnly>false</DegenerateToBindingOnly>
-    <ValuationOrderLimit>0</ValuationOrderLimit>
-    <PodCreditCapEnabled>false</PodCreditCapEnabled>
-    <PodTierDrawPricingEnabled>true</PodTierDrawPricingEnabled>
-    <IncrementalValuationEnabled>false</IncrementalValuationEnabled>
-    <SplitMarginalProbeEnabled>false</SplitMarginalProbeEnabled>
-    <SplitMarginalProbeEveryNDecisions>50</SplitMarginalProbeEveryNDecisions>
-    <SplitMarginalProbeTimeLimitSec>10</SplitMarginalProbeTimeLimitSec>
-    <ReleaseParentOnFirstSplit>true</ReleaseParentOnFirstSplit>
+    <CrossTime>true</CrossTime>
+    <OrderRewardWeight>-40</OrderRewardWeight>
+    <IdleSlotWeight>0</IdleSlotWeight>
+    <PodTripFixedCost>0</PodTripFixedCost>
+    <UnitDrawReward>-0.5</UnitDrawReward>
+    <PackingBufferCapacity>0</PackingBufferCapacity>
+    <MultiPartPenalty>0</MultiPartPenalty>
+    <PipelineFloorWeight>20</PipelineFloorWeight>
+    <PipelineFloorLeadSec>70</PipelineFloorLeadSec>
+    <PipelineFloorTarget>1</PipelineFloorTarget>
+    <PipelineFloorEnabled>true</PipelineFloorEnabled>
+    <SplitGateEnabled>false</SplitGateEnabled>
+    <SplitGateStrict>true</SplitGateStrict>
+    <CoverageRewardWeight>0</CoverageRewardWeight>
+    <SoftInboundCommitted>true</SoftInboundCommitted>
+    <ProgressRewardWeight>0</ProgressRewardWeight>
+    <NewPodPartialPenalty>0</NewPodPartialPenalty>
+    <ReleaseParentOnFirstSplit>false</ReleaseParentOnFirstSplit>
+    <ParentClosingReward>0</ParentClosingReward>
+    <ParentClosingDispatch>true</ParentClosingDispatch>
+    <QueuedPodDrawPenalty>1</QueuedPodDrawPenalty>
+    <OnTheWayPodDrawPenalty>3</OnTheWayPodDrawPenalty>
+    <LineClosureWeight>30</LineClosureWeight>
   </OrderBatchingConfig>
   <ReplenishmentBatchingConfig xsi:type="SamePodReplenishmentBatchingConfiguration">
     <Name />
