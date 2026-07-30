@@ -113,10 +113,10 @@
     <MinPartialUnits>6</MinPartialUnits>
     <ExactAlignedScoring>true</ExactAlignedScoring>
     <PodTierDrawPreference>true</PodTierDrawPreference>
-    <PipelineFloorWeight>20</PipelineFloorWeight>
+    <PipelineFloorWeight>0</PipelineFloorWeight>
     <PipelineFloorLeadSec>70</PipelineFloorLeadSec>
-    <PipelineFloorTarget>1</PipelineFloorTarget>
-    <ReleaseParentOnFirstSplit>false</ReleaseParentOnFirstSplit>
+    <PipelineFloorTarget>999</PipelineFloorTarget>
+    <ReleaseParentOnFirstSplit>true</ReleaseParentOnFirstSplit>
   </OrderBatchingConfig>
   <ReplenishmentBatchingConfig xsi:type="SamePodReplenishmentBatchingConfiguration">
     <Name />

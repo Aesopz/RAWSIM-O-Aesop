@@ -116,7 +116,7 @@
     <PipelineFloorWeight>20</PipelineFloorWeight>
     <PipelineFloorLeadSec>70</PipelineFloorLeadSec>
     <PipelineFloorTarget>1</PipelineFloorTarget>
-    <ReleaseParentOnFirstSplit>false</ReleaseParentOnFirstSplit>
+    <ReleaseParentOnFirstSplit>true</ReleaseParentOnFirstSplit>
   </OrderBatchingConfig>
   <ReplenishmentBatchingConfig xsi:type="SamePodReplenishmentBatchingConfiguration">
     <Name />

@@ -426,6 +426,17 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             }
             if (!fastPath)
                 st.Result.SplitParents.Add(order);
+            // (Fill fairness) On this order's FIRST split, free its Fill backlog slot so a
+            // fresh order is injected, while keeping it in _pendingOrders for residual
+            // service. Fires exactly once (guarded by IsOrderAvailable). Mirrors
+            // SplitM2eICManager.CommitSplitExactResult / M4GManager's ReleaseParentOnFirstSplit
+            // block. Unreachable when the flag is off => bit-identical to current behavior.
+            if (_config != null && _config.ReleaseParentOnFirstSplit
+                && order.IsSplitParent
+                && (Instance.ItemManager as ItemManager).IsOrderAvailable(order))
+            {
+                (Instance.ItemManager as ItemManager).TakeAvailableOrder(order);
+            }
             if (coversAll)
                 st.Committed.Add(order);
         }
