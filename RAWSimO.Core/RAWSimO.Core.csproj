@@ -123,6 +123,7 @@
     <Compile Include="Control\Defaults\OrderBatching\SplitM1GExactManager.cs" />
     <Compile Include="Control\Defaults\OrderBatching\SplitM2eICManager.cs" />
     <Compile Include="Control\Defaults\OrderBatching\M4GManager.cs" />
+    <Compile Include="Control\Defaults\OrderBatching\M4GPricing.cs" />
     <Compile Include="Control\Defaults\OrderBatching\M2eSunkFirstMath.cs" />
     <Compile Include="Control\Defaults\OrderBatching\M2eICMath.cs" />
     <Compile Include="Control\Defaults\OrderBatching\DualPriceProbe.cs" />
