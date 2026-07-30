@@ -122,7 +122,7 @@
     <ValuationOrderLimit>0</ValuationOrderLimit>
     <PodCreditCapEnabled>false</PodCreditCapEnabled>
     <PodTierDrawPricingEnabled>true</PodTierDrawPricingEnabled>
-    <IncrementalValuationEnabled>true</IncrementalValuationEnabled>
+    <IncrementalValuationEnabled>false</IncrementalValuationEnabled>
     <SplitMarginalProbeEnabled>false</SplitMarginalProbeEnabled>
     <SplitMarginalProbeEveryNDecisions>50</SplitMarginalProbeEveryNDecisions>
     <SplitMarginalProbeTimeLimitSec>10</SplitMarginalProbeTimeLimitSec>

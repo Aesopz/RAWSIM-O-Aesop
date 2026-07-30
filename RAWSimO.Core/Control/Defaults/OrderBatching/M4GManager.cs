@@ -87,6 +87,42 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 inboundCoverUnits.ToString() }));
         }
 
+        /// <summary>TEMP DIAGNOSTIC (fill-mode deadlock investigation, remove before merge).</summary>
+        private System.IO.StreamWriter _botDiagLog;
+        private void WriteBotDiag(Func<Bot, bool> isRa)
+        {
+            string dir = Instance != null && Instance.SettingConfig != null
+                ? Instance.SettingConfig.StatisticsDirectory : null;
+            if (string.IsNullOrEmpty(dir)) dir = ".";
+            if (_botDiagLog == null)
+            {
+                if (!System.IO.Directory.Exists(dir)) System.IO.Directory.CreateDirectory(dir);
+                _botDiagLog = new System.IO.StreamWriter(System.IO.Path.Combine(dir, "m4g_bot_diag.csv"), false)
+                { AutoFlush = true };
+                _botDiagLog.WriteLine("decision,time,botID,podNull,podID,inUsedPodsValues,inBotToPodKey,"
+                    + "currentTaskType,destWaypointNull,isRa,podJustRegisteredCount");
+            }
+            foreach (var bot in Instance._outputstationbots)
+            {
+                Pod pod = bot.Pod;
+                int justRegistered = -1;
+                try { justRegistered = pod != null ? pod.ItemDescriptionsContained.Count() : -1; } catch { }
+                _botDiagLog.WriteLine(string.Join(",", new string[] {
+                    _decisionIndex.ToString(),
+                    Instance.Controller.CurrentTime.ToString(),
+                    bot.ID.ToString(),
+                    (pod == null).ToString(),
+                    pod != null ? pod.ID.ToString() : "-1",
+                    Instance.ResourceManager._usedPods.ContainsValue(bot).ToString(),
+                    Instance.ResourceManager.BottoPod.ContainsKey(bot).ToString(),
+                    bot.CurrentTask != null ? bot.CurrentTask.GetType().Name : "null",
+                    (bot.GetInfoDestinationWaypoint() == null).ToString(),
+                    isRa(bot).ToString(),
+                    justRegistered.ToString()
+                }));
+            }
+        }
+
         /// <summary>Decision-time snapshot of the world. Mirrors what SplitM2eICManager builds,
         /// minus every IC gate - M4G has no supply cap, no pipeline floor and no lead-time gate.</summary>
         private sealed class M4GSnapshot
@@ -171,6 +207,9 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 else if (CanUseReturnPendingBot(bot))
                     snap.Ra.Add(bot);
             }
+
+            // TEMP DIAGNOSTIC (fill-mode deadlock investigation, remove before merge).
+            WriteBotDiag(bot => snap.Ra.Contains(bot));
 
             snap.PiSKU = GeneratePiSKU(snap.AllPods);
             snap.PendingOrders = new HashSet<Order>(candidates.Where(o =>
@@ -302,13 +341,31 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // get re-valued (and re-justify a new pod fetch) on every consecutive decision.
             // Deliberately system-wide per SKU, not per station - simpler, and a per-station
             // split is a follow-up refinement if this proves too coarse.
+            //
+            // The inbound-supply deduction is an AGGREGATE, once-per-SKU bound (fixed
+            // 2026-07-31): deducting inboundSupply(i) separately for every order that demands
+            // SKU i over-deducts (e.g. three orders each needing 2 units of i against 5 units
+            // of inbound supply would each individually see max(0,2-5)=0 and could draw
+            // nothing from Pa, even though inbound only covers 5 of the pooled 6 units of
+            // demand). The Pa bound below is therefore summed over ALL orders/pods/stations
+            // for a given SKU, deducted once against the pooled residual demand for that SKU.
             Dictionary<int, double> inboundSupplyBySkuId = null;
+            Dictionary<int, double> totalResidualBySkuId = null;
             _lastInboundCoverUnits = 0.0;
             if (_m4gConfig.IncrementalValuationEnabled)
             {
                 inboundSupplyBySkuId = new Dictionary<int, double>();
                 foreach (var sku in snap.PiSKU.Keys)
                     inboundSupplyBySkuId[sku.ID] = snap.Pb.Sum(p => p.CountAvailable(sku));
+
+                totalResidualBySkuId = new Dictionary<int, double>();
+                foreach (var order in snap.PendingOrders)
+                    foreach (var sku in snap.Residuals[order].Where(p => snap.PiSKU.ContainsKey(p.Key)))
+                    {
+                        double cur;
+                        totalResidualBySkuId.TryGetValue(sku.Key.ID, out cur);
+                        totalResidualBySkuId[sku.Key.ID] = cur + sku.Value;
+                    }
             }
 
             foreach (var order in snap.PendingOrders)
@@ -316,41 +373,36 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 {
                     var draws = sym.Qhat.Where(v => v.order.ID == order.ID && v.skui.ID == sku.Key.ID)
                         .Select(v => qh[v.name]).ToList();
-                    if (_m4gConfig.IncrementalValuationEnabled)
-                    {
-                        double inbound = inboundSupplyBySkuId.ContainsKey(sku.Key.ID)
-                            ? inboundSupplyBySkuId[sku.Key.ID] : 0.0;
-                        double paBound = Math.Max(0.0, sku.Value - inbound);
-                        _lastInboundCoverUnits += Math.Min(sku.Value, inbound);
-
-                        // Pa draws (newly dispatched storage pods) are valued only against
-                        // demand that inbound (Pb) supply cannot already cover.
-                        var paDraws = sym.Qhat.Where(v => v.order.ID == order.ID && v.skui.ID == sku.Key.ID
-                            && snap.Pa.Contains(v.pod)).Select(v => qh[v.name]).ToList();
-                        if (paDraws.Count > 0)
-                            wrapper.AddConstr(LinearExpression.Sum(paDraws) <= paBound, "V2a");
-
-                        // Pb draws keep the full residual bound - supply already committed is
-                        // not double-discounted against itself.
-                        var pbDraws = sym.Qhat.Where(v => v.order.ID == order.ID && v.skui.ID == sku.Key.ID
-                            && snap.Pb.Contains(v.pod)).Select(v => qh[v.name]).ToList();
-                        if (pbDraws.Count > 0)
-                            wrapper.AddConstr(LinearExpression.Sum(pbDraws) <= sku.Value, "V2b");
-
-                        // Combined bound still holds so no unit is double-allocated across Pa+Pb.
-                        wrapper.AddConstr(LinearExpression.Sum(draws) <= sku.Value, "V2c");
-                    }
-                    else
-                    {
-                        // (V2) never draw more than the residual demand
-                        wrapper.AddConstr(LinearExpression.Sum(draws) <= sku.Value, "V2");
-                    }
+                    // (V2) never draw more than the residual demand - this per-(order,sku) bound
+                    // holds unconditionally (incremental valuation or not); it is what stops any
+                    // single order being over-served.
+                    wrapper.AddConstr(LinearExpression.Sum(draws) <= sku.Value, "V2");
                     // (V3) a line only counts as closed when it is drawn in full
                     wrapper.AddConstr(LinearExpression.Sum(draws)
                         >= sku.Value * bin["ch_" + order.ID + "_" + sku.Key.ID], "V3");
                     // (V4) completing an order requires every one of its lines closed
                     wrapper.AddConstr(bin["ch_" + order.ID + "_" + sku.Key.ID] >= bin["zh_" + order.ID], "V4");
                 }
+
+            // (V2a) Pa draws (newly dispatched storage pods) are valued, in aggregate per SKU,
+            // only against demand that inbound (Pb) supply cannot already cover. One constraint
+            // per SKU across every order/pod/station - see note above on why this must be an
+            // aggregate deduction and not a per-order one.
+            if (_m4gConfig.IncrementalValuationEnabled)
+            {
+                foreach (var skuId in totalResidualBySkuId.Keys)
+                {
+                    double inbound = inboundSupplyBySkuId.ContainsKey(skuId) ? inboundSupplyBySkuId[skuId] : 0.0;
+                    double totalResidual = totalResidualBySkuId[skuId];
+                    double paBound = Math.Max(0.0, totalResidual - inbound);
+                    _lastInboundCoverUnits += Math.Min(totalResidual, inbound);
+
+                    var paDraws = sym.Qhat.Where(v => v.skui.ID == skuId && snap.Pa.Contains(v.pod))
+                        .Select(v => qh[v.name]).ToList();
+                    if (paDraws.Count > 0)
+                        wrapper.AddConstr(LinearExpression.Sum(paDraws) <= paBound, "V2a");
+                }
+            }
 
             // (V5) caps how much valuation credit a single dispatched pod can receive at a
             // station. Without this nothing bounds how many closable lines one pod is scored
@@ -657,6 +709,10 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 result.NewTripCount, result.BoundDraws.Values.Sum(), result.Objective, result.SolveSec, _lastQmax,
                 result.Rho, result.UnitsFromSunk, result.UnitsFromNew, _lastInboundCoverUnits);
             _decisionIndex++;
+            // Feed this decision's valuation/binding line counts into delta's running totals,
+            // after WriteDecision so the logged delta (like lambda/mu) reflects state prior to
+            // this decision's own contribution - same convention as RegisterClosedLines below.
+            _pricing.RegisterDecision(result.BoundLineKeys.Count, result.ValuedLineKeys.Count);
             if (result.HasSolution)
                 CommitM4G(snap, result);
             Instance.Observer.TimeOrderBatchingbyMP((DateTime.Now - start).TotalSeconds);
@@ -748,10 +804,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 {
                     int drawn = mine.Where(e => e.Key.skui.ID == sku.Key.ID).Sum(e => e.Value);
                     if (drawn >= sku.Value)
-                    {
                         closedLines++;
-                        _pricing.RegisterLineClosed(M4GPricing.LineKey(order.ID, sku.Key.ID));
-                    }
                 }
                 // "Completed" here means the order's entire snapshot-time residual was bound
                 // this decision - this is what mu's denominator counts. order.IsFullyClaimed
@@ -779,9 +832,6 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             }
             _pricing.RegisterClosedLines(closedLines);
             _pricing.RegisterCompletedOrders(completedOrders);
-            // Lines the valuation layer scored but the binding layer left behind: they enter
-            // the delta denominator now and credit the numerator if they close later.
-            _pricing.RegisterValuedButUnbound(result.ValuedLineKeys.Where(k => !result.BoundLineKeys.Contains(k)));
         }
     }
 }

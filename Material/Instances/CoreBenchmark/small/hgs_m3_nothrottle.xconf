@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ControlConfiguration xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <Name>m1g</Name>
+  <Name>hgs_m3</Name>
   <PathPlanningConfig xsi:type="WHCAnStarPathPlanningConfiguration">
     <Name />
     <AutoSetParameter>false</AutoSetParameter>
@@ -102,30 +102,20 @@
   <RepositioningConfig xsi:type="DummyRepositioningConfiguration">
     <Name />
   </RepositioningConfig>
-  <OrderBatchingConfig xsi:type="M4GConfiguration">
+  <OrderBatchingConfig xsi:type="GreedyM3GConfiguration">
     <Name />
     <TieBreaker>EarliestDueTime</TieBreaker>
     <FastLane>true</FastLane>
     <LateBeforeMatch>false</LateBeforeMatch>
     <FastLaneTieBreaker>EarliestDueTime</FastLaneTieBreaker>
-    <LambdaScale>1</LambdaScale>
-    <MuScale>1</MuScale>
-    <DeltaScale>1</DeltaScale>
-    <EpsilonScale>0.001</EpsilonScale>
-    <WarmupLines>50</WarmupLines>
-    <LambdaFallback>10</LambdaFallback>
-    <DeltaFallback>0.05</DeltaFallback>
-    <LinesPerOrderFallback>2.4</LinesPerOrderFallback>
-    <LambdaFixed>0</LambdaFixed>
-    <DeltaFixed>0</DeltaFixed>
-    <DegenerateToBindingOnly>false</DegenerateToBindingOnly>
-    <ValuationOrderLimit>0</ValuationOrderLimit>
-    <PodCreditCapEnabled>false</PodCreditCapEnabled>
-    <PodTierDrawPricingEnabled>true</PodTierDrawPricingEnabled>
-    <IncrementalValuationEnabled>true</IncrementalValuationEnabled>
-    <SplitMarginalProbeEnabled>false</SplitMarginalProbeEnabled>
-    <SplitMarginalProbeEveryNDecisions>50</SplitMarginalProbeEveryNDecisions>
-    <SplitMarginalProbeTimeLimitSec>10</SplitMarginalProbeTimeLimitSec>
+    <CrossTime>true</CrossTime>
+    <UnitDrawReward>-0.1</UnitDrawReward>
+    <MinPartialUnits>6</MinPartialUnits>
+    <ExactAlignedScoring>true</ExactAlignedScoring>
+    <PodTierDrawPreference>true</PodTierDrawPreference>
+    <PipelineFloorWeight>0</PipelineFloorWeight>
+    <PipelineFloorLeadSec>70</PipelineFloorLeadSec>
+    <PipelineFloorTarget>999</PipelineFloorTarget>
   </OrderBatchingConfig>
   <ReplenishmentBatchingConfig xsi:type="SamePodReplenishmentBatchingConfiguration">
     <Name />

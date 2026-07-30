@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using RAWSimO.Core.Configurations;
 
 namespace RAWSimO.Core.Control.Defaults.OrderBatching
@@ -10,7 +9,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
     ///
     /// lambda = distance travelled per closed line          [m / line]
     /// mu     = lambda * lines per completed order          [m / order]
-    /// delta  = share of valued-but-unbound lines that were later actually closed  [0..1]
+    /// delta  = realisation rate of valuation into binding: cumulative bound line
+    ///          closures / cumulative valued line closures  [0..1]
     /// epsilon = EpsilonScale * lambda, a tie-break only    [m / unit]
     ///
     /// Pure state machine: it never touches the solver, the instance or the file system,
@@ -21,10 +21,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         private readonly M4GConfiguration _config;
         private int _closedLines;
         private int _completedOrders;
-        private int _valuedUnboundTotal;
-        private int _valuedUnboundRealised;
-        /// <summary>Line keys that were valued but not bound, and have not yet been closed.</summary>
-        private readonly HashSet<string> _pendingValuedUnbound = new HashSet<string>();
+        private long _boundLinesTotal;
+        private long _valuedLinesTotal;
 
         /// <summary>Creates the pricing state machine.</summary>
         /// <param name="config">The owning manager's configuration.</param>
@@ -38,10 +36,10 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         public int CumulativeClosedLines { get { return _closedLines; } }
         /// <summary>Cumulative number of orders completed so far.</summary>
         public int CumulativeCompletedOrders { get { return _completedOrders; } }
-        /// <summary>Cumulative number of lines that were valued without being bound.</summary>
-        public int CumulativeValuedUnbound { get { return _valuedUnboundTotal; } }
-        /// <summary>How many of those were closed afterwards.</summary>
-        public int CumulativeValuedUnboundRealised { get { return _valuedUnboundRealised; } }
+        /// <summary>Cumulative number of lines the binding layer closed, across all decisions.</summary>
+        public long CumulativeBoundLines { get { return _boundLinesTotal; } }
+        /// <summary>Cumulative number of lines the valuation layer closed, across all decisions.</summary>
+        public long CumulativeValuedLines { get { return _valuedLinesTotal; } }
 
         /// <summary>Whether the running statistics are still too thin to price from.</summary>
         private bool InWarmup { get { return _closedLines < _config.WarmupLines; } }
@@ -65,13 +63,16 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             return _config.MuScale * Lambda(cumulativeDistanceMetres) * linesPerOrder;
         }
 
-        /// <summary>Realisation rate of valuation that was not bound this decision, clamped to [0,1].</summary>
+        /// <summary>
+        /// Realisation rate of valuation into binding: of the lines the valuation layer scored
+        /// closed, what share did the binding layer actually take. Clamped to [0,1].
+        /// </summary>
         public double Delta()
         {
             if (_config.DeltaFixed > 0) return Math.Min(1.0, _config.DeltaFixed);
-            double raw = _valuedUnboundTotal < _config.WarmupLines
+            double raw = InWarmup
                 ? _config.DeltaFallback
-                : (double)_valuedUnboundRealised / Math.Max(1, _valuedUnboundTotal);
+                : (double)_boundLinesTotal / Math.Max(1, _valuedLinesTotal);
             return Math.Max(0.0, Math.Min(1.0, _config.DeltaScale * raw));
         }
 
@@ -105,24 +106,14 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         { if (count > 0) _completedOrders += count; }
 
         /// <summary>
-        /// Records lines the valuation layer scored but the binding layer did not take.
-        /// Re-registering an already pending key is a no-op, so a line valued across many
-        /// consecutive decisions still counts once in the denominator.
+        /// Records one decision's valuation/binding line counts into the running totals that
+        /// drive delta. Called once per decision, straight off the same ValuedLineKeys.Count /
+        /// BoundLineKeys.Count that land in the decision log's valuedLines / boundLines columns.
         /// </summary>
-        public void RegisterValuedButUnbound(IEnumerable<string> lineKeys)
+        public void RegisterDecision(int boundLines, int valuedLines)
         {
-            if (lineKeys == null) return;
-            foreach (var key in lineKeys)
-                if (_pendingValuedUnbound.Add(key))
-                    _valuedUnboundTotal++;
-        }
-
-        /// <summary>Records that a specific line was closed; credits the realisation numerator if it was pending.</summary>
-        public void RegisterLineClosed(string lineKey)
-        {
-            if (lineKey == null) return;
-            if (_pendingValuedUnbound.Remove(lineKey))
-                _valuedUnboundRealised++;
+            if (boundLines > 0) _boundLinesTotal += boundLines;
+            if (valuedLines > 0) _valuedLinesTotal += valuedLines;
         }
 
         /// <summary>Stable key for a line, shared by the valuation bookkeeping and the commit path.</summary>

@@ -1624,8 +1624,8 @@ namespace RAWSimO.Core.Configurations
         public int WarmupLines = 50;
         /// <summary>Warm-up lambda in metres per line (measured 10.1-10.5 in the 3-way comparison).</summary>
         public double LambdaFallback = 10.0;
-        /// <summary>Warm-up delta.</summary>
-        public double DeltaFallback = 0.5;
+        /// <summary>Warm-up delta: realisation rate of valuation into binding (measured ~0.044 post-fix, same order as the corrected statistic - not the old ~0.7 "eventually closed by anyone" figure).</summary>
+        public double DeltaFallback = 0.05;
         /// <summary>Warm-up lines-per-order (measured ~2.37 units per order).</summary>
         public double LinesPerOrderFallback = 2.4;
         /// <summary>&gt; 0 overrides the running lambda with this fixed value (open-loop ablation).</summary>

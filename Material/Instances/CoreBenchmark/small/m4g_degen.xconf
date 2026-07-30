@@ -118,7 +118,7 @@
     <LinesPerOrderFallback>2.4</LinesPerOrderFallback>
     <LambdaFixed>0</LambdaFixed>
     <DeltaFixed>0</DeltaFixed>
-    <DegenerateToBindingOnly>false</DegenerateToBindingOnly>
+    <DegenerateToBindingOnly>true</DegenerateToBindingOnly>
     <ValuationOrderLimit>0</ValuationOrderLimit>
     <PodCreditCapEnabled>false</PodCreditCapEnabled>
     <PodTierDrawPricingEnabled>true</PodTierDrawPricingEnabled>
