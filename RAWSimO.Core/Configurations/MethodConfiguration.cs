@@ -359,6 +359,7 @@ namespace RAWSimO.Core.Configurations
         /// tie-breaks and an optional per-split-parent packing budget.
         /// </summary>
         SplitM2eIC,
+        M4G,
     }
     /// <summary>
     /// All types of implemented replenishment batching strategies.
@@ -796,6 +797,7 @@ namespace RAWSimO.Core.Configurations
     [XmlInclude(typeof(PVGSConfiguration))]
     [XmlInclude(typeof(GreedyM3GConfiguration))]
     [XmlInclude(typeof(SplitM2eICConfiguration))]
+    [XmlInclude(typeof(M4GConfiguration))]
     public abstract class OrderBatchingConfiguration : ControllerConfigurationBase
     {
         /// <summary>

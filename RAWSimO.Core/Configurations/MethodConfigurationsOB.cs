@@ -1597,5 +1597,56 @@ namespace RAWSimO.Core.Configurations
         public bool LexicographicScoring = false;
     }
 
+    /// <summary>
+    /// M4G: unit-level order splitting with the M1G valuation/binding layer separation
+    /// restored. Inherits M1GConfiguration so every engine-side `is M1GConfiguration`
+    /// type check passes without touching any engine file.
+    /// Spec: docs/superpowers/specs/2026-07-31-m4g-valuation-binding-design.md
+    /// </summary>
+    public class M4GConfiguration : M1GConfiguration
+    {
+        /// <summary>Returns the method type of this configuration.</summary>
+        public override OrderBatchingMethodType GetMethodType() { return OrderBatchingMethodType.M4G; }
+        /// <summary>Returns a short name of this configuration.</summary>
+        public override string GetMethodName() { return "M4G"; }
+
+        // ── Price calibration (spec 3.5). All prices are metres-denominated and derived
+        //    from running statistics; these scales exist only for dose-response ablation. ──
+        /// <summary>Dose knob on lambda (metres per closed line). 1.0 = pure self-calibration.</summary>
+        public double LambdaScale = 1.0;
+        /// <summary>Dose knob on mu (metres per completed order).</summary>
+        public double MuScale = 1.0;
+        /// <summary>Dose knob on delta (realisation rate of unbound valuation, 0..1).</summary>
+        public double DeltaScale = 1.0;
+        /// <summary>Epsilon = EpsilonScale * lambda. Tie-break only; must stay far below lambda.</summary>
+        public double EpsilonScale = 0.001;
+        /// <summary>Below this many cumulative closed lines the fallback prices are used.</summary>
+        public int WarmupLines = 50;
+        /// <summary>Warm-up lambda in metres per line (measured 10.1-10.5 in the 3-way comparison).</summary>
+        public double LambdaFallback = 10.0;
+        /// <summary>Warm-up delta.</summary>
+        public double DeltaFallback = 0.5;
+        /// <summary>Warm-up lines-per-order (measured ~2.37 units per order).</summary>
+        public double LinesPerOrderFallback = 2.4;
+        /// <summary>&gt; 0 overrides the running lambda with this fixed value (open-loop ablation).</summary>
+        public double LambdaFixed = 0;
+        /// <summary>&gt; 0 overrides the running delta with this fixed value (open-loop ablation).</summary>
+        public double DeltaFixed = 0;
+
+        // ── Ablation (spec 6) ──
+        /// <summary>true forces q == q-hat, degenerating the valuation layer. Should reproduce M3G-like behaviour.</summary>
+        public bool DegenerateToBindingOnly = false;
+        /// <summary>Cap on orders admitted to the valuation layer (0 = no cap). Solve-time convergence knob.</summary>
+        public int ValuationOrderLimit = 0;
+
+        // ── Diagnostics (spec 4) ──
+        /// <summary>Enables the no-split counterfactual solve that measures the marginal value of splitting.</summary>
+        public bool SplitMarginalProbeEnabled = false;
+        /// <summary>Probe cadence in decisions.</summary>
+        public int SplitMarginalProbeEveryNDecisions = 50;
+        /// <summary>Seconds allowed for one probe solve. &lt;= 0 = no limit.</summary>
+        public double SplitMarginalProbeTimeLimitSec = 10;
+    }
+
     #endregion
 }
