@@ -123,7 +123,7 @@
     <PodCreditCapEnabled>false</PodCreditCapEnabled>
     <PodTierDrawPricingEnabled>true</PodTierDrawPricingEnabled>
     <IncrementalValuationEnabled>true</IncrementalValuationEnabled>
-    <SplitOnlyAtPresentPods>false</SplitOnlyAtPresentPods>
+    <SplitOnlyAtPresentPods>true</SplitOnlyAtPresentPods>
     <SplitMarginalProbeEnabled>false</SplitMarginalProbeEnabled>
     <SplitMarginalProbeEveryNDecisions>50</SplitMarginalProbeEveryNDecisions>
     <SplitMarginalProbeTimeLimitSec>10</SplitMarginalProbeTimeLimitSec>

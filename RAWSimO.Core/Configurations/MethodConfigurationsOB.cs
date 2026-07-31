@@ -1603,12 +1603,45 @@ namespace RAWSimO.Core.Configurations
     }
 
     /// <summary>
+    /// HGS-M4: greedy heuristic counterpart of M4G, as HADGS is to M1G and HGS-M3 is to M3G.
+    /// Inherits PVGS's pod-centric greedy engine config; GetMethodType routes to
+    /// GreedyM4GManager. Implements IM4GPrices so it prices dispatch candidates with the
+    /// exact same self-calibrated price list M4G optimises exactly - the only difference
+    /// between the two managers is solution method, not objective.
+    /// </summary>
+    public class GreedyM4GConfiguration : PVGSConfiguration, IM4GPrices
+    {
+        public override OrderBatchingMethodType GetMethodType() { return OrderBatchingMethodType.GreedyM4G; }
+        public override string GetMethodName() { if (!string.IsNullOrWhiteSpace(Name)) return Name; return "OBGREEDYM4G"; }
+
+        // ── Price calibration (spec 3.5), identical field set and defaults to M4GConfiguration -
+        //    see IM4GPrices for what each one means. ──
+        public double LambdaScale { get; set; } = 1.0;
+        public double MuScale { get; set; } = 1.0;
+        public double DeltaScale { get; set; } = 1.0;
+        public double EpsilonScale { get; set; } = 0.001;
+        public int WarmupLines { get; set; } = 50;
+        public double LambdaFallback { get; set; } = 10.0;
+        public double DeltaFallback { get; set; } = 0.05;
+        public double LinesPerOrderFallback { get; set; } = 2.4;
+        public double LambdaFixed { get; set; } = 0;
+        public double DeltaFixed { get; set; } = 0;
+        public double RhoFallback { get; set; } = 15.0;
+
+        /// <summary>(Fill fairness) On a parent's FIRST split, release its slot in the Fill backlog
+        /// pool so a fresh order is injected, while keeping the parent in the pending set so its
+        /// residual demand is still served. Mirrors M4G/HGS-M3. Inert in Fixed order mode,
+        /// where the order stream is predetermined. Default false.</summary>
+        public bool ReleaseParentOnFirstSplit = false;
+    }
+
+    /// <summary>
     /// M4G: unit-level order splitting with the M1G valuation/binding layer separation
     /// restored. Inherits M1GConfiguration so every engine-side `is M1GConfiguration`
     /// type check passes without touching any engine file.
     /// Spec: docs/superpowers/specs/2026-07-31-m4g-valuation-binding-design.md
     /// </summary>
-    public class M4GConfiguration : M1GConfiguration
+    public class M4GConfiguration : M1GConfiguration, IM4GPrices
     {
         /// <summary>Returns the method type of this configuration.</summary>
         public override OrderBatchingMethodType GetMethodType() { return OrderBatchingMethodType.M4G; }
@@ -1616,29 +1649,32 @@ namespace RAWSimO.Core.Configurations
         public override string GetMethodName() { return "M4G"; }
 
         // ── Price calibration (spec 3.5). All prices are metres-denominated and derived
-        //    from running statistics; these scales exist only for dose-response ablation. ──
+        //    from running statistics; these scales exist only for dose-response ablation.
+        //    Implemented as auto-properties (not bare fields) so this class can implement
+        //    IM4GPrices - XmlSerializer round-trips public auto-properties identically to
+        //    public fields, so this is not a behavioural change. ──
         /// <summary>Dose knob on lambda (metres per closed line). 1.0 = pure self-calibration.</summary>
-        public double LambdaScale = 1.0;
+        public double LambdaScale { get; set; } = 1.0;
         /// <summary>Dose knob on mu (metres per completed order).</summary>
-        public double MuScale = 1.0;
+        public double MuScale { get; set; } = 1.0;
         /// <summary>Dose knob on delta (realisation rate of unbound valuation, 0..1).</summary>
-        public double DeltaScale = 1.0;
+        public double DeltaScale { get; set; } = 1.0;
         /// <summary>Epsilon = EpsilonScale * lambda. Tie-break only; must stay far below lambda.</summary>
-        public double EpsilonScale = 0.001;
+        public double EpsilonScale { get; set; } = 0.001;
         /// <summary>Below this many cumulative closed lines the fallback prices are used.</summary>
-        public int WarmupLines = 50;
+        public int WarmupLines { get; set; } = 50;
         /// <summary>Warm-up lambda in metres per line (measured 10.1-10.5 in the 3-way comparison).</summary>
-        public double LambdaFallback = 10.0;
+        public double LambdaFallback { get; set; } = 10.0;
         /// <summary>Warm-up delta: realisation rate of valuation into binding (measured ~0.044 post-fix, same order as the corrected statistic - not the old ~0.7 "eventually closed by anyone" figure).</summary>
-        public double DeltaFallback = 0.05;
+        public double DeltaFallback { get; set; } = 0.05;
         /// <summary>Warm-up lines-per-order (measured ~2.37 units per order).</summary>
-        public double LinesPerOrderFallback = 2.4;
+        public double LinesPerOrderFallback { get; set; } = 2.4;
         /// <summary>&gt; 0 overrides the running lambda with this fixed value (open-loop ablation).</summary>
-        public double LambdaFixed = 0;
+        public double LambdaFixed { get; set; } = 0;
         /// <summary>&gt; 0 overrides the running delta with this fixed value (open-loop ablation).</summary>
-        public double DeltaFixed = 0;
+        public double DeltaFixed { get; set; } = 0;
         /// <summary>Warm-up rho in metres per unit picked (pod-tier draw pricing fallback).</summary>
-        public double RhoFallback = 15.0;
+        public double RhoFallback { get; set; } = 15.0;
 
         // ── Ablation (spec 6) ──
         /// <summary>true forces q == q-hat, degenerating the valuation layer. Should reproduce M3G-like behaviour.</summary>
@@ -1659,6 +1695,12 @@ namespace RAWSimO.Core.Configurations
         /// fresh pod on every consecutive decision. false = value every pod against the raw
         /// backlog (the behaviour that over-dispatched).</summary>
         public bool IncrementalValuationEnabled = true;
+        /// <summary>Commits split children only for orders whose draws all come from pods physically
+        /// at a station (being picked or queued there). A pod still travelling may only be committed
+        /// whole orders, so no split shape is fixed before the pod arrives; the solver re-decides the
+        /// split each decision against the state that actually holds. false = current behaviour, which
+        /// binds every assigned order - splits included - at dispatch time.</summary>
+        public bool SplitOnlyAtPresentPods = false;
 
         // ── Diagnostics (spec 4) ──
         /// <summary>Enables the no-split counterfactual solve that measures the marginal value of splitting.</summary>

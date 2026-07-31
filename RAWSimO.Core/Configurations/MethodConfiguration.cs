@@ -360,6 +360,13 @@ namespace RAWSimO.Core.Configurations
         /// </summary>
         SplitM2eIC,
         M4G,
+        /// <summary>
+        /// HGS-M4: greedy heuristic counterpart of M4G, as HADGS is to M1G. Copies GreedyM3G's
+        /// validated pod-centric greedy engine and replaces the dispatch score with M4G's
+        /// self-calibrated price list (lambda/mu/delta/rho), with no supply cap, pipeline
+        /// floor, lead-time gate, or hand-tuned weight.
+        /// </summary>
+        GreedyM4G,
     }
     /// <summary>
     /// All types of implemented replenishment batching strategies.
@@ -798,6 +805,7 @@ namespace RAWSimO.Core.Configurations
     [XmlInclude(typeof(GreedyM3GConfiguration))]
     [XmlInclude(typeof(SplitM2eICConfiguration))]
     [XmlInclude(typeof(M4GConfiguration))]
+    [XmlInclude(typeof(GreedyM4GConfiguration))]
     public abstract class OrderBatchingConfiguration : ControllerConfigurationBase
     {
         /// <summary>

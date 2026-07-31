@@ -65,14 +65,16 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             { AutoFlush = true };
             _decisionLog.WriteLine("decision,time,solved,pendingOrders,stationsWithCap,podsPa,podsPb,botsRa,"
                 + "lambda,mu,delta,epsilon,valuedLines,boundLines,valuedOrders,boundOrders,newTrips,boundUnits,"
-                + "objective,solveSec,qmax,rho,unitsFromSunk,unitsFromNew,inboundCoverUnits");
+                + "objective,solveSec,qmax,rho,unitsFromSunk,unitsFromNew,inboundCoverUnits,"
+                + "splitsDeferred,splitsCommitted");
         }
 
         /// <summary>Writes one decision row. Every numeric field is written unformatted for exact diffing.</summary>
         private void WriteDecision(bool solved, int pendingOrders, int stationsWithCap, int podsPa, int podsPb,
             int botsRa, double lambda, double mu, double delta, double epsilon, int valuedLines, int boundLines,
             int valuedOrders, int boundOrders, int newTrips, int boundUnits, double objective, double solveSec,
-            int qmax, double rho, int unitsFromSunk, int unitsFromNew, double inboundCoverUnits)
+            int qmax, double rho, int unitsFromSunk, int unitsFromNew, double inboundCoverUnits,
+            int splitsDeferred, int splitsCommitted)
         {
             EnsureDecisionLog();
             _decisionLog.WriteLine(string.Join(",", new string[] {
@@ -84,7 +86,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 valuedLines.ToString(), boundLines.ToString(), valuedOrders.ToString(), boundOrders.ToString(),
                 newTrips.ToString(), boundUnits.ToString(), objective.ToString(), solveSec.ToString(),
                 qmax.ToString(), rho.ToString(), unitsFromSunk.ToString(), unitsFromNew.ToString(),
-                inboundCoverUnits.ToString() }));
+                inboundCoverUnits.ToString(), splitsDeferred.ToString(), splitsCommitted.ToString() }));
         }
 
         /// <summary>TEMP DIAGNOSTIC (fill-mode deadlock investigation, remove before merge).</summary>
@@ -438,6 +440,13 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// decision (diagnostics only; last value written wins, same convention as
         /// <see cref="_lastQmax"/>).</summary>
         private double _lastInboundCoverUnits = 0.0;
+        /// <summary>Orders skipped this decision by SplitOnlyAtPresentPods because at least one
+        /// pod they draw from is not yet physically at its station (diagnostics only, same
+        /// last-value-wins convention as <see cref="_lastQmax"/>).</summary>
+        private int _lastSplitsDeferred = 0;
+        /// <summary>Orders that required a split child this decision and were committed because
+        /// every pod they draw from was already physically at its station.</summary>
+        private int _lastSplitsCommitted = 0;
 
         /// <summary>
         /// Identifies which committed (Pb) pods are physically standing at their destination
@@ -461,6 +470,39 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                         processing.Add(pod.ID);
                 }
             return processing;
+        }
+
+        /// <summary>
+        /// Identifies which committed (Pb) pods are physically present at their destination
+        /// station right now - either being processed at the pick waypoint or waiting on one of
+        /// the station's queue waypoints - as opposed to still en route. Faithful mirror of the
+        /// Pp/Pq classification built by SplitM2eICManager.cs (the icPpByStation/icQueuedByStation
+        /// block, around the loop over `inboundPods`/`Pb`/`PodToBot` keyed by
+        /// `bot.CurrentWaypoint.ID == station.Waypoint.ID` for processing and
+        /// `icWayp.IsQueueWaypoint` for queued) and by GreedyM3GManager.PodDrawTier (tier 0/1 vs 2).
+        /// Both are read-only reference material here, never modified (constitution 1.3).
+        /// Used only by SplitOnlyAtPresentPods; unreferenced when that flag is off.
+        /// </summary>
+        private HashSet<int> BuildPresentPodIds(M4GSnapshot snap)
+        {
+            HashSet<int> present = new HashSet<int>();
+            foreach (var entry in snap.InboundPods)
+            {
+                OutputStation station = entry.Key;
+                foreach (var pod in entry.Value)
+                {
+                    if (!snap.Pb.Contains(pod)) continue;
+                    Bot bot;
+                    if (!snap.PodToBot.TryGetValue(pod, out bot) || bot == null) continue;
+                    var wp = bot.CurrentWaypoint;
+                    if (wp == null) continue;
+                    if (station.Waypoint != null && wp.ID == station.Waypoint.ID)
+                        present.Add(pod.ID);          // processing: bot at the pick waypoint
+                    else if (wp.IsQueueWaypoint)
+                        present.Add(pod.ID);          // queued: bot waiting at a queue waypoint
+                }
+            }
+            return present;
         }
 
         /// <summary>
@@ -700,21 +742,26 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 return;
             _lastQmax = 0;
             _lastInboundCoverUnits = 0.0;
+            _lastSplitsDeferred = 0;
+            _lastSplitsCommitted = 0;
             M4GResult result = SolveM4G(snap);
+            // Must run before WriteDecision so splitsDeferred/splitsCommitted reflect this
+            // decision's own commit, not the previous one's leftover counters.
+            if (result.HasSolution)
+                CommitM4G(snap, result);
             double cumDist = Instance.StatOverallDistanceTraveled;
             WriteDecision(result.HasSolution, snap.PendingOrders.Count, snap.Cs.Count(c => c.Value > 0),
                 snap.Pa.Count, snap.Pb.Count, snap.Ra.Count,
                 _pricing.Lambda(cumDist), _pricing.Mu(cumDist), _pricing.Delta(), _pricing.Epsilon(cumDist),
                 result.ValuedLineKeys.Count, result.BoundLineKeys.Count, result.ValuedOrders, result.BoundOrders,
                 result.NewTripCount, result.BoundDraws.Values.Sum(), result.Objective, result.SolveSec, _lastQmax,
-                result.Rho, result.UnitsFromSunk, result.UnitsFromNew, _lastInboundCoverUnits);
+                result.Rho, result.UnitsFromSunk, result.UnitsFromNew, _lastInboundCoverUnits,
+                _lastSplitsDeferred, _lastSplitsCommitted);
             _decisionIndex++;
             // Feed this decision's valuation/binding line counts into delta's running totals,
             // after WriteDecision so the logged delta (like lambda/mu) reflects state prior to
             // this decision's own contribution - same convention as RegisterClosedLines below.
             _pricing.RegisterDecision(result.BoundLineKeys.Count, result.ValuedLineKeys.Count);
-            if (result.HasSolution)
-                CommitM4G(snap, result);
             Instance.Observer.TimeOrderBatchingbyMP((DateTime.Now - start).TotalSeconds);
         }
 
@@ -728,6 +775,62 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         {
             if (result.BoundDraws.Count == 0) return;
 
+            // (SplitOnlyAtPresentPods) Decide, per order, whether this decision's commit needs a
+            // split child at all (mirrors the fast-path test below: single station, whole residual
+            // covered, not already a split parent). Orders that need a child are committed only if
+            // every pod they draw from is already physically at a station (BuildPresentPodIds).
+            // Deferred orders are excluded BEFORE pod claiming and pick registration below - not
+            // just skipped in the per-order loop - so nothing about them is touched this decision:
+            // no bot is dispatched on their behalf, no pick is registered, no slot is taken. They
+            // remain fully pending for the next decision's fresh snapshot. Entirely inert when the
+            // flag is off: presentPodIds/deferredOrderIds stay empty and effectiveDraws==BoundDraws.
+            bool gateEnabled = _m4gConfig.SplitOnlyAtPresentPods;
+            HashSet<int> presentPodIds = gateEnabled ? BuildPresentPodIds(snap) : null;
+            HashSet<int> deferredOrderIds = new HashSet<int>();
+            int splitsDeferred = 0, splitsCommitted = 0;
+            if (gateEnabled)
+            {
+                foreach (var order in snap.PendingOrders)
+                {
+                    var mine0 = result.BoundDraws.Where(e => e.Key.order.ID == order.ID).ToList();
+                    if (mine0.Count == 0) continue;
+                    var stationGroups0 = mine0.GroupBy(e => e.Key.outputstation.ID).ToList();
+                    bool needsAnyChild;
+                    if (stationGroups0.Count == 1)
+                    {
+                        Dictionary<ItemDescription, int> q = new Dictionary<ItemDescription, int>();
+                        foreach (var e in stationGroups0[0])
+                        {
+                            int cur;
+                            q[e.Key.skui] = (q.TryGetValue(e.Key.skui, out cur) ? cur : 0) + e.Value;
+                        }
+                        bool coversWholeOrder = snap.Residuals[order]
+                            .All(p => q.ContainsKey(p.Key) && q[p.Key] >= p.Value);
+                        needsAnyChild = !(coversWholeOrder && !order.IsSplitParent);
+                    }
+                    else needsAnyChild = true;
+
+                    if (!needsAnyChild) continue;   // fast path: pod state does not matter
+
+                    bool allPresent = mine0.Select(e => e.Key.pod.ID).Distinct().All(presentPodIds.Contains);
+                    if (!allPresent)
+                    {
+                        deferredOrderIds.Add(order.ID);
+                        splitsDeferred++;
+                    }
+                    else
+                        splitsCommitted++;
+                }
+            }
+            _lastSplitsDeferred = splitsDeferred;
+            _lastSplitsCommitted = splitsCommitted;
+
+            Dictionary<Symbol, int> effectiveDraws = deferredOrderIds.Count == 0
+                ? result.BoundDraws
+                : result.BoundDraws.Where(kv => !deferredOrderIds.Contains(kv.Key.order.ID))
+                    .ToDictionary(kv => kv.Key, kv => kv.Value);
+            if (effectiveDraws.Count == 0) return;
+
             // Claim newly-dispatched (Pa) pods to their bots and register them as inbound at
             // the station their bound draws target - without this the solver's xps/yrp
             // decision never becomes a real bot dispatch, so the picks registered below are
@@ -735,7 +838,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // that actually carry a bound draw: a pod the valuation layer picked for xps=1
             // purely to price a line that the binding layer never took must not move - that
             // is exactly the "no side effect" invariant this method exists to enforce).
-            foreach (var podGroup in result.BoundDraws.Keys.Where(k => snap.Pa.Contains(k.pod)).GroupBy(k => k.pod.ID))
+            foreach (var podGroup in effectiveDraws.Keys.Where(k => snap.Pa.Contains(k.pod)).GroupBy(k => k.pod.ID))
             {
                 Pod pod = podGroup.First().pod;
                 Bot bot;
@@ -748,14 +851,15 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             }
 
             // Register the picks on the pods so the trip carries a real request.
-            foreach (var entry in result.BoundDraws)
+            foreach (var entry in effectiveDraws)
                 for (int i = 0; i < entry.Value; i++)
                     entry.Key.pod.JustRegisterItem(entry.Key.skui);
 
             int closedLines = 0, completedOrders = 0;
             foreach (var order in snap.PendingOrders.OrderBy(o => o.ID))
             {
-                var mine = result.BoundDraws.Where(e => e.Key.order.ID == order.ID).ToList();
+                if (deferredOrderIds.Contains(order.ID)) continue;
+                var mine = effectiveDraws.Where(e => e.Key.order.ID == order.ID).ToList();
                 if (mine.Count == 0) continue;
 
                 // Group this order's bound draws by station: one child (or one plain

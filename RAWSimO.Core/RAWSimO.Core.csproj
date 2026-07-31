@@ -130,6 +130,7 @@
     <Compile Include="Control\Defaults\OrderBatching\M2eAdaptiveExactMath.cs" />
     <Compile Include="Control\Defaults\OrderBatching\PVGSManager.cs" />
     <Compile Include="Control\Defaults\OrderBatching\GreedyM3GManager.cs" />
+    <Compile Include="Control\Defaults\OrderBatching\GreedyM4GManager.cs" />
 
     <Compile Include="Control\Defaults\OrderBatching\PvgsValueIndex.cs" />
     <Compile Include="Control\Defaults\OrderBatching\PvgsExactAligned.cs" />

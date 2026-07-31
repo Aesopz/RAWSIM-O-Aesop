@@ -4,6 +4,44 @@ using RAWSimO.Core.Configurations;
 namespace RAWSimO.Core.Control.Defaults.OrderBatching
 {
     /// <summary>
+    /// The set of price-calibration fields <see cref="M4GPricing"/> reads. Extracted so the
+    /// same pricing implementation can be shared between the exact model (M4GManager, priced
+    /// via M4GConfiguration) and its greedy counterpart (GreedyM4GManager, priced via
+    /// GreedyM4GConfiguration) - the two managers must price identically so the only variable
+    /// between them is solution method (exact vs greedy), not objective definition.
+    /// </summary>
+    public interface IM4GPrices
+    {
+        /// <summary>Dose knob on lambda (metres per closed line). 1.0 = pure self-calibration.</summary>
+        double LambdaScale { get; }
+        /// <summary>Dose knob on mu (metres per completed order).</summary>
+        double MuScale { get; }
+        /// <summary>Dose knob on delta (realisation rate of unbound valuation, 0..1).</summary>
+        double DeltaScale { get; }
+        /// <summary>Epsilon = EpsilonScale * lambda. Tie-break only; must stay far below lambda.</summary>
+        double EpsilonScale { get; }
+        /// <summary>Below this many cumulative closed lines the fallback prices are used.</summary>
+        int WarmupLines { get; }
+        /// <summary>Warm-up lambda in metres per line.</summary>
+        double LambdaFallback { get; }
+        /// <summary>Warm-up delta: realisation rate of valuation into binding.</summary>
+        double DeltaFallback { get; }
+        /// <summary>Warm-up lines-per-order.</summary>
+        double LinesPerOrderFallback { get; }
+        /// <summary>&gt; 0 overrides the running lambda with this fixed value (open-loop ablation).</summary>
+        double LambdaFixed { get; }
+        /// <summary>&gt; 0 overrides the running delta with this fixed value (open-loop ablation).</summary>
+        double DeltaFixed { get; }
+        /// <summary>
+        /// Warm-up rho in metres per unit picked (pod-tier draw pricing fallback). Not in the
+        /// task brief's enumerated field list, but M4GPricing.Rho() reads it - included so the
+        /// interface actually covers everything the class reads (see hgs-m4-report.md for the
+        /// note on this discrepancy).
+        /// </summary>
+        double RhoFallback { get; }
+    }
+
+    /// <summary>
     /// M4G price calibration (spec 3.5). Every price is denominated in metres and derived
     /// from running statistics, so the objective carries no hand-tuned constant.
     ///
@@ -15,18 +53,20 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
     ///
     /// Pure state machine: it never touches the solver, the instance or the file system,
     /// which keeps it reasonable to reason about and to check by hand from the decision log.
+    /// Shared by M4GManager (exact) and GreedyM4GManager (greedy) via <see cref="IM4GPrices"/>
+    /// so both price identically.
     /// </summary>
     public class M4GPricing
     {
-        private readonly M4GConfiguration _config;
+        private readonly IM4GPrices _config;
         private int _closedLines;
         private int _completedOrders;
         private long _boundLinesTotal;
         private long _valuedLinesTotal;
 
         /// <summary>Creates the pricing state machine.</summary>
-        /// <param name="config">The owning manager's configuration.</param>
-        public M4GPricing(M4GConfiguration config)
+        /// <param name="config">The owning manager's price configuration.</param>
+        public M4GPricing(IM4GPrices config)
         {
             if (config == null) throw new ArgumentNullException("config");
             _config = config;
