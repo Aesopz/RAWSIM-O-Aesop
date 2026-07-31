@@ -1,0 +1,507 @@
+
+##### PAGE 11 #####
+G. Jiao et al.
+Table 5
+Layout parameters.
+ Parameter Value
+ Small-scale Large-scale 
+ Quantity of pods 100 1200  
+ Quantity of storage locations 120 1352  
+ Quantity of picking workstations 2 12  
+ Quantity of repl. workstations 2 6  
+ Picking workstation capacity 6 12  
+ Length of queuing zone 9 15  
+Table 6
+Parameter information for different instances.
+ Symbol Description Value
+ Small-scale Large-scale  
+ |𝑂| Quantity of orders 
+in backlog
+70,85,100 300,400,500  
+ 𝛿 Capacity threshold 1,2,3,4 1  
+ |𝑅| Quantity of robots 6,7,8,9,10,11,12 60,70,80,90,100,110,120 
+ |𝑊 | Quantity of 
+workstations
+2 4,6,8,10,12  
+Table 7
+Decision-making approaches in the simulation experiment.
+ Problem SEQU OJOOP OJOOPT  
+ OA Pod-Match M2G M1G, HADGS 
+ 
+ PS Demand  
+ TA Balanced Balanced  
+ PR Nearest Nearest Nearest  
+ PP WHCA∗
+𝑛 WHCA∗
+𝑛 WHCA∗
+𝑛  
+ ROA Pod-Batch Pod-Batch Pod-Batch  
+ RPS Emptiest Emptiest Emptiest  
+ RTA Balanced Balanced Balanced  
+online retail orders. In addition, to generating inventory, the type and 
+size of SKUs follow exponential and uniform distributions, respectively.
+4.1.3. Solver configuration
+In the simulation experiment, the sequential decision approach used 
+in practice (SEQU) and the approach for solving the MILP model 
+utilizing Gurobi (M2G) proposed by Jiao et al. [28] in the online joint 
+optimization of OA and PS (OJOOP) are compared with the proposed 
+approach. We conduct small-scale instances for M1G, M2G, HADGS, 
+and SEQU. M1G is a method that utilizes Gurobi to solve mathematical 
+model M1, which is an exact method that serves as a benchmark for 
+heuristic methods. Owing to their inability to solve large-scale instances 
+within a finite time frame, both M1G and M2G are unsuitable for such 
+scenarios. For example, even after running for 24 h at 𝑡 = 1  in a 
+large-scale instance, M1G still leaves a gap of 15.4%. Consequently, we 
+exclusively evaluated HADGS and SEQU in large-scale instances.
+The relevant decision-making problems involved in RMFS at the 
+operational level were defined in Section 1.1. Their corresponding 
+decision-making approach used in the simulation experiments are pre-
+sented in Table  7. The decision-making approach used in SEQU is a 
+combination of Pod Match, Demand, Balanced, Nearest, WHCA∗
+𝑛, Pod 
+Batch, Emptiest, and Balanced. The choice of these aforementioned 
+approaches in this study is based on the experimental findings reported 
+by Merschformann et al. [7], because the combination of approaches ul-
+timately achieves the highest throughput. See [7] for further details of 
+such approaches, which are not repeated in this paper. The remaining 
+decisions in OJOOPT and OJOOP are the same as SEQU except for the 
+approaches for their respective joint decisions.
+We set the threshold 𝜏 to 30 min and the value of 𝛼3 to 1000. In 
+addition, the values of some important parameters in M1G and HADGS 
+are determined by a series of preliminary experiments. The two weight 
+coefficients of the optimization objectives are set to 𝛼1 = −40  and 
+𝛼2 = 1 , respectively. We set the pod set quantity of evaluations to 
+𝑙1 = 10 , and the quantity of local searches to 𝑙2 = 3 . We also set the 
+threshold of available capacity of the workstation that triggers OJOOPT 
+to 𝛿 = 1.
+All results obtained by the model-based method (including M1G and 
+M2G) in the experimental results are optimal solutions; that is, there is 
+no optimal gap.
+4.1.4. Performance metrics
+This study employs the following four performance metrics to eval-
+uate the relevant approaches:
+• Throughput (𝑇 𝑃 ), which represents the operational efficiency of 
+RMFS, is calculated by dividing the aggregate quantity of orders 
+fulfilled by the hours spent fulfilling them.
+• Robot distance (𝑅𝐷), which represents the aggregate distance 
+traveled by all robots, is calculated by summing up the summation 
+of distances traveled by each robot within the simulation horizon. 
+A smaller 𝑅𝐷 indicates lower RMFS power consumption and 
+running costs.
+• Order distance (𝑂𝐷), which represents the average distance trav-
+eled by robots per order, is calculated by dividing 𝑅𝐷 by the 
+aggregate quantity of orders fulfilled. Similar to the 𝑅𝐷, the 
+smaller the 𝑂𝐷, the less robot power consumption per order on 
+average, and the lower the RMFS running cost.
+• Pile-on (𝑃 𝑂), which represents the average quantity of orders 
+fulfilled per pod movement, is calculated by dividing the aggre-
+gate quantity of fulfilled orders by the aggregate quantity of pod 
+movements. The larger the 𝑃 𝑂, the more orders are fulfilled per 
+pod movement, which improves RMFS operational efficiency.
+To mitigate the impact of the dynamic environment on RMFS, each 
+instance is run ten times for a simulation horizon of 2 h.
+4.2. Performance evaluation
+4.2.1. Small-scale instances
+Table  8 presents the performance evaluation results for small-scale 
+instances (|𝑅| = 10  and |𝑂| = 70 , 85, 100). Column “𝑉 ” represents 
+the performance metric value. Column “𝛥𝑉 ” (in %) represents the gap 
+between the relevant approaches and M1G regarding 𝑉 . Column “ AT” 
+(denoted in seconds) represents the average computation time of the 
+approach and is calculated by dividing the aggregate calculation time 
+of the approach in the simulation horizon by the overall number of 
+calls.
+Table  8 shows that, for performance metrics 𝑇 𝑃 , 𝑅𝐷, and 𝑂𝐷 in 
+small instances, M1G is significantly better than SEQU and M2G under 
+different |𝑂| conditions. However, for performance metric 𝑃 𝑂, M1G 
+is better than SEQU, albeit worse than M2G. Specifically, for the 𝑇 𝑃 , 
+𝑅𝐷, 𝑂𝐷, and 𝑃 𝑂, the average 𝛥𝑉  of SEQU is 12.41, 22.05, 39.39, and 
+34.49%, respectively; the average 𝛥𝑉  of M2G is 1.22, 3.57, 4.58, and 
+−4.43%, respectively. Furthermore, the 𝛥𝑉  of HADGS is minimal, with 
+average values of 0.22, 1.16, 1.55, and 2.02% for the four performance 
+metrics, respectively.
+Note that, for 𝑃 𝑂, the 𝛥𝑉  of M2G is negative; thus, the 𝑃 𝑂 of M1G is 
+smaller than that of M2G. The primary reason for the aforementioned 
+results is that the optimization objective of M2G is to minimize pod 
+movements, whereas that of M1G is to minimize the robot travel 
+distance while maximizing the quantity of orders fulfilled by selected 
+pods. Therefore, when M1G achieves the optimal objective value, it 
+does not necessarily result in an optimal quantity of pod movements. 
+Consequently, the quantity of pod movements in M2G is lower than in 
+M1G for fulfilling the same quantity of orders. Consequently, the 𝑃 𝑂
+of M1G is smaller than that of M2G.
+Table  8 shows that in small-scale instances, M1G’s AT is less than 
+that of M2G, whereas the AT of SEQU and HADGS, less than 0.00 s, 
+is almost insignificant. As the quantity of orders increases, the AT for 
+Omega 138 (2026) 103374 
+12 
+
+##### PAGE 12 #####
+G. Jiao et al.
+Table 8
+Calculation results of small-scale instances.
+ |𝑂| Metrics M1G HADGS SEQU M2G
+ 𝑉 AT 𝑉 𝛥𝑉 AT 𝑉 𝛥𝑉 AT 𝑉 𝛥𝑉 AT  
+ 
+70
+𝑇 𝑃 310.30
+0.06
+309.95 0.11
+0.00
+275.20 11.31
+0.00
+306.67 1.17
+0.25
+ 
+ 𝑅𝐷 15 139 15 281 0.94 17 961 18.64 15 422 1.87  
+ 𝑂𝐷 24.39 24.65 1.07 32.63 33.78 25.14 3.08  
+ 𝑃 𝑂 2.98 2.91 2.35 2.02 32.21 3.08 −3.36  
+ 
+85
+𝑇 𝑃 313.60
+0.09
+312.90 0.22
+0.00
+275.78 12.06
+0.00
+309.80 1.21
+0.33
+ 
+ 𝑅𝐷 14 404 14 593 1.31 17 898 24.26 14 994 4.1  
+ 𝑂𝐷 22.97 23.28 1.35 32.45 41.27 24.12 5.01  
+ 𝑃 𝑂 3.18 3.12 1.89 2.09 34.28 3.38 −6.29  
+ 
+100
+𝑇 𝑃 314.50
+0.12
+313.48 0.32
+0.00
+270.92 13.86
+0.00
+310.44 1.29
+0.39
+ 
+ 𝑅𝐷 14 122 14 295 1.23 17 406 23.25 14 791 4.74  
+ 𝑂𝐷 22.45 22.95 2.23 32.13 43.12 23.72 5.66  
+ 𝑃 𝑂 3.30 3.24 1.82 2.08 36.97 3.42 −3.64  
+Table 9
+Calculation results of M1G and HADGS with different parameter combinations.
+ ID Parameters M1G HADGS
+ |𝑂| |𝑅| |𝑃 | 𝑇 𝑃 𝑅𝐷 𝑂𝐷 𝑃 𝑂 AT 𝑇 𝑃 𝑅𝐷 𝑂𝐷 𝑃 𝑂 𝛥 AT  
+ 1 100 10 100 314 23 325 37.14 3.09 0.12 313 23 523 37.64 3.03 1.12 0.00 
+ 2 100 20 100 316 24 523 38.8 3.29 0.38 314 24 795 39.48 3.25 1.18 0.00 
+ 3 100 10 200 309 23 149 37.46 3.43 0.85 307 23 329 38.05 3.37 1.19 0.01 
+ 4 100 20 200 314 24 365 38.8 3.36 1.13 312 24 564 39.37 3.32 1.03 0.01 
+ 5 100 30 200 313 25 107 40.11 3.41 1.65 312 25 378 40.67 3.34 1.11 0.01 
+ 6 150 10 100 326 22 059 33.83 3.7 0.59 324 22 245 34.38 3.64 1.18 0.01 
+ 7 150 20 200 321 23 820 37.1 3.47 1.29 320 24 026 37.6 3.42 0.99 0.01 
+ 8 150 30 200 321 25 100 39.1 3.45 1.97 319 25 151 39.48 3.41 0.74 0.01 
+ 9 150 30 300 333 27 805 41.75 3.26 2.35 331 28 084 42.48 3.21 1.22 0.02 
+ 10 150 40 400 329 25 514 38.78 3.35 3.19 327 25 702 39.36 3.28 1.24 0.02 
+ 11 200 10 100 328 21 617 32.96 3.71 1.03 327 21 808 33.35 3.67 0.86 0.01 
+ 12 200 20 200 327 23 912 36.56 3.73 1.44 325 24 100 37.08 3.7 0.91 0.02 
+ 13 200 30 100 332 25 733 38.75 3.44 1.25 331 26 007 39.35 3.39 1.09 0.02 
+ 14 200 20 300 339 23 947 35.32 3.81 2.38 337 24 135 35.81 3.75 1.09 0.02 
+ 15 200 30 200 326 25 096 38.49 3.51 2.13 325 25 274 38.88 3.48 0.72 0.02 
+ 16 250 40 200 327 25 711 39.31 3.54 2.49 326 25 866 39.67 3.5 0.74 0.02 
+ 17 250 40 300 338 29 603 43.79 3.54 3.06 337 29 760 44.15 3.49 0.77 0.03 
+ 18 250 50 300 337 28 696 42.57 3.51 3.36 335 28 944 43.2 3.45 1.16 0.03 
+ 19 250 40 400 327 26 010 39.77 3.15 4.01 326 26 163 40.13 3.11 0.77 0.03 
+ 20 250 50 400 327 26 133 39.96 3.2 4.32 325 26 359 40.61 3.17 1.01 0.03 
+M1G and M2G shows an upward trend, whereas the AT for SEQU and 
+HADGS remains relatively stable. The aforementioned results indicate 
+that using Gurobi to solve MILP models exhibits a greater sensitivity to 
+order quantity fluctuations compared to heuristic approaches.
+Additionally, for exact approach like M1G, the computation time is 
+influenced by multiple parameters such as the number of orders, pods, 
+and robots. To determine the size of instances that the exact approach 
+can handle, we must modify the layout of Fig.  5 by adding four vertical 
+aisles and four horizon aisles to arrange more pods. Other parameters, 
+except for the number of orders, pods, and robots, are consistent with 
+the small-scale instances. We ran the test on 20 instances of different 
+parameter combinations, and the results are shown in Table  9. The 
+column “𝛥” (in %) represents the average gap between HADGS and M1G 
+regarding the four performance metrics.
+Table  9 shows that, with the gradual increase of instance scale, the 
+AT of M1G increases rapidly, reaching a maximum of 4.32 s; however, 
+the AT of HADGS increase slowly, with a maximum of less than 0.03 s. 
+In a real RMFS, the decision time is generally required to be no more 
+than 3 s [22]. Furthermore, for instances of different scales, the value 
+of 𝛥 is relatively small, averaging at 1.01%.
+4.2.2. Large-scale instances
+Table  10 presents the performance evaluation results for large-scale 
+instances (|𝑅| = 100  and |𝑂| = 300 , 400, 500). Column “𝛥𝑉 ” (in %) 
+represents the gap between SEQU and HADGS regarding 𝑉 . Table  10 
+shows that, in large instances, HADGS significantly outperforms SEQU 
+in terms of all the performance metrics, while its AT is only slightly 
+Table 10
+Calculation results of large-scale instances.
+ |𝑂| Metrics SEQU HADGS
+ 𝑉 𝛥𝑉 AT 𝑉 AT  
+ 
+300
+𝑇 𝑃 1676.46 7.73
+0.09
+1816.91
+0.17
+ 
+ 𝑅𝐷 244 610 29.88 188 341  
+ 𝑂𝐷 72.97 40.79 51.83  
+ 𝑃 𝑂 2.34 34.82 3.59  
+ 
+400
+𝑇 𝑃 1646.35 11.10
+0.12
+1852.00
+0.18
+ 
+ 𝑅𝐷 238 881 30.96 182 409  
+ 𝑂𝐷 72.57 47.35 49.25  
+ 𝑃 𝑂 2.32 45.67 4.27  
+ 
+500
+𝑇 𝑃 1631.90 13.40
+0.15
+1884.33
+0.21
+ 
+ 𝑅𝐷 235 571 35.23 174 206  
+ 𝑂𝐷 72.18 56.13 46.23  
+ 𝑃 𝑂 2.34 50.11 4.69  
+greater than SEQU’s AT. For example, at |𝑂| = 100, HADGS’s AT is only 
+0.06 s longer than SEQU’s; however, the four performance metrics im-
+proved by 13.40, 35.23, 56.13, and 20.11%, respectively. Furthermore, 
+the AT of HADGS exhibits a maximum value of 0.21 s. Thus, the HADGS 
+calculation time, which is specifically designed to address large-scale 
+instances, can meet practical application requirements.
+Additionally, we further compare the proposed online approach 
+(i.e., HADGS) with the offline approach (i.e., bi-level memetic (BLM)) 
+proposed by Teck and Dewil [25]. Because HADGS is an online ap-
+proach, it must be run in EE-RAWSim-O, while BLM is an offline 
+Omega 138 (2026) 103374 
+13 
+
+##### PAGE 13 #####
+G. Jiao et al.
+Fig. 7. Influence of parameter 𝛿.
+Table 11
+Calculation results of HADGS and BLM in large-scale instances.
+ ID HADGS BLM
+ 𝑀𝑆 𝛥1 𝑅𝐷 𝛥2 AT 𝑀𝑆 𝑅𝐷 AT  
+ 1 1647 11.43 195 13.37 0.11 1478 172 11 744 
+ 2 1632 10.2 200 12.99 0.12 1481 177 12 187 
+ 3 1643 10.19 202 12.22 0.10 1491 180 11 828 
+ 4 1685 11.74 197 13.22 0.13 1508 174 11 683 
+ 5 1663 10.72 196 13.95 0.12 1502 172 11 792 
+ A 1654 10.86 198 13.15 0.12 1492 175 11 847 
+approach and can be run directly. Therefore, to compare HADGS with 
+BLM, corresponding modifications must be made to EE-RAWSim-O and 
+BLM, as detailed in Appendix  B. We use makespan (𝑀𝑆 ) and robot 
+distance (𝑅𝐷) as performance metrics. The test is conducted on a total 
+of five instances, with each instance running ten times, and the results 
+are averaged. The results are shown in Table  11, where column “𝛥1” (in 
+%) represents the gap between HADGS and BLM regarding 𝑀𝑆 , column 
+“𝛥2” (in %) represents the gap between HADGS and BLM regarding 𝑅𝐷, 
+and row “ A” represents the related values average.
+As shown in Table  11, compared to HADGS, although BLM reduced 
+by an average of 10.86 and 13.15% in 𝑀𝑆 and 𝑅𝐷 respectively, 
+it significantly increased AT to 11 847 s. Although the offline ap-
+proach performed better, additional computational effort was required 
+in which further cost was accrued. Obviously, such a significant AT is 
+unacceptable for any real-time decision-making system.
+4.3. Sensitivity analysis
+4.3.1. Capacity threshold of workstations
+As stated in Section 2.1, the 𝛿 parameter represents the threshold for 
+the workstation available capacity. The solver is triggered when any 
+workstation’s available capacity exceeds or equals 𝛿. This subsection 
+explores the influence of the 𝛿 value on the performance metrics for 
+small-scale instances. The larger the 𝛿, the greater the quantity of orders 
+assigned in a single decision. This leads to a stronger positive impact on 
+performance metrics owing to the increased correlation between these 
+orders. However, a larger 𝛿 results in longer time intervals between 
+consecutive decisions, potentially retracting some pods that can still 
+fulfill orders in |𝑂| back to the storage zone, thereby adversely impact-
+ing performance metrics. Therefore, the value of 𝛿 significantly impacts 
+the performance of associated decision approaches. The influence of 
+different 𝛿 values in small-scale instances (|𝑅| = 10 and |𝑂| = 100 ) is 
+illustrated in Fig.  7.
+As observed in Fig.  7, for all performance metrics, the performance 
+of SEQU, HADGS, and M1G deteriorates with increasing 𝛿, whereas 
+the performance of M2G initially improves and subsequently deterio-
+rates. SEQU, HADGS, and M1G demonstrate peak performance when 
+𝛿 = 1 , whereas M2G demonstrates peak performance when 𝛿 = 2 . 
+There are several reasons for these aforementioned disparities. First, 
+the correlation between orders is not considered in SEQU and thus 
+cannot positively impact performance. Therefore, the greater the value 
+of 𝛿, the greater the negative effect and the worse the performance of 
+SEQU. Second, the correlation between orders is well considered in 
+M2G, which can positively impact performance. Therefore, with the 
+increase in 𝛿, the negative effect gradually outweighs the positive effect, 
+resulting in an initial improvement and subsequent deterioration in 
+M2G performance. Third, HADGS and M1G are joint decision-making 
+methods that encompass OA, PS, and TA. These methods are effective 
+only when the quantity of idle robots is not less than the quantity 
+of pods that must be transported. Although HADGS and M1G also 
+consider the correlation between orders, it can positively impact per-
+formance. However, assigning more orders means that more pods must 
+be transported, which may negatively impact performance. For HADGS 
+and M1G, the increase in 𝛿 exhibits a greater negative impact on 
+their performance than a positive impact, leading to a decline in their 
+performance. In summary, in the simulation experiment, we set 𝛿 to 1 
+for SEQU, HSDGS, and M1G, while 𝛿 is set to 2 for M2G.
+4.3.2. Quantity of robots
+The scale of the robot fleet deployed in RMFS, that is, the quantity 
+of robots, significantly impacts RMFS operational efficiency. The ap-
+propriate quantity of robots can enhance productivity, improve order 
+Omega 138 (2026) 103374 
+14 
+
+##### PAGE 14 #####
+G. Jiao et al.
+Fig. 8. Influence of different quantities of robots in small-scale instances.
+fulfillment speed, and reduce errors in picking and sorting operations. 
+When the quantity of robots deployed in the RMFS is sufficient, all 
+transportation tasks can be immediately executed by robots. This avoids 
+the situation of “ picker waiting parts” insofar as possible. Therefore, 
+increasing the quantity of robots deployed in RMFS can decrease the 
+waiting time for pickers and enhance resource utilization, which pos-
+itively impacts operational efficiency. Conversely, an increase in the 
+quantity of robots results in longer queuing times in the queuing zone 
+and amplifies the likelihood of congestion, collisions, and deadlocks 
+along robots paths, thereby negatively impacting operational efficiency. 
+Therefore, we conducted experiments to examine the impact of varying 
+the quantity of robots on pertinent performance metrics.
+Fig.  8 displays the influence of different quantities of robots in 
+small-scale instances (|𝑅| = 6 , 7, 8, 9, 10, 11, 12 and |𝑂| = 100 ). The 𝑇 𝑃
+of all four approaches demonstrates an upward trend as the quantity 
+of robots increases, eventually stabilizing after reaching a threshold 
+of ten robots. When the quantity of robots is small, there are more 
+transportation tasks than available robots, leading to causes of “ picker 
+waiting parts”. In this scenario, the positive impact of increasing the 
+quantity of robots outweighs the negative impact, resulting in improved 
+𝑇 𝑃 as the robot quantity increases. When the robot quantity reaches 
+saturation, where there are consistently more available robots than 
+transportation tasks, leading to causes of “ parts waiting picker”. In 
+this scenario, the positive impact initially generated by increasing the 
+quantity of robots is gradually counterbalanced by the negative impact, 
+resulting in a plateau of 𝑇 𝑃 growth. For the 𝑅𝐷, an increase in robot 
+quantity involved in transportation inevitably increases the aggregate 
+distance traveled by all robots. Additionally, because the quantity of 
+orders fulfilled in a transportation task is typically greater than 1 
+(i.e., 𝑃 𝑂 > 1), the 𝑂𝐷 also increases with the increase in robot quantity. 
+For the 𝑃 𝑂, as the quantity of robots increases, HADGS, M1G, and 
+M2G all significantly increase in contrast to SEQU, which decreases. 
+This discrepancy can be attributed to the fact that the increase in 𝑇 𝑃
+for HADGS, M1G, and M2G is more pronounced compared to that for 
+SEQU as shown in Fig.  8(a). Moreover, an increase in 𝑇 𝑃 is indicative 
+of a higher quantity of orders that require fulfillment, while an increase 
+in the quantity of robots implies a higher quantity of pod movements 
+that can be provided. Therefore, per the definition of 𝑃 𝑂, when the 
+increase in 𝑇 𝑃 exceeds that of the robots, 𝑃 𝑂 will increase, as observed 
+in HADGS, M1G, and M2G. Conversely, when the increase in 𝑇 𝑃 is less 
+than that of the robots, 𝑃 𝑂 will decrease, as observed in SEQU.
+Fig.  9 shows the influence of different quantities of robots in large-
+scale instances (|𝑅| = 60, 70, 80, 90, 100, 110, 120, and |𝑂| = 500). As the 
+quantity of robots increases, the changing trend of SEQU and HADGS 
+in large-scale instances remains consistent with that in small-scale 
+instances across the four performance metrics. The reasons for these 
+changes are also the same as those observed in small-scale instances. 
+The only disparity is that, as the quantity of robots increases, the 𝑃 𝑂
+of HADGS exhibits an upward trend in large-scale instances, albeit a 
+downward trend in small-scale instances. The reason for this disparity 
+is that in large-scale instances, the increase in the quantity of robots 
+surpasses the corresponding increase in 𝑇 𝑃 for HADGS. Consequently, 
+the 𝑃 𝑂 of HADGS decreases with the increasing robot quantity.
+The aforementioned results demonstrate that, by optimizing rele-
+vant decision-making approaches, the quantity of robots deployed in 
+RMFS could be effectively decreased. This suggests that enhancing 
+the performance of the decision-making approach can lead to more 
+optimal resource allocation and utilization, resulting in a reduction of 
+the necessity for numerous robots. Specifically, in small-scale instances, 
+the 𝑇 𝑃 of M1G when |𝑅| = 6  remains 8% higher than that of SEQU 
+when |𝑅| = 12 while reducing the corresponding 𝑅𝐷 by 38%; in large-
+scale instances, the 𝑇 𝑃 of HADGS when |𝑅| = 60 remains 6% higher 
+than that of SEQU when |𝑅| = 120 while reducing the corresponding 
+𝑅𝐷 by 50%. Hence, M1G and HADGS employ at most half the quantity 
+of robots employed in SEQU to achieve an equivalent throughput for 
+both small and large instances. Meanwhile, the corresponding distance 
+traveled by robots is only 62 and 57% of that in SEQU, respectively.
+4.3.3. Quantity of workstations
+Based on a survey of an RMFS owned by a large retail company, we 
+observed that managers frequently adjust the quantity of workstations 
+(referring to active workstations) based on the total volume of customer 
+Omega 138 (2026) 103374 
+15 
+
+##### PAGE 15 #####
+G. Jiao et al.
+Fig. 9. Influence of different quantities of robots in large-scale instances.
+orders. This proactive adjustment helps to minimize operating costs, 
+optimize resource allocation, and enhance efficiency. Specifically, man-
+agers activate some workstations during the peak season and close some 
+workstations during the off-season. Therefore, next, we investigate 
+the influence of the quantity of workstations on an RMFS. Fig.  10 
+illustrates the influence of different quantities of workstations in large-
+scale instances (|𝑅| = 100 and |𝑂| = 500), where DV represents the gap 
+in performance metric values between HADGS and SEQU.
+As observed in Fig.  10, HADGS outperforms SEQU in all perfor-
+mance metrics for different workstation quantities. With the increase 
+in the quantity of workstations, 𝑇 𝑃 and 𝑅𝐷 of HADGS and SEQU 
+increased gradually, 𝑂𝐷 of HADGS and SEQU decreased gradually, 
+𝑃 𝑂 of SEQU increased gradually, 𝑃 𝑂 of HADGS increased initially 
+and subsequently decreased. The aforementioned results indicate that 
+when the quantity of orders from customers is small (i.e., expected 
+TP is small), the 𝑅𝐷 could be reduced by reducing the quantity of 
+workstations. Therefore, workstation quantity adjustment based on the 
+order volume can optimize cost in situations where the expected TP is 
+relatively low.
+In addition, as the workstation quantity increases, the DV for 𝑇 𝑃 , 
+𝑅𝐷, and 𝑃 𝑂 initially increases and subsequently decreases, while the 
+DV for 𝑂𝐷 gradually decreases. 𝑂𝐷 is equivalent to the throughput 
+divided by the distance traveled by robots. Therefore, as the work-
+station quantity increases, 𝑂𝐷 decreases when the increment of the 
+𝑇 𝑃 is less than that of the 𝑅𝐷. The aforementioned results show that 
+the performance improvement of HADGS over SEQU increases initially 
+and subsequently decreases as the quantity of workstations increases. 
+Moreover, as illustrated in Fig.  10(a), the 𝑇 𝑃 of HADGS at |𝑊 | = 10 is 
+almost the same as that of SEQU at |𝑊 | = 12 , indicating that HADGS 
+requires fewer workstations when the same 𝑇 𝑃 is reached.
+4.4. Managerial insights
+Based on the results of these simulation experiments, the following 
+warehouse managerial insights were identified:
+• Reducing the number of pod movements does not necessarily en-
+hance warehouse operational efficiency, which deviates from con-
+ventional perspectives in existing literature. For example, from 
+the perspective of system operational costs, Teck and Dewil [26] 
+found that only minimizing the number of pod movements is 
+insufficient and using distance as the optimization objective is 
+more suitable for optimizing operational costs. From the perspec-
+tive of system operational efficiency (i.e. throughput), this study 
+found no correlation between the number of pod movements and 
+system operational efficiency, that is, a reduction in the number 
+of pod movements may not necessarily improve system opera-
+tional efficiency. Specifically, compared with M1G, although M2G 
+increased by 4.43% on 𝑃 𝑂, it decreased 𝑇 𝑃 by 1.22%.
+• OJOOPT can enhance warehouse operational efficiency and re-
+duce its operational costs. The experimental results in Table  10 
+show that HADGS demonstrated a 10.75% increase in 𝑇 𝑃 and a 
+32.02% decrease in 𝑅𝐷 in large-scale instances compared to a 
+state-of-the-art sequential approach.
+• OJOOPT can achieve the same throughput with fewer resources 
+(workstations). Warehouse managers have the flexibility to adjust 
+the number of workstations deployed based on customer orders, 
+further reducing warehouse operational costs. The experimental 
+results in Fig.  10(a) demonstrated that in large-scale instances, 
+the number of workstations required for HADGS to achieve the 
+same 𝑇 𝑃 was only 83% of SEQU.
+5. Conclusion
+This study investigated the online joint optimization for OA, PS, and 
+TA in RMFS during the order picking process. To enhance decision-
+making efficiency, the study accounted for the impact of current de-
+cisions on future decisions. A dynamic system model for RMFS was 
+established, alongside the development of a novel MILP model to 
+address critical challenges. To solve large-scale instances effectively, a 
+customized HADGS was devised.
+The proposed model and approach were rigorously evaluated using 
+small- and large-scale instances within established dynamic systems. 
+Omega 138 (2026) 103374 
+16 
