@@ -128,7 +128,7 @@
     <SplitMarginalProbeEveryNDecisions>50</SplitMarginalProbeEveryNDecisions>
     <SplitMarginalProbeTimeLimitSec>10</SplitMarginalProbeTimeLimitSec>
     <ReleaseParentOnFirstSplit>true</ReleaseParentOnFirstSplit>
-    <DinkelbachIterations>5</DinkelbachIterations>
+    <DinkelbachIterations>0</DinkelbachIterations>
     <DinkelbachTolerance>0.5</DinkelbachTolerance>
   </OrderBatchingConfig>
   <ReplenishmentBatchingConfig xsi:type="SamePodReplenishmentBatchingConfiguration">
