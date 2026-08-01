@@ -413,6 +413,39 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     wrapper.AddConstr(bin["ch_" + order.ID + "_" + sku.Key.ID] >= bin["zh_" + order.ID], "V4");
                 }
 
+            // (V6, gated) ForbidSplitting: restricts each order line to a single (pod, station)
+            // supplier, so an order's demand for one SKU can never be met by combining pods or
+            // stations. This is additional to V2 (residual-demand bound) - V2 caps the QUANTITY
+            // drawn across all candidates, V6 restricts the SUPPLIER SET to exactly one candidate.
+            // g_<sku>_<order>_<pod>_<station> is a binary "this candidate supplies this line"
+            // indicator; it is added to the shared `bin` collection (already Binary 0..1) under a
+            // distinct "g_" prefix rather than threading a new VariableCollection through every
+            // caller - when the flag is off, no g variables are ever created, so the model (and
+            // the regression run) is unaffected.
+            //
+            // q inherits this restriction for free: B1 constrains qb <= qh (or qb == qh under
+            // DegenerateToBindingOnly) elementwise per (sku,order,pod,station), and V6a below
+            // forces qh to 0 for every candidate whose g is 0. Since V6b allows at most one g=1
+            // per (order,sku), qh - and therefore qb - can be nonzero for at most one supplier.
+            // No separate constraint on q is needed.
+            if (_m4gConfig.ForbidSplitting)
+            {
+                foreach (var order in snap.PendingOrders)
+                    foreach (var sku in snap.Residuals[order].Where(p => snap.PiSKU.ContainsKey(p.Key)))
+                    {
+                        var candidates = sym.Qhat.Where(v => v.order.ID == order.ID && v.skui.ID == sku.Key.ID).ToList();
+                        if (candidates.Count == 0) continue;
+                        var gVars = new List<Variable>();
+                        foreach (var v in candidates)
+                        {
+                            string gName = "g_" + sku.Key.ID + "_" + order.ID + "_" + v.pod.ID + "_" + v.outputstation.ID;
+                            wrapper.AddConstr(qh[v.name] <= sku.Value * bin[gName], "V6a");
+                            gVars.Add(bin[gName]);
+                        }
+                        wrapper.AddConstr(LinearExpression.Sum(gVars) <= 1, "V6b");
+                    }
+            }
+
             // (V2a) Pa draws (newly dispatched storage pods) are valued, in aggregate per SKU,
             // only against demand that inbound (Pb) supply cannot already cover. One constraint
             // per SKU across every order/pod/station - see note above on why this must be an
@@ -613,7 +646,17 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             M4GSymbols sym = BuildSymbols(snap);
             if (sym.Qhat.Count == 0) return result;
 
+            // The LinearModel (and the native Gurobi model/environment it owns) must stay alive
+            // until every value this method needs has been read out of the solved variables -
+            // GetValue() queries the live Gurobi model, it does not cache. Everything below reads
+            // those values into plain C# fields on `result` before returning, so disposing in a
+            // finally block around the whole build/solve/read sequence is safe: the model is
+            // released as soon as this decision's solve is done, whether it found a solution,
+            // returned early for lack of one, or the caller re-solves at a new lambda for the
+            // Dinkelbach iteration (each iteration gets and disposes its own model).
             LinearModel wrapper = new LinearModel(SolverType.Gurobi, (string s) => { Console.Write(s); });
+            try
+            {
             int maxUnits = snap.Residuals.Count > 0
                 ? snap.Residuals.Values.SelectMany(d => d.Values).DefaultIfEmpty(1).Max() : 1;
             int maxSlots = snap.Cs.Count > 0 ? snap.Cs.Values.DefaultIfEmpty(1).Max() : 1;
@@ -797,6 +840,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     if (carrier != null) result.BotByPodId[v.pod.ID] = carrier.robot;
                 }
             return result;
+            }
+            finally
+            {
+                wrapper.Dispose();
+            }
         }
 
         /// <summary>Entry point called by the engine whenever a station has a free slot.</summary>

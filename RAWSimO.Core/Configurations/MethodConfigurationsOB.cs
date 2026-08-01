@@ -1724,6 +1724,13 @@ namespace RAWSimO.Core.Configurations
         public int DinkelbachIterations = 0;
         /// <summary>Convergence tolerance on the linearised objective value, in metres.</summary>
         public double DinkelbachTolerance = 0.5;
+
+        /// <summary>Restricts each order line to a single (pod, station) supplier, so an order's
+        /// demand for one SKU can never be met by combining pods or stations. Everything else -
+        /// prices, Dinkelbach iteration, the valuation/binding layers, EPR - is unchanged, so the
+        /// difference against the unrestricted model isolates the effect of splitting itself.
+        /// false = current behaviour.</summary>
+        public bool ForbidSplitting = false;
     }
 
     #endregion

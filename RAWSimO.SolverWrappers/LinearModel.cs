@@ -8,7 +8,7 @@ namespace RAWSimO.SolverWrappers
     /// <summary>
     /// Gurobi-backed linear model wrapper used by RAWSim-O.
     /// </summary>
-    public class LinearModel
+    public class LinearModel : IDisposable
     {
         public SolverType Type { get; private set; }
 
@@ -24,6 +24,15 @@ namespace RAWSimO.SolverWrappers
 
         private void LogLine(string msg) { if (_logger != null) _logger(msg + Environment.NewLine); }
 
+        /// <summary>
+        /// The Gurobi environment backing GurobiModel. Created fresh (not shared/static) by this
+        /// constructor - see the "new GRBEnv()" call below - so this instance owns it and must
+        /// dispose it alongside the model; nothing else in the codebase holds a reference to it.
+        /// </summary>
+        private GRBEnv _gurobiEnvironment;
+
+        private bool _disposed = false;
+
         public LinearModel(SolverType type, Action<string> logger, int threadCount = 0)
         {
             if (type != SolverType.Gurobi)
@@ -32,14 +41,36 @@ namespace RAWSimO.SolverWrappers
             Type = type;
             _logger = logger;
 
-            GRBEnv gurobiEnvironment = new GRBEnv();
-            GurobiModel = new GRBModel(gurobiEnvironment);
+            _gurobiEnvironment = new GRBEnv();
+            GurobiModel = new GRBModel(_gurobiEnvironment);
             GurobiModel.GetEnv().Set(GRB.IntParam.OutputFlag, 0);
             if (threadCount > 0)
                 GurobiModel.GetEnv().Set(GRB.IntParam.Threads, threadCount);
 
             _gurobiStatusCallback = new GurobiStatusCallback(this) { Logger = logger };
             GurobiModel.SetCallback(_gurobiStatusCallback);
+        }
+
+        /// <summary>
+        /// Releases the native Gurobi model and the environment this instance created for it.
+        /// Safe to call more than once. Callers must have already read back every value they
+        /// need from solved variables/constraints (Variable.GetValue(), GetDuals(), etc. all
+        /// query the live Gurobi model) before calling this - values are not cached.
+        /// </summary>
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            if (GurobiModel != null)
+            {
+                GurobiModel.Dispose();
+                GurobiModel = null;
+            }
+            if (_gurobiEnvironment != null)
+            {
+                _gurobiEnvironment.Dispose();
+                _gurobiEnvironment = null;
+            }
         }
 
         internal void RegisterVariable(Variable variable)
