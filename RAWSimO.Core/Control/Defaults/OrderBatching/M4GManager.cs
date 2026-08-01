@@ -66,7 +66,30 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             _decisionLog.WriteLine("decision,time,solved,pendingOrders,stationsWithCap,podsPa,podsPb,botsRa,"
                 + "lambda,mu,delta,epsilon,valuedLines,boundLines,valuedOrders,boundOrders,newTrips,boundUnits,"
                 + "objective,solveSec,qmax,rho,unitsFromSunk,unitsFromNew,inboundCoverUnits,"
-                + "splitsDeferred,splitsCommitted");
+                + "splitsDeferred,splitsCommitted,wipOrders,wipUnits,dinkIters,lambdaStart,lambdaEnd");
+        }
+
+        /// <summary>
+        /// Work in progress at this decision: orders that have had part of their demand claimed
+        /// by a split child but are not yet fully claimed - i.e. started but not finished. An
+        /// order is counted the moment its first child exists and stops being counted once every
+        /// unit is claimed, so this is a standing level, not a cumulative total. Returns the
+        /// order count; <paramref name="wipUnits"/> receives the units already claimed on those
+        /// orders, which is the quantity that inflates ItemsHandled without producing a
+        /// completed order.
+        /// </summary>
+        private int CountWip(out int wipUnits)
+        {
+            int orders = 0;
+            wipUnits = 0;
+            foreach (var order in _pendingOrders)
+            {
+                if (!order.IsSplitParent || order.IsFullyClaimed) continue;
+                orders++;
+                foreach (var position in order.Positions)
+                    wipUnits += order.GetDemandCount(position.Key) - order.GetRemainingDemand(position.Key);
+            }
+            return orders;
         }
 
         /// <summary>Writes one decision row. Every numeric field is written unformatted for exact diffing.</summary>
@@ -74,9 +97,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             int botsRa, double lambda, double mu, double delta, double epsilon, int valuedLines, int boundLines,
             int valuedOrders, int boundOrders, int newTrips, int boundUnits, double objective, double solveSec,
             int qmax, double rho, int unitsFromSunk, int unitsFromNew, double inboundCoverUnits,
-            int splitsDeferred, int splitsCommitted)
+            int splitsDeferred, int splitsCommitted, int dinkIters, double lambdaStart, double lambdaEnd)
         {
             EnsureDecisionLog();
+            int wipUnits;
+            int wipOrders = CountWip(out wipUnits);
             _decisionLog.WriteLine(string.Join(",", new string[] {
                 _decisionIndex.ToString(),
                 Instance.Controller.CurrentTime.ToString(),
@@ -86,7 +111,9 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 valuedLines.ToString(), boundLines.ToString(), valuedOrders.ToString(), boundOrders.ToString(),
                 newTrips.ToString(), boundUnits.ToString(), objective.ToString(), solveSec.ToString(),
                 qmax.ToString(), rho.ToString(), unitsFromSunk.ToString(), unitsFromNew.ToString(),
-                inboundCoverUnits.ToString(), splitsDeferred.ToString(), splitsCommitted.ToString() }));
+                inboundCoverUnits.ToString(), splitsDeferred.ToString(), splitsCommitted.ToString(),
+                wipOrders.ToString(), wipUnits.ToString(), dinkIters.ToString(), lambdaStart.ToString(),
+                lambdaEnd.ToString() }));
         }
 
         /// <summary>TEMP DIAGNOSTIC (fill-mode deadlock investigation, remove before merge).</summary>
@@ -547,13 +574,40 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             public int UnitsFromSunk;
             /// <summary>Bound units drawn from a newly dispatched (Pa) pod.</summary>
             public int UnitsFromNew;
+            /// <summary>Realised distance D* of this solution: the sum of the T1/T2 travel-cost
+            /// terms (new-pod dispatch/carry cost) actually taken, read back from the solved
+            /// bin variables - not estimated. Lambda-independent; used only by the Dinkelbach
+            /// iteration to derive the next lambda.</summary>
+            public double DStar;
+            /// <summary>The lambda this solve was built with (diagnostics / Dinkelbach bookkeeping).</summary>
+            public double LambdaUsed;
         }
 
         /// <summary>
-        /// Builds and solves the M4G model. One solve decides pods, bots, the valuation-layer
-        /// split shape and the binding-layer subset jointly (spec D2) - never in two passes.
+        /// Builds and solves the M4G model at a given lambda. One solve decides pods, bots, the
+        /// valuation-layer split shape and the binding-layer subset jointly (spec D2) - never in
+        /// two passes.
+        ///
+        /// Every value coefficient in the objective (mu, epsilon, rho) is a fixed multiple of
+        /// lambda - mu = MuScale*lambda*linesPerOrder and epsilon = EpsilonScale*lambda by their
+        /// own formulas, and rho is held proportional to lambda by construction here (its
+        /// measured formula, cumDist/cumUnitsPicked, does not itself depend on lambda, so the
+        /// ratio rho0/lambda0 computed from the historical lambda is carried forward unchanged
+        /// as lambda is varied by the Dinkelbach iteration). This lets the whole value side of
+        /// the objective be written lambda * V with V lambda-independent, which is what makes
+        /// the Dinkelbach linearisation (minimise D - lambda*V) valid at any lambda, not just
+        /// the historical one.
         /// </summary>
-        private M4GResult SolveM4G(M4GSnapshot snap)
+        /// <param name="snap">The decision snapshot.</param>
+        /// <param name="lambda">Lambda to build this solve's objective with.</param>
+        /// <param name="lambda0">The historical (as-measured) lambda, used only to scale mu/epsilon/rho
+        /// proportionally to <paramref name="lambda"/> - see remarks above.</param>
+        /// <param name="mu0">mu evaluated at lambda0.</param>
+        /// <param name="epsilon0">epsilon evaluated at lambda0.</param>
+        /// <param name="rho0">rho evaluated at lambda0.</param>
+        /// <param name="delta">delta - lambda-independent, computed once per decision.</param>
+        private M4GResult SolveM4G(M4GSnapshot snap, double lambda, double lambda0, double mu0,
+            double epsilon0, double rho0, double delta)
         {
             M4GResult result = new M4GResult();
             M4GSymbols sym = BuildSymbols(snap);
@@ -628,11 +682,12 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             }
 
             // ── Objective T1-T5 (spec 3.3), everything denominated in metres ──
-            double cumDist = Instance.StatOverallDistanceTraveled;
-            double lambda = _pricing.Lambda(cumDist);
-            double mu = _pricing.Mu(cumDist);
-            double delta = _pricing.Delta();
-            double epsilon = _pricing.Epsilon(cumDist);
+            // mu/epsilon/rho are scaled proportionally from their lambda0 values to lambda -
+            // see the remarks on SolveM4G above for why this is exact (mu, epsilon) or a
+            // deliberate modelling choice that preserves the Dinkelbach linearity (rho).
+            double lambdaScaleRatio = lambda0 > 0 ? lambda / lambda0 : 1.0;
+            double mu = mu0 * lambdaScaleRatio;
+            double epsilon = epsilon0 * lambdaScaleRatio;
 
             // T1/T2: only newly dispatched (Pa) pods pay travel - Pb trips are sunk.
             // Both terms use the (expressions, defaultSolver) Sum overload, which already
@@ -675,7 +730,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // extra trip that a sunk pod's unit does not. Pq/Pb (queued/en route) draws stay free,
             // matching the T1/T2 sunk-trip treatment of those same pods. false reproduces the flat
             // (every draw free) behaviour bit-for-bit.
-            double rho = _pricing.Rho(cumDist, Instance.StatOverallItemsHandled);
+            double rho = rho0 * lambdaScaleRatio;
             if (_m4gConfig.PodTierDrawPricingEnabled)
             {
                 HashSet<int> processingPodIds = BuildProcessingPodIds(snap);
@@ -701,6 +756,18 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             result.HasSolution = true;
             result.Objective = wrapper.GetObjectiveValue();
             result.Rho = rho;
+            result.LambdaUsed = lambda;
+            // D* (spec: "realised distance terms"): read back the same T1/T2 travel-cost terms
+            // from the solved xps/yrp variables, not estimated from the objective algebraically -
+            // this is what the Dinkelbach step needs as the numerator of the next lambda.
+            double dStar = 0.0;
+            foreach (var v in sym.Xps.Where(v => snap.Pa.Contains(v.pod)))
+                if (Math.Round(bin[v.name].GetValue()) != 0)
+                    dStar += M1GPodStationCost(v.pod, v.outputstation) + PodStationExtraCost(v.pod, v.outputstation);
+            foreach (var v in sym.Yrp.Where(v => snap.Pa.Contains(v.pod) && v.pod.Waypoint != null))
+                if (Math.Round(bin[v.name].GetValue()) != 0)
+                    dStar += M1GBotPodCost(v.robot, v.pod);
+            result.DStar = dStar;
             foreach (var v in sym.Qhat)
             {
                 int units = (int)Math.Round(qb["q_" + v.skui.ID + "_" + v.order.ID + "_" + v.pod.ID
@@ -744,19 +811,76 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             _lastInboundCoverUnits = 0.0;
             _lastSplitsDeferred = 0;
             _lastSplitsCommitted = 0;
-            M4GResult result = SolveM4G(snap);
+            double cumDist = Instance.StatOverallDistanceTraveled;
+            double lambda0 = _pricing.Lambda(cumDist);
+            double mu0 = _pricing.Mu(cumDist);
+            double epsilon0 = _pricing.Epsilon(cumDist);
+            double rho0 = _pricing.Rho(cumDist, Instance.StatOverallItemsHandled);
+            double delta = _pricing.Delta();
+
+            // ── Dinkelbach iteration (0 = single step at the historical lambda, unchanged
+            // behaviour). Every re-solve rebuilds the model from scratch at a new lambda; a
+            // single solve costs 0.009-0.2s so this is cheap even at the iteration cap. ──
+            double lambdaK = lambda0;
+            M4GResult result = SolveM4G(snap, lambdaK, lambda0, mu0, epsilon0, rho0, delta);
+            double totalSolveSec = result.SolveSec;
+            int dinkIters = 0;
+            if (result.HasSolution)
+            {
+                for (int i = 0; i < _m4gConfig.DinkelbachIterations; i++)
+                {
+                    // V* = (D* - objective) / lambda_k. The objective returned by the solver is
+                    // exactly D* - lambda_k*V* by construction (every value coefficient scales
+                    // with lambda_k - see SolveM4G's remarks), so this recovers V* without
+                    // needing a second pass over the solution.
+                    double vStar = lambdaK > 0 ? (result.DStar - result.Objective) / lambdaK : 0.0;
+                    if (vStar <= 0) break;                                    // ratio undefined - keep this solution
+                    if (Math.Abs(result.Objective) <= _m4gConfig.DinkelbachTolerance) break;  // converged
+                    double lambdaNext = result.DStar / vStar;
+                    M4GResult next = SolveM4G(snap, lambdaNext, lambda0, mu0, epsilon0, rho0, delta);
+                    totalSolveSec += next.SolveSec;
+                    if (!next.HasSolution) break;                             // keep the previous solution
+                    // Guard against MILP-integrality overshoot. Dinkelbach's continuous-relaxation
+                    // proof has lambda_k decrease monotonically toward the true minimum ratio
+                    // without ever undershooting it, but the achievable ratio here is a step
+                    // function of lambda (integer pod/bot/order assignment), so one re-solve can
+                    // jump straight past the fixed point into the region where "dispatch nothing"
+                    // (D=0, V=0, always feasible at objective 0) strictly dominates every real
+                    // dispatch. Adopting that trivial solution would silently zero out this
+                    // decision's picks - confirmed in testing: an unguarded loop collapsed a whole
+                    // 2h run to ~0 orders completed once lambda first overshot on decision 0.
+                    // Evaluate the CANDIDATE's own V* before adopting it; if it is degenerate,
+                    // stop and keep the last non-degenerate solution instead.
+                    double nextVStar = lambdaNext > 0 ? (next.DStar - next.Objective) / lambdaNext : 0.0;
+                    if (nextVStar <= 0) break;
+                    result = next;
+                    lambdaK = lambdaNext;
+                    dinkIters++;
+                }
+            }
+            double lambdaEnd = lambdaK;
+
             // Must run before WriteDecision so splitsDeferred/splitsCommitted reflect this
             // decision's own commit, not the previous one's leftover counters.
             if (result.HasSolution)
                 CommitM4G(snap, result);
-            double cumDist = Instance.StatOverallDistanceTraveled;
+            // lambda/mu/delta/epsilon here are re-queried from _pricing AFTER CommitM4G, exactly
+            // as the pre-Dinkelbach code did - CommitM4G's RegisterClosedLines/RegisterCompletedOrders
+            // calls have already run by this point, so these four columns reflect this decision's
+            // own contribution baked in. This is diagnostic-only (the objective was built earlier,
+            // pre-commit, from lambda0/mu0/epsilon0/delta and the Dinkelbach-converged lambdaEnd) -
+            // kept bit-identical to the pre-Dinkelbach log so DinkelbachIterations=0 reproduces the
+            // old decision log exactly. lambdaStart/lambdaEnd/dinkIters below are the new columns
+            // that actually carry the Dinkelbach information.
+            double cumDistAfter = Instance.StatOverallDistanceTraveled;
             WriteDecision(result.HasSolution, snap.PendingOrders.Count, snap.Cs.Count(c => c.Value > 0),
                 snap.Pa.Count, snap.Pb.Count, snap.Ra.Count,
-                _pricing.Lambda(cumDist), _pricing.Mu(cumDist), _pricing.Delta(), _pricing.Epsilon(cumDist),
+                _pricing.Lambda(cumDistAfter), _pricing.Mu(cumDistAfter), _pricing.Delta(),
+                _pricing.Epsilon(cumDistAfter),
                 result.ValuedLineKeys.Count, result.BoundLineKeys.Count, result.ValuedOrders, result.BoundOrders,
-                result.NewTripCount, result.BoundDraws.Values.Sum(), result.Objective, result.SolveSec, _lastQmax,
+                result.NewTripCount, result.BoundDraws.Values.Sum(), result.Objective, totalSolveSec, _lastQmax,
                 result.Rho, result.UnitsFromSunk, result.UnitsFromNew, _lastInboundCoverUnits,
-                _lastSplitsDeferred, _lastSplitsCommitted);
+                _lastSplitsDeferred, _lastSplitsCommitted, dinkIters, lambda0, lambdaEnd);
             _decisionIndex++;
             // Feed this decision's valuation/binding line counts into delta's running totals,
             // after WriteDecision so the logged delta (like lambda/mu) reflects state prior to

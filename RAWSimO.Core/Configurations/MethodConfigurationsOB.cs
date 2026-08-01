@@ -1715,6 +1715,15 @@ namespace RAWSimO.Core.Configurations
         /// residual demand is still served. Mirrors M3G's ReleaseParentOnFirstSplit. Inert in Fixed
         /// order mode, where the order stream is predetermined. false = current behaviour.</summary>
         public bool ReleaseParentOnFirstSplit = false;
+
+        /// <summary>Dinkelbach iterations for the ratio objective. 0 = current behaviour: a single
+        /// linearisation step using the historical lambda. &gt; 0 = iterate, re-solving with lambda
+        /// updated to the ratio realised by the previous solution, until the linearised optimum
+        /// reaches zero within DinkelbachTolerance or this many iterations have run. The converged
+        /// lambda is the minimum achievable distance per unit value for this decision.</summary>
+        public int DinkelbachIterations = 0;
+        /// <summary>Convergence tolerance on the linearised objective value, in metres.</summary>
+        public double DinkelbachTolerance = 0.5;
     }
 
     #endregion
