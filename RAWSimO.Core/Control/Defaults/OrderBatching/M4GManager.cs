@@ -798,52 +798,110 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                         + PodStationExtraCost(v.pod, v.outputstation))), wrapper)
                 + LinearExpression.Sum(sym.Yrp.Where(v => snap.Pa.Contains(v.pod) && v.pod.Waypoint != null)
                     .Select(v => bin[v.name] * M1GBotPodCost(v.robot, v.pod)), wrapper);
-            // T3: bound line closures at full price, valued-but-unbound at the realisation rate.
-            // Guard: these use the plain Sum(IEnumerable<Variable>) overload, which throws on an
-            // empty sequence. sym.Chat can only be empty if sym.Qhat is empty too (Qhat is built
-            // strictly inside the Chat loop), and that case already returned above - so this is
-            // defensive, not load-bearing, but kept for consistency and future-proofing.
-            var chatBoundVars = sym.Chat.Select(v => bin["c_" + v.order.ID + "_" + v.skui.ID]).ToList();
-            if (chatBoundVars.Count > 0)
-                objective = objective + LinearExpression.Sum(chatBoundVars) * (-lambda * (1.0 - delta));
-            var chatValuedVars = sym.Chat.Select(v => bin[v.name]).ToList();
-            if (chatValuedVars.Count > 0)
-                objective = objective + LinearExpression.Sum(chatValuedVars) * (-lambda * delta);
-            // T4: same split for completed orders. Same guard rationale as T3.
-            var zhatBoundVars = sym.Zhat.Select(v => bin["z_" + v.order.ID]).ToList();
-            if (zhatBoundVars.Count > 0)
-                objective = objective + LinearExpression.Sum(zhatBoundVars) * (-mu * (1.0 - delta));
-            var zhatValuedVars = sym.Zhat.Select(v => bin[v.name]).ToList();
-            if (zhatValuedVars.Count > 0)
-                objective = objective + LinearExpression.Sum(zhatValuedVars) * (-mu * delta);
-            // T5: tie-break that prefers executing now among equally valued solutions. sym.Qhat
-            // is guaranteed non-empty by the early return above, but guard anyway for consistency.
-            var qbTieVars = sym.Qhat.Select(v =>
-                qb["q_" + v.skui.ID + "_" + v.order.ID + "_" + v.pod.ID + "_" + v.outputstation.ID]).ToList();
-            if (qbTieVars.Count > 0)
-                objective = objective + LinearExpression.Sum(qbTieVars) * (-epsilon);
-            // T6: pod-tier draw pricing (rho), binding layer only - the tier preference is about
-            // which pod actually gets drained, and only bound (qb) draws have real-world effects.
-            // A unit bound from a Pp pod (processing right now, window closing) is rewarded -rho:
-            // skipping it means paying for a future trip to fetch that item later. A unit bound
-            // from a Pa pod (newly dispatched this decision) pays +rho: it genuinely costs an
-            // extra trip that a sunk pod's unit does not. Pq/Pb (queued/en route) draws stay free,
-            // matching the T1/T2 sunk-trip treatment of those same pods. false reproduces the flat
-            // (every draw free) behaviour bit-for-bit.
             double rho = rho0 * lambdaScaleRatio;
-            if (_m4gConfig.PodTierDrawPricingEnabled)
+            if (_m4gConfig.LegacyObjective)
             {
-                HashSet<int> processingPodIds = BuildProcessingPodIds(snap);
-                var newPodDraws = sym.Qhat.Where(v => snap.Pa.Contains(v.pod))
-                    .Select(v => qb["q_" + v.skui.ID + "_" + v.order.ID + "_" + v.pod.ID + "_" + v.outputstation.ID])
-                    .ToList();
-                if (newPodDraws.Count > 0)
-                    objective = objective + LinearExpression.Sum(newPodDraws) * rho;
-                var processingDraws = sym.Qhat.Where(v => processingPodIds.Contains(v.pod.ID))
-                    .Select(v => qb["q_" + v.skui.ID + "_" + v.order.ID + "_" + v.pod.ID + "_" + v.outputstation.ID])
-                    .ToList();
-                if (processingDraws.Count > 0)
-                    objective = objective + LinearExpression.Sum(processingDraws) * (-rho);
+                // Legacy M1G value side (spec: Xie et al. 2021 s.3.3 construction). M1G's yos[o,s]
+                // reward is per (order, station) because M1G forbids splitting, so an order can
+                // only ever be assigned to one station and per-station == per-order there. Once
+                // splitting is allowed, the reward must move to a variable that is 1 exactly once
+                // per order regardless of how many stations serve it, or a split order would
+                // collect w2 twice - an artefact of the relaxation, not a faithful legacy score.
+                // z_[order.ID] (bin["z_" + order.ID]) already IS that variable: it is keyed only
+                // by order.ID (see the binding-layer loop above), forced to 0/1 by B6z/B7/B5
+                // irrespective of how many stations' draws feed it, and reaches 1 exactly when
+                // every line of the order is bound-closed in aggregate across all stations - i.e.
+                // "the order is served," matching Xie et al.'s y_o (constraint set 12). No new
+                // variable is introduced; reusing z_o is what keeps the reward from being
+                // double-counted under splitting.
+                //
+                // lambda/mu/delta/epsilon/rho (T3-T6 below, in the else branch) are all scaled
+                // proportionally to lambda, which only makes sense under the Dinkelbach ratio
+                // parameterisation - LegacyObjective replaces the whole value side with this fixed,
+                // lambda-independent term, so none of T3-T6 apply here. The caller (DecideAbout
+                // PendingOrders) also skips the Dinkelbach iteration entirely in this mode, since
+                // the ratio objective this loop optimises is undefined without a lambda-scaled
+                // value side to linearise.
+                var zVars = sym.Zhat.Select(v => bin["z_" + v.order.ID]).ToList();
+                if (zVars.Count > 0)
+                    objective = objective + LinearExpression.Sum(zVars) * _m4gConfig.LegacyOrderReward;
+
+                // w3 * idle slots (M1GManager.cs "us"/shi4 mirror): an integer slack per station
+                // equal to Cs[station] minus the slots this decision's bound assignments occupy.
+                // Only the (order, station) pairs that actually have a Qhat entry have a y_[o]_[s]
+                // variable in the model (built in the B2 loop above) - restricting the sum to those
+                // pairs (via sym.Qhat, the same source B2 filters on) avoids referencing an
+                // undeclared y variable, which would silently manufacture a fresh unconstrained
+                // binary the solver could set for free to shrink the idle count.
+                if (_m4gConfig.LegacyIdleSlotWeight != 0)
+                {
+                    HashSet<string> orderStationPairs = new HashSet<string>(
+                        sym.Qhat.Select(v => v.order.ID + "_" + v.outputstation.ID));
+                    VariableCollection<string> idle = new VariableCollection<string>(
+                        wrapper, VariableType.Integer, 0, maxSlots, (string s) => { return s; });
+                    var idleVars = new List<Variable>();
+                    foreach (var station in snap.Cs.Keys)
+                    {
+                        var ys = snap.PendingOrders.Where(o => orderStationPairs.Contains(o.ID + "_" + station.ID))
+                            .Select(o => bin["y_" + o.ID + "_" + station.ID]).ToList();
+                        string idleName = "legacy_idle_" + station.ID;
+                        LinearExpression occupied = ys.Count > 0
+                            ? LinearExpression.Sum(ys) : LinearExpression.Sum(new List<LinearExpression>(), wrapper);
+                        wrapper.AddConstr(occupied + idle[idleName] == snap.Cs[station], "LegacyIdle");
+                        idleVars.Add(idle[idleName]);
+                    }
+                    if (idleVars.Count > 0)
+                        objective = objective + LinearExpression.Sum(idleVars) * _m4gConfig.LegacyIdleSlotWeight;
+                }
+            }
+            else
+            {
+                // T3: bound line closures at full price, valued-but-unbound at the realisation rate.
+                // Guard: these use the plain Sum(IEnumerable<Variable>) overload, which throws on an
+                // empty sequence. sym.Chat can only be empty if sym.Qhat is empty too (Qhat is built
+                // strictly inside the Chat loop), and that case already returned above - so this is
+                // defensive, not load-bearing, but kept for consistency and future-proofing.
+                var chatBoundVars = sym.Chat.Select(v => bin["c_" + v.order.ID + "_" + v.skui.ID]).ToList();
+                if (chatBoundVars.Count > 0)
+                    objective = objective + LinearExpression.Sum(chatBoundVars) * (-lambda * (1.0 - delta));
+                var chatValuedVars = sym.Chat.Select(v => bin[v.name]).ToList();
+                if (chatValuedVars.Count > 0)
+                    objective = objective + LinearExpression.Sum(chatValuedVars) * (-lambda * delta);
+                // T4: same split for completed orders. Same guard rationale as T3.
+                var zhatBoundVars = sym.Zhat.Select(v => bin["z_" + v.order.ID]).ToList();
+                if (zhatBoundVars.Count > 0)
+                    objective = objective + LinearExpression.Sum(zhatBoundVars) * (-mu * (1.0 - delta));
+                var zhatValuedVars = sym.Zhat.Select(v => bin[v.name]).ToList();
+                if (zhatValuedVars.Count > 0)
+                    objective = objective + LinearExpression.Sum(zhatValuedVars) * (-mu * delta);
+                // T5: tie-break that prefers executing now among equally valued solutions. sym.Qhat
+                // is guaranteed non-empty by the early return above, but guard anyway for consistency.
+                var qbTieVars = sym.Qhat.Select(v =>
+                    qb["q_" + v.skui.ID + "_" + v.order.ID + "_" + v.pod.ID + "_" + v.outputstation.ID]).ToList();
+                if (qbTieVars.Count > 0)
+                    objective = objective + LinearExpression.Sum(qbTieVars) * (-epsilon);
+                // T6: pod-tier draw pricing (rho), binding layer only - the tier preference is about
+                // which pod actually gets drained, and only bound (qb) draws have real-world effects.
+                // A unit bound from a Pp pod (processing right now, window closing) is rewarded -rho:
+                // skipping it means paying for a future trip to fetch that item later. A unit bound
+                // from a Pa pod (newly dispatched this decision) pays +rho: it genuinely costs an
+                // extra trip that a sunk pod's unit does not. Pq/Pb (queued/en route) draws stay free,
+                // matching the T1/T2 sunk-trip treatment of those same pods. false reproduces the flat
+                // (every draw free) behaviour bit-for-bit.
+                if (_m4gConfig.PodTierDrawPricingEnabled)
+                {
+                    HashSet<int> processingPodIds = BuildProcessingPodIds(snap);
+                    var newPodDraws = sym.Qhat.Where(v => snap.Pa.Contains(v.pod))
+                        .Select(v => qb["q_" + v.skui.ID + "_" + v.order.ID + "_" + v.pod.ID + "_" + v.outputstation.ID])
+                        .ToList();
+                    if (newPodDraws.Count > 0)
+                        objective = objective + LinearExpression.Sum(newPodDraws) * rho;
+                    var processingDraws = sym.Qhat.Where(v => processingPodIds.Contains(v.pod.ID))
+                        .Select(v => qb["q_" + v.skui.ID + "_" + v.order.ID + "_" + v.pod.ID + "_" + v.outputstation.ID])
+                        .ToList();
+                    if (processingDraws.Count > 0)
+                        objective = objective + LinearExpression.Sum(processingDraws) * (-rho);
+                }
             }
             wrapper.SetObjective(objective, OptimizationSense.Minimize);
 
@@ -930,7 +988,12 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             M4GResult result = SolveM4G(snap, lambdaK, lambda0, mu0, epsilon0, rho0, delta);
             double totalSolveSec = result.SolveSec;
             int dinkIters = 0;
-            if (result.HasSolution)
+            // LegacyObjective replaces the whole lambda-scaled value side with a fixed order
+            // reward (see SolveM4G), so there is no ratio left to linearise: Dinkelbach's
+            // re-solve-at-a-new-lambda loop is skipped entirely rather than iterating over a
+            // parameter the objective no longer uses. The single solve above (built at lambda0,
+            // which SolveM4G ignores in this mode) stands as the decision.
+            if (result.HasSolution && !_m4gConfig.LegacyObjective)
             {
                 for (int i = 0; i < _m4gConfig.DinkelbachIterations; i++)
                 {

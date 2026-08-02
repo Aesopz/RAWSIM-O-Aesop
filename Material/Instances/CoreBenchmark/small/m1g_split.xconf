@@ -131,7 +131,7 @@
     <DinkelbachIterations>5</DinkelbachIterations>
     <DinkelbachTolerance>0.5</DinkelbachTolerance>
     <ForbidSplitting>false</ForbidSplitting>
-    <LegacyObjective>false</LegacyObjective>
+    <LegacyObjective>true</LegacyObjective>
   </OrderBatchingConfig>
   <ReplenishmentBatchingConfig xsi:type="SamePodReplenishmentBatchingConfiguration">
     <Name />

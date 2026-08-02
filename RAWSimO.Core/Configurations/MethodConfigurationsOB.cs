@@ -1735,6 +1735,17 @@ namespace RAWSimO.Core.Configurations
         /// unrestricted model isolates the effect of splitting itself. false = current behaviour
         /// (M4G unit-level splitting, unrestricted).</summary>
         public bool ForbidSplitting = false;
+
+        /// <summary>Scores the solution with the legacy M1G objective - w1 * travel distance,
+        /// w2 * orders served (counted once per order, not per station), w3 * idle slots - instead
+        /// of the metre-denominated self-calibrated prices. The feasible region is untouched, so
+        /// splitting remains available; this arm exists to show what splitting is worth when the
+        /// objective does not price partial fulfilment. false = the self-calibrated objective.</summary>
+        public bool LegacyObjective = false;
+        /// <summary>Legacy w2, the per-order reward. Negative because the objective is minimised.</summary>
+        public double LegacyOrderReward = -40;
+        /// <summary>Legacy w3, the idle-slot weight.</summary>
+        public double LegacyIdleSlotWeight = 0;
     }
 
     #endregion
