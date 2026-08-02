@@ -1725,11 +1725,15 @@ namespace RAWSimO.Core.Configurations
         /// <summary>Convergence tolerance on the linearised objective value, in metres.</summary>
         public double DinkelbachTolerance = 0.5;
 
-        /// <summary>Restricts each order line to a single (pod, station) supplier, so an order's
-        /// demand for one SKU can never be met by combining pods or stations. Everything else -
-        /// prices, Dinkelbach iteration, the valuation/binding layers, EPR - is unchanged, so the
-        /// difference against the unrestricted model isolates the effect of splitting itself.
-        /// false = current behaviour.</summary>
+        /// <summary>Gives the model whole-order semantics - the assignment structure of the M1G
+        /// baseline - instead of M4G's unit-level splitting: every order is bound to at most one
+        /// station in a decision (mirrors M1G's yos/shi2) and is either fully satisfied this
+        /// decision or not served at all, with no partial fulfilment carried to a later decision
+        /// (mirrors M1G having no unit-level draw variable to split in the first place). No split
+        /// child can ever be created. Everything else - prices, Dinkelbach iteration, the
+        /// valuation/binding layers, EPR - is unchanged, so the difference against the
+        /// unrestricted model isolates the effect of splitting itself. false = current behaviour
+        /// (M4G unit-level splitting, unrestricted).</summary>
         public bool ForbidSplitting = false;
     }
 

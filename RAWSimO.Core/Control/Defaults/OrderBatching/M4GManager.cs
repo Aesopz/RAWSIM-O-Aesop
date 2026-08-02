@@ -413,37 +413,77 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     wrapper.AddConstr(bin["ch_" + order.ID + "_" + sku.Key.ID] >= bin["zh_" + order.ID], "V4");
                 }
 
-            // (V6, gated) ForbidSplitting: restricts each order line to a single (pod, station)
-            // supplier, so an order's demand for one SKU can never be met by combining pods or
-            // stations. This is additional to V2 (residual-demand bound) - V2 caps the QUANTITY
-            // drawn across all candidates, V6 restricts the SUPPLIER SET to exactly one candidate.
-            // g_<sku>_<order>_<pod>_<station> is a binary "this candidate supplies this line"
-            // indicator; it is added to the shared `bin` collection (already Binary 0..1) under a
-            // distinct "g_" prefix rather than threading a new VariableCollection through every
-            // caller - when the flag is off, no g variables are ever created, so the model (and
-            // the regression run) is unaffected.
+            // (V7/V8, gated) ForbidSplitting: gives the valuation layer whole-order semantics -
+            // the assignment structure of the M1G baseline - instead of the earlier per-line
+            // single-supplier restriction (V6, removed; see remarks below on why it is dropped
+            // rather than kept alongside V7/V8).
             //
-            // q inherits this restriction for free: B1 constrains qb <= qh (or qb == qh under
-            // DegenerateToBindingOnly) elementwise per (sku,order,pod,station), and V6a below
-            // forces qh to 0 for every candidate whose g is 0. Since V6b allows at most one g=1
-            // per (order,sku), qh - and therefore qb - can be nonzero for at most one supplier.
-            // No separate constraint on q is needed.
+            // M1G has no unit-level draw variable at all: an order is a single yos/yaos
+            // assignment to at most one station (M1GManager.cs "shi2": sum_s yos[o,s] <= 1), and
+            // once assigned the order's entire demand is serviced as a unit by the pick layer
+            // outside the MILP - there is no MILP-level notion of "half an order". M4G's model is
+            // unit-level by construction (qhat[o,i,p,s]), so reproducing that whole-order
+            // structure here needs two explicit constraints that M1G gets for free from not having
+            // a unit-level variable in the first place:
+            //
+            //   (V7) One station per order - yhat[o,s] mirrors M1G's yos[o,s]/shi2. A station's
+            //   aggregate draw for one SKU of an order is 0 unless that station is the order's
+            //   chosen one, and at most one station may be chosen.
+            //
+            //   (V8) All-or-nothing - for every SKU line, drawn units equal the FULL residual
+            //   exactly when the order is valued as complete (zhat=1), and are exactly 0
+            //   otherwise. This is the constraint M1G never needs, because it has no partial-draw
+            //   variable to constrain; here it is the one that actually stops a split child from
+            //   ever being created; the earlier per-line supplier restriction did not (WIP=50.8
+            //   with only that constraint in place).
+            //
+            // (V8g) A pending order can have a residual SKU with zero PiSKU coverage this
+            // decision (BuildSnapshot's PendingOrders filter only requires ANY line coverable,
+            // not ALL - by design, so the unrestricted model can still serve the coverable part).
+            // No qhat variable exists for an uncoverable line, so nothing above would otherwise
+            // stop the solver setting zhat=1 "for free" while that line silently goes unserved.
+            // Force zhat=0 for such orders so V8 correctly zeroes every other line's draws too -
+            // this order simply cannot be completed this decision, which is exactly what
+            // all-or-nothing means for it.
             if (_m4gConfig.ForbidSplitting)
             {
                 foreach (var order in snap.PendingOrders)
+                {
+                    bool fullyCoverable = order.RemainingPositions.All(p => snap.PiSKU.ContainsKey(p.Key));
+                    if (!fullyCoverable)
+                    {
+                        wrapper.AddConstr(bin["zh_" + order.ID] == 0, "V8g");
+                        continue;   // no candidate line can ever draw for this order this decision
+                    }
+
+                    var orderQhat = sym.Qhat.Where(v => v.order.ID == order.ID).ToList();
+                    if (orderQhat.Count == 0) continue;
+                    var yhVars = new List<Variable>();
+                    foreach (var station in orderQhat.Select(v => v.outputstation).Distinct())
+                    {
+                        string yhName = "yh_" + order.ID + "_" + station.ID;
+                        bool anyLineAtStation = false;
+                        foreach (var sku in snap.Residuals[order].Where(p => snap.PiSKU.ContainsKey(p.Key)))
+                        {
+                            var draws = sym.Qhat.Where(v => v.order.ID == order.ID && v.skui.ID == sku.Key.ID
+                                && v.outputstation.ID == station.ID).Select(v => qh[v.name]).ToList();
+                            if (draws.Count == 0) continue;
+                            anyLineAtStation = true;
+                            wrapper.AddConstr(LinearExpression.Sum(draws) <= sku.Value * bin[yhName], "V7a");
+                        }
+                        if (anyLineAtStation) yhVars.Add(bin[yhName]);
+                    }
+                    if (yhVars.Count > 0)
+                        wrapper.AddConstr(LinearExpression.Sum(yhVars) <= 1, "V7b");
+
                     foreach (var sku in snap.Residuals[order].Where(p => snap.PiSKU.ContainsKey(p.Key)))
                     {
-                        var candidates = sym.Qhat.Where(v => v.order.ID == order.ID && v.skui.ID == sku.Key.ID).ToList();
-                        if (candidates.Count == 0) continue;
-                        var gVars = new List<Variable>();
-                        foreach (var v in candidates)
-                        {
-                            string gName = "g_" + sku.Key.ID + "_" + order.ID + "_" + v.pod.ID + "_" + v.outputstation.ID;
-                            wrapper.AddConstr(qh[v.name] <= sku.Value * bin[gName], "V6a");
-                            gVars.Add(bin[gName]);
-                        }
-                        wrapper.AddConstr(LinearExpression.Sum(gVars) <= 1, "V6b");
+                        var draws = sym.Qhat.Where(v => v.order.ID == order.ID && v.skui.ID == sku.Key.ID)
+                            .Select(v => qh[v.name]).ToList();
+                        if (draws.Count == 0) continue;
+                        wrapper.AddConstr(LinearExpression.Sum(draws) == sku.Value * bin["zh_" + order.ID], "V8");
                     }
+                }
             }
 
             // (V2a) Pa draws (newly dispatched storage pods) are valued, in aggregate per SKU,
@@ -684,6 +724,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             foreach (var order in snap.PendingOrders)
             {
                 int totalResidual = snap.Residuals[order].Values.Sum();
+                var boundStationVars = new List<Variable>();
                 foreach (var station in snap.Cs.Keys)
                 {
                     var draws = sym.Qhat.Where(v => v.order.ID == order.ID && v.outputstation.ID == station.ID)
@@ -695,7 +736,13 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     wrapper.AddConstr(LinearExpression.Sum(draws) <= totalResidual * bin[yName], "B2");
                     // (B4) no empty binding
                     wrapper.AddConstr(bin[yName] <= LinearExpression.Sum(draws), "B4");
+                    boundStationVars.Add(bin[yName]);
                 }
+                // (B8, gated) One station per order in the binding layer too - the same shi2
+                // mirror as V7, applied to y[o,s] (already the binding layer's order-station
+                // indicator, unlike the valuation layer which needed a new yhat).
+                if (_m4gConfig.ForbidSplitting && boundStationVars.Count > 0)
+                    wrapper.AddConstr(LinearExpression.Sum(boundStationVars) <= 1, "B8");
                 foreach (var sku in snap.Residuals[order].Where(p => snap.PiSKU.ContainsKey(p.Key)))
                 {
                     var skuDraws = sym.Qhat.Where(v => v.order.ID == order.ID && v.skui.ID == sku.Key.ID)
@@ -711,6 +758,16 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     wrapper.AddConstr(LinearExpression.Sum(skuDraws) >= sku.Value * bin[cName], "B5");
                     // (B6) binding closures are a subset of valued closures
                     wrapper.AddConstr(bin[cName] <= bin["ch_" + order.ID + "_" + sku.Key.ID], "B6c");
+                    // (B9, gated) All-or-nothing in the binding layer: even though V8 already
+                    // forces the valuation layer to draw a full order or nothing, B1 (qb <= qh)
+                    // still lets the binding layer take only PART of a valued order's draws when
+                    // station slot capacity is tight this tick - which would silently create a
+                    // split child despite V8. This equality closes that gap: bound draws equal
+                    // the full residual exactly when the order is bound-complete (z=1, mirroring
+                    // zhat in V8), 0 otherwise - so under slot pressure the order is deferred
+                    // whole, never partially committed.
+                    if (_m4gConfig.ForbidSplitting)
+                        wrapper.AddConstr(LinearExpression.Sum(skuDraws) == sku.Value * bin["z_" + order.ID], "B9");
                     // (B7) a bound completion needs every line bound-closed
                     wrapper.AddConstr(bin[cName] >= bin["z_" + order.ID], "B7");
                 }
