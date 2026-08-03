@@ -122,6 +122,8 @@
     <ValuationOrderLimit>0</ValuationOrderLimit>
     <PodCreditCapEnabled>false</PodCreditCapEnabled>
     <PodTierDrawPricingEnabled>true</PodTierDrawPricingEnabled>
+    <MipGap>0.01</MipGap>
+    <DecisionWorkLimit>1</DecisionWorkLimit>
     <IncrementalValuationEnabled>true</IncrementalValuationEnabled>
     <SplitOnlyAtPresentPods>false</SplitOnlyAtPresentPods>
     <SplitMarginalProbeEnabled>false</SplitMarginalProbeEnabled>
@@ -130,9 +132,8 @@
     <ReleaseParentOnFirstSplit>true</ReleaseParentOnFirstSplit>
     <DinkelbachIterations>5</DinkelbachIterations>
     <DinkelbachTolerance>0.5</DinkelbachTolerance>
-    <ForbidSplitting>false</ForbidSplitting>
-    <LegacyObjective>true</LegacyObjective>
-    <LegacyIdleSlotWeight>1000</LegacyIdleSlotWeight>
+    <ForbidSplitting>true</ForbidSplitting>
+    <TightWholeOrder>true</TightWholeOrder>
   </OrderBatchingConfig>
   <ReplenishmentBatchingConfig xsi:type="SamePodReplenishmentBatchingConfiguration">
     <Name />

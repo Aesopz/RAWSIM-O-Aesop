@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ControlConfiguration xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <Name>m1g</Name>
+  <Name>hgs_m5</Name>
   <PathPlanningConfig xsi:type="WHCAnStarPathPlanningConfiguration">
     <Name />
     <AutoSetParameter>false</AutoSetParameter>
@@ -102,7 +102,7 @@
   <RepositioningConfig xsi:type="DummyRepositioningConfiguration">
     <Name />
   </RepositioningConfig>
-  <OrderBatchingConfig xsi:type="M4GConfiguration">
+  <OrderBatchingConfig xsi:type="GreedyM5Configuration">
     <Name />
     <TieBreaker>EarliestDueTime</TieBreaker>
     <FastLane>true</FastLane>
@@ -118,21 +118,8 @@
     <LinesPerOrderFallback>2.4</LinesPerOrderFallback>
     <LambdaFixed>0</LambdaFixed>
     <DeltaFixed>0</DeltaFixed>
-    <DegenerateToBindingOnly>false</DegenerateToBindingOnly>
-    <ValuationOrderLimit>0</ValuationOrderLimit>
-    <PodCreditCapEnabled>false</PodCreditCapEnabled>
-    <PodTierDrawPricingEnabled>true</PodTierDrawPricingEnabled>
-    <IncrementalValuationEnabled>true</IncrementalValuationEnabled>
-    <SplitOnlyAtPresentPods>false</SplitOnlyAtPresentPods>
-    <SplitMarginalProbeEnabled>false</SplitMarginalProbeEnabled>
-    <SplitMarginalProbeEveryNDecisions>50</SplitMarginalProbeEveryNDecisions>
-    <SplitMarginalProbeTimeLimitSec>10</SplitMarginalProbeTimeLimitSec>
     <ReleaseParentOnFirstSplit>true</ReleaseParentOnFirstSplit>
-    <DinkelbachIterations>5</DinkelbachIterations>
-    <DinkelbachTolerance>0.5</DinkelbachTolerance>
-    <ForbidSplitting>false</ForbidSplitting>
-    <LegacyObjective>true</LegacyObjective>
-    <LegacyIdleSlotWeight>1000</LegacyIdleSlotWeight>
+    <CandidatePodTopK>20</CandidatePodTopK>
   </OrderBatchingConfig>
   <ReplenishmentBatchingConfig xsi:type="SamePodReplenishmentBatchingConfiguration">
     <Name />

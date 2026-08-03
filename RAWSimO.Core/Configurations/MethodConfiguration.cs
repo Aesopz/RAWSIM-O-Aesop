@@ -367,6 +367,14 @@ namespace RAWSimO.Core.Configurations
         /// floor, lead-time gate, or hand-tuned weight.
         /// </summary>
         GreedyM4G,
+        /// <summary>
+        /// HGS-M5: the marginal-line greedy. Constructs a solution inside M4G's own solution
+        /// space one move at a time - take a line to its full residual, or dispatch a pod -
+        /// always accepting the move with the most negative marginal objective. Unlike
+        /// GreedyM4G it can commit PARTIAL coverage, so cross-period splitting is available to
+        /// it, and every solution it builds is feasible for the M4G MILP.
+        /// </summary>
+        GreedyM5,
     }
     /// <summary>
     /// All types of implemented replenishment batching strategies.
@@ -806,6 +814,7 @@ namespace RAWSimO.Core.Configurations
     [XmlInclude(typeof(SplitM2eICConfiguration))]
     [XmlInclude(typeof(M4GConfiguration))]
     [XmlInclude(typeof(GreedyM4GConfiguration))]
+    [XmlInclude(typeof(GreedyM5Configuration))]
     public abstract class OrderBatchingConfiguration : ControllerConfigurationBase
     {
         /// <summary>

@@ -1636,6 +1636,71 @@ namespace RAWSimO.Core.Configurations
     }
 
     /// <summary>
+    /// HGS-M5: the marginal-line greedy (spec 2026-08-03). Same price fields and same defaults as
+    /// GreedyM4GConfiguration, so the two greedy arms differ only in how a solution is CONSTRUCTED,
+    /// never in what a line or an order is worth.
+    ///
+    /// On delta: IM4GPrices requires DeltaScale / DeltaFallback / DeltaFixed and they are kept here
+    /// to satisfy the interface, but HGS-M5 never calls M4GPricing.Delta(). A constructive greedy
+    /// has no "valued but not bound" state - it binds exactly what it scores - so the
+    /// valuation/binding split that delta discounts does not exist, and the objective collapses to
+    /// -lambda per closed line and -mu per completed order. Leaving these inert is deliberate.
+    /// </summary>
+    public class GreedyM5Configuration : PVGSConfiguration, IM4GPrices
+    {
+        public override OrderBatchingMethodType GetMethodType() { return OrderBatchingMethodType.GreedyM5; }
+        public override string GetMethodName() { if (!string.IsNullOrWhiteSpace(Name)) return Name; return "OBGREEDYM5"; }
+
+        // ── Price calibration, identical field set and defaults to GreedyM4GConfiguration. ──
+        public double LambdaScale { get; set; } = 1.0;
+        public double MuScale { get; set; } = 1.0;
+        public double DeltaScale { get; set; } = 1.0;
+        public double EpsilonScale { get; set; } = 0.001;
+        public int WarmupLines { get; set; } = 50;
+        public double LambdaFallback { get; set; } = 10.0;
+        public double DeltaFallback { get; set; } = 0.05;
+        public double LinesPerOrderFallback { get; set; } = 2.4;
+        public double LambdaFixed { get; set; } = 0;
+        public double DeltaFixed { get; set; } = 0;
+        public double RhoFallback { get; set; } = 15.0;
+
+        /// <summary>Mirrors M4GConfiguration.IncrementalValuationEnabled: cap draws from pods
+        /// fetched this epoch at the residual demand that already-committed inbound stock cannot
+        /// cover. In M4G this is constraint V2a, which bounds the valuation layer and therefore -
+        /// through B1's qb &lt;= qh - the binding layer too, so a greedy that omits it would be
+        /// searching a LARGER feasible set than the exact model it is measured against.</summary>
+        public bool IncrementalValuationEnabled = true;
+        /// <summary>Outer lambda iteration, the greedy counterpart of M4G's Dinkelbach loop:
+        /// rebuild the whole epoch at lambda = D*/V* of the previous build and repeat. A greedy
+        /// epoch costs microseconds, so this is nearly free. 0 = single build at the historical
+        /// lambda.</summary>
+        public int LambdaIterations = 5;
+        /// <summary>Stops the outer lambda iteration once |objective| falls below this.</summary>
+        public double LambdaTolerance = 0.5;
+        /// <summary>(Fill fairness) Mirrors M4G's EPR - release the parent's Fill slot on its first
+        /// split. Inert in Fixed order mode.</summary>
+        public bool ReleaseParentOnFirstSplit = true;
+
+        /// <summary>
+        /// Screens the Pa candidate pods down to the K most promising before the expensive
+        /// per-pod trial, which is the planner's O(|Pa|) term and the only thing standing between
+        /// this heuristic and a workable large-instance cost. Pods are ranked by a cheap
+        /// optimistic score - dispatch travel minus lambda*(1+delta) per order line the pod would
+        /// newly make coverable - and the survivors are then evaluated in full, in their original
+        /// enumeration order so tie-breaking among them is unchanged.
+        ///
+        /// This is the ONE deliberate approximation in HGS-M5: with a cap, the greedy no longer
+        /// searches the same candidate set as M4G, so "the only difference is exact vs greedy"
+        /// becomes "exact vs greedy plus candidate truncation". Feasibility - and hence
+        /// obj(HGS-M5) &gt;= obj(M4G) - is untouched, since dropping candidates can only make the
+        /// constructed solution worse, never infeasible.
+        ///
+        /// 0 (default) = no cap, every Pa pod fully evaluated: the strictly-aligned reference.
+        /// </summary>
+        public int CandidatePodTopK = 0;
+    }
+
+    /// <summary>
     /// M4G: unit-level order splitting with the M1G valuation/binding layer separation
     /// restored. Inherits M1GConfiguration so every engine-side `is M1GConfiguration`
     /// type check passes without touching any engine file.
@@ -1690,6 +1755,66 @@ namespace RAWSimO.Core.Configurations
         /// dispatched storage pods pay rho per unit. rho is measured, not tuned. false = no tier
         /// pricing, reproducing the flat behaviour where every draw is free.</summary>
         public bool PodTierDrawPricingEnabled = true;
+        /// <summary>Prices due dates instead of gating on them. lambda and mu are scaled per order
+        /// by (1 + u_o), where u_o = clamp(1 - Timestay_o / Tbar, 0, 1), Timestay is M1G's remaining
+        /// slack (DueTime minus the time already elapsed since the order was placed, defined exactly
+        /// as in M1GManager.GenerateOd) and Tbar is the running mean order turnover time - a measured
+        /// quantity like every other M4G price, not a tuned constant. The mechanism is inert until at
+        /// least one order has completed (Tbar undefined) and inert for every order whose remaining
+        /// slack still exceeds Tbar, which mirrors M1G's Od gate: that too does nothing until orders
+        /// are genuinely close to their due date. The cap at u_o = 1 (a factor of at most 2) is a
+        /// structural choice, not a tuned one - it stops a single already-hopeless order from
+        /// monopolising the objective. Since the factor does not depend on lambda, the whole value
+        /// side still scales linearly with lambda and the Dinkelbach linearisation is unaffected.
+        /// false reproduces the urgency-blind objective bit-for-bit.</summary>
+        public bool DueDatePricingEnabled = false;
+        /// <summary>Prices work in progress - orders left half-served. Existing WIP is a state, not a
+        /// decision, so charging for it directly would be a constant the solver cannot act on; the
+        /// charge is therefore split into the two levers the model does control. An order that already
+        /// carries WIP is charged kappa unless it completes, which after dropping the constant is an
+        /// extra completion bonus of kappa (clear what is already half-done); an order with no WIP that
+        /// receives bound draws without completing pays kappa (do not start what you will not finish).
+        /// Same kappa on both sides, so the two are one mechanism, not two knobs. kappa scales with
+        /// lambda, so the value side stays proportional to lambda and Dinkelbach is unaffected.
+        /// false reproduces the WIP-blind objective bit-for-bit.</summary>
+        public bool WipHoldingEnabled = false;
+        /// <summary>Relative MIP optimality gap for this model's solves. Negative leaves Gurobi's
+        /// default (1e-4), which is what every published M4G result was produced with. Set to 0 to
+        /// solve to proven optimality - required before M4G can be described as an upper-bound
+        /// reference whose distance from a heuristic is reported, since a 1e-4 gap means the
+        /// "optimum" it returns is merely near-optimal.</summary>
+        public double MipGap = -1.0;
+
+        /// <summary>
+        /// Per-decision wall-clock budget for the solver, in seconds. On expiry Gurobi returns its
+        /// best incumbent; "do nothing" is always feasible here, so a solution always exists.
+        ///
+        /// This is a statement about the PROBLEM, not a workaround: an online controller that must
+        /// answer every few simulated seconds does not get unbounded solve time, and the
+        /// no-splitting arm's solve time was measured diverging (1.06 -> 151.7 s per decision as
+        /// the backlog grew) on the fixed_fill1350 workload while the splitting arm stayed flat
+        /// (0.31 -> 0.15 s). Giving every arm the SAME budget turns solve tractability from an
+        /// uncontrolled variable into a controlled one, and lets the divergence be reported as
+        /// "worse solutions under an equal budget" rather than "did not finish".
+        ///
+        /// Negative (default) = unbounded, i.e. the historical behaviour.
+        /// </summary>
+        public double DecisionTimeLimitSec = -1.0;
+
+        /// <summary>
+        /// Deterministic per-decision effort budget in Gurobi work units. Preferred over
+        /// <see cref="DecisionTimeLimitSec"/> for anything that goes in the thesis: a wall-clock
+        /// cap makes the simulation's outcome depend on machine load, so the same config would not
+        /// reproduce, whereas a work cap truncates the search identically on every run. Both may be
+        /// set; whichever binds first stops the solve. Negative (default) = unbounded.
+        /// Note this is per Optimize() call, and the Dinkelbach loop solves several times per
+        /// decision, so the per-decision ceiling is this value times the iteration count.
+        /// </summary>
+        public double DecisionWorkLimit = -1.0;
+        /// <summary>kappa = WipHoldingScale * lambda. 1.0 means "leaving an order open costs what one
+        /// closed line is worth" - a structural choice of scale, in the same spirit as EpsilonScale,
+        /// not a fitted value. Exposed so the dose can be probed without recompiling.</summary>
+        public double WipHoldingScale = 1.0;
         /// <summary>Values newly dispatched storage pods only against demand that pods already
         /// committed to a station cannot supply, so the same demand does not justify fetching a
         /// fresh pod on every consecutive decision. false = value every pod against the raw
@@ -1735,6 +1860,70 @@ namespace RAWSimO.Core.Configurations
         /// unrestricted model isolates the effect of splitting itself. false = current behaviour
         /// (M4G unit-level splitting, unrestricted).</summary>
         public bool ForbidSplitting = false;
+
+        /// <summary>Coarsens the splitting atom from the UNIT to the LINE. Unrestricted M4G decides
+        /// q[o,i,p,s] per unit, so one order line (o,i) may be served partly at one station and
+        /// partly at another, or partly now and the rest in a later decision. With this on, every
+        /// line is drawn to its FULL residual at exactly ONE station in a single decision, or not
+        /// drawn at all - which is precisely HGS-M5's solution space. Order-level splitting is
+        /// untouched: different lines of the same order may still go to different stations
+        /// (cross-station) and undrawn lines still carry to later decisions (cross-period). Pods
+        /// stay free, so several pods at the same station may jointly supply one line, exactly as
+        /// M5's CommitParts does. Weaker than <see cref="ForbidSplitting"/>, which removes
+        /// splitting entirely; this arm isolates what the unit-level atom is worth on top of the
+        /// line-level one. false = current behaviour (unit-level, unrestricted).</summary>
+        public bool LineAtomicSplitting = false;
+
+        /// <summary>
+        /// Rewrites <see cref="ForbidSplitting"/>'s all-or-nothing condition in its tight,
+        /// big-M-free form. The original states it as a big-M cap per station (B2:
+        /// sum draws &lt;= totalResidual * y[o,s]) plus a separate order-level equality (B9:
+        /// sum draws == d * z_o); the LP relaxation of that pair is very loose - y can sit at a
+        /// small fraction while paying for a full draw - so branch-and-bound has to search its way
+        /// to integrality. The tight form pins the draw directly to the station indicator, per line
+        /// and per station:
+        ///
+        ///     sum_p qb[o,i,p,s] == d[o,i] * y[o,s]  ,  sum_s y[o,s] &lt;= 1  ,  z_o == sum_s y[o,s]
+        ///
+        /// The set of INTEGER-feasible solutions is identical - an order is still served whole at
+        /// one station or not at all - so this is a reformulation, not a model change. Only the
+        /// relaxation (and hence solve time) differs. Degenerate ties may be broken differently,
+        /// which is why it is gated rather than applied unconditionally.
+        /// Requires ForbidSplitting; inert on its own.
+        /// </summary>
+        public bool TightWholeOrder = false;
+
+        /// <summary>
+        /// CORRECTNESS FIX (default on). Stops the objective paying the completion reward mu for
+        /// orders it cannot actually complete.
+        ///
+        /// BuildSnapshot admits an order when ANY of its residual lines has stock this decision
+        /// (`.Any`), but the c/z constraints B5/B7 - and the ch/zh symbols themselves - only range
+        /// over lines that survive the PiSKU filter. A residual line with no pod coverage this
+        /// decision therefore has no c variable and constrains nothing, so the solver may set
+        /// z_o = 1 and collect -mu while that line goes unserved. Measured on
+        /// small/2h/o100/seed 0 (K=10): 826 z=1 events against 569 orders that actually completed,
+        /// out of only 672 orders that ever existed - at least 154 double-counts. HGS-M5 has no
+        /// such hole (its completion test walks the FULL residual), which is the leading
+        /// explanation for the greedy out-completing the exact model at equal policy.
+        ///
+        /// The fix forces zh_o = 0 (and hence z_o = 0 through B6z) whenever any residual line is
+        /// uncoverable this decision. Splitting is untouched - partial draws remain legal, they
+        /// simply stop earning a completion reward, which is what mu (metres per COMPLETED order)
+        /// always meant. Note the price calibration was already honest: RegisterCompletedOrders is
+        /// fed a residual-coverage test over all lines, so only the objective's incentive was wrong.
+        ///
+        /// Set false to reproduce results generated before 2026-08-04.
+        /// </summary>
+        public bool HonestCompletionReward = true;
+
+        /// <summary>
+        /// Caps the Pa dispatch-candidate set at the K best-scoring pods, using the same optimistic
+        /// score as GreedyM5Configuration.CandidatePodTopK. Exists so M4G and HGS-M5 can be
+        /// compared at EQUAL POLICY - see M4GManager.ScreenPaCandidates. 0 (default) = no cap,
+        /// canonical M4G.
+        /// </summary>
+        public int CandidatePodTopK = 0;
 
         /// <summary>Scores the solution with the legacy M1G objective - w1 * travel distance,
         /// w2 * orders served (counted once per order, not per station), w3 * idle slots - instead

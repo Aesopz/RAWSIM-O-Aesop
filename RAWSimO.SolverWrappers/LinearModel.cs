@@ -91,6 +91,55 @@ namespace RAWSimO.SolverWrappers
             _isBusy = false;
         }
 
+        /// <summary>
+        /// Sets the relative MIP optimality gap. Gurobi's default is 1e-4, which returns a
+        /// near-optimal solution: adequate for a controller, but not enough to call the result an
+        /// optimum. Pass 0 when the model is meant to be a reference/upper bound whose distance
+        /// from a heuristic is going to be reported. Not set globally - M1G and the other legacy
+        /// managers share this class and must keep their published behaviour.
+        /// </summary>
+        public void SetMipGap(double gap)
+        {
+            GurobiModel.GetEnv().Set(GRB.DoubleParam.MIPGap, gap);
+        }
+
+        /// <summary>
+        /// Caps the wall-clock time of each Optimize() call, in seconds. On expiry the solver
+        /// returns its best incumbent instead of proving optimality; callers must therefore accept
+        /// a possibly sub-optimal - but always feasible - solution. Used to give every online
+        /// decision the same budget regardless of how hard its model happens to be.
+        /// </summary>
+        public void SetTimeLimit(double seconds)
+        {
+            GurobiModel.GetEnv().Set(GRB.DoubleParam.TimeLimit, seconds);
+        }
+
+        /// <summary>
+        /// Deterministic analogue of <see cref="SetTimeLimit"/>: caps the solver's work units
+        /// rather than its wall-clock seconds. Preferred for experiments, because a wall-clock cap
+        /// makes results depend on machine load - the same config would not reproduce - whereas a
+        /// work cap truncates the search at exactly the same point on every run. Roughly, one work
+        /// unit is about a second on a reference core, but the mapping is machine-independent by
+        /// construction.
+        /// </summary>
+        public void SetWorkLimit(double workUnits)
+        {
+            GurobiModel.GetEnv().Set(GRB.DoubleParam.WorkLimit, workUnits);
+        }
+
+        /// <summary>
+        /// Discards any solution information from a previous Optimize() while leaving the model
+        /// itself - variables, constraints and their order - untouched. Needed when the same model
+        /// is re-solved under a different objective and the second solve must not warm-start from
+        /// the first: warm starting is free to return a different member of an equally optimal
+        /// set, which silently changes the decision. After Reset the solve begins from the same
+        /// state a freshly constructed, never-optimised model would.
+        /// </summary>
+        public void Reset()
+        {
+            GurobiModel.Reset();
+        }
+
         public void Abort()
         {
             GurobiModel.Terminate();

@@ -131,8 +131,8 @@
     <DinkelbachIterations>5</DinkelbachIterations>
     <DinkelbachTolerance>0.5</DinkelbachTolerance>
     <ForbidSplitting>false</ForbidSplitting>
-    <LegacyObjective>true</LegacyObjective>
-    <LegacyIdleSlotWeight>1000</LegacyIdleSlotWeight>
+    <CandidatePodTopK>20</CandidatePodTopK>
+    <LegacyObjective>false</LegacyObjective>
   </OrderBatchingConfig>
   <ReplenishmentBatchingConfig xsi:type="SamePodReplenishmentBatchingConfiguration">
     <Name />

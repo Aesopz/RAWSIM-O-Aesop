@@ -109,7 +109,7 @@
     <LateBeforeMatch>false</LateBeforeMatch>
     <FastLaneTieBreaker>EarliestDueTime</FastLaneTieBreaker>
     <LambdaScale>1</LambdaScale>
-    <MuScale>1</MuScale>
+    <MuScale>4</MuScale>
     <DeltaScale>1</DeltaScale>
     <EpsilonScale>0.001</EpsilonScale>
     <WarmupLines>50</WarmupLines>
@@ -131,8 +131,7 @@
     <DinkelbachIterations>5</DinkelbachIterations>
     <DinkelbachTolerance>0.5</DinkelbachTolerance>
     <ForbidSplitting>false</ForbidSplitting>
-    <LegacyObjective>true</LegacyObjective>
-    <LegacyIdleSlotWeight>1000</LegacyIdleSlotWeight>
+    <LegacyObjective>false</LegacyObjective>
   </OrderBatchingConfig>
   <ReplenishmentBatchingConfig xsi:type="SamePodReplenishmentBatchingConfiguration">
     <Name />

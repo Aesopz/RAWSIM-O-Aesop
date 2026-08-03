@@ -66,7 +66,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             _decisionLog.WriteLine("decision,time,solved,pendingOrders,stationsWithCap,podsPa,podsPb,botsRa,"
                 + "lambda,mu,delta,epsilon,valuedLines,boundLines,valuedOrders,boundOrders,newTrips,boundUnits,"
                 + "objective,solveSec,qmax,rho,unitsFromSunk,unitsFromNew,inboundCoverUnits,"
-                + "splitsDeferred,splitsCommitted,wipOrders,wipUnits,dinkIters,lambdaStart,lambdaEnd");
+                + "splitsDeferred,splitsCommitted,wipOrders,wipUnits,dinkIters,lambdaStart,lambdaEnd,"
+                + "tbar,urgentOrders");
         }
 
         /// <summary>
@@ -113,7 +114,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 qmax.ToString(), rho.ToString(), unitsFromSunk.ToString(), unitsFromNew.ToString(),
                 inboundCoverUnits.ToString(), splitsDeferred.ToString(), splitsCommitted.ToString(),
                 wipOrders.ToString(), wipUnits.ToString(), dinkIters.ToString(), lambdaStart.ToString(),
-                lambdaEnd.ToString() }));
+                lambdaEnd.ToString(), _lastTbar.ToString(), _lastUrgentOrders.ToString() }));
         }
 
         /// <summary>TEMP DIAGNOSTIC (fill-mode deadlock investigation, remove before merge).</summary>
@@ -177,6 +178,21 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             public Dictionary<ItemDescription, List<Pod>> PiSKU = new Dictionary<ItemDescription, List<Pod>>();
             /// <summary>All pods in the model = Pa union Pb.</summary>
             public HashSet<Pod> AllPods = new HashSet<Pod>();
+            /// <summary>Per-order urgency multiplier on lambda/mu, in [1, 2]. Empty (and read as 1)
+            /// unless DueDatePricingEnabled - see <see cref="M4GConfiguration.DueDatePricingEnabled"/>.</summary>
+            public Dictionary<Order, double> Urgency = new Dictionary<Order, double>();
+            /// <summary>Pending orders that already carry work in progress entering this decision
+            /// (split parents not yet fully claimed) - the same predicate CountWip uses. Populated
+            /// only when WipHoldingEnabled.</summary>
+            public HashSet<Order> WipOrders = new HashSet<Order>();
+        }
+
+        /// <summary>Urgency multiplier for one order; 1 when due-date pricing is off or the order
+        /// still has more slack than the mean turnover time.</summary>
+        private static double UrgencyOf(M4GSnapshot snap, Order order)
+        {
+            double f;
+            return snap.Urgency.TryGetValue(order, out f) ? f : 1.0;
         }
 
         /// <summary>
@@ -240,6 +256,14 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // TEMP DIAGNOSTIC (fill-mode deadlock investigation, remove before merge).
             WriteBotDiag(bot => snap.Ra.Contains(bot));
 
+            // MUST run before GeneratePiSKU: everything downstream is derived from AllPods, and
+            // AddValuationConstraints' `if (draws.Count == 0) continue` guards rely on the
+            // invariant that every SKU surviving the PiSKU filter has at least one pod. Pruning
+            // pods afterwards breaks that invariant, and the solver then sets ch/zh (and through
+            // B7, z) for free on lines with no draw variable at all - which in testing bound 12
+            // orders while dispatching zero pods and deadlocked the run on the first decision.
+            ScreenPaCandidates(snap, candidates);
+
             snap.PiSKU = GeneratePiSKU(snap.AllPods);
             snap.PendingOrders = new HashSet<Order>(candidates.Where(o =>
                 o.RemainingPositions.Any(p => snap.PiSKU.ContainsKey(p.Key))));
@@ -250,10 +274,159 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     .OrderBy(o => o.DueTime).ThenBy(o => o.ID)
                     .Take(_m4gConfig.ValuationOrderLimit));
 
+            // Due-date pricing (spec: urgency term). Timestay is copied verbatim from
+            // M1GManager.GenerateOd so the two models measure urgency by the same quantity; Tbar
+            // is the running mean order turnover time, read straight off the instance's own
+            // statistics rather than re-derived, so it stays a measured value and adds no
+            // bookkeeping. Both guards below make the term inert rather than approximate: no
+            // completed order yet means no Tbar to normalise against, and slack above Tbar means
+            // the order is not at risk. See DueDatePricingEnabled for why the cap is structural.
+            _lastTbar = 0.0;
+            _lastUrgentOrders = 0;
+            if (_m4gConfig.DueDatePricingEnabled)
+            {
+                double tbar = Instance._statOrderTurnoverTimes.Count > 0
+                    ? Instance._statOrderTurnoverTimes.Average() : 0.0;
+                _lastTbar = tbar;
+                if (tbar > 0.0)
+                {
+                    DateTime now = Instance.SettingConfig.StartTime
+                        .AddSeconds(Convert.ToInt32(Instance.Controller.CurrentTime));
+                    foreach (var order in snap.PendingOrders)
+                    {
+                        double timestay = order.DueTime - (now - order.TimePlaced).TotalSeconds;
+                        double u = 1.0 - timestay / tbar;
+                        if (u > 1.0) u = 1.0;
+                        if (u < 0.0) u = 0.0;
+                        if (u > 0.0) _lastUrgentOrders++;
+                        snap.Urgency[order] = 1.0 + u;
+                    }
+                }
+            }
+
+            // WIP entering this decision. Same predicate as CountWip so the decision log's wipOrders
+            // column and the priced set can never disagree.
+            if (_m4gConfig.WipHoldingEnabled)
+                foreach (var order in snap.PendingOrders)
+                    if (order.IsSplitParent && !order.IsFullyClaimed)
+                        snap.WipOrders.Add(order);
+
             snap.Residuals = snap.PendingOrders.ToDictionary(
                 o => o, o => o.RemainingPositions.ToDictionary(p => p.Key, p => p.Value));
             return snap;
         }
+
+        /// <summary>
+        /// (CandidatePodTopK, gated) Keeps only the K most promising Pa pods, ranked by the SAME
+        /// optimistic score GreedyM5Manager.ScreenCandidates uses: dispatch travel minus
+        /// lambda*(1+delta) per order line the pod would newly make coverable at a station with a
+        /// free slot.
+        ///
+        /// This exists to settle a fairness question, not to make M4G faster. HGS-M5 with a
+        /// candidate cap measured BETTER end-of-run energy than unrestricted M4G, which would be
+        /// backwards if the cap were purely a compute shortcut. The hypothesis is that truncation
+        /// is a POLICY change - it hides marginal dispatches that price out as barely worth taking
+        /// but cost a whole pod trip - in which case giving M4G the same truncation should move it
+        /// the same way and restore "exact is never worse than greedy at equal policy". Running
+        /// both models under the same cap is the only way to compare them at equal policy.
+        ///
+        /// 0 (default) = no cap; canonical M4G sees every Pa pod, exactly as before.
+        /// </summary>
+        private void ScreenPaCandidates(M4GSnapshot snap, HashSet<Order> candidates)
+        {
+            int k = _m4gConfig.CandidatePodTopK;
+            if (k <= 0 || snap.Pa.Count <= k) return;
+            if (snap.Ra.Count == 0) return;
+
+            double cumDist = Instance.StatOverallDistanceTraveled;
+            double lambda = _pricing.Lambda(cumDist);
+            double lineValue = lambda * (1.0 + _pricing.Delta());
+
+            // Station stock already committed there (Pb pods at or inbound to the station), the
+            // counterpart of HGS-M5's PerStationAvail at epoch start.
+            var stations = snap.Cs.Keys.OrderBy(s => s.ID).ToList();
+            var stationStock = new List<Dictionary<ItemDescription, int>>();
+            foreach (var station in stations)
+            {
+                var agg = new Dictionary<ItemDescription, int>();
+                HashSet<Pod> inbound;
+                if (snap.InboundPods.TryGetValue(station, out inbound))
+                    foreach (var pod in inbound)
+                        foreach (var sku in pod.ItemDescriptionsContained)
+                        {
+                            int a = pod.CountAvailable(sku);
+                            if (a <= 0) continue;
+                            int cur;
+                            agg[sku] = (agg.TryGetValue(sku, out cur) ? cur : 0) + a;
+                        }
+                stationStock.Add(agg);
+            }
+
+            // SKU -> (order, residual units) demanding it, so the newly-coverable count is an index
+            // lookup. Built from `candidates` - the pre-PiSKU admitted set - because this runs
+            // before snap.PendingOrders/Residuals exist (see the ordering note at the call site).
+            var demandBySku = new Dictionary<ItemDescription, List<KeyValuePair<Order, int>>>();
+            foreach (var order in candidates)
+                foreach (var line in order.RemainingPositions)
+                {
+                    if (line.Value <= 0) continue;
+                    List<KeyValuePair<Order, int>> lst;
+                    if (!demandBySku.TryGetValue(line.Key, out lst))
+                        demandBySku[line.Key] = lst = new List<KeyValuePair<Order, int>>();
+                    lst.Add(new KeyValuePair<Order, int>(order, line.Value));
+                }
+
+            var scored = new List<KeyValuePair<Pod, double>>(snap.Pa.Count);
+            foreach (var pod in snap.Pa)
+            {
+                double dBot = double.PositiveInfinity;
+                foreach (var bot in snap.Ra)
+                {
+                    double d = M1GBotPodCost(bot, pod);
+                    if (d < dBot) dBot = d;
+                }
+                if (double.IsPositiveInfinity(dBot)) continue;
+
+                double best = double.PositiveInfinity;
+                for (int s = 0; s < stations.Count; s++)
+                {
+                    if (snap.Cs[stations[s]] <= 0) continue;
+                    double cost = dBot + M1GPodStationCost(pod, stations[s]);
+                    int newlyCoverable = 0;
+                    foreach (var sku in pod.ItemDescriptionsContained)
+                    {
+                        int have = pod.CountAvailable(sku);
+                        List<KeyValuePair<Order, int>> demanders;
+                        if (have <= 0 || !demandBySku.TryGetValue(sku, out demanders)) continue;
+                        int stock;
+                        stationStock[s].TryGetValue(sku, out stock);
+                        foreach (var d in demanders)
+                        {
+                            int need = d.Value;
+                            if (stock < need && stock + have >= need) newlyCoverable++;
+                        }
+                    }
+                    double score = cost - lineValue * newlyCoverable;
+                    if (score < best) best = score;
+                }
+                if (!double.IsPositiveInfinity(best))
+                    scored.Add(new KeyValuePair<Pod, double>(pod, best));
+            }
+            if (scored.Count <= k) return;
+
+            var keep = new HashSet<Pod>(scored.OrderBy(e => e.Value).ThenBy(e => e.Key.ID).Take(k).Select(e => e.Key));
+            foreach (var pod in snap.Pa.Where(p => !keep.Contains(p)).ToList())
+            {
+                snap.Pa.Remove(pod);
+                snap.AllPods.Remove(pod);
+            }
+        }
+
+        /// <summary>Mean order turnover time used to normalise urgency this decision (diagnostics
+        /// only; 0 when due-date pricing is off or no order has completed yet).</summary>
+        private double _lastTbar = 0.0;
+        /// <summary>Pending orders carrying a non-zero urgency boost this decision (diagnostics only).</summary>
+        private int _lastUrgentOrders = 0;
 
         /// <summary>Names of the symbols the model was built from, kept for decoding.</summary>
         private sealed class M4GSymbols
@@ -350,9 +523,59 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 }
         }
 
+        /// <summary>
+        /// Lookup tables over sym.Qhat, built once per solve. Every list preserves the order its
+        /// elements have in sym.Qhat, which is exactly the order the LINQ Where clauses these
+        /// replace produced - so constraints and objective terms are assembled from identical
+        /// sequences and the model handed to the solver is unchanged, term for term. This is
+        /// purely a complexity fix: each replaced scan was O(|Qhat|) and ran once per
+        /// (order, sku) and once per (order, station), which dominated model build time.
+        /// </summary>
+        private sealed class M4GQhatIndex
+        {
+            private static readonly List<Symbol> Empty = new List<Symbol>();
+            private readonly Dictionary<long, List<Symbol>> _byOrderSku = new Dictionary<long, List<Symbol>>();
+            private readonly Dictionary<long, List<Symbol>> _byOrderStation = new Dictionary<long, List<Symbol>>();
+            private readonly Dictionary<int, List<Symbol>> _byOrder = new Dictionary<int, List<Symbol>>();
+            private readonly Dictionary<int, List<Symbol>> _bySku = new Dictionary<int, List<Symbol>>();
+            private readonly Dictionary<int, List<Symbol>> _yrpByPod = new Dictionary<int, List<Symbol>>();
+
+            private static long Key(int a, int b) { return ((long)a << 32) | (uint)b; }
+
+            public M4GQhatIndex(M4GSymbols sym)
+            {
+                foreach (var v in sym.Qhat)
+                {
+                    Add(_byOrderSku, Key(v.order.ID, v.skui.ID), v);
+                    Add(_byOrderStation, Key(v.order.ID, v.outputstation.ID), v);
+                    Add(_byOrder, v.order.ID, v);
+                    Add(_bySku, v.skui.ID, v);
+                }
+                foreach (var y in sym.Yrp) Add(_yrpByPod, y.pod.ID, y);
+            }
+
+            private static void Add<TKey>(Dictionary<TKey, List<Symbol>> map, TKey key, Symbol v)
+            {
+                List<Symbol> list;
+                if (!map.TryGetValue(key, out list)) { list = new List<Symbol>(); map[key] = list; }
+                list.Add(v);
+            }
+            private static List<Symbol> Get<TKey>(Dictionary<TKey, List<Symbol>> map, TKey key)
+            {
+                List<Symbol> list;
+                return map.TryGetValue(key, out list) ? list : Empty;
+            }
+
+            public List<Symbol> ByOrderSku(int orderId, int skuId) { return Get(_byOrderSku, Key(orderId, skuId)); }
+            public List<Symbol> ByOrderStation(int orderId, int stationId) { return Get(_byOrderStation, Key(orderId, stationId)); }
+            public List<Symbol> ByOrder(int orderId) { return Get(_byOrder, orderId); }
+            public List<Symbol> BySku(int skuId) { return Get(_bySku, skuId); }
+            public List<Symbol> YrpByPod(int podId) { return Get(_yrpByPod, podId); }
+        }
+
         /// <summary>Adds the valuation-layer constraints V1-V4 (spec 3.4).</summary>
         private void AddValuationConstraints(LinearModel wrapper, M4GSnapshot snap, M4GSymbols sym,
-            VariableCollection<string> bin, VariableCollection<string> qh)
+            VariableCollection<string> bin, VariableCollection<string> qh, M4GQhatIndex idx)
         {
             // (V1) draws from a pod at a station are bounded by its stock and require dispatch
             foreach (var group in sym.Qhat.GroupBy(v => new { sku = v.skui.ID, pod = v.pod.ID, st = v.outputstation.ID }))
@@ -400,7 +623,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             foreach (var order in snap.PendingOrders)
                 foreach (var sku in snap.Residuals[order].Where(p => snap.PiSKU.ContainsKey(p.Key)))
                 {
-                    var draws = sym.Qhat.Where(v => v.order.ID == order.ID && v.skui.ID == sku.Key.ID)
+                    var draws = idx.ByOrderSku(order.ID, sku.Key.ID)
                         .Select(v => qh[v.name]).ToList();
                     // (V2) never draw more than the residual demand - this per-(order,sku) bound
                     // holds unconditionally (incremental valuation or not); it is what stops any
@@ -412,6 +635,17 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     // (V4) completing an order requires every one of its lines closed
                     wrapper.AddConstr(bin["ch_" + order.ID + "_" + sku.Key.ID] >= bin["zh_" + order.ID], "V4");
                 }
+
+            // (V4g) An order with a residual line that NO pod can cover this decision cannot be
+            // completed this decision, so it must not collect the completion reward. V4 above can
+            // only speak about lines that survived the PiSKU filter - an uncoverable line has no
+            // ch symbol at all - so without this the solver sets zhat=1 for free and, through the
+            // objective's -mu terms, is actively paid to prefer orders it cannot finish. z_o is
+            // covered too: B6z already pins z <= zh. See HonestCompletionReward.
+            if (_m4gConfig.HonestCompletionReward)
+                foreach (var order in snap.PendingOrders)
+                    if (!snap.Residuals[order].All(p => snap.PiSKU.ContainsKey(p.Key)))
+                        wrapper.AddConstr(bin["zh_" + order.ID] == 0, "V4g");
 
             // (V7/V8, gated) ForbidSplitting: gives the valuation layer whole-order semantics -
             // the assignment structure of the M1G baseline - instead of the earlier per-line
@@ -456,7 +690,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                         continue;   // no candidate line can ever draw for this order this decision
                     }
 
-                    var orderQhat = sym.Qhat.Where(v => v.order.ID == order.ID).ToList();
+                    var orderQhat = idx.ByOrder(order.ID);
                     if (orderQhat.Count == 0) continue;
                     var yhVars = new List<Variable>();
                     foreach (var station in orderQhat.Select(v => v.outputstation).Distinct())
@@ -465,25 +699,78 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                         bool anyLineAtStation = false;
                         foreach (var sku in snap.Residuals[order].Where(p => snap.PiSKU.ContainsKey(p.Key)))
                         {
-                            var draws = sym.Qhat.Where(v => v.order.ID == order.ID && v.skui.ID == sku.Key.ID
-                                && v.outputstation.ID == station.ID).Select(v => qh[v.name]).ToList();
+                            var draws = idx.ByOrderSku(order.ID, sku.Key.ID)
+                                .Where(v => v.outputstation.ID == station.ID)
+                                .Select(v => qh[v.name]).ToList();
                             if (draws.Count == 0) continue;
                             anyLineAtStation = true;
-                            wrapper.AddConstr(LinearExpression.Sum(draws) <= sku.Value * bin[yhName], "V7a");
+                            // (V7t, gated) Tight counterpart of B9t - equality instead of the
+                            // per-line cap, so a fractional yhat cannot carry a full valued draw.
+                            if (_m4gConfig.TightWholeOrder)
+                                wrapper.AddConstr(LinearExpression.Sum(draws) == sku.Value * bin[yhName], "V7t");
+                            else
+                                wrapper.AddConstr(LinearExpression.Sum(draws) <= sku.Value * bin[yhName], "V7a");
                         }
                         if (anyLineAtStation) yhVars.Add(bin[yhName]);
                     }
                     if (yhVars.Count > 0)
+                    {
                         wrapper.AddConstr(LinearExpression.Sum(yhVars) <= 1, "V7b");
+                        // (V8t) zhat is exactly "assigned to some station", the valuation-layer
+                        // twin of B8t. Replaces V8's separate per-line equality below.
+                        if (_m4gConfig.TightWholeOrder)
+                            wrapper.AddConstr(bin["zh_" + order.ID] == LinearExpression.Sum(yhVars), "V8t");
+                    }
 
                     foreach (var sku in snap.Residuals[order].Where(p => snap.PiSKU.ContainsKey(p.Key)))
                     {
-                        var draws = sym.Qhat.Where(v => v.order.ID == order.ID && v.skui.ID == sku.Key.ID)
+                        var draws = idx.ByOrderSku(order.ID, sku.Key.ID)
                             .Select(v => qh[v.name]).ToList();
                         if (draws.Count == 0) continue;
+                        if (_m4gConfig.TightWholeOrder) continue;   // implied by V7t + V8t
                         wrapper.AddConstr(LinearExpression.Sum(draws) == sku.Value * bin["zh_" + order.ID], "V8");
                     }
                 }
+            }
+
+            // (V9/V10, gated) LineAtomicSplitting: the valuation layer's atom becomes the LINE.
+            // wh[o,i,s] is "line (o,i) is valued as closed at station s".
+            //
+            //   (V9)  sum_p qhat[o,i,p,s] == d[o,i] * wh[o,i,s]
+            //         All-or-nothing PER STATION: a station either supplies the line's whole
+            //         residual or none of it. Pods stay free inside the sum, so several pods at
+            //         that station may jointly cover the line - the same freedom M5's
+            //         CommitParts has when it walks DrawOrder across the station's pods.
+            //   (V10) sum_s wh[o,i,s] == ch[o,i]
+            //         At most one station per line, and the line counts as valued-closed exactly
+            //         when some station took it. Equality (not <=) is what makes ch honest here:
+            //         V3 alone only forces ch=0 when the draw is short, it never stops the
+            //         solver drawing a full line and leaving ch=0 to dodge a price.
+            //
+            // Together these make every valued line either fully drawn at one station or absent,
+            // which is exactly ValuationSweep's rule in GreedyM5Manager (`have < line.Value` =>
+            // skip this station; `break` after the first station that fits).
+            if (_m4gConfig.LineAtomicSplitting)
+            {
+                foreach (var order in snap.PendingOrders)
+                    foreach (var sku in snap.Residuals[order].Where(p => snap.PiSKU.ContainsKey(p.Key)))
+                    {
+                        var lineQhat = idx.ByOrderSku(order.ID, sku.Key.ID);
+                        if (lineQhat.Count == 0) continue;
+                        var whVars = new List<Variable>();
+                        foreach (var station in lineQhat.Select(v => v.outputstation).Distinct())
+                        {
+                            var draws = lineQhat.Where(v => v.outputstation.ID == station.ID)
+                                .Select(v => qh[v.name]).ToList();
+                            if (draws.Count == 0) continue;
+                            string whName = "wh_" + order.ID + "_" + sku.Key.ID + "_" + station.ID;
+                            wrapper.AddConstr(LinearExpression.Sum(draws) == sku.Value * bin[whName], "V9");
+                            whVars.Add(bin[whName]);
+                        }
+                        if (whVars.Count > 0)
+                            wrapper.AddConstr(LinearExpression.Sum(whVars)
+                                == bin["ch_" + order.ID + "_" + sku.Key.ID], "V10");
+                    }
             }
 
             // (V2a) Pa draws (newly dispatched storage pods) are valued, in aggregate per SKU,
@@ -499,7 +786,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     double paBound = Math.Max(0.0, totalResidual - inbound);
                     _lastInboundCoverUnits += Math.Min(totalResidual, inbound);
 
-                    var paDraws = sym.Qhat.Where(v => v.skui.ID == skuId && snap.Pa.Contains(v.pod))
+                    var paDraws = idx.BySku(skuId).Where(v => snap.Pa.Contains(v.pod))
                         .Select(v => qh[v.name]).ToList();
                     if (paDraws.Count > 0)
                         wrapper.AddConstr(LinearExpression.Sum(paDraws) <= paBound, "V2a");
@@ -679,22 +966,50 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// <param name="epsilon0">epsilon evaluated at lambda0.</param>
         /// <param name="rho0">rho evaluated at lambda0.</param>
         /// <param name="delta">delta - lambda-independent, computed once per decision.</param>
-        private M4GResult SolveM4G(M4GSnapshot snap, double lambda, double lambda0, double mu0,
-            double epsilon0, double rho0, double delta)
+        /// <summary>
+        /// One decision's Gurobi model plus the symbol tables it was built from. Holds only the
+        /// lambda-INDEPENDENT part: every variable and every constraint (R, V and B series). None
+        /// of them reference lambda, mu, delta, rho or epsilon - only the objective does - so a
+        /// Dinkelbach iteration needs nothing but a fresh SetObjective on this same model, and the
+        /// constraint system it re-solves against is by construction the identical one.
+        /// </summary>
+        private sealed class M4GModel : IDisposable
         {
-            M4GResult result = new M4GResult();
-            M4GSymbols sym = BuildSymbols(snap);
-            if (sym.Qhat.Count == 0) return result;
+            public LinearModel Wrapper;
+            public M4GSymbols Sym;
+            public M4GQhatIndex Idx;
+            public VariableCollection<string> Bin;
+            public VariableCollection<string> Qh;
+            public VariableCollection<string> Qb;
+            /// <summary>Orders that acquired an "open_o" indicator (WIP holding, gated).</summary>
+            public List<int> OpenOrderIds = new List<int>();
+            /// <summary>Upper bound for the legacy idle-slot integer variables.</summary>
+            public int MaxSlots;
+            public void Dispose()
+            {
+                if (Wrapper != null) { Wrapper.Dispose(); Wrapper = null; }
+            }
+        }
 
-            // The LinearModel (and the native Gurobi model/environment it owns) must stay alive
-            // until every value this method needs has been read out of the solved variables -
-            // GetValue() queries the live Gurobi model, it does not cache. Everything below reads
-            // those values into plain C# fields on `result` before returning, so disposing in a
-            // finally block around the whole build/solve/read sequence is safe: the model is
-            // released as soon as this decision's solve is done, whether it found a solution,
-            // returned early for lack of one, or the caller re-solves at a new lambda for the
-            // Dinkelbach iteration (each iteration gets and disposes its own model).
+        /// <summary>
+        /// Builds the decision's variables and constraints - everything that does not depend on
+        /// lambda. Returns null when the snapshot yields no draw candidates at all. The caller owns
+        /// the returned model and must dispose it once every value has been read back out of the
+        /// solved variables (GetValue() queries the live Gurobi model, it does not cache).
+        /// </summary>
+        private M4GModel BuildModel(M4GSnapshot snap)
+        {
+            M4GSymbols sym = BuildSymbols(snap);
+            if (sym.Qhat.Count == 0) return null;
+            M4GQhatIndex idx = new M4GQhatIndex(sym);
+
             LinearModel wrapper = new LinearModel(SolverType.Gurobi, (string s) => { Console.Write(s); });
+            if (_m4gConfig.MipGap >= 0.0)
+                wrapper.SetMipGap(_m4gConfig.MipGap);
+            if (_m4gConfig.DecisionTimeLimitSec > 0.0)
+                wrapper.SetTimeLimit(_m4gConfig.DecisionTimeLimitSec);
+            if (_m4gConfig.DecisionWorkLimit > 0.0)
+                wrapper.SetWorkLimit(_m4gConfig.DecisionWorkLimit);
             try
             {
             int maxUnits = snap.Residuals.Count > 0
@@ -708,7 +1023,10 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 (string s) => { return s; });
 
             AddSharedConstraints(wrapper, snap, sym, bin);
-            AddValuationConstraints(wrapper, snap, sym, bin, qh);
+            AddValuationConstraints(wrapper, snap, sym, bin, qh, idx);
+
+            // Orders that acquired an "open_o" indicator this solve (WIP holding, gated).
+            List<int> openOrderIds = new List<int>();
 
             // ── Binding layer B1-B7 (spec 3.4) ──
             foreach (var v in sym.Qhat)
@@ -727,7 +1045,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 var boundStationVars = new List<Variable>();
                 foreach (var station in snap.Cs.Keys)
                 {
-                    var draws = sym.Qhat.Where(v => v.order.ID == order.ID && v.outputstation.ID == station.ID)
+                    var draws = idx.ByOrderStation(order.ID, station.ID)
                         .Select(v => qb["q_" + v.skui.ID + "_" + v.order.ID + "_" + v.pod.ID + "_" + v.outputstation.ID])
                         .ToList();
                     if (draws.Count == 0) continue;
@@ -742,10 +1060,32 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 // mirror as V7, applied to y[o,s] (already the binding layer's order-station
                 // indicator, unlike the valuation layer which needed a new yhat).
                 if (_m4gConfig.ForbidSplitting && boundStationVars.Count > 0)
+                {
                     wrapper.AddConstr(LinearExpression.Sum(boundStationVars) <= 1, "B8");
+                    // (B8t) With B9t pinning every draw to y, "assigned somewhere" and
+                    // "bound-complete" are the same event, so z is an equality rather than being
+                    // squeezed from both sides by B7 and B9. This is what removes the last piece
+                    // of slack the old formulation left around z.
+                    if (_m4gConfig.TightWholeOrder)
+                        wrapper.AddConstr(bin["z_" + order.ID] == LinearExpression.Sum(boundStationVars), "B8t");
+                }
+                // (B10, gated) "Opened but not closed" indicator for orders that carry no WIP yet.
+                // open_o >= y_os - z_o at every station forces open_o to 1 whenever the order is
+                // bound somewhere and does not complete. Only a lower bound is needed: the objective
+                // charges open_o a positive kappa, so the solver drives it to that bound and never
+                // sets it gratuitously. Orders that ALREADY carry WIP are excluded here - for them
+                // "stay open" is the do-nothing outcome, so the charge degenerates to a constant plus
+                // a completion bonus, which the objective applies directly (see WipHoldingEnabled).
+                if (_m4gConfig.WipHoldingEnabled && !snap.WipOrders.Contains(order) && boundStationVars.Count > 0)
+                {
+                    string openName = "open_" + order.ID;
+                    foreach (var yv in boundStationVars)
+                        wrapper.AddConstr(bin[openName] >= yv - bin["z_" + order.ID], "B10");
+                    openOrderIds.Add(order.ID);
+                }
                 foreach (var sku in snap.Residuals[order].Where(p => snap.PiSKU.ContainsKey(p.Key)))
                 {
-                    var skuDraws = sym.Qhat.Where(v => v.order.ID == order.ID && v.skui.ID == sku.Key.ID)
+                    var skuDraws = idx.ByOrderSku(order.ID, sku.Key.ID)
                         .Select(v => qb["q_" + v.skui.ID + "_" + v.order.ID + "_" + v.pod.ID + "_" + v.outputstation.ID])
                         .ToList();
                     // Guard: structurally this can't be empty (any sku that survives the
@@ -766,8 +1106,49 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     // the full residual exactly when the order is bound-complete (z=1, mirroring
                     // zhat in V8), 0 otherwise - so under slot pressure the order is deferred
                     // whole, never partially committed.
-                    if (_m4gConfig.ForbidSplitting)
+                    if (_m4gConfig.ForbidSplitting && !_m4gConfig.TightWholeOrder)
                         wrapper.AddConstr(LinearExpression.Sum(skuDraws) == sku.Value * bin["z_" + order.ID], "B9");
+                    // (B9t, gated) Tight replacement for B9: pin each line's draw AT EACH STATION
+                    // to that station's assignment indicator. Same integer-feasible set as
+                    // B2+B8+B9, but with no big-M, so the relaxation is exact at every vertex where
+                    // y is integral instead of allowing a fractional y to carry a full draw.
+                    if (_m4gConfig.ForbidSplitting && _m4gConfig.TightWholeOrder)
+                        foreach (var station in snap.Cs.Keys)
+                        {
+                            var stDraws = idx.ByOrderSku(order.ID, sku.Key.ID)
+                                .Where(v => v.outputstation.ID == station.ID)
+                                .Select(v => qb["q_" + v.skui.ID + "_" + v.order.ID + "_" + v.pod.ID + "_" + v.outputstation.ID])
+                                .ToList();
+                            if (stDraws.Count == 0) continue;
+                            wrapper.AddConstr(LinearExpression.Sum(stDraws)
+                                == sku.Value * bin["y_" + order.ID + "_" + station.ID], "B9t");
+                        }
+                    // (B11/B12, gated) LineAtomicSplitting in the binding layer - the mirror of
+                    // V9/V10, and the one that actually decides what gets committed. V9/V10 alone
+                    // are not enough for the same reason B9 is needed alongside V8: B1
+                    // (qb <= qh) still lets the binding layer take only PART of a line-atomic
+                    // valued draw when slot capacity is tight, which would create exactly the
+                    // sub-line split child this arm exists to forbid.
+                    //
+                    // No explicit w <= wh is needed: B1 elementwise plus the two equalities give
+                    // d[o,i]*w[o,i,s] <= d[o,i]*wh[o,i,s] at every station already.
+                    if (_m4gConfig.LineAtomicSplitting)
+                    {
+                        var lineQb = idx.ByOrderSku(order.ID, sku.Key.ID);
+                        var wVars = new List<Variable>();
+                        foreach (var station in lineQb.Select(v => v.outputstation).Distinct())
+                        {
+                            var stDraws = lineQb.Where(v => v.outputstation.ID == station.ID)
+                                .Select(v => qb["q_" + v.skui.ID + "_" + v.order.ID + "_" + v.pod.ID + "_" + v.outputstation.ID])
+                                .ToList();
+                            if (stDraws.Count == 0) continue;
+                            string wName = "w_" + order.ID + "_" + sku.Key.ID + "_" + station.ID;
+                            wrapper.AddConstr(LinearExpression.Sum(stDraws) == sku.Value * bin[wName], "B11");
+                            wVars.Add(bin[wName]);
+                        }
+                        if (wVars.Count > 0)
+                            wrapper.AddConstr(LinearExpression.Sum(wVars) == bin[cName], "B12");
+                    }
                     // (B7) a bound completion needs every line bound-closed
                     wrapper.AddConstr(bin[cName] >= bin["z_" + order.ID], "B7");
                 }
@@ -780,6 +1161,36 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 if (ys.Count > 0)
                     wrapper.AddConstr(LinearExpression.Sum(ys) <= snap.Cs[station], "B3");
             }
+
+            return new M4GModel
+            {
+                Wrapper = wrapper, Sym = sym, Idx = idx, Bin = bin, Qh = qh, Qb = qb,
+                OpenOrderIds = openOrderIds, MaxSlots = maxSlots
+            };
+            }
+            catch
+            {
+                wrapper.Dispose();
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Sets this solve's objective on an already-built model and optimises it. Called once per
+        /// Dinkelbach iteration; every call replaces the objective outright and leaves the
+        /// constraint system untouched.
+        /// </summary>
+        private M4GResult SolveM4G(M4GModel model, M4GSnapshot snap, double lambda, double lambda0,
+            double mu0, double epsilon0, double rho0, double delta)
+        {
+            M4GResult result = new M4GResult();
+            LinearModel wrapper = model.Wrapper;
+            M4GSymbols sym = model.Sym;
+            M4GQhatIndex idx = model.Idx;
+            VariableCollection<string> bin = model.Bin;
+            VariableCollection<string> qb = model.Qb;
+            List<int> openOrderIds = model.OpenOrderIds;
+            int maxSlots = model.MaxSlots;
 
             // ── Objective T1-T5 (spec 3.3), everything denominated in metres ──
             // mu/epsilon/rho are scaled proportionally from their lambda0 values to lambda -
@@ -861,6 +1272,29 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 // empty sequence. sym.Chat can only be empty if sym.Qhat is empty too (Qhat is built
                 // strictly inside the Chat loop), and that case already returned above - so this is
                 // defensive, not load-bearing, but kept for consistency and future-proofing.
+                // Due-date pricing folds a per-order factor into lambda and mu, so the flat
+                // "sum the variables, then multiply once" form no longer applies and each term
+                // carries its own coefficient. The urgency-blind branch is kept verbatim rather
+                // than expressed as the factor-1 case of the weighted one: summing first and
+                // scaling once is not bit-identical to scaling each term and summing, and the
+                // whole point of gating this behind a flag is that off must reproduce the
+                // published results exactly.
+                if (_m4gConfig.DueDatePricingEnabled)
+                {
+                    objective = objective + LinearExpression.Sum(sym.Chat.Select(v =>
+                        bin["c_" + v.order.ID + "_" + v.skui.ID]
+                            * (-lambda * UrgencyOf(snap, v.order) * (1.0 - delta))), wrapper);
+                    objective = objective + LinearExpression.Sum(sym.Chat.Select(v =>
+                        bin[v.name] * (-lambda * UrgencyOf(snap, v.order) * delta)), wrapper);
+                    // T4: same split for completed orders.
+                    objective = objective + LinearExpression.Sum(sym.Zhat.Select(v =>
+                        bin["z_" + v.order.ID]
+                            * (-mu * UrgencyOf(snap, v.order) * (1.0 - delta))), wrapper);
+                    objective = objective + LinearExpression.Sum(sym.Zhat.Select(v =>
+                        bin[v.name] * (-mu * UrgencyOf(snap, v.order) * delta)), wrapper);
+                }
+                else
+                {
                 var chatBoundVars = sym.Chat.Select(v => bin["c_" + v.order.ID + "_" + v.skui.ID]).ToList();
                 if (chatBoundVars.Count > 0)
                     objective = objective + LinearExpression.Sum(chatBoundVars) * (-lambda * (1.0 - delta));
@@ -874,6 +1308,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 var zhatValuedVars = sym.Zhat.Select(v => bin[v.name]).ToList();
                 if (zhatValuedVars.Count > 0)
                     objective = objective + LinearExpression.Sum(zhatValuedVars) * (-mu * delta);
+                }
                 // T5: tie-break that prefers executing now among equally valued solutions. sym.Qhat
                 // is guaranteed non-empty by the early return above, but guard anyway for consistency.
                 var qbTieVars = sym.Qhat.Select(v =>
@@ -888,6 +1323,19 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 // extra trip that a sunk pod's unit does not. Pq/Pb (queued/en route) draws stay free,
                 // matching the T1/T2 sunk-trip treatment of those same pods. false reproduces the flat
                 // (every draw free) behaviour bit-for-bit.
+                // T7: WIP holding price (gated). kappa scales with lambda, so this term sits on the
+                // value side of the ratio and leaves the Dinkelbach linearisation intact.
+                if (_m4gConfig.WipHoldingEnabled)
+                {
+                    double kappa = _m4gConfig.WipHoldingScale * lambda;
+                    var wipClearVars = sym.Zhat.Where(v => snap.WipOrders.Contains(v.order))
+                        .Select(v => bin["z_" + v.order.ID]).ToList();
+                    if (wipClearVars.Count > 0)
+                        objective = objective + LinearExpression.Sum(wipClearVars) * (-kappa);
+                    var openVars = openOrderIds.Select(id => bin["open_" + id]).ToList();
+                    if (openVars.Count > 0)
+                        objective = objective + LinearExpression.Sum(openVars) * kappa;
+                }
                 if (_m4gConfig.PodTierDrawPricingEnabled)
                 {
                     HashSet<int> processingPodIds = BuildProcessingPodIds(snap);
@@ -907,6 +1355,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
 
             DateTime solveStart = DateTime.Now;
             wrapper.Update();
+            // The model outlives a single solve now (one build, one solve per Dinkelbach lambda),
+            // so drop any solution left by the previous iteration before optimising. Without this
+            // the re-solve warm-starts from the old solution and may settle on a different member
+            // of an equally optimal set - a silent decision change, not a speed-up.
+            wrapper.Reset();
             wrapper.Optimize();
             result.SolveSec = (DateTime.Now - solveStart).TotalSeconds;
             if (!wrapper.HasSolution()) return result;
@@ -950,16 +1403,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 if (Math.Round(bin[v.name].GetValue()) != 0)
                 {
                     result.NewTripCount++;
-                    var carrier = sym.Yrp.FirstOrDefault(y => y.pod.ID == v.pod.ID
-                        && Math.Round(bin[y.name].GetValue()) != 0);
+                    var carrier = idx.YrpByPod(v.pod.ID)
+                        .FirstOrDefault(y => Math.Round(bin[y.name].GetValue()) != 0);
                     if (carrier != null) result.BotByPodId[v.pod.ID] = carrier.robot;
                 }
             return result;
-            }
-            finally
-            {
-                wrapper.Dispose();
-            }
         }
 
         /// <summary>Entry point called by the engine whenever a station has a free slot.</summary>
@@ -982,12 +1430,23 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             double delta = _pricing.Delta();
 
             // ── Dinkelbach iteration (0 = single step at the historical lambda, unchanged
-            // behaviour). Every re-solve rebuilds the model from scratch at a new lambda; a
-            // single solve costs 0.009-0.2s so this is cheap even at the iteration cap. ──
+            // behaviour). The model is built ONCE and re-solved at each new lambda: no constraint
+            // in the R, V or B series references lambda (or mu/delta/rho/epsilon), so the only
+            // thing an iteration changes is the objective, and rebuilding variables and
+            // constraints per iteration was pure duplicated work. The model is disposed as soon
+            // as the loop ends - everything downstream reads plain C# fields off `result`, never
+            // the live Gurobi variables. ──
             double lambdaK = lambda0;
-            M4GResult result = SolveM4G(snap, lambdaK, lambda0, mu0, epsilon0, rho0, delta);
-            double totalSolveSec = result.SolveSec;
+            M4GResult result;
+            double totalSolveSec;
             int dinkIters = 0;
+            M4GModel model = BuildModel(snap);
+            try
+            {
+            result = model == null
+                ? new M4GResult()
+                : SolveM4G(model, snap, lambdaK, lambda0, mu0, epsilon0, rho0, delta);
+            totalSolveSec = result.SolveSec;
             // LegacyObjective replaces the whole lambda-scaled value side with a fixed order
             // reward (see SolveM4G), so there is no ratio left to linearise: Dinkelbach's
             // re-solve-at-a-new-lambda loop is skipped entirely rather than iterating over a
@@ -1005,7 +1464,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     if (vStar <= 0) break;                                    // ratio undefined - keep this solution
                     if (Math.Abs(result.Objective) <= _m4gConfig.DinkelbachTolerance) break;  // converged
                     double lambdaNext = result.DStar / vStar;
-                    M4GResult next = SolveM4G(snap, lambdaNext, lambda0, mu0, epsilon0, rho0, delta);
+                    M4GResult next = SolveM4G(model, snap, lambdaNext, lambda0, mu0, epsilon0, rho0, delta);
                     totalSolveSec += next.SolveSec;
                     if (!next.HasSolution) break;                             // keep the previous solution
                     // Guard against MILP-integrality overshoot. Dinkelbach's continuous-relaxation
@@ -1025,6 +1484,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     lambdaK = lambdaNext;
                     dinkIters++;
                 }
+            }
+            }
+            finally
+            {
+                if (model != null) model.Dispose();
             }
             double lambdaEnd = lambdaK;
 
