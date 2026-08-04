@@ -53,6 +53,42 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// <summary>Running decision counter, also the probe cadence clock.</summary>
         private int _decisionIndex = 0;
 
+        /// <summary>
+        /// Split-lifetime probe (measurement only, never reads back into any decision). Emits one
+        /// row per event to m4g_split_lifetime.csv:
+        ///
+        ///   split,&lt;orderId&gt;,&lt;decision&gt;,&lt;simTime&gt;,&lt;linesLeft&gt;,&lt;unitsLeft&gt;
+        ///   closed,&lt;orderId&gt;,&lt;decision&gt;,&lt;simTime&gt;,0,0
+        ///
+        /// Joining the two by orderId gives, for every remainder this model creates, how long it
+        /// took to finish - and a "split" with no matching "closed" is a remainder that never got
+        /// finished at all. The question this exists to answer: is there an identifiable class of
+        /// BAD splits (a bimodal distribution - most cleared fast, a few never), or just a smooth
+        /// long tail, in which case there is nothing for a split-quality rule to target.
+        /// Event rows rather than one joined row per parent, so no end-of-run flush hook is needed.
+        /// </summary>
+        private System.IO.StreamWriter _splitLifeLog;
+        private readonly HashSet<int> _splitSeen = new HashSet<int>();
+
+        private void EnsureSplitLifeLog()
+        {
+            if (_splitLifeLog != null) return;
+            string dir0 = Instance != null && Instance.SettingConfig != null
+                ? Instance.SettingConfig.StatisticsDirectory : null;
+            if (string.IsNullOrEmpty(dir0)) dir0 = ".";
+            if (!System.IO.Directory.Exists(dir0)) System.IO.Directory.CreateDirectory(dir0);
+            _splitLifeLog = new System.IO.StreamWriter(
+                System.IO.Path.Combine(dir0, "m4g_split_lifetime.csv"), false) { AutoFlush = true };
+            _splitLifeLog.WriteLine("event,orderId,decision,time,linesLeft,unitsLeft");
+        }
+
+        private void LogSplitEvent(string ev, int orderId, int linesLeft, int unitsLeft)
+        {
+            EnsureSplitLifeLog();
+            _splitLifeLog.WriteLine(ev + "," + orderId + "," + _decisionIndex + ","
+                + Instance.Controller.CurrentTime + "," + linesLeft + "," + unitsLeft);
+        }
+
         /// <summary>Lazily opens m4g_decision_log.csv in the run's statistics directory.</summary>
         private void EnsureDecisionLog()
         {
@@ -1690,6 +1726,19 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 // draws happen to be grouped.
                 bool residualFullyBoundThisDecision = snap.Residuals[order]
                     .All(p => mine.Where(e => e.Key.skui.ID == p.Key.ID).Sum(e => e.Value) >= p.Value);
+                // Split-lifetime probe. Recorded AFTER this decision's claims, so linesLeft /
+                // unitsLeft are the remainder this decision actually leaves behind. Measurement
+                // only - nothing below reads these back.
+                if (order.IsSplitParent && !order.IsFullyClaimed && _splitSeen.Add(order.ID))
+                    LogSplitEvent("split", order.ID,
+                        order.RemainingPositions.Count(p => p.Value > 0),
+                        order.RemainingPositions.Sum(p => p.Value));
+                if (order.IsFullyClaimed && _splitSeen.Contains(order.ID))
+                {
+                    LogSplitEvent("closed", order.ID, 0, 0);
+                    _splitSeen.Remove(order.ID);
+                }
+
                 if (residualFullyBoundThisDecision || order.IsFullyClaimed)
                     completedOrders++;
                 if (order.IsFullyClaimed)
