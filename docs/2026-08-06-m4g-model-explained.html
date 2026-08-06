@@ -1,0 +1,967 @@
+<title>M4G 拆單模型與定價設計</title>
+<style>
+:root{
+  --paper:#E9EAE3;
+  --surface:#F4F5EF;
+  --surface-2:#DFE1D8;
+  --ink:#1E231C;
+  --ink-mute:#5D655A;
+  --ink-faint:#868D80;
+  --rule:#C7CCC0;
+  --rule-soft:#D8DCD1;
+  --bind:#B8440D;
+  --bind-soft:#F0D9CB;
+  --value:#2C6A72;
+  --value-soft:#CFE0E1;
+  --warn:#8A6A12;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#141711;--surface:#1D211A;--surface-2:#262B22;
+    --ink:#E3E7DC;--ink-mute:#9AA391;--ink-faint:#77806F;
+    --rule:#333A2E;--rule-soft:#272D22;
+    --bind:#EE7B3E;--bind-soft:#3A2417;
+    --value:#5EAAB2;--value-soft:#16302F;--warn:#C8A64A;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#141711;--surface:#1D211A;--surface-2:#262B22;
+  --ink:#E3E7DC;--ink-mute:#9AA391;--ink-faint:#77806F;
+  --rule:#333A2E;--rule-soft:#272D22;
+  --bind:#EE7B3E;--bind-soft:#3A2417;
+  --value:#5EAAB2;--value-soft:#16302F;--warn:#C8A64A;
+}
+:root[data-theme="light"]{
+  --paper:#E9EAE3;--surface:#F4F5EF;--surface-2:#DFE1D8;
+  --ink:#1E231C;--ink-mute:#5D655A;--ink-faint:#868D80;
+  --rule:#C7CCC0;--rule-soft:#D8DCD1;
+  --bind:#B8440D;--bind-soft:#F0D9CB;
+  --value:#2C6A72;--value-soft:#CFE0E1;--warn:#8A6A12;
+}
+
+:root{
+  --mono:"Consolas","Cascadia Mono","DejaVu Sans Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --body:"Segoe UI",-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,"Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif;
+  --math:"Cambria Math","Latin Modern Math",Cambria,"Times New Roman",Georgia,serif;
+  --measure:70ch;
+}
+
+*{box-sizing:border-box;}
+
+body{
+  margin:0;background:var(--paper);color:var(--ink);
+  font-family:var(--body);font-size:16.5px;line-height:1.85;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px 120px;}
+
+/* ── masthead ─────────────────────────────── */
+.masthead{border-bottom:1px solid var(--rule);padding:72px 0 40px;margin-bottom:56px;}
+.eyebrow{
+  font-family:var(--mono);font-size:11.5px;letter-spacing:0.22em;
+  text-transform:uppercase;color:var(--ink-faint);margin:0 0 22px;
+}
+.masthead h1{
+  font-family:var(--mono);font-size:clamp(30px,5.2vw,50px);font-weight:700;
+  letter-spacing:-0.015em;line-height:1.15;margin:0 0 20px;text-wrap:balance;
+}
+.masthead h1 .dim{color:var(--ink-mute);font-weight:400;}
+.standfirst{max-width:var(--measure);font-size:18px;line-height:1.8;color:var(--ink-mute);margin:0;}
+.meta{
+  display:flex;flex-wrap:wrap;gap:10px 28px;margin-top:32px;
+  font-family:var(--mono);font-size:12px;color:var(--ink-faint);letter-spacing:0.04em;
+}
+
+/* ── section scaffolding ──────────────────── */
+section{display:grid;grid-template-columns:88px minmax(0,1fr);gap:0 32px;padding-bottom:64px;}
+.gutter{
+  font-family:var(--mono);font-size:11.5px;letter-spacing:0.12em;
+  color:var(--ink-faint);padding-top:10px;text-align:right;
+}
+.col{min-width:0;max-width:var(--measure);}
+.col.wide{max-width:none;}
+section h2{
+  font-family:var(--mono);font-size:23px;font-weight:700;letter-spacing:-0.01em;
+  line-height:1.4;margin:0 0 8px;padding-top:4px;text-wrap:balance;
+}
+section h3{
+  font-family:var(--mono);font-size:16px;font-weight:700;letter-spacing:0.01em;
+  margin:38px 0 6px;color:var(--ink);
+}
+.dek{
+  color:var(--ink-mute);font-size:15px;margin:0 0 26px;
+  padding-bottom:14px;border-bottom:1px solid var(--rule-soft);
+}
+.col > p{margin:0 0 18px;max-width:var(--measure);}
+.col > ul,.col > ol{margin:0 0 20px;padding-left:22px;max-width:var(--measure);}
+.col li{margin-bottom:9px;}
+
+@media (max-width:760px){
+  section{grid-template-columns:1fr;gap:0;}
+  .gutter{text-align:left;padding-top:0;margin-bottom:6px;}
+  body{font-size:16px;}
+}
+
+/* ── inline notation ──────────────────────── */
+code{font-family:var(--mono);font-size:0.9em;background:var(--surface-2);padding:1px 5px;border-radius:2px;}
+.v{color:var(--value);font-family:var(--math);font-style:italic;font-weight:600;}
+.b{color:var(--bind);font-family:var(--math);font-style:italic;font-weight:600;}
+strong{font-weight:700;}
+em{font-style:normal;border-bottom:2px solid var(--bind-soft);padding-bottom:1px;}
+
+/* ── math ─────────────────────────────────── */
+.m{font-family:var(--math);font-size:1.06em;font-style:italic;white-space:nowrap;}
+.m .up,.m sub,.m sup{font-style:normal;}
+.m sub{font-size:0.68em;vertical-align:-0.3em;letter-spacing:0.02em;}
+.m sup{font-size:0.68em;vertical-align:0.45em;}
+.sig{font-family:var(--math);font-style:normal;font-size:1.28em;line-height:0;position:relative;top:0.07em;}
+.hat{position:relative;display:inline-block;}
+.hat::after{
+  content:"\005E";position:absolute;left:50%;top:-0.62em;
+  transform:translateX(-50%) scaleX(1.15);font-size:0.8em;font-style:normal;
+}
+
+.eqblock{
+  border:1px solid var(--rule);background:var(--surface);
+  margin:6px 0 26px;overflow-x:auto;
+}
+.eqblock .ehead{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:0.18em;text-transform:uppercase;
+  color:var(--ink-faint);padding:12px 20px 10px;border-bottom:1px solid var(--rule-soft);
+  background:var(--surface-2);
+}
+.eqblock.acc-v{border-left:3px solid var(--value);}
+.eqblock.acc-b{border-left:3px solid var(--bind);}
+.eqblock.acc-n{border-left:3px solid var(--ink-faint);}
+
+.eq{
+  display:grid;grid-template-columns:minmax(0,1fr) auto 62px;
+  gap:0 22px;align-items:baseline;
+  padding:11px 20px;border-bottom:1px solid var(--rule-soft);
+  min-width:560px;
+}
+.eq:last-child{border-bottom:none;}
+.eq .body{font-family:var(--math);font-size:16.5px;font-style:italic;line-height:1.9;}
+.eq .body .up{font-style:normal;}
+.eq .dom{
+  font-family:var(--math);font-size:14px;color:var(--ink-mute);
+  white-space:nowrap;font-style:italic;
+}
+.eq .dom .up{font-style:normal;}
+.eq .tag{
+  font-family:var(--mono);font-size:12px;font-weight:700;
+  color:var(--ink-faint);text-align:right;white-space:nowrap;
+}
+.eq.gated{background:var(--surface-2);}
+.eq.gated .tag{color:var(--warn);}
+
+.objblock{padding:18px 20px;min-width:560px;font-family:var(--math);font-size:16.5px;line-height:2.25;}
+.objrow{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:0 20px;align-items:baseline;}
+.objrow .op{text-align:right;font-style:normal;}
+.objrow .ann{
+  font-family:var(--mono);font-size:11px;letter-spacing:0.05em;
+  color:var(--ink-faint);white-space:nowrap;text-align:right;font-style:normal;
+}
+.objrow .expr{font-style:italic;}
+.objrow .expr .up{font-style:normal;}
+
+/* ── tables ───────────────────────────────── */
+.tablewrap{overflow-x:auto;margin:0 0 26px;border:1px solid var(--rule);}
+table{border-collapse:collapse;width:100%;min-width:520px;background:var(--surface);font-size:14px;}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--rule-soft);vertical-align:top;line-height:1.65;}
+th{
+  font-family:var(--mono);font-size:11px;letter-spacing:0.13em;text-transform:uppercase;
+  color:var(--ink-faint);font-weight:400;background:var(--surface-2);white-space:nowrap;
+}
+tbody tr:last-child td{border-bottom:none;}
+td.id{font-family:var(--mono);font-weight:700;white-space:nowrap;color:var(--ink);}
+td.sym{font-family:var(--math);font-style:italic;font-size:16px;white-space:nowrap;}
+td.sym .up{font-style:normal;}
+td.num{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+td.mono{font-family:var(--mono);font-size:13px;}
+
+/* ── two-layer diagram ────────────────────── */
+.layers{margin:4px 0 28px;max-width:var(--measure);}
+.layer{border:1px solid var(--rule);padding:16px 18px;background:var(--surface);}
+.layer.top{border-style:dashed;border-color:var(--value);background:var(--value-soft);}
+.layer.bot{border-color:var(--bind);background:var(--bind-soft);}
+.layer .lname{font-family:var(--mono);font-size:12px;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;}
+.layer.top .lname{color:var(--value);}
+.layer.bot .lname{color:var(--bind);}
+.layer p{margin:0;font-size:14.5px;line-height:1.75;}
+.joint{display:flex;align-items:center;gap:12px;padding:10px 0;font-size:12.5px;color:var(--ink-mute);}
+.joint .bar{flex:1;height:1px;background:var(--rule);}
+
+/* ── pod tier strip ───────────────────────── */
+.tiers{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;
+  background:var(--rule);border:1px solid var(--rule);margin:4px 0 12px;max-width:var(--measure);
+}
+.tier{background:var(--surface);padding:14px 12px;}
+.tier .tname{font-family:var(--math);font-style:italic;font-size:16px;font-weight:700;margin-bottom:4px;}
+.tier .tname sup{font-style:normal;font-size:0.68em;}
+.tier .tdesc{font-size:12.5px;line-height:1.6;color:var(--ink-mute);margin-bottom:10px;}
+.tier .tprice{font-family:var(--math);font-size:17px;font-weight:700;font-style:italic;}
+.tier.pa .tprice{color:var(--bind);}
+.tier.pp .tprice{color:var(--value);}
+.tier.free .tprice{color:var(--ink-faint);}
+.tierflow{
+  font-family:var(--mono);font-size:11px;letter-spacing:0.1em;color:var(--ink-faint);
+  text-align:center;margin-bottom:26px;max-width:var(--measure);
+}
+@media (max-width:640px){.tiers{grid-template-columns:repeat(2,minmax(0,1fr));}}
+
+/* ── callout ──────────────────────────────── */
+.note{border-top:2px solid var(--ink);padding:16px 0 4px;margin:0 0 26px;max-width:var(--measure);}
+.note .ntitle{
+  font-family:var(--mono);font-size:11px;letter-spacing:0.16em;text-transform:uppercase;
+  color:var(--ink-faint);margin-bottom:8px;
+}
+.note p{margin:0 0 10px;font-size:15px;}
+.note p:last-child{margin-bottom:0;}
+.note.warn{border-top-color:var(--warn);}
+.note.warn .ntitle{color:var(--warn);}
+
+/* ── key/value list ───────────────────────── */
+dl.kv{margin:0 0 24px;display:grid;grid-template-columns:auto 1fr;gap:0;max-width:var(--measure);}
+dl.kv dt{
+  font-family:var(--mono);font-weight:700;font-size:14px;
+  padding:9px 18px 9px 0;border-bottom:1px solid var(--rule-soft);white-space:nowrap;
+}
+dl.kv dd{margin:0;padding:9px 0;font-size:14.5px;border-bottom:1px solid var(--rule-soft);line-height:1.7;}
+@media (max-width:560px){
+  dl.kv{grid-template-columns:1fr;}
+  dl.kv dt{border-bottom:none;padding-bottom:0;}
+}
+
+footer{
+  border-top:1px solid var(--rule);padding-top:28px;
+  font-family:var(--mono);font-size:12px;color:var(--ink-faint);line-height:2;
+}
+a{color:var(--bind);text-decoration:underline;text-underline-offset:2px;}
+a:focus-visible,:focus-visible{outline:2px solid var(--bind);outline-offset:2px;}
+@media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important;}}
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <p class="eyebrow">RAWSimO · Order Batching · 模型解說</p>
+  <h1>M4G<span class="dim"> — 用一本以公尺記帳的簿子<br>決定要不要拆單</span></h1>
+  <p class="standfirst">
+    M4G 是目前這條研究線的主模型：一個 unit 級的拆單 MILP，每次決策重建一次、交給 Gurobi 解一次。
+    它跟前幾代最大的不同不在限制式，而在<strong>它怎麼替一台貨架估價</strong>——所有的獎勵和成本都被折算成
+    「公尺」這一個單位，而且那些換算率是模型從自己跑出來的歷史統計裡<strong>自己算出來的</strong>，不是調參調出來的。
+  </p>
+  <div class="meta">
+    <span>M4GManager.cs · 1905 行</span>
+    <span>繼承 M1GManager</span>
+    <span>spec: 2026-07-31-m4g-valuation-binding-design.md</span>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════ §1 -->
+<section>
+  <div class="gutter">§1</div>
+  <div class="col">
+    <h2>先講清楚它在解什麼問題</h2>
+    <p class="dek">每隔一段時間，系統要回答一次：現在要派哪些貨架、到哪個站、去服務哪些訂單的哪些商品。</p>
+
+    <p>
+      RMFS 的揀貨端每次決策要同時決定四件互相糾纏的事：<strong>哪些訂單現在處理</strong>、
+      <strong>指派到哪個站台</strong>、<strong>從哪台貨架取貨</strong>、<strong>派哪台車去搬</strong>。
+      這四件事不能分開解，因為「這張訂單值不值得現在做」完全取決於「剛好有沒有一台貨架已經在路上、順便就能把它的商品帶到」。
+    </p>
+    <p>
+      傳統做法（M1G）多加一條限制：<em>一張訂單只能整批指派給一個站台</em>。
+      M4G 把這條拿掉，改成 unit 級的決策變數——同一張訂單的不同商品、甚至同一商品的不同件數，
+      可以分給不同站台、不同時間點處理。這就是「拆單」。
+    </p>
+    <p>
+      拆單的動機不是為了拆而拆，而是為了<strong>提高 pile-on</strong>：
+      一台貨架跑一趟到站，如果只能服務一張訂單，那趟行程就很浪費；
+      如果它身上的商品能同時滿足七張訂單各自的一部分，同樣一趟行程的產出就高得多。
+      在機器人稀缺、站台充裕的壓力情境下，這個差別會直接反映在吞吐和能耗上。
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ §2 -->
+<section>
+  <div class="gutter">§2</div>
+  <div class="col">
+    <h2>核心架構：兩層決策</h2>
+    <p class="dek">整個 M4G 的設計精髓在這裡。看懂這一節，後面的數學都是細節。</p>
+
+    <p>
+      M4G 之所以叫「valuation / binding separation restored」，是因為它把每個決策變數<strong>複製成兩份</strong>：
+      一份負責<strong>估值</strong>（戴帽子），一份負責<strong>實際綁定</strong>（不戴帽子）。
+    </p>
+
+    <div class="layers">
+      <div class="layer top">
+        <div class="lname">估值層 · valuation · <span class="m"><span class="hat">q</span></span></div>
+        <p>
+          不受站台槽位限制。它問的是：「如果我把這台貨架叫過來，它<strong>總共</strong>能對整個 backlog 產生多少價值？」
+          就算今天只有一個槽位空著，估值層還是會把這台貨架能服務的所有訂單都算進去。
+          <strong>估值層完全沒有副作用</strong>——它算出來的東西不會讓任何一台車動起來。
+        </p>
+      </div>
+      <div class="joint">
+        <span class="m" style="color:var(--bind);font-weight:600;">q<sub>oips</sub> ≤ <span class="hat">q</span><sub>oips</sub></span>
+        <span class="bar"></span>
+        <span>綁定是估值的子集（B1）</span>
+      </div>
+      <div class="layer bot">
+        <div class="lname">綁定層 · binding · <span class="m">q</span></div>
+        <p>
+          受站台槽位限制（B3）。它問的是：「這一刻我<strong>真的</strong>能塞進槽位的是哪些？」
+          <strong>只有綁定層有副作用</strong>——只有 <span class="b">q</span> 會讓車子被派出去、貨架被 claim、
+          揀貨請求被登記、訂單被指派。
+        </p>
+      </div>
+    </div>
+
+    <h3>為什麼要分兩層</h3>
+    <p>因為<strong>一台貨架的價值，和這一刻能立刻兌現的價值，不是同一件事</strong>。</p>
+    <p>
+      前一代 M3G 把兩層併成一層，結果是：每個被算進價值的商品，都必須當下就佔到一個空槽位。
+      這造成一個嚴重的失真——一台身上有七張訂單所需商品的黃金貨架，如果當下只有一個槽位空著，
+      它在模型眼裡就只值一張訂單的價值，於是模型會覺得不值得叫它過來。
+      更糟的是，在那個架構下「拆單」只是槽位不夠時被迫產生的<strong>可行性殘渣</strong>，
+      而不是模型主動判斷「拆比較好」的結果。
+    </p>
+    <p>
+      M4G 把兩層拆開之後，那台黃金貨架在估值層拿到完整的七張訂單分數，
+      所以模型願意叫它過來；綁定層則誠實地只綁進當下塞得下的那一張。
+      剩下六張的價值不會憑空消失——貨架已經在站上了，下一次決策時它會以
+      <strong>沉沒成本為零</strong>的身分重新參與（見 §9）。
+    </p>
+
+    <div class="note">
+      <div class="ntitle">一句話</div>
+      <p>估值層決定「值不值得叫這台貨架過來」，綁定層決定「這一刻要把誰放進槽位」。兩個問題的答案本來就不該相同。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ §3 -->
+<section>
+  <div class="gutter">§3</div>
+  <div class="col">
+    <h2>一次決策的生命週期</h2>
+    <p class="dek">從快照到提交，中間發生的事。</p>
+
+    <dl class="kv">
+      <dt>1 · 快照</dt>
+      <dd><code>BuildSnapshot()</code> 把當下的世界凍結成一組集合：待處理訂單與各自的<strong>殘餘需求</strong>、各站空槽數、儲區可派的貨架、已承諾的貨架、可用的車、每個 SKU 有哪些貨架有貨。</dd>
+
+      <dt>2 · 建模</dt>
+      <dd><code>BuildModel()</code> 一次建好所有變數與限制式（R / V / B 三個系列）。<strong>沒有任何限制式引用價格</strong>——這是後面 Dinkelbach 能重複求解而不用重建模型的原因。</dd>
+
+      <dt>3 · 定價</dt>
+      <dd>從 <code>M4GPricing</code> 讀出這一刻的 <span class="m">λ, μ, ρ, ε, δ</span>。全部由累積統計現算，不是設定檔常數。</dd>
+
+      <dt>4 · 求解</dt>
+      <dd><code>SolveM4G()</code> 只設目標式然後 optimize。Dinkelbach 迴圈最多重複 5 次，每次換一個 <span class="m">λ</span> 再解一遍，限制式完全不動。</dd>
+
+      <dt>5 · 提交</dt>
+      <dd><code>CommitM4G()</code> 只讀 <span class="b">q</span>（綁定層）：claim 貨架給車、登記 inbound、把揀貨請求掛到貨架上、把訂單（或拆出來的子單）指派給站台。<span class="v"><span class="hat">q</span></span> 的結果<strong>一個字都不會外洩到世界上</strong>。</dd>
+    </dl>
+
+    <div class="note">
+      <div class="ntitle">為什麼「沒有副作用」這件事要一直強調</div>
+      <p>
+        估值層為了替一條線估價，可能會把某台貨架的 <span class="m">x<sub>ps</sub></span> 設成 1（假設它被派出去了）。
+        如果 commit 時照著 <span class="v"><span class="hat">q</span></span> 派車，那台貨架就會為了一個「從來沒被真正接受的假設」而白跑一趟。
+        <code>CommitM4G</code> 只認 <span class="b">q</span>，而且只 claim「確實帶有 bound draw」的貨架，就是在守這條界線。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ §4 -->
+<section>
+  <div class="gutter">§4</div>
+  <div class="col wide">
+    <h2>集合、參數、決策變數</h2>
+    <p class="dek">以下是一次決策所解的 MILP 的完整標準式。每次決策重建一次，所有集合都是那一刻快照的內容。</p>
+
+    <div class="eqblock acc-n">
+      <div class="ehead">Sets</div>
+      <div class="eq"><div class="body"><span class="m">O</span></div><div class="dom">待處理訂單（母單只帶殘餘需求）</div><div class="tag"></div></div>
+      <div class="eq"><div class="body"><span class="m">S</span></div><div class="dom">仍有空槽的出貨站台</div><div class="tag"></div></div>
+      <div class="eq"><div class="body"><span class="m">R</span></div><div class="dom">目前可派遣的機器人</div><div class="tag"></div></div>
+      <div class="eq"><div class="body"><span class="m">P<sup class="up">a</sup></span></div><div class="dom">仍在儲區、本次決策才可能被派出的貨架</div><div class="tag"></div></div>
+      <div class="eq"><div class="body"><span class="m">P<sup class="up">b</sup></span></div><div class="dom">已承諾的貨架（在途或已到站）</div><div class="tag"></div></div>
+      <div class="eq"><div class="body"><span class="m">P<sup class="up">p</sup> ⊆ P<sup class="up">b</sup></span></div><div class="dom">此刻正在揀貨口被處理的貨架</div><div class="tag"></div></div>
+      <div class="eq"><div class="body"><span class="m">P = P<sup class="up">a</sup> ∪ P<sup class="up">b</sup></span></div><div class="dom">模型中的全部貨架</div><div class="tag"></div></div>
+      <div class="eq"><div class="body"><span class="m">P<sub>i</sub> ⊆ P</span></div><div class="dom">帶有 SKU <span class="m">i</span> 且有可用庫存的貨架</div><div class="tag"></div></div>
+      <div class="eq"><div class="body"><span class="m">I<sub>o</sub></span></div><div class="dom">訂單 <span class="m">o</span> 仍有殘餘需求的 SKU</div><div class="tag"></div></div>
+      <div class="eq"><div class="body"><span class="m">I<sub>o</sub><sup class="up">+</sup> = { i ∈ I<sub>o</sub> : P<sub>i</sub> ≠ ∅ }</span></div><div class="dom">其中<strong>本次決策有貨架能供貨</strong>的那些</div><div class="tag"></div></div>
+      <div class="eq"><div class="body"><span class="m">Ω = { (o,i,p,s) : o ∈ O, i ∈ I<sub>o</sub><sup class="up">+</sup>, p ∈ P<sub>i</sub>, s ∈ S }</span></div><div class="dom">取貨變數的索引域</div><div class="tag"></div></div>
+    </div>
+
+    <div class="eqblock acc-n">
+      <div class="ehead">Parameters</div>
+      <div class="eq"><div class="body"><span class="m">d<sub>oi</sub> ∈ ℤ<sub>&gt;0</sub></span></div><div class="dom">訂單 <span class="m">o</span> 對 SKU <span class="m">i</span> 的<strong>殘餘</strong>需求件數</div><div class="tag"></div></div>
+      <div class="eq"><div class="body"><span class="m">D<sub>o</sub> = <span class="sig">Σ</span><sub>i∈I<sub>o</sub></sub> d<sub>oi</sub></span></div><div class="dom">訂單 <span class="m">o</span> 的殘餘總件數</div><div class="tag"></div></div>
+      <div class="eq"><div class="body"><span class="m">k<sub>pi</sub> ∈ ℤ<sub>≥0</sub></span></div><div class="dom">貨架 <span class="m">p</span> 上 SKU <span class="m">i</span> 的可用庫存</div><div class="tag"></div></div>
+      <div class="eq"><div class="body"><span class="m">C<sub>s</sub> ∈ ℤ<sub>≥0</sub></span></div><div class="dom">站台 <span class="m">s</span> 目前的空槽數</div><div class="tag"></div></div>
+      <div class="eq"><div class="body"><span class="m">t<sub>ps</sub> ≥ 0</span></div><div class="dom">貨架 <span class="m">p</span> 送到站台 <span class="m">s</span> 的距離（公尺）</div><div class="tag"></div></div>
+      <div class="eq"><div class="body"><span class="m">g<sub>rp</sub> ≥ 0</span></div><div class="dom">機器人 <span class="m">r</span> 前往貨架 <span class="m">p</span> 的距離（公尺）</div><div class="tag"></div></div>
+      <div class="eq"><div class="body"><span class="m">b<sub>i</sub> = <span class="sig">Σ</span><sub>p∈P<sup class="up">b</sup></sub> k<sub>pi</sub></span></div><div class="dom">SKU <span class="m">i</span> 已在途／已到站的供給量</div><div class="tag"></div></div>
+      <div class="eq"><div class="body"><span class="m">σ(p), β(p)</span></div><div class="dom">已承諾貨架 <span class="m">p</span> 的目的地站台與搬運機器人</div><div class="tag"></div></div>
+      <div class="eq"><div class="body"><span class="m">λ, μ, ρ, ε ≥ 0 ；&nbsp; δ ∈ [0,1]</span></div><div class="dom">自我校準的價格（公尺）與估值兌現率，見 §7</div><div class="tag"></div></div>
+    </div>
+
+    <div class="eqblock acc-b">
+      <div class="ehead">Decision variables</div>
+      <div class="eq"><div class="body"><span class="m">x<sub>ps</sub> ∈ {0,1}</span></div><div class="dom">貨架 <span class="m">p</span> 被送到站台 <span class="m">s</span></div><div class="tag">共用</div></div>
+      <div class="eq"><div class="body"><span class="m">u<sub>rp</sub> ∈ {0,1}</span></div><div class="dom">機器人 <span class="m">r</span> 負責搬運貨架 <span class="m">p</span></div><div class="tag">共用</div></div>
+      <div class="eq"><div class="body"><span class="m" style="color:var(--value)"><span class="hat">q</span><sub>oips</sub> ∈ ℤ<sub>≥0</sub></span></div><div class="dom">估值：<span class="m">o</span> 的 SKU <span class="m">i</span> 在站 <span class="m">s</span> 從貨架 <span class="m">p</span> 取的件數</div><div class="tag">估值</div></div>
+      <div class="eq"><div class="body"><span class="m" style="color:var(--value)"><span class="hat">c</span><sub>oi</sub> ∈ {0,1}</span></div><div class="dom">估值：訂單 <span class="m">o</span> 的第 <span class="m">i</span> 條線被關閉</div><div class="tag">估值</div></div>
+      <div class="eq"><div class="body"><span class="m" style="color:var(--value)"><span class="hat">z</span><sub>o</sub> ∈ {0,1}</span></div><div class="dom">估值：訂單 <span class="m">o</span> 完成</div><div class="tag">估值</div></div>
+      <div class="eq"><div class="body"><span class="m" style="color:var(--bind)">q<sub>oips</sub> ∈ ℤ<sub>≥0</sub></span></div><div class="dom">綁定：<strong>真正</strong>要取的件數</div><div class="tag">綁定</div></div>
+      <div class="eq"><div class="body"><span class="m" style="color:var(--bind)">y<sub>os</sub> ∈ {0,1}</span></div><div class="dom">綁定：訂單 <span class="m">o</span> 佔用站台 <span class="m">s</span> 的一個槽位</div><div class="tag">綁定</div></div>
+      <div class="eq"><div class="body"><span class="m" style="color:var(--bind)">c<sub>oi</sub> ∈ {0,1}</span></div><div class="dom">綁定：線被真正關閉</div><div class="tag">綁定</div></div>
+      <div class="eq"><div class="body"><span class="m" style="color:var(--bind)">z<sub>o</sub> ∈ {0,1}</span></div><div class="dom">綁定：訂單被真正完成</div><div class="tag">綁定</div></div>
+    </div>
+
+    <p style="max-width:var(--measure)">
+      <span class="m"><span class="hat">q</span><sub>oips</sub></span> 那四個下標就是<strong>拆單能力的來源</strong>。
+      同一張訂單 <span class="m">o</span> 的同一條線 <span class="m">i</span>，可以同時有來自不同貨架
+      <span class="m">p</span>、不同站台 <span class="m">s</span> 的取貨變數。
+      M1G 連這個變數都沒有：在 M1G 裡一張訂單就是一個 <span class="m">y<sub>os</sub></span>，
+      指派出去之後整張單的需求由 MILP 之外的揀貨層整批處理，模型層面根本不存在「半張訂單」這個概念。
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ §5 -->
+<section>
+  <div class="gutter">§5</div>
+  <div class="col wide">
+    <h2>目標函數</h2>
+    <p class="dek">最小化。第一組是真實距離，其餘全部是被折算成公尺的價值。</p>
+
+    <div class="eqblock acc-b">
+      <div class="ehead">Objective &nbsp;·&nbsp; min Z</div>
+      <div class="objblock">
+        <div class="objrow"><span class="op"></span><span class="expr"><span class="sig">Σ</span><sub>p∈P<sup class="up">a</sup></sub> <span class="sig">Σ</span><sub>s∈S</sub> &nbsp;t<sub>ps</sub> &middot; x<sub>ps</sub></span><span class="ann">T1 &nbsp;貨架→站台</span></div>
+        <div class="objrow"><span class="op">+</span><span class="expr"><span class="sig">Σ</span><sub>r∈R</sub> <span class="sig">Σ</span><sub>p∈P<sup class="up">a</sup></sub> &nbsp;g<sub>rp</sub> &middot; u<sub>rp</sub></span><span class="ann">T2 &nbsp;機器人→貨架</span></div>
+        <div class="objrow"><span class="op">−</span><span class="expr">λ(1−δ) <span class="sig">Σ</span><sub>o∈O</sub> <span class="sig">Σ</span><sub>i∈I<sub>o</sub><sup class="up">+</sup></sub> &nbsp;c<sub>oi</sub></span><span class="ann">T3a 綁定關線</span></div>
+        <div class="objrow"><span class="op">−</span><span class="expr">λδ <span class="sig">Σ</span><sub>o∈O</sub> <span class="sig">Σ</span><sub>i∈I<sub>o</sub><sup class="up">+</sup></sub> &nbsp;<span class="hat">c</span><sub>oi</sub></span><span class="ann">T3b 估值關線</span></div>
+        <div class="objrow"><span class="op">−</span><span class="expr">μ(1−δ) <span class="sig">Σ</span><sub>o∈O</sub> &nbsp;z<sub>o</sub></span><span class="ann">T4a 綁定完單</span></div>
+        <div class="objrow"><span class="op">−</span><span class="expr">μδ <span class="sig">Σ</span><sub>o∈O</sub> &nbsp;<span class="hat">z</span><sub>o</sub></span><span class="ann">T4b 估值完單</span></div>
+        <div class="objrow"><span class="op">−</span><span class="expr">ε <span class="sig">Σ</span><sub>(o,i,p,s)∈Ω</sub> &nbsp;q<sub>oips</sub></span><span class="ann">T5 &nbsp;平手偏好</span></div>
+        <div class="objrow"><span class="op">+</span><span class="expr">ρ <span class="sig">Σ</span><sub>(o,i,p,s)∈Ω, p∈P<sup class="up">a</sup></sub> &nbsp;q<sub>oips</sub></span><span class="ann">T6a 新派貨架</span></div>
+        <div class="objrow"><span class="op">−</span><span class="expr">ρ <span class="sig">Σ</span><sub>(o,i,p,s)∈Ω, p∈P<sup class="up">p</sup></sub> &nbsp;q<sub>oips</sub></span><span class="ann">T6b 正在揀的貨架</span></div>
+      </div>
+    </div>
+
+    <h3>單位一致性是硬性的</h3>
+    <p>
+      T1／T2 是真實的公尺，所以 <span class="m">λ, μ, ρ, ε</span> 也<strong>必須是公尺</strong>，
+      否則整條式子在加不同單位的東西。這件事嚴格到建構子裡直接擋：
+      若偵測到 <code>StarveAwareCostEnabled</code>（那個設定會把距離函數改成秒），
+      M4GManager <strong>丟例外拒絕啟動</strong>，而不是安靜地解出一個沒有意義的答案。
+    </p>
+
+    <h3>T1／T2：為什麼只有 <span class="m">P<sup class="up">a</sup></span> 付錢</h3>
+    <p>
+      因為<strong>已經在路上或已經在站上的貨架，它的行程是沉沒成本</strong>。
+      那趟路無論這次決策做什麼都要跑完，把它算進來只會扭曲比較。
+      這個原則在 T6 的貨架分級定價裡會再出現一次，兩處必須一致。
+    </p>
+
+    <h3>T3／T4：<span class="m">δ</span> 把兩層縫在一起</h3>
+    <p>
+      注意 T3 有兩項。由 B6（<span class="m">c<sub>oi</sub> ≤ <span class="hat">c</span><sub>oi</sub></span>），
+      一條線如果<strong>同時被估值也被綁定</strong>，它拿到
+      <span class="m">λ(1−δ) + λδ = λ</span>，也就是<strong>全價</strong>；
+      如果<strong>只被估值、沒被綁定</strong>，只拿 <span class="m">λδ</span>。
+    </p>
+    <p>
+      所以 <span class="m">δ</span> 的角色是：<strong>把「只是估值」的那份價值打折到它歷史上真正被兌現的比率</strong>。
+      沒有它，估值層會變成免費的許願池。
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ §6 -->
+<section>
+  <div class="gutter">§6</div>
+  <div class="col wide">
+    <h2>限制式</h2>
+    <p class="dek">三個系列：R 管物理資源、V 管估值層、B 管綁定層。代號與程式碼註解一致。灰底列＝可關閉的旗標。</p>
+
+    <div class="eqblock acc-n">
+      <div class="ehead">R &nbsp;·&nbsp; 物理與資源</div>
+      <div class="eq">
+        <div class="body"><span class="m"><span class="sig">Σ</span><sub>s∈S</sub> x<sub>ps</sub> ≤ 1</span></div>
+        <div class="dom">∀ p ∈ P</div><div class="tag">R1</div>
+      </div>
+      <div class="eq">
+        <div class="body"><span class="m"><span class="sig">Σ</span><sub>s∈S</sub> x<sub>ps</sub> ≤ <span class="sig">Σ</span><sub>r∈R</sub> u<sub>rp</sub></span></div>
+        <div class="dom">∀ p ∈ P<sup class="up">a</sup></div><div class="tag">R2</div>
+      </div>
+      <div class="eq">
+        <div class="body"><span class="m"><span class="sig">Σ</span><sub>p∈P<sup class="up">a</sup></sub> u<sub>rp</sub> ≤ 1</span></div>
+        <div class="dom">∀ r ∈ R</div><div class="tag">R3</div>
+      </div>
+      <div class="eq">
+        <div class="body"><span class="m"><span class="sig">Σ</span><sub>r∈R</sub> u<sub>rp</sub> ≤ 1</span></div>
+        <div class="dom">∀ p ∈ P<sup class="up">a</sup></div><div class="tag">R4</div>
+      </div>
+      <div class="eq">
+        <div class="body"><span class="m">x<sub>p,σ(p)</sub> = 1 ，&nbsp; u<sub>β(p),p</sub> = 1</span></div>
+        <div class="dom">∀ p ∈ P<sup class="up">b</sup></div><div class="tag">R5</div>
+      </div>
+    </div>
+
+    <div class="eqblock acc-v">
+      <div class="ehead">V &nbsp;·&nbsp; 估值層</div>
+      <div class="eq">
+        <div class="body"><span class="m"><span class="sig">Σ</span><sub>o : i∈I<sub>o</sub><sup class="up">+</sup></sub> <span class="hat">q</span><sub>oips</sub> ≤ k<sub>pi</sub> &middot; x<sub>ps</sub></span></div>
+        <div class="dom">∀ i, p ∈ P<sub>i</sub>, s ∈ S</div><div class="tag">V1</div>
+      </div>
+      <div class="eq">
+        <div class="body"><span class="m"><span class="sig">Σ</span><sub>p∈P<sub>i</sub></sub> <span class="sig">Σ</span><sub>s∈S</sub> <span class="hat">q</span><sub>oips</sub> ≤ d<sub>oi</sub></span></div>
+        <div class="dom">∀ o ∈ O, i ∈ I<sub>o</sub><sup class="up">+</sup></div><div class="tag">V2</div>
+      </div>
+      <div class="eq gated">
+        <div class="body"><span class="m"><span class="sig">Σ</span><sub>o</sub> <span class="sig">Σ</span><sub>p∈P<sub>i</sub>∩P<sup class="up">a</sup></sub> <span class="sig">Σ</span><sub>s∈S</sub> <span class="hat">q</span><sub>oips</sub> ≤ max{ 0, <span class="sig">Σ</span><sub>o</sub> d<sub>oi</sub> − b<sub>i</sub> }</span></div>
+        <div class="dom">∀ i</div><div class="tag">V2a</div>
+      </div>
+      <div class="eq">
+        <div class="body"><span class="m"><span class="sig">Σ</span><sub>p∈P<sub>i</sub></sub> <span class="sig">Σ</span><sub>s∈S</sub> <span class="hat">q</span><sub>oips</sub> ≥ d<sub>oi</sub> &middot; <span class="hat">c</span><sub>oi</sub></span></div>
+        <div class="dom">∀ o ∈ O, i ∈ I<sub>o</sub><sup class="up">+</sup></div><div class="tag">V3</div>
+      </div>
+      <div class="eq">
+        <div class="body"><span class="m"><span class="hat">c</span><sub>oi</sub> ≥ <span class="hat">z</span><sub>o</sub></span></div>
+        <div class="dom">∀ o ∈ O, i ∈ I<sub>o</sub><sup class="up">+</sup></div><div class="tag">V4</div>
+      </div>
+      <div class="eq">
+        <div class="body"><span class="m"><span class="hat">z</span><sub>o</sub> = 0</span></div>
+        <div class="dom">∀ o : I<sub>o</sub><sup class="up">+</sup> ≠ I<sub>o</sub></div><div class="tag">V4g</div>
+      </div>
+    </div>
+
+    <div class="eqblock acc-b">
+      <div class="ehead">B &nbsp;·&nbsp; 綁定層</div>
+      <div class="eq">
+        <div class="body"><span class="m">q<sub>oips</sub> ≤ <span class="hat">q</span><sub>oips</sub></span></div>
+        <div class="dom">∀ (o,i,p,s) ∈ Ω</div><div class="tag">B1</div>
+      </div>
+      <div class="eq">
+        <div class="body"><span class="m"><span class="sig">Σ</span><sub>i∈I<sub>o</sub><sup class="up">+</sup></sub> <span class="sig">Σ</span><sub>p∈P<sub>i</sub></sub> q<sub>oips</sub> ≤ D<sub>o</sub> &middot; y<sub>os</sub></span></div>
+        <div class="dom">∀ o ∈ O, s ∈ S</div><div class="tag">B2</div>
+      </div>
+      <div class="eq">
+        <div class="body"><span class="m"><span class="sig">Σ</span><sub>o∈O</sub> y<sub>os</sub> ≤ C<sub>s</sub></span></div>
+        <div class="dom">∀ s ∈ S</div><div class="tag">B3</div>
+      </div>
+      <div class="eq">
+        <div class="body"><span class="m">y<sub>os</sub> ≤ <span class="sig">Σ</span><sub>i∈I<sub>o</sub><sup class="up">+</sup></sub> <span class="sig">Σ</span><sub>p∈P<sub>i</sub></sub> q<sub>oips</sub></span></div>
+        <div class="dom">∀ o ∈ O, s ∈ S</div><div class="tag">B4</div>
+      </div>
+      <div class="eq">
+        <div class="body"><span class="m"><span class="sig">Σ</span><sub>p∈P<sub>i</sub></sub> <span class="sig">Σ</span><sub>s∈S</sub> q<sub>oips</sub> ≥ d<sub>oi</sub> &middot; c<sub>oi</sub></span></div>
+        <div class="dom">∀ o ∈ O, i ∈ I<sub>o</sub><sup class="up">+</sup></div><div class="tag">B5</div>
+      </div>
+      <div class="eq">
+        <div class="body"><span class="m">c<sub>oi</sub> ≤ <span class="hat">c</span><sub>oi</sub> ，&nbsp; z<sub>o</sub> ≤ <span class="hat">z</span><sub>o</sub></span></div>
+        <div class="dom">∀ o ∈ O, i ∈ I<sub>o</sub><sup class="up">+</sup></div><div class="tag">B6</div>
+      </div>
+      <div class="eq">
+        <div class="body"><span class="m">c<sub>oi</sub> ≥ z<sub>o</sub></span></div>
+        <div class="dom">∀ o ∈ O, i ∈ I<sub>o</sub><sup class="up">+</sup></div><div class="tag">B7</div>
+      </div>
+      <div class="eq gated">
+        <div class="body"><span class="m"><span class="sig">Σ</span><sub>s∈S</sub> y<sub>os</sub> ≤ 1</span></div>
+        <div class="dom">∀ o ∈ O &nbsp;— <strong>禁止拆單</strong></div><div class="tag">B8</div>
+      </div>
+    </div>
+
+    <h3>幾條需要說明的</h3>
+    <ul>
+      <li>
+        <strong>R2</strong> 只對 <span class="m">P<sup class="up">a</sup></span> 成立。程式碼有一個必要的細節：
+        若某台儲區貨架這一刻<strong>沒有任何車能搬</strong>，右式為空集合，
+        此時<strong>不能</strong>直接略過這條限制（那會讓 <span class="m">x<sub>ps</sub></span> 完全不受約束，
+        求解器可以派出一台沒有搬運車的貨架），必須寫成
+        <span class="m"><span class="sig">Σ</span><sub>s</sub> x<sub>ps</sub> ≤ 0</span>。
+      </li>
+      <li>
+        <strong>B3 是不等式</strong>。前一代 M3G 這裡是等式（強迫填滿每個槽位），
+        那正是「把槽位當在製品停車場」病理的來源之一。
+      </li>
+      <li>
+        <strong>B8 是整個消融實驗的支點</strong>。不拆單對照組（<code>m1g_a.xconf</code>）
+        與 M4G 主臂（<code>m4g.xconf</code>）的設定檔逐行 diff <strong>只差 <code>ForbidSplitting</code> 這一行</strong>；
+        打開它會同時在估值層（V7／V8）與綁定層（B8／B9）切換成整單語意。
+        「拆單值多少」這個問題，量到的就是這一條限制式的價格。
+      </li>
+    </ul>
+
+    <div class="note warn">
+      <div class="ntitle">V4g 是修一個真實的漏洞</div>
+      <p>
+        V4 只能對「有貨架能覆蓋」的線發言——一條沒有任何貨架能供貨的線，
+        在模型裡連 <span class="m"><span class="hat">c</span><sub>oi</sub></span> 這個符號都不存在
+        （這正是 <span class="m">I<sub>o</sub><sup class="up">+</sup></span> 與 <span class="m">I<sub>o</sub></span> 的差別）。
+        於是求解器可以<strong>免費把 <span class="m"><span class="hat">z</span><sub>o</sub></span> 設成 1</strong>，
+        白領 <span class="m">μ</span> 的完成獎勵；因為那是負係數，模型還會<strong>主動偏好它根本做不完的訂單</strong>。
+      </p>
+      <p>
+        實測影響：宣稱完成 826 張、實際只完成 569 張。而且這個洞會被 top-K 候選篩選<strong>放大</strong>
+        （誤差從 1.8% 撐到 45.2%），因為篩選讓更多線失去覆蓋。
+        修正旗標 <code>HonestCompletionReward</code> 預設為 true。
+      </p>
+    </div>
+
+    <div class="note">
+      <div class="ntitle">V2a：把在途供給扣掉</div>
+      <p>
+        沒有 V2a 的話，估值層每次決策都會拿<strong>原始 backlog</strong> 去給新貨架打分——
+        即使已經有貨架為了同一批需求正在路上。結果是同樣約 31 條線每次決策都被重新估值一次，
+        每次都重新替「再叫一台新貨架」找到理由。
+      </p>
+      <p>
+        扣減必須是<strong>每個 SKU 彙總扣一次</strong>，不能逐單扣。
+        若三張訂單各需 2 件、在途供給 5 件，逐單扣會讓每張都看到
+        <span class="m">max{0, 2−5} = 0</span>，三張全部不准從新貨架取貨——
+        但在途其實只覆蓋了 6 件裡的 5 件。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ §7 -->
+<section>
+  <div class="gutter">§7</div>
+  <div class="col wide">
+    <h2>價格從哪裡來</h2>
+    <p class="dek">五個價格全部由跑到目前為止的累積統計現算。<code>M4GPricing.cs</code> 是個純狀態機：不碰求解器、不碰模擬環境、不碰檔案。</p>
+
+    <div class="eqblock acc-n">
+      <div class="ehead">Running statistics</div>
+      <div class="eq"><div class="body"><span class="m">L</span></div><div class="dom">累積行駛距離（公尺）</div><div class="tag"></div></div>
+      <div class="eq"><div class="body"><span class="m">N<sub>ℓ</sub></span></div><div class="dom">累積關閉線數</div><div class="tag"></div></div>
+      <div class="eq"><div class="body"><span class="m">N<sub>o</sub></span></div><div class="dom">累積完成訂單數</div><div class="tag"></div></div>
+      <div class="eq"><div class="body"><span class="m">N<sub>u</sub></span></div><div class="dom">累積揀取件數</div><div class="tag"></div></div>
+      <div class="eq"><div class="body"><span class="m">B, V</span></div><div class="dom">累積<strong>綁定</strong>／<strong>估值</strong>線數</div><div class="tag"></div></div>
+    </div>
+
+    <div class="eqblock acc-n">
+      <div class="ehead">Prices</div>
+      <div class="eq">
+        <div class="body"><span class="m">λ = L / N<sub>ℓ</sub></span></div>
+        <div class="dom">公尺 / 條線</div><div class="tag">λ</div>
+      </div>
+      <div class="eq">
+        <div class="body"><span class="m">μ = λ &middot; ( N<sub>ℓ</sub> / N<sub>o</sub> )</span></div>
+        <div class="dom">公尺 / 張訂單</div><div class="tag">μ</div>
+      </div>
+      <div class="eq">
+        <div class="body"><span class="m">ρ = L / N<sub>u</sub></span></div>
+        <div class="dom">公尺 / 件</div><div class="tag">ρ</div>
+      </div>
+      <div class="eq">
+        <div class="body"><span class="m">ε = 0.001 &middot; λ</span></div>
+        <div class="dom">量級遠低於 λ，僅供平手判斷</div><div class="tag">ε</div>
+      </div>
+      <div class="eq">
+        <div class="body"><span class="m">δ = min{ 1, max{ 0, B / V } }</span></div>
+        <div class="dom">無單位，估值兌現率</div><div class="tag">δ</div>
+      </div>
+    </div>
+
+    <h3>這些數字在講什麼</h3>
+    <ul>
+      <li><strong><span class="m">λ</span>：一條線值幾公尺。</strong>它是「一公尺機器人移動」的機會成本。系統歷史上平均每花 <span class="m">λ</span> 公尺就能關掉一條線，那麼現在為了關一條線，最多也就值得花 <span class="m">λ</span> 公尺。</li>
+      <li><strong><span class="m">μ</span>：一張訂單值幾公尺。</strong>就是 <span class="m">λ</span> 乘上這個 instance 的平均每單線數。它讓模型偏好「把某張單收尾」而不是到處各關一條線。</li>
+      <li><strong><span class="m">ρ</span>：一件商品的重置成本。</strong>回答的是：「這件現在不從眼前這台貨架拿，之後要拿要付多少公尺？」</li>
+      <li><strong><span class="m">δ</span>：估值兌現率。</strong>見 §8。</li>
+    </ul>
+
+    <h3>暖機期</h3>
+    <p>
+      <span class="m">N<sub>ℓ</sub> &lt; 50</span> 之前統計太薄不能拿來定價，改用 fallback：
+      <span class="m">λ = 10</span>、<span class="m">δ = 0.05</span>、每單 2.4 條線。
+    </p>
+    <p>
+      這裡有個踩過的坑值得記住：<code>RhoFallback</code> 曾經是一個<strong>絕對常數</strong>（15）。
+      問題是 <span class="m">ρ</span> 是「公尺／件」而 <span class="m">λ</span> 是「公尺／線」，
+      兩者的比值應由 instance 的「每條線幾件」決定，<strong>不是第二個自由度</strong>。
+      當時把 <code>LambdaFallback</code> 從 10 調到 5，<span class="m">ρ/λ</span> 就從 1.5 跳到 3.0，
+      於是每一個取貨動作都算成正值、沒有任何動作會被接受，整場模擬產出<strong>零張訂單</strong>。
+      現在 <code>RhoFallback</code> 被重新詮釋成相對於 <span class="m">λ = 10</span> 的比值錨點
+      （<span class="m">ρ = λ &middot; RhoFallback / 10</span>），這個不變量才被守住。
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ §8 -->
+<section>
+  <div class="gutter">§8</div>
+  <div class="col">
+    <h2><span class="m">δ</span>：讓這個模型真的能動的那一個修正</h2>
+    <p class="dek">兩個缺一不可的機制之一。改對之前，M4G 會瘋狂派車。</p>
+
+    <p>
+      <span class="m">δ = B / V</span>（累積綁定線數 ÷ 累積估值線數），實測落在 <strong>0.05 – 0.08</strong>。
+      意思是：估值層每算 100 條線的價值，綁定層實際上只吃得下 5 到 8 條。
+    </p>
+    <p>
+      舊的定義是「這條線<strong>後來有沒有被關掉</strong>」，實測 0.699。
+      這個數字看起來合理，但語意是錯的——它衡量的是<strong>整個系統最終有沒有完成這個工作</strong>，
+      不管是不是這次決策、這台貨架完成的。
+    </p>
+
+    <div class="note warn">
+      <div class="ntitle">歸因錯誤的後果</div>
+      <p>
+        用 0.699 這個值，等於<strong>為別台車做的工，付錢給這台車</strong>。
+        模型看到的是「我叫一台貨架過來，它估值 100 條線，有 70 條會兌現」——
+        但那 70 條其實大部分是後續其他決策、其他貨架關掉的。
+        於是每一次派車看起來都超級划算，模型就瘋狂派車，pile-on 崩掉、距離暴漲。
+      </p>
+      <p>
+        改成 0.05–0.08 之後，模型才第一次誠實地看見：
+        「我現在能真正兌現的只有這麼多，其他的是選擇權，不是收入。」
+      </p>
+    </div>
+
+    <p>
+      <span class="m">δ</span> 的另一個作用是<strong>自我校準</strong>。它是跑出來的，不是設定的。
+      槽位寬鬆時綁定層吃得下大部分估值，<span class="m">δ</span> 自然升高，模型更敢派車；
+      槽位緊繃時 <span class="m">δ</span> 自然下降，模型自動變保守。
+      <strong>不需要為不同 instance 重新調參。</strong>
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ §9 -->
+<section>
+  <div class="gutter">§9</div>
+  <div class="col">
+    <h2>貨架分級定價：沉沒成本要怎麼記帳</h2>
+    <p class="dek">兩個缺一不可的機制之二。<span class="m">ρ</span> 的正負號取決於這台貨架走到哪一步了。</p>
+
+    <div class="tiers">
+      <div class="tier pa">
+        <div class="tname">P<sup>a</sup></div>
+        <div class="tdesc">還在儲區，這次決策才要派出去</div>
+        <div class="tprice">+ρ</div>
+      </div>
+      <div class="tier free">
+        <div class="tname">P<sup>b</sup></div>
+        <div class="tdesc">已承諾、還在路上</div>
+        <div class="tprice">0</div>
+      </div>
+      <div class="tier free">
+        <div class="tname">P<sup>q</sup></div>
+        <div class="tdesc">已到站台，在排隊等位</div>
+        <div class="tprice">0</div>
+      </div>
+      <div class="tier pp">
+        <div class="tname">P<sup>p</sup></div>
+        <div class="tdesc">正在被揀，窗口即將關閉</div>
+        <div class="tprice">−ρ</div>
+      </div>
+    </div>
+    <div class="tierflow">儲區 ─────► 派車途中 ─────► 站台排隊 ─────► 正在揀貨 ─────► 送回儲區</div>
+
+    <p>這條軸線的邏輯是<strong>還剩多少沒付的錢</strong>：</p>
+    <ul>
+      <li><strong><span class="m">P<sup class="up">a</sup></span>（+ρ）</strong>：從這台貨架多取一件，代價是真的要多跑一趟。除了 <span class="m">ρ</span>，它還在 T1／T2 付了整段行程的距離。</li>
+      <li><strong><span class="m">P<sup class="up">b</sup></span> / <span class="m">P<sup class="up">q</sup></span>（0）</strong>：行程已經沉沒。這趟路不管你取不取都要跑完，所以取貨本身<strong>免費</strong>。</li>
+      <li><strong><span class="m">P<sup class="up">p</sup></span>（−ρ）</strong>：這台貨架<strong>此刻就在揀貨口</strong>，等它離開就沒了。現在不從它身上拿走的商品，未來要為它再叫一趟車。所以模型<strong>倒貼 <span class="m">ρ</span> 獎勵你抓住它</strong>。</li>
+    </ul>
+
+    <p>
+      <span class="m">P<sup class="up">p</sup></span> 那個負號是整個定價設計裡最有意思的一步。
+      它不是「鼓勵拆單」的人工偏誤，而是把<strong>錯過的未來成本</strong>誠實地標到現在這個決策上。
+      拆單之所以會發生，是因為在這個定價下拆單<strong>算起來比較便宜</strong>，
+      而不是因為有一條規則叫模型去拆。
+    </p>
+
+    <div class="note">
+      <div class="ntitle">為什麼這件事重要</div>
+      <p>
+        對照組實驗顯示，在<strong>雙方都拿掉人工護欄</strong>的對等條件下，
+        M4G 的 pile-on 是 3.557、貪婪法（HGS）是 2.382——差 49%，距離少 23%。
+        HGS 原本那個漂亮的 4.42，有將近一半是靠人工護欄借來的。
+      </p>
+      <p>
+        M4G 的定位因此不是「效率最高的模型」，而是<strong>第一個靠設計、而不是靠調參解決拆單的模型</strong>。
+        它的零人工節流版本（pile-on 3.557、訂單 1213）就是它自己調參版本（3.576 / 1180）的水準。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ §10 -->
+<section>
+  <div class="gutter">§10</div>
+  <div class="col wide">
+    <h2>Dinkelbach：<span class="m">λ</span> 不是參數，是被解出來的</h2>
+    <p class="dek">目標式其實是一個比值問題的線性化。這解釋了為什麼所有價格都跟 <span class="m">λ</span> 成比例。</p>
+
+    <p style="max-width:var(--measure)">
+      M4G 真正想最小化的是<strong>比值</strong>：每單位價值要付多少公尺。
+      比值目標式不是線性的，標準做法是 Dinkelbach 參數化——引入 <span class="m">λ</span>，
+      改解 <span class="m">Z(λ) = D − λ&middot;V</span>，再迭代更新 <span class="m">λ</span>。
+    </p>
+
+    <div class="eqblock acc-n">
+      <div class="ehead">Ratio decomposition</div>
+      <div class="objblock">
+        <div class="objrow"><span class="op"><span class="m">D =</span></span><span class="expr"><span class="sig">Σ</span><sub>p∈P<sup class="up">a</sup></sub><span class="sig">Σ</span><sub>s</sub> t<sub>ps</sub>x<sub>ps</sub> + <span class="sig">Σ</span><sub>r</sub><span class="sig">Σ</span><sub>p∈P<sup class="up">a</sup></sub> g<sub>rp</sub>u<sub>rp</sub></span><span class="ann">成本面（公尺）</span></div>
+      </div>
+      <div class="objblock" style="border-top:1px solid var(--rule-soft)">
+        <div class="objrow"><span class="op"><span class="m">V =</span></span><span class="expr">(1−δ)<span class="sig">Σ</span> c<sub>oi</sub> + δ<span class="sig">Σ</span> <span class="hat">c</span><sub>oi</sub></span><span class="ann">線</span></div>
+        <div class="objrow"><span class="op">+</span><span class="expr">(μ<sub>0</sub>/λ<sub>0</sub>) [ (1−δ)<span class="sig">Σ</span> z<sub>o</sub> + δ<span class="sig">Σ</span> <span class="hat">z</span><sub>o</sub> ]</span><span class="ann">訂單</span></div>
+        <div class="objrow"><span class="op">+</span><span class="expr">(ε<sub>0</sub>/λ<sub>0</sub>) <span class="sig">Σ</span> q<sub>oips</sub></span><span class="ann">平手</span></div>
+        <div class="objrow"><span class="op">−</span><span class="expr">(ρ<sub>0</sub>/λ<sub>0</sub>) [ <span class="sig">Σ</span><sub>p∈P<sup class="up">a</sup></sub> q<sub>oips</sub> − <span class="sig">Σ</span><sub>p∈P<sup class="up">p</sup></sub> q<sub>oips</sub> ]</span><span class="ann">貨架分級</span></div>
+      </div>
+    </div>
+
+    <div class="eqblock acc-n">
+      <div class="ehead">Iteration</div>
+      <div class="eq">
+        <div class="body"><span class="m">V*(λ<sub>k</sub>) = ( D* − Z* ) / λ<sub>k</sub></span></div>
+        <div class="dom">本次解出來的價值</div><div class="tag"></div>
+      </div>
+      <div class="eq">
+        <div class="body"><span class="m">λ<sub>k+1</sub> = D* / V*(λ<sub>k</sub>)</span></div>
+        <div class="dom">下一個試探點</div><div class="tag"></div>
+      </div>
+      <div class="eq">
+        <div class="body"><span class="m">停止：&nbsp; |Z*| ≤ 0.5 &nbsp;或&nbsp; V* ≤ 0 &nbsp;或&nbsp; k = 5</span></div>
+        <div class="dom"></div><div class="tag"></div>
+      </div>
+    </div>
+
+    <p style="max-width:var(--measure)">
+      關鍵在於：迭代時 <span class="m">μ, ρ, ε</span> 全都<strong>隨 <span class="m">λ</span> 等比縮放</strong>
+      （<span class="m">λ / λ<sub>0</sub></span>）。
+      這是刻意的——這樣 <span class="m">V</span> 這個線性形式的<strong>組成比例保持不變</strong>，
+      <span class="m">λ</span> 只在搜尋「一單位價值換幾公尺」這個匯率，不會偷偷改變模型本身。
+    </p>
+
+    <div class="note warn">
+      <div class="ntitle">一個已知缺陷，以及它教會我們的事</div>
+      <p>
+        原本的迭代<strong>只會往下搜 <span class="m">λ</span>，不會往上</strong>：
+        碰到 <span class="m">V* ≤ 0</span> 就直接 break。
+        實測 1013 次決策裡，<span class="m">λ</span> 被往上調的次數是 <strong>0</strong>。
+      </p>
+      <p>
+        這個缺陷平常不會發作，但一旦 <span class="m">λ</span> 的起始水位被低估，就會進入死亡螺旋：
+        派車變少 → 距離累積變慢 → <span class="m">λ</span> 再降 → 更不派車。
+        一次「數學上應該無害」的重新標度（把定價分母從總距離換成揀貨距離），
+        就把 599 張訂單打成 171 張。
+      </p>
+      <p>
+        補上雙向搜尋（<span class="m">V* ≤ 0</span> 時把 <span class="m">λ</span> 加倍再解一次）之後，
+        同樣的重新標度只剩 3.3% 殘差，而且五個 seed 的配對檢定顯示<strong>沒有可測差異</strong>
+        （平均差 +2.0 張，<span class="m">t</span> = 0.34）。
+      </p>
+      <p>
+        這反而給了模型一個更強的性質：<strong><span class="m">λ</span> 的絕對水位是自由的</strong>，
+        整個價格向量乘上任意正常數，行為不變。真正決定行為的只有
+        <span class="m">ρ/λ, μ/λ, ε/λ</span> 這些比值，
+        而它們由 instance 的「每線幾件」「每單幾線」決定——<strong>不是調出來的</strong>。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ §11 -->
+<section>
+  <div class="gutter">§11</div>
+  <div class="col">
+    <h2>穩態：貨架送到站、訂單一張張完成時</h2>
+    <p class="dek">連續決策之間，模型怎麼避免重複下注。</p>
+
+    <h3>殘餘需求，而不是原始需求</h3>
+    <p>
+      快照裡每張訂單帶的是<strong>殘餘需求</strong> <span class="m">d<sub>oi</sub></span>，
+      不是下單時的原始數量。已被取走、已被承諾的部分會從裡面扣掉。
+      所以一張被拆過的母單，在下一次決策裡看起來就是一張比較小的單。
+    </p>
+
+    <h3>訂單完成時發生什麼</h3>
+    <p>
+      commit 之後，如果某張訂單在某站的取貨<strong>沒有覆蓋它的全部殘餘</strong>，
+      就會產生一張<strong>子單</strong>（split child），指派給那個站；母單保留剩下的需求，繼續參與後續決策。
+      當所有子單都完成，母單才透過 consolidation 事件鏈被標記為完成。
+    </p>
+    <p>
+      這也是為什麼<strong>時窗長度會影響量到的數字</strong>：模擬結束時還沒合併完的母單就是在製品（WIP），
+      短時窗下這個尾巴佔比很大，讓拆單看起來吃虧。
+      實測訂單差距在 2h 是 8.22%、4h 是 3.94%、8h 收斂到 0.94%，
+      而件數在 8h 反轉成拆單贏 +2.99%。這是 <span class="m">O(1/T)</span> 的邊界效應，不是拆單本身的劣勢。
+    </p>
+
+    <h3>連續決策之間的價值不會消失</h3>
+    <p>回到 §2 那個黃金貨架的例子：它被叫過來，這次決策只綁到一張訂單。下一次決策時它已經變成 <span class="m">P<sup class="up">p</sup></span>，於是：</p>
+    <ul>
+      <li>T1／T2 <strong>不再向它收行程費</strong>（沉沒了）</li>
+      <li>T6 給它 <span class="m">−ρ</span> 的獎勵（窗口正在關）</li>
+      <li>它身上能服務的其他訂單，這時競爭力遠高於任何一台還在儲區的貨架</li>
+    </ul>
+    <p>
+      所以「這一刻塞不下」不等於「價值消失」，而是<strong>價值被推遲到下一次決策，而且那時它的價格更有利</strong>。
+      這就是兩層架構加上分級定價共同產生的行為：模型會自然而然地把一台已經到站的貨架<strong>榨乾</strong>再放走。
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ §12 -->
+<section>
+  <div class="gutter">§12</div>
+  <div class="col">
+    <h2>已知限制與走過的死路</h2>
+    <p class="dek">口試會被問的地方，先寫在這裡。</p>
+
+    <h3>同期跨站拆單實測為零</h3>
+    <p>
+      677 張母單裡，「同一次決策拆到兩個站」的次數是 <strong>0</strong>。
+      拆單全部發生在<strong>跨期</strong>（跨期同站 88 張、跨期跨站 124 張、整單完成 409 張）。
+    </p>
+    <p>
+      原因是站台容量 <span class="m">C<sub>s</sub></span> 是<strong>訂單粒度</strong>的，
+      加上決策觸發門檻為 1（一有訂單就決策），導致 99.89% 的決策當下只有一個站台有空位。
+      對照 Xie 等人的模型用的是<strong>件數粒度</strong>的容量，容量連續釋放，
+      所以同時會有好幾個站台各留一點餘裕。
+      這是模型「宣稱有、實際休眠」的一個能力，必須誠實揭露或補一個 item-capacity 對照臂。
+    </p>
+
+    <h3>合併暫存區假設為無限</h3>
+    <p>
+      實測同時存在的未合併母單峰值是 117 張（8h）／82 張（6-bot）。
+      Xie 的模型明確限制了合併暫存區容量（78 箱）。目前 M4G 沒有這條限制。
+    </p>
+
+    <h3>試過但無效的方向</h3>
+    <ul>
+      <li><strong>單台貨架的信用上限</strong>（V5 / <code>PodCreditCapEnabled</code>）：inert，因為它繞過核心定價而不是修正它。</li>
+      <li><strong>增量估值的其他變體</strong>：同樣 inert。</li>
+      <li><strong>晚綁定</strong>（把規劃與槽位綁定解耦）：三次獨立驗證全部否定。根因是每次決策平均只落實 1.49 個單位，訂單分配本來就已是逐步晚綁；真正早綁的只有「貨架選擇」，那是搬運途中無法反悔的物理事實。</li>
+      <li><strong>回填 / 留站服務 backlog</strong>：已定案為不可行道路。</li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  程式碼位置：RAWSimO.Core/Control/Defaults/OrderBatching/M4GManager.cs · M4GPricing.cs<br>
+  設定檔：Material/Instances/CoreBenchmark/small/m4g.xconf（拆單）· m1g_a.xconf（禁拆單，只差 ForbidSplitting 一行）<br>
+  設計文件：docs/superpowers/specs/2026-07-31-m4g-valuation-binding-design.md<br>
+  符號對照：x=xps · u=yrp · <span style="font-family:var(--math);font-style:italic">q̂</span>=qh · q=qb · y=y_o_s
+</footer>
+
+</div>
