@@ -245,6 +245,22 @@ namespace RAWSimO.Core.Elements
         /// </summary>
         public double StatDistanceTraveled;
         /// <summary>
+        /// The distance traveled by this bot so far while executing an <see cref="Control.BotTaskType.Extract"/>
+        /// task, i.e. driving to a pod and carrying it to a picking station.
+        ///
+        /// Pure measurement, accumulated alongside <see cref="StatDistanceTraveled"/>. It exists because
+        /// the self-calibrated prices of the M4G family divide cumulative distance by closed order lines,
+        /// and the unrestricted total also contains replenishment trips and pod returns to storage -
+        /// roughly three quarters of it on the small benchmark - which the picking decision does not
+        /// control. Measured coupling: lambda tracks replenishment intensity with a detrended
+        /// correlation of 0.40-0.73, in the perverse direction (a busy replenishment period makes the
+        /// picking side MORE eager to dispatch). Extract-task distance is exactly the span the M4G
+        /// objective itself prices (bot-to-pod plus pod-to-station for newly dispatched pods), so
+        /// dividing by this instead makes the running price statistic commensurate with the objective
+        /// it feeds.
+        /// </summary>
+        public double StatDistanceTraveledExtract;
+        /// <summary>
         /// The assigned task for this bot so far.
         /// </summary>
         public int StatAssignedTasks;
@@ -311,6 +327,7 @@ namespace RAWSimO.Core.Elements
             StatNumberOfSetdowns = 0;
             StatNumCollisions = 0;
             StatDistanceTraveled = 0;
+            StatDistanceTraveledExtract = 0;
             StatDistanceEstimated = 0;
             StatDistanceRequestedOptimal = 0;
             StatAssignedTasks = 0;

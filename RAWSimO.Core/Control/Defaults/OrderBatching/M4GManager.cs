@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using RAWSimO.Core.Configurations;
@@ -48,6 +48,20 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         private M4GConfiguration _m4gConfig;
         /// <summary>Price calibration state (spec 3.5).</summary>
         private M4GPricing _pricing;
+        /// <summary>
+        /// The cumulative distance the self-calibrated prices are denominated in. Default is the
+        /// fleet's unrestricted total, which is what every published result used; under
+        /// PickDistancePricing it is Extract-task distance only, i.e. the same span the objective's
+        /// own travel term prices. See IM4GPrices.PickDistancePricing for the measurement that
+        /// motivates the switch.
+        /// </summary>
+        private double PricingDistance()
+        {
+            return _m4gConfig.PickDistancePricing
+                ? Instance.StatOverallDistanceTraveledExtract
+                : Instance.StatOverallDistanceTraveled;
+        }
+
         /// <summary>Per-decision diagnostic log.</summary>
         private System.IO.StreamWriter _decisionLog;
         /// <summary>Running decision counter, also the probe cadence clock.</summary>
@@ -57,14 +71,28 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// Split-lifetime probe (measurement only, never reads back into any decision). Emits one
         /// row per event to m4g_split_lifetime.csv:
         ///
-        ///   split,&lt;orderId&gt;,&lt;decision&gt;,&lt;simTime&gt;,&lt;linesLeft&gt;,&lt;unitsLeft&gt;
-        ///   closed,&lt;orderId&gt;,&lt;decision&gt;,&lt;simTime&gt;,0,0
+        ///   split,&lt;orderId&gt;,&lt;decision&gt;,&lt;simTime&gt;,&lt;linesLeft&gt;,&lt;unitsLeft&gt;,-1,-1,-1
+        ///   closed,&lt;orderId&gt;,&lt;decision&gt;,&lt;simTime&gt;,0,0,-1,-1,-1
+        ///   piece,&lt;parentId&gt;,&lt;decision&gt;,&lt;simTime&gt;,0,&lt;units&gt;,&lt;stationId&gt;,&lt;stationsInDecision&gt;,&lt;isChild&gt;
         ///
-        /// Joining the two by orderId gives, for every remainder this model creates, how long it
-        /// took to finish - and a "split" with no matching "closed" is a remainder that never got
-        /// finished at all. The question this exists to answer: is there an identifiable class of
-        /// BAD splits (a bimodal distribution - most cleared fast, a few never), or just a smooth
+        /// Joining split/closed by orderId gives, for every remainder this model creates, how long
+        /// it took to finish - and a "split" with no matching "closed" is a remainder that never got
+        /// finished at all. The question that pair exists to answer: is there an identifiable class
+        /// of BAD splits (a bimodal distribution - most cleared fast, a few never), or just a smooth
         /// long tail, in which case there is nothing for a split-quality rule to target.
+        ///
+        /// The "piece" rows answer a second, independent question: WHICH KIND of splitting this
+        /// model actually performs. Xie et al. (2021) separate "split among stations" (all lines
+        /// placed in the same period, possibly at different stations) from "split over time" (lines
+        /// may be deferred to later periods), and report very different gains for the two. Our
+        /// model permits both, but permitting is not exercising: one piece row per AllocateOrder,
+        /// carrying the station it landed on and how many distinct stations THIS decision used for
+        /// THIS parent, is what lets the three event classes be counted after the fact -
+        ///   A same-period cross-station : stationsInDecision &gt; 1
+        ///   B cross-period same-station : parent spans &gt;1 decision, 1 distinct station overall
+        ///   C cross-period cross-station: parent spans &gt;1 decision, &gt;1 distinct station overall
+        /// Whole orders (isChild=0, one piece row, one decision) are emitted too, so the same file
+        /// carries the denominator and the no-split arm can be post-processed identically.
         /// Event rows rather than one joined row per parent, so no end-of-run flush hook is needed.
         /// </summary>
         private System.IO.StreamWriter _splitLifeLog;
@@ -79,14 +107,92 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             if (!System.IO.Directory.Exists(dir0)) System.IO.Directory.CreateDirectory(dir0);
             _splitLifeLog = new System.IO.StreamWriter(
                 System.IO.Path.Combine(dir0, "m4g_split_lifetime.csv"), false) { AutoFlush = true };
-            _splitLifeLog.WriteLine("event,orderId,decision,time,linesLeft,unitsLeft");
+            _splitLifeLog.WriteLine("event,orderId,decision,time,linesLeft,unitsLeft,"
+                + "stationId,stationsInDecision,isChild");
         }
 
-        private void LogSplitEvent(string ev, int orderId, int linesLeft, int unitsLeft)
+        /// <summary>
+        /// Writes one probe row. The last three columns are -1 on split/closed rows, which carry no
+        /// station identity: those fire once per parent, not once per placement.
+        /// </summary>
+        private void LogSplitEvent(string ev, int orderId, int linesLeft, int unitsLeft,
+            int stationId = -1, int stationsInDecision = -1, int isChild = -1)
         {
             EnsureSplitLifeLog();
             _splitLifeLog.WriteLine(ev + "," + orderId + "," + _decisionIndex + ","
-                + Instance.Controller.CurrentTime + "," + linesLeft + "," + unitsLeft);
+                + Instance.Controller.CurrentTime + "," + linesLeft + "," + unitsLeft + ","
+                + stationId + "," + stationsInDecision + "," + isChild);
+        }
+
+        /// <summary>
+        /// Slot shadow-price probe (measurement only, gated on SlotShadowProbeCadence, never reads
+        /// back into any decision). One row per (probed decision, station):
+        ///
+        ///   decision,time,stationId,freeSlots,objBase,objPlus1,marginalValue,boundOrders,solveSec
+        ///
+        /// marginalValue = objBase - objPlus1 &gt;= 0 is the exact integer shadow price of one extra
+        /// slot at that station, in metres, evaluated at the SAME lambda the base decision settled
+        /// on so the two objectives are directly comparable.
+        /// </summary>
+        private System.IO.StreamWriter _slotShadowLog;
+
+        private void EnsureSlotShadowLog()
+        {
+            if (_slotShadowLog != null) return;
+            string dir0 = Instance != null && Instance.SettingConfig != null
+                ? Instance.SettingConfig.StatisticsDirectory : null;
+            if (string.IsNullOrEmpty(dir0)) dir0 = ".";
+            if (!System.IO.Directory.Exists(dir0)) System.IO.Directory.CreateDirectory(dir0);
+            _slotShadowLog = new System.IO.StreamWriter(
+                System.IO.Path.Combine(dir0, "m4g_slot_shadow.csv"), false) { AutoFlush = true };
+            _slotShadowLog.WriteLine(
+                "decision,time,stationId,freeSlots,objBase,objPlus1,marginalValue,boundOrders,solveSec");
+        }
+
+        /// <summary>
+        /// Re-solves this decision once per station with one extra free slot, and records the
+        /// objective improvement. Runs BEFORE CommitM4G so it sees the same pre-commit world the
+        /// base solve saw, and restores every field it perturbs: snap.Cs is put back station by
+        /// station, and the two diagnostic fields BuildModel/SolveM4G write into (_lastQmax,
+        /// _lastInboundCoverUnits) are saved and restored so the decision log still reports the
+        /// BASE solve's values rather than the last probe's.
+        /// </summary>
+        private void ProbeSlotShadowPrices(M4GSnapshot snap, M4GResult baseResult, double lambdaK,
+            double lambda0, double mu0, double epsilon0, double rho0, double delta)
+        {
+            EnsureSlotShadowLog();
+            int savedQmax = _lastQmax;
+            double savedInbound = _lastInboundCoverUnits;
+            try
+            {
+                foreach (var station in snap.Cs.Keys.ToList())
+                {
+                    int original = snap.Cs[station];
+                    snap.Cs[station] = original + 1;
+                    M4GModel probe = null;
+                    try
+                    {
+                        probe = BuildModel(snap);
+                        if (probe == null) continue;
+                        M4GResult r = SolveM4G(probe, snap, lambdaK, lambda0, mu0, epsilon0, rho0, delta);
+                        if (!r.HasSolution) continue;
+                        _slotShadowLog.WriteLine(_decisionIndex + "," + Instance.Controller.CurrentTime + ","
+                            + station.ID + "," + original + "," + baseResult.Objective + ","
+                            + r.Objective + "," + (baseResult.Objective - r.Objective) + ","
+                            + baseResult.BoundOrders + "," + r.SolveSec);
+                    }
+                    finally
+                    {
+                        if (probe != null) probe.Dispose();
+                        snap.Cs[station] = original;
+                    }
+                }
+            }
+            finally
+            {
+                _lastQmax = savedQmax;
+                _lastInboundCoverUnits = savedInbound;
+            }
         }
 
         /// <summary>Lazily opens m4g_decision_log.csv in the run's statistics directory.</summary>
@@ -374,7 +480,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             if (k <= 0 || snap.Pa.Count <= k) return;
             if (snap.Ra.Count == 0) return;
 
-            double cumDist = Instance.StatOverallDistanceTraveled;
+            double cumDist = PricingDistance();
             double lambda = _pricing.Lambda(cumDist);
             double lineValue = lambda * (1.0 + _pricing.Delta());
 
@@ -1458,7 +1564,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             _lastInboundCoverUnits = 0.0;
             _lastSplitsDeferred = 0;
             _lastSplitsCommitted = 0;
-            double cumDist = Instance.StatOverallDistanceTraveled;
+            double cumDist = PricingDistance();
             double lambda0 = _pricing.Lambda(cumDist);
             double mu0 = _pricing.Mu(cumDist);
             double epsilon0 = _pricing.Epsilon(cumDist);
@@ -1490,6 +1596,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // which SolveM4G ignores in this mode) stands as the decision.
             if (result.HasSolution && !_m4gConfig.LegacyObjective)
             {
+                int escalations = 0;
                 for (int i = 0; i < _m4gConfig.DinkelbachIterations; i++)
                 {
                     // V* = (D* - objective) / lambda_k. The objective returned by the solver is
@@ -1497,6 +1604,29 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     // with lambda_k - see SolveM4G's remarks), so this recovers V* without
                     // needing a second pass over the solution.
                     double vStar = lambdaK > 0 ? (result.DStar - result.Objective) / lambdaK : 0.0;
+                    // (Two-sided search, gated) The break below makes this loop ONE-SIDED: V* <= 0
+                    // means the best solution at this lambda is "dispatch nothing", so there is no
+                    // D*/V* to iterate from and lambda can never RISE. Measured across 1013
+                    // decisions: 880 downward revisions, zero upward. The consequence is that the
+                    // running price statistic must be an OVER-estimate to work at all - narrowing
+                    // its numerator from fleet distance to picking distance alone (the
+                    // conceptually correct span, 21.2% of the total) drops the starting lambda
+                    // from 8.70 to 1.98, below the self-consistent marginal price of ~4.5, and the
+                    // run collapses from 603 completed orders to 38 with only 5 pod dispatches.
+                    // Doubling lambda on a degenerate solve lets the fixed point be approached
+                    // from below too. 0 (default) reproduces the one-sided behaviour bit-for-bit.
+                    if (vStar <= 0 && escalations < _m4gConfig.DinkelbachEscalations && lambdaK > 0)
+                    {
+                        escalations++;
+                        double lambdaUp = lambdaK * 2.0;
+                        M4GResult upRes = SolveM4G(model, snap, lambdaUp, lambda0, mu0, epsilon0, rho0, delta);
+                        totalSolveSec += upRes.SolveSec;
+                        if (!upRes.HasSolution) break;
+                        result = upRes;
+                        lambdaK = lambdaUp;
+                        dinkIters++;
+                        continue;
+                    }
                     if (vStar <= 0) break;                                    // ratio undefined - keep this solution
                     if (Math.Abs(result.Objective) <= _m4gConfig.DinkelbachTolerance) break;  // converged
                     double lambdaNext = result.DStar / vStar;
@@ -1528,6 +1658,13 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             }
             double lambdaEnd = lambdaK;
 
+            // Slot shadow-price probe (gated, measurement only). Deliberately placed after the
+            // base model is disposed but BEFORE CommitM4G, so it re-solves against exactly the
+            // world the base decision was made in.
+            if (_m4gConfig.SlotShadowProbeCadence > 0 && result.HasSolution
+                && _decisionIndex % _m4gConfig.SlotShadowProbeCadence == 0)
+                ProbeSlotShadowPrices(snap, result, lambdaK, lambda0, mu0, epsilon0, rho0, delta);
+
             // Must run before WriteDecision so splitsDeferred/splitsCommitted reflect this
             // decision's own commit, not the previous one's leftover counters.
             if (result.HasSolution)
@@ -1540,7 +1677,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // kept bit-identical to the pre-Dinkelbach log so DinkelbachIterations=0 reproduces the
             // old decision log exactly. lambdaStart/lambdaEnd/dinkIters below are the new columns
             // that actually carry the Dinkelbach information.
-            double cumDistAfter = Instance.StatOverallDistanceTraveled;
+            double cumDistAfter = PricingDistance();
             WriteDecision(result.HasSolution, snap.PendingOrders.Count, snap.Cs.Count(c => c.Value > 0),
                 snap.Pa.Count, snap.Pb.Count, snap.Ra.Count,
                 _pricing.Lambda(cumDistAfter), _pricing.Mu(cumDistAfter), _pricing.Delta(),
@@ -1655,8 +1792,13 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 if (mine.Count == 0) continue;
 
                 // Group this order's bound draws by station: one child (or one plain
-                // allocation) per station touched.
-                foreach (var stationGroup in mine.GroupBy(e => e.Key.outputstation.ID))
+                // allocation) per station touched. Materialised (rather than iterated lazily)
+                // only so the probe below can state how many stations THIS decision used for
+                // THIS parent - the discriminator between Xie's "split among stations" and
+                // "split over time". No effect on what is committed.
+                var stationGroups = mine.GroupBy(e => e.Key.outputstation.ID).ToList();
+                int stationsInDecision = stationGroups.Count;
+                foreach (var stationGroup in stationGroups)
                 {
                     OutputStation station = stationGroup.First().Key.outputstation;
                     Dictionary<ItemDescription, int> quantities = new Dictionary<ItemDescription, int>();
@@ -1685,6 +1827,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                         Instance.ResourceManager.TransferExtractRequests(order, target);
                     }
                     AllocateOrder(target, station);
+                    // Probe: one row per placement, keyed on the PARENT id so a post-processor can
+                    // group a split order's pieces together regardless of the child ids they were
+                    // given. Measurement only.
+                    LogSplitEvent("piece", order.ID, 0, quantities.Values.Sum(),
+                        station.ID, stationsInDecision, target.ID != order.ID ? 1 : 0);
                     Instance.StatCustomControllerInfo.CustomLogOB1++;
                     foreach (var e in stationGroup)
                     {

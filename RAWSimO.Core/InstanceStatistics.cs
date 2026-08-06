@@ -112,6 +112,13 @@ namespace RAWSimO.Core
         /// The total distance traveled by the bots so far.
         /// </summary>
         public double StatOverallDistanceTraveled { get { return Bots.Sum(b => b.StatDistanceTraveled); } }
+        /// <summary>
+        /// The total distance driven under Extract tasks, i.e. the picking half of the fleet's work
+        /// (bot to pod, pod to picking station). Excludes replenishment trips, pod returns to storage
+        /// and repositioning - see <see cref="Elements.Bot.StatDistanceTraveledExtract"/> for why the
+        /// M4G price calibration needs this rather than the unrestricted total.
+        /// </summary>
+        public double StatOverallDistanceTraveledExtract { get { return Bots.Sum(b => b.StatDistanceTraveledExtract); } }
         /// <summary>Total energy consumed by all bots [J] (Rizqi model).</summary>
         public double StatOverallEnergyTotalJ { get { return Bots.OfType<Bots.BotNormal>().Sum(b => b.StatEnergyTotalJ); } }
         /// <summary>Fleet acceleration energy E1 [J].</summary>
@@ -1640,6 +1647,7 @@ namespace RAWSimO.Core
             sb.AppendLine("StatSystemOrderPileOn: " + StatSystemOrderPileOn.ToString(IOConstants.FORMATTER));
             sb.AppendLine("StatOverallCollisions: " + StatOverallCollisions);
             sb.AppendLine("StatOverallDistanceTraveled: " + StatOverallDistanceTraveled.ToString(IOConstants.FORMATTER));
+            sb.AppendLine("StatOverallDistanceTraveledExtract: " + StatOverallDistanceTraveledExtract.ToString(IOConstants.FORMATTER));
             sb.AppendLine("StatOverallDistanceEstimated: " + StatOverallDistanceEstimated.ToString(IOConstants.FORMATTER));
             sb.AppendLine("StatOverallAssignedTasks: " + StatOverallAssignedTasks);
             sb.AppendLine("StatMaxMemoryUsed: " + StatMaxMemoryUsed);

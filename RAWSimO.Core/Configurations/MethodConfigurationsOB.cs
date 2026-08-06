@@ -1,4 +1,4 @@
-﻿using RAWSimO.Core.Control.Defaults.OrderBatching;
+using RAWSimO.Core.Control.Defaults.OrderBatching;
 using RAWSimO.Core.Control.Shared;
 using RAWSimO.Core.IO;
 using System;
@@ -1627,6 +1627,8 @@ namespace RAWSimO.Core.Configurations
         public double LambdaFixed { get; set; } = 0;
         public double DeltaFixed { get; set; } = 0;
         public double RhoFallback { get; set; } = 15.0;
+        /// <summary>Denominate the running prices in Extract-task distance only. false reproduces every published result bit-for-bit. See IM4GPrices.PickDistancePricing.</summary>
+        public bool PickDistancePricing { get; set; } = false;
 
         /// <summary>(Fill fairness) On a parent's FIRST split, release its slot in the Fill backlog
         /// pool so a fresh order is injected, while keeping the parent in the pending set so its
@@ -1663,6 +1665,8 @@ namespace RAWSimO.Core.Configurations
         public double LambdaFixed { get; set; } = 0;
         public double DeltaFixed { get; set; } = 0;
         public double RhoFallback { get; set; } = 15.0;
+        /// <summary>Denominate the running prices in Extract-task distance only. false reproduces every published result bit-for-bit. See IM4GPrices.PickDistancePricing.</summary>
+        public bool PickDistancePricing { get; set; } = false;
 
         /// <summary>Mirrors M4GConfiguration.IncrementalValuationEnabled: cap draws from pods
         /// fetched this epoch at the residual demand that already-committed inbound stock cannot
@@ -1677,6 +1681,11 @@ namespace RAWSimO.Core.Configurations
         public int LambdaIterations = 5;
         /// <summary>Stops the outer lambda iteration once |objective| falls below this.</summary>
         public double LambdaTolerance = 0.5;
+        /// <summary>Maximum times a degenerate ("do nothing", V*&lt;=0) solve may double lambda and retry,
+        /// making the ratio search two-sided. 0 (default) keeps the original one-sided loop bit-for-bit.
+        /// Needed only when the running price statistic can UNDER-estimate the true marginal ratio;
+        /// see the remarks at the loop itself for the measurement.</summary>
+        public int LambdaEscalations = 0;
         /// <summary>(Fill fairness) Mirrors M4G's EPR - release the parent's Fill slot on its first
         /// split. Inert in Fixed order mode.</summary>
         public bool ReleaseParentOnFirstSplit = true;
@@ -1740,6 +1749,8 @@ namespace RAWSimO.Core.Configurations
         public double DeltaFixed { get; set; } = 0;
         /// <summary>Warm-up rho in metres per unit picked (pod-tier draw pricing fallback).</summary>
         public double RhoFallback { get; set; } = 15.0;
+        /// <summary>Denominate the running prices in Extract-task distance only. false reproduces every published result bit-for-bit. See IM4GPrices.PickDistancePricing.</summary>
+        public bool PickDistancePricing { get; set; } = false;
 
         // ── Ablation (spec 6) ──
         /// <summary>true forces q == q-hat, degenerating the valuation layer. Should reproduce M3G-like behaviour.</summary>
@@ -1849,6 +1860,11 @@ namespace RAWSimO.Core.Configurations
         public int DinkelbachIterations = 0;
         /// <summary>Convergence tolerance on the linearised objective value, in metres.</summary>
         public double DinkelbachTolerance = 0.5;
+        /// <summary>Maximum times a degenerate ("do nothing", V*&lt;=0) solve may double lambda and retry,
+        /// making the ratio search two-sided. 0 (default) keeps the original one-sided loop bit-for-bit.
+        /// Needed only when the running price statistic can UNDER-estimate the true marginal ratio;
+        /// see the remarks at the loop itself for the measurement.</summary>
+        public int DinkelbachEscalations = 0;
 
         /// <summary>Gives the model whole-order semantics - the assignment structure of the M1G
         /// baseline - instead of M4G's unit-level splitting: every order is bound to at most one
@@ -1935,6 +1951,25 @@ namespace RAWSimO.Core.Configurations
         public double LegacyOrderReward = -40;
         /// <summary>Legacy w3, the idle-slot weight.</summary>
         public double LegacyIdleSlotWeight = 0;
+        /// <summary>
+        /// Measurement-only probe: every N-th decision, re-solve the SAME model once per station
+        /// with that station's free-slot count raised by one, and log the objective improvement.
+        /// That difference is the exact integer marginal value of one station slot, in metres -
+        /// the quantity an LP dual would approximate. Gurobi does not define duals for a MIP
+        /// (LinearModel.GetDuals throws), and the relaxation's dual would be an approximation of
+        /// a quantity we can obtain exactly, so the probe re-solves instead.
+        ///
+        /// What it is for: the objective prices what a decision CONSUMES and PRODUCES, but never
+        /// what committing a scarce slot now forecloses later. If the marginal value of a slot is
+        /// roughly constant over time, using one now versus later is equivalent and the myopic
+        /// policy loses nothing; if it swings, there is a real inter-temporal opportunity cost the
+        /// current objective cannot see. Measuring the dispersion is what decides whether such a
+        /// term is worth adding at all.
+        ///
+        /// Cost: one extra solve per station per probed decision. 0 (default) disables it, leaving
+        /// the decision path bit-identical.
+        /// </summary>
+        public int SlotShadowProbeCadence = 0;
     }
 
     #endregion

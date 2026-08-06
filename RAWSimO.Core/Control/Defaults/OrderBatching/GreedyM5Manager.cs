@@ -66,6 +66,20 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         private GreedyM5Configuration _config;
         /// <summary>Price calibration state, shared implementation with M4GManager and HGS-M4.</summary>
         private M4GPricing _pricing;
+        /// <summary>
+        /// The cumulative distance the self-calibrated prices are denominated in. Default is the
+        /// fleet's unrestricted total, which is what every published result used; under
+        /// PickDistancePricing it is Extract-task distance only, i.e. the same span the objective's
+        /// own travel term prices. See IM4GPrices.PickDistancePricing for the measurement that
+        /// motivates the switch.
+        /// </summary>
+        private double PricingDistance()
+        {
+            return _config.PickDistancePricing
+                ? Instance.StatOverallDistanceTraveledExtract
+                : Instance.StatOverallDistanceTraveled;
+        }
+
         /// <summary>Shared consolidation CSV logger (splitorders.csv).</summary>
         private SplitConsolidationLogger _logger;
 
@@ -1144,7 +1158,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
 
             M5EpochState st = BuildEpochState(allPods, Cs, inboundPods, Pb, Ra, pendingOrders, residuals, PodToBot);
 
-            double cumDist = Instance.StatOverallDistanceTraveled;
+            double cumDist = PricingDistance();
             double lambda0 = _pricing.Lambda(cumDist);
             double mu0 = _pricing.Mu(cumDist);
             double epsilon0 = _pricing.Epsilon(cumDist);
@@ -1159,9 +1173,30 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             double lambdaK = lambda0;
             M5Plan plan = BuildPlan(st, Pa, lambdaK, mu0, delta, rho0, epsilon0);
             int lambdaIters = 0;
+            int escalations = 0;
             for (int i = 0; i < _config.LambdaIterations; i++)
             {
                 double vStar = lambdaK > 0 ? (plan.DStar - plan.Objective) / lambdaK : 0.0;
+                // (Two-sided search, gated) V* <= 0 means the best plan at this lambda is "do
+                // nothing", so the ratio D/V is undefined and the original loop stopped here -
+                // which makes the whole search ONE-SIDED: an initial lambda above the true ratio
+                // gets pulled down, one below it is stuck forever, because a degenerate plan
+                // yields no D*/V* to iterate from. Measured on M4G: across 1013 decisions lambda
+                // was revised DOWN 880 times and UP zero times, so an under-estimated starting
+                // price silently collapses the run (603 orders -> 38 when the price numerator was
+                // narrowed to picking distance alone). Doubling lambda and retrying lets the
+                // search approach the fixed point from below as well. 0 (default) keeps the
+                // original one-sided behaviour bit-for-bit.
+                if (vStar <= 0 && escalations < _config.LambdaEscalations && lambdaK > 0)
+                {
+                    escalations++;
+                    double lambdaUp = lambdaK * 2.0;
+                    double ratioUp = lambda0 > 0 ? lambdaUp / lambda0 : 1.0;
+                    plan = BuildPlan(st, Pa, lambdaUp, mu0 * ratioUp, delta, rho0 * ratioUp, epsilon0 * ratioUp);
+                    lambdaK = lambdaUp;
+                    lambdaIters++;
+                    continue;
+                }
                 if (vStar <= 0) break;
                 if (Math.Abs(plan.Objective) <= _config.LambdaTolerance) break;
                 double lambdaNext = plan.DStar / vStar;

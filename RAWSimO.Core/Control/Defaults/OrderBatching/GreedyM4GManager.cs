@@ -1,4 +1,4 @@
-using RAWSimO.Core.Configurations;
+﻿using RAWSimO.Core.Configurations;
 using RAWSimO.Core.Control;
 using RAWSimO.Core.Elements;
 using RAWSimO.Core.Items;
@@ -45,6 +45,20 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         private GreedyM4GConfiguration _config;
         /// <summary>Price calibration state, shared implementation with M4GManager.</summary>
         private M4GPricing _pricing;
+        /// <summary>
+        /// The cumulative distance the self-calibrated prices are denominated in. Default is the
+        /// fleet's unrestricted total, which is what every published result used; under
+        /// PickDistancePricing it is Extract-task distance only, i.e. the same span the objective's
+        /// own travel term prices. See IM4GPrices.PickDistancePricing for the measurement that
+        /// motivates the switch.
+        /// </summary>
+        private double PricingDistance()
+        {
+            return _config.PickDistancePricing
+                ? Instance.StatOverallDistanceTraveledExtract
+                : Instance.StatOverallDistanceTraveled;
+        }
+
         /// <summary>Shared consolidation CSV logger (splitorders.csv).</summary>
         private SplitConsolidationLogger _logger;
 
@@ -440,7 +454,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 if (candidates.Count == 0)
                     break;
 
-                double cumDist = Instance.StatOverallDistanceTraveled;
+                double cumDist = PricingDistance();
                 double lambda = _pricing.Lambda(cumDist);
                 double mu = _pricing.Mu(cumDist);
                 double delta = _pricing.Delta();
@@ -671,7 +685,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     }
                 }
                 double decisionSec = (DateTime.Now - A).TotalSeconds;
-                double cumDist = Instance.StatOverallDistanceTraveled;
+                double cumDist = PricingDistance();
                 double lambda = _pricing.Lambda(cumDist);
                 double mu = _pricing.Mu(cumDist);
                 double delta = _pricing.Delta();

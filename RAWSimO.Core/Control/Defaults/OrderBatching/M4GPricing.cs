@@ -39,6 +39,26 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// note on this discrepancy).
         /// </summary>
         double RhoFallback { get; }
+        /// <summary>
+        /// Denominate the running prices in picking distance only (Instance.StatOverallDistance
+        /// TraveledExtract) instead of the fleet's unrestricted total. false reproduces every
+        /// published result bit-for-bit.
+        ///
+        /// lambda and rho are both "metres per unit of picking work", but the total they divide
+        /// also contains replenishment trips and pod returns to storage - about three quarters of
+        /// it on the small benchmark - which no picking decision controls. Measured on HGS-M5
+        /// (small, 10 bots, seeds identical): lambda's detrended correlation with replenishment
+        /// intensity is +0.73 at 2h and +0.40 at 8h, and the sign is perverse - a busy
+        /// replenishment period raises lambda, which raises the value side of min D - lambda*V,
+        /// which makes the picking side MORE willing to dispatch exactly when the fleet is most
+        /// contended. Extract-task distance is the same span the objective's D term prices, so
+        /// this makes the calibration statistic commensurate with the objective it feeds.
+        ///
+        /// Note this does NOT change rho/lambda, mu/lambda or epsilon/lambda: those ratios share
+        /// the numerator and are already immune. What it corrects is the LEVEL of lambda - the
+        /// metres-to-value exchange rate - which is the only thing the contamination could move.
+        /// </summary>
+        bool PickDistancePricing { get; }
     }
 
     /// <summary>
@@ -133,7 +153,28 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// <param name="cumulativeUnitsPicked">Instance.StatOverallItemsHandled at decision time.</param>
         public double Rho(double cumulativeDistanceMetres, double cumulativeUnitsPicked)
         {
-            if (InWarmup) return _config.RhoFallback;
+            // Warm-up rho is derived from the warm-up lambda rather than taken as a free absolute
+            // constant. rho is metres per UNIT and lambda is metres per LINE, so their ratio is
+            // fixed by the instance's units-per-line - it is not a second degree of freedom.
+            // Leaving RhoFallback absolute made the warm-up price list internally inconsistent:
+            // halving LambdaFallback to 5 left rho at 15, so rho/lambda went 1.5 -> 3.0, every
+            // draw-line move scored positive, no move was ever accepted, and the run produced
+            // zero orders (verified on small/2h at both 6 and 10 bots).
+            //
+            // The precise statement: the Dinkelbach form is min D - lambda*V, where V is a FIXED
+            // linear form whose composition is set by the ratios mu/lambda, rho/lambda and
+            // epsilon/lambda (the iteration below scales all three with lambda, exactly so that V
+            // stays fixed while lambda searches). An absolute RhoFallback broke that invariant -
+            // changing LambdaFallback silently re-weighted the rho term inside V, i.e. it changed
+            // the MODEL rather than the ratio estimate. Pinning rho/lambda restores it, leaving
+            // LambdaFallback as what it should be: a starting guess for the ratio, which the
+            // Dinkelbach iteration then corrects.
+            //
+            // RhoFallback is kept as the ratio's anchor: it is interpreted relative to the
+            // default lambda of 10, i.e. rho = lambda * (RhoFallback / 10), so the shipped
+            // default (15) reproduces the historical warm-up prices exactly at LambdaFallback=10.
+            if (InWarmup)
+                return _config.LambdaScale * _config.LambdaFallback * (_config.RhoFallback / 10.0);
             return cumulativeDistanceMetres / Math.Max(1, cumulativeUnitsPicked);
         }
 

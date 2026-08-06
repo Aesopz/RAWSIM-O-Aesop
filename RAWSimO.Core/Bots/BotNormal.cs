@@ -2085,7 +2085,12 @@ namespace RAWSimO.Core.Bots
                 this.Pod.Moving = this.Moving;
 
             // Count distanceTraveled
-            this.StatDistanceTraveled += Math.Sqrt((X - xOld) * (X - xOld) + (Y - yOld) * (Y - yOld));
+            double stepDistance = Math.Sqrt((X - xOld) * (X - xOld) + (Y - yOld) * (Y - yOld));
+            this.StatDistanceTraveled += stepDistance;
+            // Same step, attributed to picking only. Read off CurrentTask before the lines below
+            // overwrite StatLastTask, so this is the task the step was actually driven under.
+            if (CurrentTask != null && CurrentTask.Type == Control.BotTaskType.Extract)
+                this.StatDistanceTraveledExtract += stepDistance;
 
             // Compute time in previous task
             this.StatTotalTaskTimes[StatLastTask] += delta;
