@@ -1682,10 +1682,16 @@ namespace RAWSimO.Core.Configurations
         /// <summary>Stops the outer lambda iteration once |objective| falls below this.</summary>
         public double LambdaTolerance = 0.5;
         /// <summary>Maximum times a degenerate ("do nothing", V*&lt;=0) solve may double lambda and retry,
-        /// making the ratio search two-sided. 0 (default) keeps the original one-sided loop bit-for-bit.
-        /// Needed only when the running price statistic can UNDER-estimate the true marginal ratio;
-        /// see the remarks at the loop itself for the measurement.</summary>
-        public int LambdaEscalations = 0;
+        /// making the ratio search two-sided. 0 restores the original one-sided loop bit-for-bit.
+        /// Needed whenever the running price statistic can UNDER-estimate the true marginal ratio,
+        /// which the one-sided loop cannot recover from: it only ever lowers lambda, so an
+        /// under-estimate feeds itself (fewer dispatches, less distance, lower lambda still).
+        /// Default 6 since the drift check: with escalations on and the calibration numerator left
+        /// at fleet distance, a 2h run is bit-identical to the one-sided baseline (908/908
+        /// decision-log rows match except decisionSec), i.e. this path never fires under the
+        /// shipped prices and only arms the recovery when it is actually needed. See the remarks
+        /// at the loop itself for the measurement.</summary>
+        public int LambdaEscalations = 6;
         /// <summary>(Fill fairness) Mirrors M4G's EPR - release the parent's Fill slot on its first
         /// split. Inert in Fixed order mode.</summary>
         public bool ReleaseParentOnFirstSplit = true;
@@ -1861,10 +1867,16 @@ namespace RAWSimO.Core.Configurations
         /// <summary>Convergence tolerance on the linearised objective value, in metres.</summary>
         public double DinkelbachTolerance = 0.5;
         /// <summary>Maximum times a degenerate ("do nothing", V*&lt;=0) solve may double lambda and retry,
-        /// making the ratio search two-sided. 0 (default) keeps the original one-sided loop bit-for-bit.
-        /// Needed only when the running price statistic can UNDER-estimate the true marginal ratio;
-        /// see the remarks at the loop itself for the measurement.</summary>
-        public int DinkelbachEscalations = 0;
+        /// making the ratio search two-sided. 0 restores the original one-sided loop bit-for-bit.
+        /// Needed whenever the running price statistic can UNDER-estimate the true marginal ratio,
+        /// which the one-sided loop cannot recover from: measured over 1013 decisions it raised
+        /// lambda zero times (869 lowered, 11 held), so one under-estimate feeds itself.
+        /// Default 6 since the drift check: with escalations on and the calibration numerator left
+        /// at fleet distance, a 2h run is bit-identical to the one-sided baseline (917/917
+        /// decision-log rows match except solveSec), i.e. this path never fires under the shipped
+        /// prices and only arms the recovery when it is actually needed. See the remarks at the
+        /// loop itself for the measurement.</summary>
+        public int DinkelbachEscalations = 6;
 
         /// <summary>Gives the model whole-order semantics - the assignment structure of the M1G
         /// baseline - instead of M4G's unit-level splitting: every order is bound to at most one
