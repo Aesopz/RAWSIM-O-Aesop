@@ -406,7 +406,31 @@ HGS-M5，5 seeds 配對（基準 → 忠實）：
 分層組 0.2073 / 0.1390，與從平坦組觀測到的真實條件比率 0.2117 / 0.1376 吻合
 ⟹ 條件結構穩定，沒有被自己的回饋帶跑掉。
 
-### 待定案
+### 正典狀態（2026-08-07 定案）
+
+| 旗標 | 舊預設 | 新預設 | 逐位驗證 |
+|---|---|---|---|
+| `DinkelbachEscalations` / `LambdaEscalations` | 0 | **6** | M4G 916 列只差 `solveSec`；M5 910 列只差 `decisionSec` |
+| `StratifiedDelta`（M4G + M5） | false | **true** | 新預設 = 顯式開啟；`*_flatdelta.xconf` 消融臂逐位重現舊基準 |
+| `FaithfulMarginal`（M5） | false | **true** | 新預設 = `m5fmsd_s0`；`hgs_m5_biasedscore.xconf` 消融臂逐位重現舊計分 |
+| `PodCreditCapEnabled`（M4G） | true | **false** | 零行為變化——四個 m4g 家族 config 本來就都顯式寫 false |
+| `ReleaseParentOnFirstSplit`（M4G） | false | **true** | 零行為變化——正典 xconf 本來就寫 true；M5 一直是 true |
+| `CandidatePodTopK` | 0 | **0（不變）** | k=10 只省 20 秒（M5 全場 23.3 s → 2.4 s） |
+| `TightWholeOrder` | false | **false（不變）** | 實測更慢 |
+| `PickDistancePricing` | false | **false（不變）** | 5 seeds 無可測差異 |
+
+**分層 δ 以 5 seeds 定案**（原訂 10 seeds，使用者於該日接受以 5 seeds 收案）。
+
+⚠️ **簿記後果**：2026-08-07 之前發表的所有 M4G / HGS-M5 數字，現在屬於
+**平坦 δ + 舊計分的消融臂**，不是正典。它們沒有失效（消融 config 可逐位重現），
+但引用時要標明。
+
+⚠️ **維護規則**（使用者定案）：HGS-M5 必須與 M4G 同架構、同解空間、同價目表，
+唯一容許的差異是「貪婪求解以提速」。**M4G 任何烘入正典的預設，M5 都必須有對照且同樣開啟。**
+兩邊共用的常數（`DeltaStratumCap`）各有一份，改一邊就要改另一邊。
+不算違規的兩件：線粒度（貪婪本身的代價）、M5 尚無不拆單版本（待辦）。
+
+### 先前的待定案（已於同日定案，保留紀錄）
 
 - **`FaithfulMarginal`**：建議設為預設（正確性修正、零代價）。設了會改變所有 M5 數字。
 - **`StratifiedDelta`**：5 seeds 通過第一優先指標，**待 10 seeds 定案**。

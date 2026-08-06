@@ -254,9 +254,18 @@ a:focus-visible,:focus-visible{outline:2px solid var(--bind);outline-offset:2px;
     「公尺」這一個單位，而且那些換算率是模型從自己跑出來的歷史統計裡<strong>自己算出來的</strong>，不是調參調出來的。
   </p>
   <div class="meta">
-    <span>M4GManager.cs · 1905 行</span>
-    <span>繼承 M1GManager</span>
+    <span>M4GManager.cs · 繼承 M1GManager</span>
     <span>spec: 2026-07-31-m4g-valuation-binding-design.md</span>
+    <span>正典狀態：2026-08-07</span>
+  </div>
+  <div class="note" style="margin-top:34px;max-width:none">
+    <div class="ntitle">2026-08-07 這一版改了什麼</div>
+    <p>
+      三項烘入正典，全部經過逐位驗證（旗標關閉時與舊版完全相同，所以既有數字沒有失聯）：
+      <strong>雙向 λ 搜尋</strong>（§10）、<strong>分層 δ</strong>（§7、§8）、
+      <strong>貪婪對照組的忠實計分</strong>（§11，新增一節）。
+      §8 新增 δ 的劑量反應曲線與懸崖位置；§13 補上三條走不通的路。
+    </p>
   </div>
 </header>
 
@@ -673,9 +682,29 @@ a:focus-visible,:focus-visible{outline:2px solid var(--bind);outline-offset:2px;
         <div class="dom">量級遠低於 λ，僅供平手判斷</div><div class="tag">ε</div>
       </div>
       <div class="eq">
-        <div class="body"><span class="m">δ = min{ 1, max{ 0, B / V } }</span></div>
-        <div class="dom">無單位，估值兌現率</div><div class="tag">δ</div>
+        <div class="body"><span class="m">δ<sub>k</sub> = min{ 1, max{ 0, B<sub>k</sub> / V<sub>k</sub> } } ，&nbsp; k = min{ |P<sup class="up">b</sup>|, 3 }</span></div>
+        <div class="dom">無單位，<strong>依在途供給分層</strong>的估值兌現率</div><div class="tag">δ</div>
       </div>
+    </div>
+
+    <div class="note">
+      <div class="ntitle">δ 是分層的（2026-08-07 起）</div>
+      <p>
+        <span class="m">B</span> 與 <span class="m">V</span> 不是單一組計數器，而是<strong>依當下已承諾貨架數
+        <span class="m">k = min{ |P<sup class="up">b</sup>|, 3 }</span> 分桶</strong>各記一組。
+        某一桶累積估值線不足 50 條時退回全域比率。
+      </p>
+      <p>
+        分層的理由是量出來的：綁定線數被槽位容量卡在每次決策約 <strong>1.01 條</strong>、
+        不隨 <span class="m">P<sup class="up">b</sup></span> 改變，但估值線數會從 4.79 漲到 7.38。
+        所以實現率從 <span class="m">P<sup class="up">b</sup></span>=1 的 <strong>0.2117</strong>
+        掉到 <span class="m">P<sup class="up">b</sup></span>=2 的 <strong>0.1376</strong>——
+        多出來的覆蓋是綁定層**證明吃不下**的覆蓋。
+      </p>
+      <p>
+        這是 V2a 的折現率版本：V2a 扣的是在途<strong>供給量</strong>，分層 δ 修的是<strong>折現率</strong>。
+        依空槽數分層先測過、<strong>無效</strong>——913/916 的決策只有一個站台有空位。
+      </p>
     </div>
 
     <h3>這些數字在講什麼</h3>
@@ -740,6 +769,64 @@ a:focus-visible,:focus-visible{outline:2px solid var(--bind);outline-offset:2px;
       槽位緊繃時 <span class="m">δ</span> 自然下降，模型自動變保守。
       <strong>不需要為不同 instance 重新調參。</strong>
     </p>
+
+    <h3>把 δ 釘死，看它值多少</h3>
+    <p>
+      「自我校準」聽起來很美，但要證明它不是自我實現的壞均衡，唯一的辦法是**把它釘死掃一遍**，
+      看閉環跑到的位置是不是好位置。<code>DeltaFixed</code> 做的就是這件事。
+    </p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>δ 釘死</th><th>完成訂單</th><th>綁定率</th><th>kJ / 訂單</th></tr></thead>
+        <tbody>
+          <tr><td class="k">閉環 → 0.168</td><td class="num">603</td><td class="num">0.173</td><td class="num">1.1439</td></tr>
+          <tr><td class="k">0.30</td><td class="num">603</td><td class="num">0.177</td><td class="num">1.1347</td></tr>
+          <tr><td class="k">0.40</td><td class="num">607</td><td class="num">0.185</td><td class="num">1.1542</td></tr>
+          <tr><td class="k">0.50</td><td class="num">12 ☠️</td><td class="num">0.053</td><td class="num">7.91</td></tr>
+          <tr><td class="k">0.70</td><td class="num">0 ☠️</td><td class="num">0.000</td><td class="num">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      <strong>懸崖夾在 0.40 與 0.50 之間，自我校準落在 0.168——安全邊際 2.4 倍，而且落在安全側。</strong>
+      而且閉環（1.1439）比把 δ 釘死在它自己的平均值 0.168（1.1659）<strong>還好</strong>，
+      因為它在暖機期會自己調整。
+    </p>
+    <p>
+      崩潰不是漸進的：綁定率一路穩在 0.177–0.185 直到 0.40，然後直接掉到 0.053。
+      這是 MILP 最優解的<strong>離散區制切換</strong>——「綁」與「不綁」在某個 δ 翻轉成後者更優，一翻就全翻。
+    </p>
+
+    <div class="note warn">
+      <div class="ntitle">⚠️ 這個崩潰的機制我還沒有正確診斷</div>
+      <p>
+        我曾解釋成「δ 太高使綁定的邊際收益 λ(1−δ) 輸給 ρ」。<strong>算術上撐不住</strong>——
+        δ=0.5 時從沉沒貨架綁一條線仍淨賺 0.5λ、成本 0。而實測 δ=0.5 是
+        <strong>95 趟 / 58 次決策 = 1.6 趟每決策</strong>（穩態是 0.10），那是<strong>派車風暴</strong>的指紋，
+        比較接近暖機死鎖，不是「拒絕綁定」。
+      </p>
+      <p>這條要重新診斷才能寫進論文。曲線本身是可信的，機制解釋不是。</p>
+    </div>
+
+    <div class="note">
+      <div class="ntitle">這條曲線防守的是什麼</div>
+      <p>
+        δ 最容易被攻擊的點是<strong>內生性</strong>：它是由它自己所參數化的策略產生的，
+        沒有唯一不動點的保證。而這個攻擊對 λ、μ、ρ 一模一樣成立——打中它就是打中整個自我校準。
+      </p>
+      <p>
+        這條曲線就是解藥：閉環落在最優區、離懸崖 2.4 倍、且比釘死在自身均值更好。
+        另外 δ 暖機後的 CV 只有 <strong>3.4%</strong>（平均 0.168、標準差 0.0058），而且各區段
+        <strong>自己算的瞬時比值</strong>跟累積值貼合——它不是一個越跑越失真的歷史平均。
+      </p>
+      <p>
+        ⚠️ <strong>措辭是關鍵</strong>：δ 是「估值層與綁定層的<strong>當期</strong>實現率」。
+        絕不可說成「估計後續會關掉多少訂單」——那是已被否決的舊定義（實測 0.699），
+        講了就等於把攻擊面遞出去。
+      </p>
+    </div>
   </div>
 </section>
 
@@ -853,7 +940,7 @@ a:focus-visible,:focus-visible{outline:2px solid var(--bind);outline-offset:2px;
     </p>
 
     <div class="note warn">
-      <div class="ntitle">一個已知缺陷，以及它教會我們的事</div>
+      <div class="ntitle">一個已修的缺陷（2026-08-07 烘入正典），以及它教會我們的事</div>
       <p>
         原本的迭代<strong>只會往下搜 <span class="m">λ</span>，不會往上</strong>：
         碰到 <span class="m">V* ≤ 0</span> 就直接 break。
@@ -876,13 +963,94 @@ a:focus-visible,:focus-visible{outline:2px solid var(--bind);outline-offset:2px;
         <span class="m">ρ/λ, μ/λ, ε/λ</span> 這些比值，
         而它們由 instance 的「每線幾件」「每單幾線」決定——<strong>不是調出來的</strong>。
       </p>
+      <p>
+        <code>DinkelbachEscalations</code>（M4G）／<code>LambdaEscalations</code>（HGS-M5）<strong>預設已改為 6</strong>。
+        在總距離分母下這條路徑<strong>從未觸發</strong>——M4G 916 列只差 <code>solveSec</code>、
+        M5 910 列只差 <code>decisionSec</code>——所以既有數字一個都沒動，
+        改的只是「退化解時能不能救回來」。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════ -->
+<section>
+  <div class="gutter">§11</div>
+  <div class="col">
+    <h2>貪婪對照組必須是同一個問題</h2>
+    <p class="dek">HGS-M5 存在的意義是「同架構、同解空間、同價目表，唯一差別是貪婪求解以提速」。這條規則出過一次事。</p>
+
+    <p>
+      M4G 的存在理由——「這份價目表需要全域最佳化才發揮」——完全靠 exact-vs-greedy 消融支撐。
+      只要兩者不是同一個問題，那個消融就不成立。
+    </p>
+
+    <h3>曾經不是同一個問題</h3>
+    <p>
+      HGS-M5 替一個取貨動作計分時用<strong>全額 λ</strong>。但它累積的方案總分裡，
+      一條被綁的線值 <span class="m">−λ</span>、一條只被估值的線值 <span class="m">−λδ</span>，
+      而估值掃描只要求某站有庫存、綁定要求庫存<strong>加</strong>空槽
+      ⟹ 可綁定的線必然本來就在賺 <span class="m">−λδ</span>。
+    </p>
+
+    <div class="panel acc-b">
+      <span class="label">the greedy was climbing the wrong surface</span>
+      <pre class="formula">真實的目標式變化 = −λ(1−δ) − ε·v + ρcost
+M5 用的分數      = −λ      − ε·v + ρcost
+                          <span class="c">差 λδ，系統性高估「綁定」的收益</span></pre>
+    </div>
+
+    <p>
+      回報的 <code>plan.Objective</code> <strong>是對的</strong>（收尾會重算），
+      錯的是<strong>做選擇時用的梯度</strong>。這不是「貪婪提速」造成的差異，是不同的目標函數。
+    </p>
+
+    <h3>修正之後，M4G 才真正凌駕貪婪</h3>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>5 seeds 配對</th><th>完成訂單</th><th>pile-on</th><th>EOR</th></tr></thead>
+        <tbody>
+          <tr><td class="k">修正前<br><span style="font-weight:400;color:var(--ink-faint)">M4G 平坦 vs M5 舊計分</span></td>
+              <td class="num" style="color:var(--warn)">−0.10%<br>t = −0.13</td>
+              <td class="num">+8.55%<br>t = +3.89</td>
+              <td class="num">−3.64%<br>t = −2.32</td></tr>
+          <tr><td class="k">修正後<br><span style="font-weight:400;color:var(--ink-faint)">M4G 分層 vs M5 分層+忠實</span></td>
+              <td class="num" style="color:var(--bind);font-weight:700">+2.50%<br>t = +5.34</td>
+              <td class="num" style="color:var(--bind);font-weight:700">+5.41%<br>t = +9.08</td>
+              <td class="num" style="color:var(--bind);font-weight:700">−4.70%<br>t = −3.54</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      <strong>在第一優先指標上，修正前 MILP 與貪婪法是打平的。</strong>
+      貪婪法有一部分優勢來自它沒有正確執行自己的目標式。
+      修正後三項全勝、全部顯著（n=5, df=4, 臨界 |t| = 2.776）。
+    </p>
+    <p>
+      而忠實計分在操作點的代價<strong>統計上是零</strong>：完成 −1.34%（t=−1.21）、
+      pile-on +1.87%（t=+1.20）、EOR +1.46%（t=+1.28）、積壓 +2.12%（t=0.18），四項全部不顯著。
+    </p>
+
+    <div class="note">
+      <div class="ntitle">維護規則</div>
+      <p>
+        <strong>M4G 任何烘入正典的預設，M5 都必須有對照且同樣開啟。</strong>
+        兩邊共用的常數（例如 δ 的分桶上限 <code>DeltaStratumCap</code>）在各自檔案裡都有一份，
+        改一邊就要改另一邊。
+      </p>
+      <p>
+        <strong>不算違規的兩件</strong>：線粒度（M5 的移動是「在單一站台把一條線一次取滿」）
+        是貪婪本身的代價；M5 還沒有不拆單版本，那是待辦不是破口。
+      </p>
     </div>
   </div>
 </section>
 
 <!-- ══════════════════════════════════════ §11 -->
 <section>
-  <div class="gutter">§11</div>
+  <div class="gutter">§12</div>
   <div class="col">
     <h2>穩態：貨架送到站、訂單一張張完成時</h2>
     <p class="dek">連續決策之間，模型怎麼避免重複下注。</p>
@@ -923,7 +1091,7 @@ a:focus-visible,:focus-visible{outline:2px solid var(--bind);outline-offset:2px;
 
 <!-- ══════════════════════════════════════ §12 -->
 <section>
-  <div class="gutter">§12</div>
+  <div class="gutter">§13</div>
   <div class="col">
     <h2>已知限制與走過的死路</h2>
     <p class="dek">口試會被問的地方，先寫在這裡。</p>
@@ -949,7 +1117,9 @@ a:focus-visible,:focus-visible{outline:2px solid var(--bind);outline-offset:2px;
 
     <h3>試過但無效的方向</h3>
     <ul>
-      <li><strong>單台貨架的信用上限</strong>（V5 / <code>PodCreditCapEnabled</code>）：inert，因為它繞過核心定價而不是修正它。</li>
+      <li><strong>單台貨架的信用上限</strong>（V5 / <code>PodCreditCapEnabled</code>）：inert，因為它繞過核心定價而不是修正它。2026-08-07 起預設改為關閉，讓預設值與正典一致。</li>
+      <li><strong>依空槽數分層 δ</strong>：無效。913/916 的決策只有一個站台有空位，那一桶的比率就是全域比率。改用<strong>已承諾貨架數</strong>才有效。</li>
+      <li><strong>緊公式化</strong>（<code>TightWholeOrder</code>，把 B2/B9 的 big-M 換成逐站等式）：兩個 seed 都沒變快，p95 都惡化。列數隨站台數倍增的代價蓋過緊鬆弛的收益。</li>
       <li><strong>增量估值的其他變體</strong>：同樣 inert。</li>
       <li><strong>晚綁定</strong>（把規劃與槽位綁定解耦）：三次獨立驗證全部否定。根因是每次決策平均只落實 1.49 個單位，訂單分配本來就已是逐步晚綁；真正早綁的只有「貨架選擇」，那是搬運途中無法反悔的物理事實。</li>
       <li><strong>回填 / 留站服務 backlog</strong>：已定案為不可行道路。</li>

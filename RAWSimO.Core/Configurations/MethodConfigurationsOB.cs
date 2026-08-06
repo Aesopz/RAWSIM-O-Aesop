@@ -1629,8 +1629,10 @@ namespace RAWSimO.Core.Configurations
         public double RhoFallback { get; set; } = 15.0;
         /// <summary>Denominate the running prices in Extract-task distance only. false reproduces every published result bit-for-bit. See IM4GPrices.PickDistancePricing.</summary>
         public bool PickDistancePricing { get; set; } = false;
-        /// <summary>Condition delta on committed-supply count instead of one system-wide scalar. false reproduces every published result bit-for-bit. See IM4GPrices.StratifiedDelta.</summary>
-        public bool StratifiedDelta { get; set; } = false;
+        /// <summary>Condition delta on committed-supply count instead of one system-wide scalar.
+        /// Default true since 2026-08-07; set false for the flat-delta ablation, which is what every
+        /// result published before that date used. See IM4GPrices.StratifiedDelta.</summary>
+        public bool StratifiedDelta { get; set; } = true;
         /// <summary>Valued lines a stratum needs before its own ratio is trusted; below it the system-wide ratio is used. See IM4GPrices.DeltaStratumMinLines.</summary>
         public int DeltaStratumMinLines { get; set; } = 50;
 
@@ -1671,8 +1673,10 @@ namespace RAWSimO.Core.Configurations
         public double RhoFallback { get; set; } = 15.0;
         /// <summary>Denominate the running prices in Extract-task distance only. false reproduces every published result bit-for-bit. See IM4GPrices.PickDistancePricing.</summary>
         public bool PickDistancePricing { get; set; } = false;
-        /// <summary>Condition delta on committed-supply count instead of one system-wide scalar. false reproduces every published result bit-for-bit. See IM4GPrices.StratifiedDelta.</summary>
-        public bool StratifiedDelta { get; set; } = false;
+        /// <summary>Condition delta on committed-supply count instead of one system-wide scalar.
+        /// Default true since 2026-08-07; set false for the flat-delta ablation, which is what every
+        /// result published before that date used. See IM4GPrices.StratifiedDelta.</summary>
+        public bool StratifiedDelta { get; set; } = true;
         /// <summary>Valued lines a stratum needs before its own ratio is trusted; below it the system-wide ratio is used. See IM4GPrices.DeltaStratumMinLines.</summary>
         public int DeltaStratumMinLines { get; set; } = 50;
 
@@ -1691,7 +1695,14 @@ namespace RAWSimO.Core.Configurations
         public double LambdaTolerance = 0.5;
         /// <summary>
         /// Score a draw-line move by its TRUE change in the objective, -lambda*(1-delta), instead
-        /// of -lambda. false reproduces every published result bit-for-bit.
+        /// of -lambda. Default true since 2026-08-07; false is the biased-score ablation and
+        /// reproduces everything published before that date bit-for-bit.
+        ///
+        /// Canonised because HGS-M5 must mirror M4G exactly, the only permitted difference being
+        /// that it constructs greedily instead of solving. A local score that is not the gradient
+        /// of the objective it accumulates is a different objective, not a faster solver. Cost at
+        /// the operating point is nil over 5 paired seeds: orders -1.34% (t = -1.21), pile-on
+        /// +1.87% (t = +1.20), EOR +1.46% (t = +1.28), backlog +2.12% (t = 0.18).
         ///
         /// The plan's total is already M4G's objective term for term: a bound line contributes
         /// -lambda, a valued-only line -lambda*delta, and ValuationSweep supplies the second set.
@@ -1714,7 +1725,7 @@ namespace RAWSimO.Core.Configurations
         /// insensitive to delta while M4G collapsed. Part of that asymmetry is this bias, not
         /// structure, so expect the insensitivity to shrink when this is on.
         /// </summary>
-        public bool FaithfulMarginal = false;
+        public bool FaithfulMarginal = true;
         /// <summary>Maximum times a degenerate ("do nothing", V*&lt;=0) solve may double lambda and retry,
         /// making the ratio search two-sided. 0 restores the original one-sided loop bit-for-bit.
         /// Needed whenever the running price statistic can UNDER-estimate the true marginal ratio,
@@ -1791,8 +1802,10 @@ namespace RAWSimO.Core.Configurations
         public double RhoFallback { get; set; } = 15.0;
         /// <summary>Denominate the running prices in Extract-task distance only. false reproduces every published result bit-for-bit. See IM4GPrices.PickDistancePricing.</summary>
         public bool PickDistancePricing { get; set; } = false;
-        /// <summary>Condition delta on committed-supply count instead of one system-wide scalar. false reproduces every published result bit-for-bit. See IM4GPrices.StratifiedDelta.</summary>
-        public bool StratifiedDelta { get; set; } = false;
+        /// <summary>Condition delta on committed-supply count instead of one system-wide scalar.
+        /// Default true since 2026-08-07; set false for the flat-delta ablation, which is what every
+        /// result published before that date used. See IM4GPrices.StratifiedDelta.</summary>
+        public bool StratifiedDelta { get; set; } = true;
         /// <summary>Valued lines a stratum needs before its own ratio is trusted; below it the system-wide ratio is used. See IM4GPrices.DeltaStratumMinLines.</summary>
         public int DeltaStratumMinLines { get; set; } = 50;
 
@@ -1803,8 +1816,16 @@ namespace RAWSimO.Core.Configurations
         public int ValuationOrderLimit = 0;
         /// <summary>Caps the valuation credit a single dispatched pod can receive at the station's
         /// total slot capacity times the mean residual units per pending order (V5). false reproduces
-        /// the uncapped behaviour that over-dispatched.</summary>
-        public bool PodCreditCapEnabled = true;
+        /// the uncapped behaviour that over-dispatched.
+        ///
+        /// Default flipped true -> false on 2026-08-07. The ablation found V5 inert once the delta
+        /// attribution and pod-tier pricing were both in place, so it was never taken into the
+        /// canon, and every shipped M4G-family config already writes false explicitly - the true
+        /// default only sat there waiting for a config that omitted the line to silently pick up a
+        /// constraint the model does not use. HGS-M5 has no counterpart, so leaving it on by
+        /// default would also have put the two managers on different models (see the mirroring
+        /// rule). No behaviour change: m4g / m1g_a / m4g_sdelta / m4g_flatdelta all set it already.</summary>
+        public bool PodCreditCapEnabled = false;
         /// <summary>Prices each bound draw by the pod's tier: processing pods are rewarded rho per
         /// unit (their window is closing), queued and en-route pods are free (sunk), and newly
         /// dispatched storage pods pay rho per unit. rho is measured, not tuned. false = no tier
@@ -1893,8 +1914,15 @@ namespace RAWSimO.Core.Configurations
         /// <summary>(Fill fairness) On a parent's FIRST split, release its slot in the Fill backlog
         /// pool so a fresh order is injected, while keeping the parent in the pending set so its
         /// residual demand is still served. Mirrors M3G's ReleaseParentOnFirstSplit. Inert in Fixed
-        /// order mode, where the order stream is predetermined. false = current behaviour.</summary>
-        public bool ReleaseParentOnFirstSplit = false;
+        /// order mode, where the order stream is predetermined.
+        ///
+        /// Default flipped false -> true on 2026-08-07: this is fairness machinery every splitting
+        /// model should carry, and leaving it off by default put M4G at odds with
+        /// GreedyM5Configuration, which has defaulted true all along - exactly the kind of
+        /// asymmetry the mirroring rule forbids. No behaviour change: every shipped M4G-family
+        /// config already writes true explicitly. M1GConfiguration is untouched; M4G declares this
+        /// field itself rather than inheriting it, so the baseline keeps its own default.</summary>
+        public bool ReleaseParentOnFirstSplit = true;
 
         /// <summary>Dinkelbach iterations for the ratio objective. 0 = current behaviour: a single
         /// linearisation step using the historical lambda. &gt; 0 = iterate, re-solving with lambda
