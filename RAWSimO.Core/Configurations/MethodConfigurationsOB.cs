@@ -1629,6 +1629,10 @@ namespace RAWSimO.Core.Configurations
         public double RhoFallback { get; set; } = 15.0;
         /// <summary>Denominate the running prices in Extract-task distance only. false reproduces every published result bit-for-bit. See IM4GPrices.PickDistancePricing.</summary>
         public bool PickDistancePricing { get; set; } = false;
+        /// <summary>Condition delta on committed-supply count instead of one system-wide scalar. false reproduces every published result bit-for-bit. See IM4GPrices.StratifiedDelta.</summary>
+        public bool StratifiedDelta { get; set; } = false;
+        /// <summary>Valued lines a stratum needs before its own ratio is trusted; below it the system-wide ratio is used. See IM4GPrices.DeltaStratumMinLines.</summary>
+        public int DeltaStratumMinLines { get; set; } = 50;
 
         /// <summary>(Fill fairness) On a parent's FIRST split, release its slot in the Fill backlog
         /// pool so a fresh order is injected, while keeping the parent in the pending set so its
@@ -1667,6 +1671,10 @@ namespace RAWSimO.Core.Configurations
         public double RhoFallback { get; set; } = 15.0;
         /// <summary>Denominate the running prices in Extract-task distance only. false reproduces every published result bit-for-bit. See IM4GPrices.PickDistancePricing.</summary>
         public bool PickDistancePricing { get; set; } = false;
+        /// <summary>Condition delta on committed-supply count instead of one system-wide scalar. false reproduces every published result bit-for-bit. See IM4GPrices.StratifiedDelta.</summary>
+        public bool StratifiedDelta { get; set; } = false;
+        /// <summary>Valued lines a stratum needs before its own ratio is trusted; below it the system-wide ratio is used. See IM4GPrices.DeltaStratumMinLines.</summary>
+        public int DeltaStratumMinLines { get; set; } = 50;
 
         /// <summary>Mirrors M4GConfiguration.IncrementalValuationEnabled: cap draws from pods
         /// fetched this epoch at the residual demand that already-committed inbound stock cannot
@@ -1681,6 +1689,32 @@ namespace RAWSimO.Core.Configurations
         public int LambdaIterations = 5;
         /// <summary>Stops the outer lambda iteration once |objective| falls below this.</summary>
         public double LambdaTolerance = 0.5;
+        /// <summary>
+        /// Score a draw-line move by its TRUE change in the objective, -lambda*(1-delta), instead
+        /// of -lambda. false reproduces every published result bit-for-bit.
+        ///
+        /// The plan's total is already M4G's objective term for term: a bound line contributes
+        /// -lambda, a valued-only line -lambda*delta, and ValuationSweep supplies the second set.
+        /// The greedy's per-move score is not that objective's gradient, though. A line that gets
+        /// bound was, before the move, a line ValuationSweep would have counted (the sweep only
+        /// needs stock at some station; binding needs stock AND a free slot, so binding-eligible
+        /// implies sweep-eligible), so it was already earning -lambda*delta. Taking it moves the
+        /// line from -lambda*delta to -lambda, i.e. the objective improves by lambda*(1-delta),
+        /// not by lambda. Scoring it as -lambda overstates every draw by lambda*delta and makes
+        /// the greedy climb a surface that is not the one it reports.
+        ///
+        /// The correction is not exactly lambda*delta for every line - the sweep consumes stock in
+        /// ScanOrder, so binding can also displace some OTHER line's sweep eligibility - which is
+        /// presumably why the original took the shortcut: getting it exact needs a sweep per
+        /// candidate move. lambda*(1-delta) is the first-order term and has the right sign.
+        ///
+        /// At the shipped prices the bias is small: lambda ~ 8.7 and delta ~ 0.17 put it at ~1.5 m
+        /// against move scores of 8-17 m, so few moves flip. It matters at HIGH delta, where
+        /// lambda*delta is most of lambda - which is exactly where HGS-M5 was measured to be
+        /// insensitive to delta while M4G collapsed. Part of that asymmetry is this bias, not
+        /// structure, so expect the insensitivity to shrink when this is on.
+        /// </summary>
+        public bool FaithfulMarginal = false;
         /// <summary>Maximum times a degenerate ("do nothing", V*&lt;=0) solve may double lambda and retry,
         /// making the ratio search two-sided. 0 restores the original one-sided loop bit-for-bit.
         /// Needed whenever the running price statistic can UNDER-estimate the true marginal ratio,
@@ -1757,6 +1791,10 @@ namespace RAWSimO.Core.Configurations
         public double RhoFallback { get; set; } = 15.0;
         /// <summary>Denominate the running prices in Extract-task distance only. false reproduces every published result bit-for-bit. See IM4GPrices.PickDistancePricing.</summary>
         public bool PickDistancePricing { get; set; } = false;
+        /// <summary>Condition delta on committed-supply count instead of one system-wide scalar. false reproduces every published result bit-for-bit. See IM4GPrices.StratifiedDelta.</summary>
+        public bool StratifiedDelta { get; set; } = false;
+        /// <summary>Valued lines a stratum needs before its own ratio is trusted; below it the system-wide ratio is used. See IM4GPrices.DeltaStratumMinLines.</summary>
+        public int DeltaStratumMinLines { get; set; } = 50;
 
         // ── Ablation (spec 6) ──
         /// <summary>true forces q == q-hat, degenerating the valuation layer. Should reproduce M3G-like behaviour.</summary>

@@ -564,6 +564,27 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             }
         }
 
+        /// <summary>
+        /// (StratifiedDelta, gated) Which delta bucket this decision belongs to, or -1 when the
+        /// flag is off so every price read falls back to the system-wide ratio.
+        ///
+        /// The bucket is the number of pods already committed (Pb), capped at
+        /// <see cref="DeltaStratumCap"/> so the tail does not fragment into single-observation
+        /// cells. Pb is the stratifier because it is what the measurement singled out: bound
+        /// lines sit at ~1.01 per decision whatever Pb is (slot capacity pins them), while valued
+        /// lines climb with it, so the realisation rate falls from 0.2117 at Pb=1 to 0.1376 at
+        /// Pb=2. Free slots were tried first and are useless here - 913 of 916 decisions have
+        /// exactly one station with capacity, so that stratum IS the global one.
+        /// </summary>
+        private int DeltaStratum(M4GSnapshot snap)
+        {
+            if (!_m4gConfig.StratifiedDelta) return -1;
+            return Math.Min(snap.Pb.Count, DeltaStratumCap);
+        }
+
+        /// <summary>Highest Pb value that gets its own delta stratum; everything above shares it.</summary>
+        private const int DeltaStratumCap = 3;
+
         /// <summary>Mean order turnover time used to normalise urgency this decision (diagnostics
         /// only; 0 when due-date pricing is off or no order has completed yet).</summary>
         private double _lastTbar = 0.0;
@@ -1569,7 +1590,14 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             double mu0 = _pricing.Mu(cumDist);
             double epsilon0 = _pricing.Epsilon(cumDist);
             double rho0 = _pricing.Rho(cumDist, Instance.StatOverallItemsHandled);
-            double delta = _pricing.Delta();
+            // (StratifiedDelta, gated) Bucket this decision by how much supply is already
+            // committed. Held in a local so the SAME stratum feeds the price read here, the
+            // logged column below and RegisterDecision at the end - reading snap.Pb.Count three
+            // times would be equivalent today but is exactly the kind of drift a later edit
+            // introduces silently. DeltaStratum returns -1 when the flag is off, which makes
+            // Delta(int)/RegisterDecision(int) fall through to the system-wide totals.
+            int deltaStratum = DeltaStratum(snap);
+            double delta = _pricing.Delta(deltaStratum);
 
             // ── Dinkelbach iteration (0 = single step at the historical lambda, unchanged
             // behaviour). The model is built ONCE and re-solved at each new lambda: no constraint
@@ -1680,7 +1708,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             double cumDistAfter = PricingDistance();
             WriteDecision(result.HasSolution, snap.PendingOrders.Count, snap.Cs.Count(c => c.Value > 0),
                 snap.Pa.Count, snap.Pb.Count, snap.Ra.Count,
-                _pricing.Lambda(cumDistAfter), _pricing.Mu(cumDistAfter), _pricing.Delta(),
+                _pricing.Lambda(cumDistAfter), _pricing.Mu(cumDistAfter), _pricing.Delta(deltaStratum),
                 _pricing.Epsilon(cumDistAfter),
                 result.ValuedLineKeys.Count, result.BoundLineKeys.Count, result.ValuedOrders, result.BoundOrders,
                 result.NewTripCount, result.BoundDraws.Values.Sum(), result.Objective, totalSolveSec, _lastQmax,
@@ -1690,7 +1718,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // Feed this decision's valuation/binding line counts into delta's running totals,
             // after WriteDecision so the logged delta (like lambda/mu) reflects state prior to
             // this decision's own contribution - same convention as RegisterClosedLines below.
-            _pricing.RegisterDecision(result.BoundLineKeys.Count, result.ValuedLineKeys.Count);
+            _pricing.RegisterDecision(result.BoundLineKeys.Count, result.ValuedLineKeys.Count, deltaStratum);
             Instance.Observer.TimeOrderBatchingbyMP((DateTime.Now - start).TotalSeconds);
         }
 

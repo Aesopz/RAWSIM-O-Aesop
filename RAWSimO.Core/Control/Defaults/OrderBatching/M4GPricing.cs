@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using RAWSimO.Core.Configurations;
 
 namespace RAWSimO.Core.Control.Defaults.OrderBatching
@@ -59,6 +60,30 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// metres-to-value exchange rate - which is the only thing the contamination could move.
         /// </summary>
         bool PickDistancePricing { get; }
+        /// <summary>
+        /// Condition delta on how much supply is already committed, instead of using one
+        /// system-wide scalar. false reproduces every published result bit-for-bit.
+        ///
+        /// The flat delta prices every decision at the same realisation rate, but the measured
+        /// rate is not flat: on small/10bot/2h it is 0.2117 when one pod is already committed and
+        /// 0.1376 when two are (n=518 and n=396, and NOT a proxy for run phase - mean Pb is
+        /// 1.38/1.48/1.43 across the three thirds of the run). The cause is that bound lines are
+        /// pinned near 1.01 per decision by slot capacity whatever Pb is, while valued lines grow
+        /// with it (4.79 -> 7.38), so the extra coverage a third pod is scored for is coverage the
+        /// binding layer demonstrably cannot take. This is the discount-rate counterpart of V2a,
+        /// which already deducts inbound SUPPLY but leaves the rate alone.
+        ///
+        /// Stratifying on free slots was measured first and rejected: 913 of 916 decisions have
+        /// exactly one station with capacity, so that bucket's rate (0.1720) is the global rate
+        /// (0.1727) and the split does nothing.
+        /// </summary>
+        bool StratifiedDelta { get; }
+        /// <summary>
+        /// A stratum must have seen at least this many valued lines before its own ratio is
+        /// trusted; below it the global ratio is used. Guards against a thin bucket producing a
+        /// wild delta early in the run - the same concern WarmupLines addresses for the level.
+        /// </summary>
+        int DeltaStratumMinLines { get; }
     }
 
     /// <summary>
@@ -83,6 +108,9 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         private int _completedOrders;
         private long _boundLinesTotal;
         private long _valuedLinesTotal;
+        /// <summary>Per-stratum {bound, valued} line totals, populated only when a caller passes a
+        /// non-negative stratum. Empty (and unread) under the default configuration.</summary>
+        private readonly Dictionary<int, long[]> _strata = new Dictionary<int, long[]>();
 
         /// <summary>Creates the pricing state machine.</summary>
         /// <param name="config">The owning manager's price configuration.</param>
@@ -127,12 +155,29 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// Realisation rate of valuation into binding: of the lines the valuation layer scored
         /// closed, what share did the binding layer actually take. Clamped to [0,1].
         /// </summary>
-        public double Delta()
+        public double Delta() { return Delta(-1); }
+
+        /// <summary>
+        /// Stratum-conditioned realisation rate. <paramref name="stratum"/> &lt; 0, StratifiedDelta
+        /// off, or a stratum too thin to trust all fall back to the system-wide ratio, so the
+        /// default configuration is bit-identical to <see cref="Delta()"/>.
+        /// </summary>
+        /// <param name="stratum">Bucket key for this decision; see IM4GPrices.StratifiedDelta.</param>
+        public double Delta(int stratum)
         {
             if (_config.DeltaFixed > 0) return Math.Min(1.0, _config.DeltaFixed);
-            double raw = InWarmup
-                ? _config.DeltaFallback
-                : (double)_boundLinesTotal / Math.Max(1, _valuedLinesTotal);
+            double raw;
+            if (InWarmup) raw = _config.DeltaFallback;
+            else
+            {
+                long bound = _boundLinesTotal, valued = _valuedLinesTotal;
+                long[] cell;
+                if (_config.StratifiedDelta && stratum >= 0
+                    && _strata.TryGetValue(stratum, out cell)
+                    && cell[1] >= _config.DeltaStratumMinLines)
+                { bound = cell[0]; valued = cell[1]; }
+                raw = (double)bound / Math.Max(1, valued);
+            }
             return Math.Max(0.0, Math.Min(1.0, _config.DeltaScale * raw));
         }
 
@@ -192,9 +237,22 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// BoundLineKeys.Count that land in the decision log's valuedLines / boundLines columns.
         /// </summary>
         public void RegisterDecision(int boundLines, int valuedLines)
+        { RegisterDecision(boundLines, valuedLines, -1); }
+
+        /// <summary>
+        /// Same, but also credits the decision to a stratum so <see cref="Delta(int)"/> can
+        /// condition on it. A negative stratum only updates the system-wide totals, which is
+        /// what every caller that does not opt in passes.
+        /// </summary>
+        public void RegisterDecision(int boundLines, int valuedLines, int stratum)
         {
             if (boundLines > 0) _boundLinesTotal += boundLines;
             if (valuedLines > 0) _valuedLinesTotal += valuedLines;
+            if (stratum < 0) return;
+            long[] cell;
+            if (!_strata.TryGetValue(stratum, out cell)) { cell = new long[2]; _strata[stratum] = cell; }
+            if (boundLines > 0) cell[0] += boundLines;
+            if (valuedLines > 0) cell[1] += valuedLines;
         }
 
         /// <summary>Stable key for a line, shared by the valuation bookkeeping and the commit path.</summary>

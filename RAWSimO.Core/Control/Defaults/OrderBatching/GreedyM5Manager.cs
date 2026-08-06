@@ -83,6 +83,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// <summary>Shared consolidation CSV logger (splitorders.csv).</summary>
         private SplitConsolidationLogger _logger;
 
+        /// <summary>Highest committed-pod count that gets its own delta stratum; everything above
+        /// shares it. Must match M4GManager.DeltaStratumCap or the two managers stop pricing
+        /// identically, which would break the exact-vs-greedy ablation.</summary>
+        private const int DeltaStratumCap = 3;
+
         /// <summary>
         /// Residual-demand version of GenerateOiSKU (faithful mirror of the HGS-M4 copy).
         /// </summary>
@@ -675,8 +680,13 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// FULL remaining residual in this epoch's working books, and the order must already hold a
         /// slot there or the station must still have one free.
         /// </summary>
+        /// <param name="delta">Only read under FaithfulMarginal, which scores a draw by its true
+        /// change in the objective - the line stops earning lambda*delta as a valued-only line the
+        /// moment it becomes bound, so the improvement is lambda*(1-delta), not lambda. Off by
+        /// default, which reproduces the published results bit-for-bit. NOTE: the unused static
+        /// ScoreLineMove helper above still carries the uncorrected form; the live path is here.</param>
         private List<M5LineMove> EnumerateLineMoves(M5EpochState st,
-            double lambda, double mu, double rho, double epsilon)
+            double lambda, double mu, double rho, double epsilon, double delta)
         {
             var moves = new List<M5LineMove>();
             foreach (var order in st.ScanOrder)
@@ -715,8 +725,10 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                             CompletesOrder = completes,
                             NeedsSlot = !holdsSlot
                         };
-                        mv.Delta = -lambda - epsilon * line.Value + rhoCost;
-                        if (completes) mv.Delta -= mu;
+                        double lamEff = _config.FaithfulMarginal ? lambda * (1.0 - delta) : lambda;
+                        double muEff = _config.FaithfulMarginal ? mu * (1.0 - delta) : mu;
+                        mv.Delta = -lamEff - epsilon * line.Value + rhoCost;
+                        if (completes) mv.Delta -= muEff;
                         moves.Add(mv);
                     }
                 }
@@ -909,7 +921,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     double unlocked = 0.0;
                     while (true)
                     {
-                        var moves = EnumerateLineMoves(trial, lambda, mu, rho, epsilon);
+                        var moves = EnumerateLineMoves(trial, lambda, mu, rho, epsilon, delta);
                         M5LineMove best = null;
                         foreach (var m in moves)
                             if (m.Delta < 0 && (best == null || m.Delta < best.Delta)) best = m;
@@ -948,7 +960,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
 
             while (true)
             {
-                var moves = EnumerateLineMoves(st, lambda, mu, rho, epsilon);
+                var moves = EnumerateLineMoves(st, lambda, mu, rho, epsilon, delta);
                 M5LineMove bestDraw = null;
                 foreach (var m in moves)
                     if (m.Delta < 0 && (bestDraw == null
@@ -1169,7 +1181,13 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // which is what keeps the whole value side writable as lambda * V. Every trial is
             // built on throwaway books, so re-running is free of side effects; only the winning
             // plan is ever applied. ──
-            double delta = _pricing.Delta();
+            // (StratifiedDelta, gated) Same stratum M4GManager.DeltaStratum uses - the count of
+            // pods already committed - so the two managers keep pricing identically, which is the
+            // whole point of sharing M4GPricing through IM4GPrices. Held in a local so the same
+            // value feeds the price read here and RegisterDecision at the end. -1 when the flag is
+            // off, which routes both calls back to the system-wide totals.
+            int deltaStratum = _config.StratifiedDelta ? Math.Min(Pb.Count, DeltaStratumCap) : -1;
+            double delta = _pricing.Delta(deltaStratum);
             double lambdaK = lambda0;
             M5Plan plan = BuildPlan(st, Pa, lambdaK, mu0, delta, rho0, epsilon0);
             int lambdaIters = 0;
@@ -1247,7 +1265,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             _pricing.RegisterClosedLines(st.ClosedLinesThisEpoch);
             _pricing.RegisterCompletedOrders(st.CompletedOrdersThisEpoch);
             _pricing.RegisterDecision(st.ClosedLinesThisEpoch,
-                st.ClosedLinesThisEpoch + plan.ValuedOnlyLines);
+                st.ClosedLinesThisEpoch + plan.ValuedOnlyLines, deltaStratum);
         }
     }
 }
