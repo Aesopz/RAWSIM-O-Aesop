@@ -40,3 +40,26 @@ out/
 
 # One-off exploration batch scripts (kept locally, not versioned)
 scripts/run_*.cmd
+
+# LaTeX build artefacts
+docs/thesis/main/build/
+docs/thesis/**/*.aux
+docs/thesis/**/*.log
+docs/thesis/**/*.out
+docs/thesis/**/*.toc
+docs/thesis/**/*.lof
+docs/thesis/**/*.lot
+docs/thesis/**/*.bbl
+docs/thesis/**/*.blg
+docs/thesis/**/*.xdv
+docs/thesis/**/*.synctex.gz
+
+# 參考文獻 PDF（著作權；索引見 docs/thesis/refer/index.md）
+docs/thesis/refer/*.pdf
+
+# 論文範本的隨附字型（10MB；Windows 已內建標楷體 DFKai-SB）
+docs/thesis/**/*.ttf
+# 原始範本壓縮包解開的資料夾（保留在本機供對照，不進版控）
+docs/thesis/ntust-thesis-master/
+# 學長的 Word 檔（7MB，僅供內容搬移參考）
+docs/thesis/*.docx

@@ -1,0 +1,101 @@
+% Unless school modifies the thesis format (margins, header, footer, watermark)
+% or needs to improve the use of LaTeX packages,
+% or needs to change the default fonts or the encoding,
+% then there is no need to modify the content inside this file.
+% For thesis writing personalization, please modify the files starting with 'my_'
+
+\usepackage[nospace]{cite}  		% for smart citation
+\usepackage{geometry}  				% for easy margin settings
+%\usepackage{subfigure}  			% for subfigure
+%\usepackage[dvipdfm]{graphicx}  	% for graphic using eps
+%\usepackage[xetex]{graphicx}
+%\usepackage{graphicx}  			% for graphic using eps
+
+\usepackage{epstopdf} 				% for automatic transformation (eps to pdf) while using pdflatex
+
+%\usepackage{algorithmic}  			% for algorithm
+\usepackage{algorithm}
+\usepackage{algorithmicx}
+\usepackage{algpseudocode}
+
+%
+% margins setting
+\geometry{verbose,a4paper,tmargin=3.5cm,bmargin=2cm,lmargin=3cm,rmargin=3cm}
+%
+\usepackage{amsmath} 				% for mathematical function (AMS Format)
+%\usepackage{amssymb} 				% for mathematical symbol (AMS Format)
+										% if 'amssymb' and 'Xunicode' conflict, please put 'amssymb' beforehand
+\usepackage{mathrsfs} 				% for cursive mathematical symbol,
+										% for example, typing '\mathscr{E} may result 'cursive E'
+\usepackage{listings} 				% for listing any programming code
+%
+% listing setting
+\lstset{breaklines=true,			% a long line of code can be broken into lines of code
+extendedchars=false,				
+texcl=true,							
+comment=[l]\%\%,					
+basicstyle=\small,					% approximately 10 pt
+commentstyle=\upshape,				% the default is 'italics', so set it upright
+%language=Octave 					% some 'octave' instruction will appear in bold
+}
+
+\usepackage{url} 					% for trackbacking URL in the document; usage: \url{http://www.ntust.edu.tw}
+
+% Illustration package: graphicx
+	% whether users using 'pdftex' or 'latex + dvipdfmx' for their workflow?
+	% each case may have different parameters
+	% the following automatic decision
+	% refered from
+	% http://www.tex.ac.uk/cgi-bin/texfaq2html?label=ifpdf
+
+%\newcommand\mydvipdfmxflow{dvipdfmx}
+%\newcommand\mypdftexflow{pdftex}
+%
+%\ifx\pdfoutput\undefined
+%  % not running pdftex
+%  \usepackage[dvipdfm]{graphicx}
+%  \newcommand\myworkflow{dvipdfmx}  % set the flag for hyperref
+%\else
+%  \ifx\pdfoutput\relax
+%    % not running pdftex
+%    \usepackage[dvipdfm]{graphicx}
+%    \newcommand\myworkflow{dvipdfmx}  % set the flag
+%  \else
+%    % running pdftex, with...
+%    \ifnum\pdfoutput>0
+%      % ... PDF output
+%      \usepackage[pdftex]{graphicx}
+%      \newcommand\myworkflow{pdftex}  % set the flag
+%    \else
+%      %...DVI output
+%      \usepackage[dvipdfm]{graphicx}
+%      \newcommand\myworkflow{dvipdfmx}  % set the flag
+%    \fi
+%  \fi
+%\fi
+
+\usepackage{fancyhdr}  				% Extra package for putting the watermark
+% (Occupy central header)
+% Users who do not need watermark can still utilize this package to produce the desired header and footer
+%
+% Start fancy header/footer package
+\pagestyle{fancy}
+\fancyhead{}  						% reset left, central, right header to empty
+\fancyfoot[C]{\thepage} 			% middle footer for page number
+\renewcommand{\headrulewidth}{0pt} 	% header straight line; 0pt (no line)
+
+% If you need the watermark, please uncomment the following '\input' line
+%% 浮水印 >>> 
+%\input{watermark/ntust_watermark.tex}
+%% <<< 浮水印
+
+%
+% global page layout
+\newcommand{\mybaselinestretch}{1.5}  					% Line space: 1.5 times + 20%, (approximately double space)
+\renewcommand{\baselinestretch}{\mybaselinestretch}  	% Thesis line space presets
+\parskip=2ex  						% Spacing between paragraphs is equal to two heights of x
+\parindent = 24Pt  					% The retraction of first paragraph is controlled by CJK, this setting cancel it
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%  end of preamble
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

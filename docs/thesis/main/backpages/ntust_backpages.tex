@@ -1,0 +1,52 @@
+%
+% This file is encoded in utf-8
+% v1.7
+%
+
+%%% References Document/ Bibliography 
+\newpage
+\addcontentsline{toc}{chapter}{\nameRef}
+\renewcommand{\bibname}{\protect\makebox[5cm][s]{\nameRef}}		% '\makebox{}' is fragile, '\protect' will help
+\bibliographystyle{ieeetr}										% Using IEEE Trans journal format
+{\footnotesize
+\bibliography{my_bib}  											% 'my_bib' is a BibTeX file located in the parent directory, it comprises all the references for the thesis
+}
+
+%%% Appendix (uncomment the following line to include the appendixes)
+%\input{backpages/my_appendix.tex}
+
+%%% Autobiography/ Vitae
+%\newpage
+%\chapter*{\protect\makebox[5cm][s]{\nameVitae}} 				% '\makebox{}' is fragile, '\protect' will help
+%\addcontentsline{toc}{chapter}{\nameVitae}
+%\input{backpages/my_vitae.tex}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Letter of Authorization (LoA/ 授權書)
+%     ... the page numbers will be counted but not be printed
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Insert the printed standard form when the thesis is ready to bind
+% After the oral defense, put the LoA (signed by advisor) into the thesis, then bind it
+% Create an entry in table of contents for this LoA
+% Currently only generate an empty page
+
+% Per January 2018, there is no need to include the copyright page
+%   into the thesis book.
+%   The copyright (authorization) letters are submitted separately to NTUST library.
+
+%\newpage{\thispagestyle{empty}\addcontentsline{toc}{chapter}{\nameCopyrightForm}\mbox{}\clearpage}
+
+%\includepdf{backpages/a.pdf}{\addcontentsline{toc}{chapter}{\nameCopyrightForm}}
+
+
+%%%%% useless %%%%%
+%\begin{figure}[!t]
+%\centering
+%\includegraphics[width=\paperwidth]{backpages/LetterofAuthority.pdf}
+%\end{figure}
+%\includepdf[addtotoc={1,chapter,-1,\nameCopyrightForm,letter}]{backpages/LetterofAuthority.pdf}
+%\includepdf{backpages/LetterofAuthority.pdf}
+%\addcontentsline{toc}{chapter}{\nameCopyrightForm}\mbox{}
