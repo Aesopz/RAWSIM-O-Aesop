@@ -1,4 +1,4 @@
-﻿# Build outputs
+# Build outputs
 bin/
 obj/
 *.user
@@ -34,3 +34,9 @@ desktop.ini
 
 # Git worktrees
 .worktrees/
+
+# Simulation output (reproducible by re-running; never committed)
+out/
+
+# One-off exploration batch scripts (kept locally, not versioned)
+scripts/run_*.cmd
