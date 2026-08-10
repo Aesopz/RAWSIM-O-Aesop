@@ -174,9 +174,28 @@ a:focus-visible,:focus-visible{outline:2px solid var(--bind);outline-offset:2px;
     沒有任何一個數字是杜撰或示意的——凡是能對得起來的算式，我都把驗算寫出來讓你核。
   </p>
   <div class="meta">
-    <span>m4g.xconf（正典）</span>
+    <span>m4g.xconf · seed 0 · small / 6 bot / 2h</span>
     <span>WarmupLines=50 · LambdaFallback=10 · DeltaFallback=0.05</span>
-    <span>結果：603 訂單 / 765 趟 / 8693 m</span>
+    <span>此次執行結果：603 訂單 / 765 趟 / 8693 m</span>
+  </div>
+  <div class="note" style="margin-top:34px;max-width:none">
+    <div class="ntitle">這份走查用的是哪一版</div>
+    <p>
+      本文所有數字取自 <strong>2026-08-06</strong> 的一次實際執行，當時 <span class="m">&#948;</span> 是
+      <strong>全域平坦</strong>的單一值、Dinkelbach 是<strong>單向</strong>搜尋。
+      <strong>2026-08-07 起的正典多了三項</strong>：分層 <span class="m">&#948;</span>、雙向 <span class="m">&#955;</span> 搜尋、
+      貪婪對照組的忠實計分（見〈M4G 拆單模型與定價設計〉&#167;7、&#167;10、&#167;11）。
+      同設定同種子在現行正典下是 <strong>610 訂單</strong>。
+    </p>
+    <p>
+      <strong>公式、流程與機制完全沒變，走查逐格仍然成立。</strong>
+      唯一要換算的是 <span class="m">&#948;</span> 的具體數值：本文用的全場累積
+      <span class="m">&#948; = 936/5420 = 0.1727</span> 是分層前的<em>單一</em>值；
+      分層後它依在途貨架數分桶，<span class="m">|P<sup>b</sup>|=1</span> 時為
+      <strong>0.2117</strong>、<span class="m">|P<sup>b</sup>|=2</span> 時為 <strong>0.1376</strong>，
+      0.1727 是這些桶的加權平均。把本文任何一格的
+      <span class="m">&#948;</span> 換成該格對應的桶值，其餘算式照舊。
+    </p>
   </div>
 </header>
 
