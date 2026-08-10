@@ -127,6 +127,8 @@ namespace RAWSimO.Core.Control
                 case OrderBatchingMethodType.M4G: OrderManager = new M4GManager(instance); break;
                 case OrderBatchingMethodType.GreedyM4G: OrderManager = new GreedyM4GManager(instance); break;
                 case OrderBatchingMethodType.GreedyM5: OrderManager = new GreedyM5Manager(instance); break;
+                case OrderBatchingMethodType.M4GNS: OrderManager = new M4GNSManager(instance); break;
+                case OrderBatchingMethodType.GreedyM5NS: OrderManager = new GreedyM5NSManager(instance); break;
                 default: throw new ArgumentException("Unknown order manager: " + instance.ControllerConfig.OrderBatchingConfig.GetMethodType());
             }
             // Init replenishment batching manger

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using RAWSimO.Core.Configurations;
 
@@ -62,7 +62,14 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         bool PickDistancePricing { get; }
         /// <summary>
         /// Condition delta on how much supply is already committed, instead of using one
-        /// system-wide scalar. false reproduces every published result bit-for-bit.
+        /// system-wide scalar. Default true since 2026-08-07; false is the flat-delta ablation and
+        /// reproduces everything published before that date bit-for-bit.
+        ///
+        /// Canonised on 5 paired seeds (small/10bot/2h/Fill), M4G: orders +1.62% at t = +2.93 with
+        /// all five seeds the same sign, backlog -15.44%, pile-on +1.62% (t = +1.76), EOR -2.24%
+        /// (t = -1.38). Orders PLACED were unchanged (t = -0.66), so the throughput gain is real
+        /// and not Fill feeding the arm more. The plan had been to settle it on ten seeds; the
+        /// owner accepted it at five.
         ///
         /// The flat delta prices every decision at the same realisation rate, but the measured
         /// rate is not flat: on small/10bot/2h it is 0.2117 when one pod is already committed and

@@ -149,6 +149,68 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 "decision,time,stationId,freeSlots,objBase,objPlus1,marginalValue,boundOrders,solveSec");
         }
 
+        /// <summary>Valuation-fidelity diagnostic sink; see M4GConfiguration.ValuationFidelityLog.</summary>
+        private System.IO.StreamWriter _valFidLog;
+        /// <summary>Lines the PREVIOUS decision valued as closed but did not bind - the lag-1
+        /// promise set.</summary>
+        private readonly HashSet<string> _prevValuedNotBound = new HashSet<string>();
+        /// <summary>Every line still carrying an unfulfilled valuation promise: a line enters when
+        /// some decision values it without binding it, and leaves when a later decision actually
+        /// binds it. Its size is therefore the outstanding promise backlog, and a backlog that
+        /// grows without bound is itself the finding - it means the valuation layer is scoring
+        /// closures that never happen rather than closures that merely happen later.</summary>
+        private readonly HashSet<string> _everValuedNotBound = new HashSet<string>();
+
+        private void EnsureValFidLog()
+        {
+            if (_valFidLog != null) return;
+            string dir0 = Instance != null && Instance.SettingConfig != null
+                ? Instance.SettingConfig.StatisticsDirectory : null;
+            if (string.IsNullOrEmpty(dir0)) dir0 = ".";
+            if (!System.IO.Directory.Exists(dir0)) System.IO.Directory.CreateDirectory(dir0);
+            _valFidLog = new System.IO.StreamWriter(
+                System.IO.Path.Combine(dir0, "m4g_valuation_fidelity.csv"), false) { AutoFlush = true };
+            _valFidLog.WriteLine("decision,time,valuedLines,boundLines,"
+                + "prevPromises,boundFromPrevPromises,openPromises,boundFromOpenPromises,boundNovel,"
+                + "valuedOrders,boundOrders,valuedOrderLines,boundOrderLines,delta");
+        }
+
+        /// <summary>
+        /// Records one decision's valuation-vs-binding fidelity and rolls the promise sets forward.
+        /// Called AFTER the decision is fully determined and only when the flag is on; it reads
+        /// the result and writes to its own file, so it can neither change a decision nor perturb
+        /// any existing output.
+        ///
+        /// boundNovel is the count that matters most: lines the binding layer closed that no
+        /// earlier decision had ever valued-but-left-open. A high boundNovel means the closures
+        /// being delivered are largely NOT the ones that were promised - the promise was kept by a
+        /// substitute. That is exactly the drift the caller's remark describes.
+        /// </summary>
+        private void WriteValuationFidelity(M4GResult result, double delta)
+        {
+            EnsureValFidLog();
+            int prevPromises = _prevValuedNotBound.Count;
+            int openPromises = _everValuedNotBound.Count;
+            int boundFromPrev = result.BoundLineKeys.Count(k => _prevValuedNotBound.Contains(k));
+            int boundFromOpen = result.BoundLineKeys.Count(k => _everValuedNotBound.Contains(k));
+            int boundNovel = result.BoundLineKeys.Count - boundFromOpen;
+            _valFidLog.WriteLine(string.Join(",", new string[] {
+                _decisionIndex.ToString(), Instance.Controller.CurrentTime.ToString(),
+                result.ValuedLineKeys.Count.ToString(), result.BoundLineKeys.Count.ToString(),
+                prevPromises.ToString(), boundFromPrev.ToString(),
+                openPromises.ToString(), boundFromOpen.ToString(), boundNovel.ToString(),
+                result.ValuedOrders.ToString(), result.BoundOrders.ToString(),
+                result.ValuedOrderResidualLines.ToString(), result.BoundOrderResidualLines.ToString(),
+                delta.ToString() }));
+            // Roll forward: a promise is discharged when the line is actually bound, and the
+            // lines valued-but-unbound by THIS decision become the new promises. Discharge before
+            // adding so a line valued and bound in the same decision never enters the backlog.
+            _everValuedNotBound.ExceptWith(result.BoundLineKeys);
+            _prevValuedNotBound.Clear();
+            foreach (string k in result.ValuedLineKeys)
+                if (!result.BoundLineKeys.Contains(k)) { _prevValuedNotBound.Add(k); _everValuedNotBound.Add(k); }
+        }
+
         /// <summary>
         /// Re-solves this decision once per station with one extra free slot, and records the
         /// objective improvement. Runs BEFORE CommitM4G so it sees the same pre-commit world the
@@ -585,6 +647,17 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// <summary>Highest Pb value that gets its own delta stratum; everything above shares it.</summary>
         private const int DeltaStratumCap = 3;
 
+        /// <summary>
+        /// (ForbidCrossStationOnly) Order id -> the station it is committed to for life. Written
+        /// the first time an order takes stock anywhere and never revised, so a parent carrying
+        /// residual demand cannot continue at a different station on a later decision. Empty and
+        /// unread under every other configuration. Keyed on the PARENT id, which is what stays in
+        /// the pending set; children are allocated and gone. Entries are never removed - the map
+        /// is bounded by the run's order count (a few hundred) and reusing a completed order's id
+        /// is impossible, since child and fresh-order ids come from the same monotonic counter.
+        /// </summary>
+        private readonly Dictionary<int, int> _nsStationPin = new Dictionary<int, int>();
+
         /// <summary>Mean order turnover time used to normalise urgency this decision (diagnostics
         /// only; 0 when due-date pricing is off or no order has completed yet).</summary>
         private double _lastTbar = 0.0;
@@ -623,11 +696,24 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 {
                     sym.Chat.Add(new Symbol { order = order, skui = sku.Key,
                         name = "ch_" + order.ID + "_" + sku.Key.ID });
+                    // (ForbidCrossStationOnly) An order that already took stock at a station is
+                    // pinned there for the rest of its life. B8 alone only says "one station per
+                    // DECISION"; a parent carrying residual demand is re-decided next tick and
+                    // would otherwise be free to continue at a different one, which is a
+                    // cross-station split spread over time - exactly what this arm forbids.
+                    // Enforced by not generating the variables rather than by adding equalities:
+                    // no big-M, no extra rows, and the model shrinks.
+                    int pinned = -1;
+                    bool isPinned = _m4gConfig.ForbidSplitting && _m4gConfig.ForbidCrossStationOnly
+                        && _nsStationPin.TryGetValue(order.ID, out pinned);
                     foreach (var pod in snap.PiSKU[sku.Key])
                         foreach (var station in snap.Cs.Keys)
+                        {
+                            if (isPinned && station.ID != pinned) continue;
                             sym.Qhat.Add(new Symbol { order = order, skui = sku.Key, pod = pod,
                                 outputstation = station,
                                 name = "qh_" + sku.Key.ID + "_" + order.ID + "_" + pod.ID + "_" + station.ID });
+                        }
                 }
             }
             return sym;
@@ -850,7 +936,15 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     if (!fullyCoverable)
                     {
                         wrapper.AddConstr(bin["zh_" + order.ID] == 0, "V8g");
-                        continue;   // no candidate line can ever draw for this order this decision
+                        // Under the full restriction V8 ties every draw to zhat, so zhat = 0
+                        // already zeroes them and the station machinery below is dead weight.
+                        // Under ForbidCrossStationOnly there is no V8, so skipping ahead would
+                        // leave this order with NO station restriction at all - free to draw from
+                        // several at once, i.e. the very thing the arm forbids. Build V7a/V7b for
+                        // it too; it simply cannot be COMPLETED this decision, which is what
+                        // zhat = 0 says and what V4g says for the unrestricted model.
+                        if (!_m4gConfig.ForbidCrossStationOnly && !_m4gConfig.WholeOrderDeferredFill)
+                            continue;   // no candidate line can ever draw for this order this decision
                     }
 
                     var orderQhat = idx.ByOrder(order.ID);
@@ -891,6 +985,12 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                             .Select(v => qh[v.name]).ToList();
                         if (draws.Count == 0) continue;
                         if (_m4gConfig.TightWholeOrder) continue;   // implied by V7t + V8t
+                        // (ForbidCrossStationOnly) V8 is the all-or-nothing half of the
+                        // restriction. Dropping it leaves V7a/V7b - one station per order - while
+                        // letting that station fill the order over several decisions, which is
+                        // what M1G actually does. See IM4GPrices' sibling remark on the flag.
+                        if (_m4gConfig.ForbidCrossStationOnly
+                            || _m4gConfig.WholeOrderDeferredFill) continue;
                         wrapper.AddConstr(LinearExpression.Sum(draws) == sku.Value * bin["zh_" + order.ID], "V8");
                     }
                 }
@@ -1073,7 +1173,6 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         {
             return EstimatePodStationDistance(pod, station);
         }
-
         /// <summary>Outcome of one M4G solve. Only BoundDraws has side effects downstream.</summary>
         private sealed class M4GResult
         {
@@ -1104,6 +1203,12 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             public double DStar;
             /// <summary>The lambda this solve was built with (diagnostics / Dinkelbach bookkeeping).</summary>
             public double LambdaUsed;
+            /// <summary>Residual lines summed over the orders the VALUATION layer scored complete
+            /// (diagnostics, ValuationFidelityLog). Paired with <see cref="BoundOrderResidualLines"/>
+            /// this measures whether mu's one-for-one order exchange hides a size asymmetry.</summary>
+            public int ValuedOrderResidualLines;
+            /// <summary>Residual lines summed over the orders the BINDING layer completed.</summary>
+            public int BoundOrderResidualLines;
         }
 
         /// <summary>
@@ -1148,6 +1253,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             public List<int> OpenOrderIds = new List<int>();
             /// <summary>Upper bound for the legacy idle-slot integer variables.</summary>
             public int MaxSlots;
+            /// <summary>(SlotScale, experimental) Idle-slot slack variables, one per station.
+            /// Null when the flag is off, which is what keeps the default path untouched.</summary>
+            public VariableCollection<string> Us;
+            /// <summary>Names of the idle-slot slacks, in station order. Empty when off.</summary>
+            public List<string> UsNames = new List<string>();
             public void Dispose()
             {
                 if (Wrapper != null) { Wrapper.Dispose(); Wrapper = null; }
@@ -1269,7 +1379,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     // the full residual exactly when the order is bound-complete (z=1, mirroring
                     // zhat in V8), 0 otherwise - so under slot pressure the order is deferred
                     // whole, never partially committed.
-                    if (_m4gConfig.ForbidSplitting && !_m4gConfig.TightWholeOrder)
+                    // (ForbidCrossStationOnly) B9 is V8's binding-layer twin and the same half of
+                    // the restriction, so it drops with it - the order stays pinned to one station
+                    // by B8 but may be committed in pieces over successive decisions.
+                    if (_m4gConfig.ForbidSplitting && !_m4gConfig.TightWholeOrder
+                        && !_m4gConfig.ForbidCrossStationOnly && !_m4gConfig.WholeOrderDeferredFill)
                         wrapper.AddConstr(LinearExpression.Sum(skuDraws) == sku.Value * bin["z_" + order.ID], "B9");
                     // (B9t, gated) Tight replacement for B9: pin each line's draw AT EACH STATION
                     // to that station's assignment indicator. Same integer-feasible set as
@@ -1325,10 +1439,41 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     wrapper.AddConstr(LinearExpression.Sum(ys) <= snap.Cs[station], "B3");
             }
 
+            // (SlotScale, experimental) Idle-slot slack: occupied + us == Cs, priced in the
+            // objective. Mirrors the LegacyIdle machinery above, but with a self-calibrated price
+            // instead of a hand-set weight. Added ALONGSIDE B3 rather than replacing it - the
+            // equality subsumes B3, so B3 becomes redundant, not wrong, and leaving it in place
+            // keeps the flag-off path a strict subset of the flag-on model.
+            VariableCollection<string> usVars = null;
+            List<string> usNames = new List<string>();
+            if (_m4gConfig.SlotScale > 0)
+            {
+                // Only (order, station) pairs that actually own a y variable may be summed - the
+                // same restriction the LegacyIdle block relies on. Referencing an undeclared y
+                // would silently manufacture a free binary the solver could set to shrink us.
+                HashSet<string> ownsY = new HashSet<string>(
+                    sym.Qhat.Select(v => v.order.ID + "_" + v.outputstation.ID));
+                usVars = new VariableCollection<string>(
+                    wrapper, VariableType.Integer, 0, maxSlots, (string s) => { return s; });
+                foreach (var station in snap.Cs.Keys)
+                {
+                    var ys = snap.PendingOrders
+                        .Where(o => ownsY.Contains(o.ID + "_" + station.ID))
+                        .Select(o => bin["y_" + o.ID + "_" + station.ID]).ToList();
+                    string usName = "us_" + station.ID;
+                    LinearExpression occupied = ys.Count > 0
+                        ? LinearExpression.Sum(ys)
+                        : LinearExpression.Sum(new List<LinearExpression>(), wrapper);
+                    wrapper.AddConstr(occupied + usVars[usName] == snap.Cs[station], "B3s");
+                    usNames.Add(usName);
+                }
+            }
+
             return new M4GModel
             {
                 Wrapper = wrapper, Sym = sym, Idx = idx, Bin = bin, Qh = qh, Qb = qb,
-                OpenOrderIds = openOrderIds, MaxSlots = maxSlots
+                OpenOrderIds = openOrderIds, MaxSlots = maxSlots,
+                Us = usVars, UsNames = usNames
             };
             }
             catch
@@ -1514,6 +1659,16 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                         objective = objective + LinearExpression.Sum(processingDraws) * (-rho);
                 }
             }
+            // (SlotScale, experimental) T8: price an empty station slot at SlotScale * mu metres.
+            // mu already carries the Dinkelbach lambda scaling (mu = mu0 * lambdaScaleRatio above),
+            // so sigma tracks lambda and the value side stays proportional - required for the
+            // V* = (D* - objective)/lambda recovery to remain exact.
+            if (_m4gConfig.SlotScale > 0 && model.Us != null && model.UsNames.Count > 0)
+            {
+                double sigma = _m4gConfig.SlotScale * mu;
+                objective = objective
+                    + LinearExpression.Sum(model.UsNames.Select(n => model.Us[n]).ToList()) * sigma;
+            }
             wrapper.SetObjective(objective, OptimizationSense.Minimize);
 
             DateTime solveStart = DateTime.Now;
@@ -1562,6 +1717,19 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             }
             result.ValuedOrders = sym.Zhat.Count(v => Math.Round(bin[v.name].GetValue()) != 0);
             result.BoundOrders = sym.Zhat.Count(v => Math.Round(bin["z_" + v.order.ID].GetValue()) != 0);
+            // (ValuationFidelityLog) Size of the orders each layer claims, in residual lines.
+            // Counted off snap.Residuals - the same demand ledger the Chat/Qhat symbols were built
+            // from - so "lines" here means exactly what lambda prices, not the order's original
+            // width. Guarded by the flag so the default path does no extra work at all.
+            if (_m4gConfig.ValuationFidelityLog)
+                foreach (var v in sym.Zhat)
+                {
+                    Dictionary<ItemDescription, int> res;
+                    if (!snap.Residuals.TryGetValue(v.order, out res)) continue;
+                    int lines = res.Count(p => p.Value > 0);
+                    if (Math.Round(bin[v.name].GetValue()) != 0) result.ValuedOrderResidualLines += lines;
+                    if (Math.Round(bin["z_" + v.order.ID].GetValue()) != 0) result.BoundOrderResidualLines += lines;
+                }
             foreach (var v in sym.Xps.Where(v => snap.Pa.Contains(v.pod)))
                 if (Math.Round(bin[v.name].GetValue()) != 0)
                 {
@@ -1719,6 +1887,10 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // after WriteDecision so the logged delta (like lambda/mu) reflects state prior to
             // this decision's own contribution - same convention as RegisterClosedLines below.
             _pricing.RegisterDecision(result.BoundLineKeys.Count, result.ValuedLineKeys.Count, deltaStratum);
+            // (ValuationFidelityLog, gated) Measurement only - see M4GConfiguration. Placed after
+            // RegisterDecision so the logged delta matches the decision log's convention.
+            if (_m4gConfig.ValuationFidelityLog)
+                WriteValuationFidelity(result, delta);
             Instance.Observer.TimeOrderBatchingbyMP((DateTime.Now - start).TotalSeconds);
         }
 
@@ -1840,7 +2012,15 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     // Fast path: the whole residual is served here and the order was never split
                     // before - no child needed, the order itself takes the slot.
                     Order target;
-                    if (coversWholeOrder && stationGroup.Count() == mine.Count && !order.IsSplitParent)
+                    // (WholeOrderDeferredFill) The order is the atom: whatever this decision could
+                    // source, the ORDER is what gets allocated, so it takes one slot, leaves the
+                    // pending set and is never re-decided. Its outstanding extract requests are
+                    // then served by BotManagerPodSelection, which keeps fetching pods for a
+                    // station's queued orders - the same division of labour M1G relies on. No child
+                    // is created, so no sub-order granularity leaks in through the commit path.
+                    if (_m4gConfig.WholeOrderDeferredFill)
+                        target = order;
+                    else if (coversWholeOrder && stationGroup.Count() == mine.Count && !order.IsSplitParent)
                         target = order;
                     else
                     {
@@ -1855,6 +2035,13 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                         Instance.ResourceManager.TransferExtractRequests(order, target);
                     }
                     AllocateOrder(target, station);
+                    // (ForbidCrossStationOnly) Remember where this order went the first time it
+                    // took anything, so BuildSymbols can refuse to offer it any other station on
+                    // later decisions. Keyed on the parent id even when a child was allocated -
+                    // the parent is what survives in the pending set carrying residual demand.
+                    if (_m4gConfig.ForbidSplitting && _m4gConfig.ForbidCrossStationOnly
+                        && !_nsStationPin.ContainsKey(order.ID))
+                        _nsStationPin[order.ID] = station.ID;
                     // Probe: one row per placement, keyed on the PARENT id so a post-processor can
                     // group a split order's pieces together regardless of the child ids they were
                     // given. Measurement only.

@@ -1,4 +1,4 @@
-using RAWSimO.Core.Control.Defaults.OrderBatching;
+﻿using RAWSimO.Core.Control.Defaults.OrderBatching;
 using RAWSimO.Core.Control.Shared;
 using RAWSimO.Core.IO;
 using System;
@@ -1954,6 +1954,55 @@ namespace RAWSimO.Core.Configurations
         /// unrestricted model isolates the effect of splitting itself. false = current behaviour
         /// (M4G unit-level splitting, unrestricted).</summary>
         public bool ForbidSplitting = false;
+        /// <summary>
+        /// Under ForbidSplitting, restrict ONLY the cross-station half: an order still goes to at
+        /// most one station (V7a/V7b, B8), but may be filled over several decisions there. Drops
+        /// the all-or-nothing equalities V8 and B9. false keeps both halves restricted, which is
+        /// what every result before 2026-08-07 used.
+        ///
+        /// Why this exists: ForbidSplitting as originally written forbids BOTH of Xie et al.'s
+        /// categories at once - split-among-stations AND split-over-time. M1G, the baseline it is
+        /// meant to mirror, only forbids the first: it assigns an order to a station with yos and
+        /// the pick layer OUTSIDE the MILP then serves it as pods arrive, with no requirement that
+        /// one station cover the whole order in a single instant. The stricter reading makes the
+        /// arm collapse where M1G would not: at 1000 SKUs on small/6bot it served 51 orders and
+        /// stopped deciding at t=1374 of 7200, with replenishment never triggered (0 bundles
+        /// placed) and the fleet resting 90% of the time - not deadlocked, simply unable to find
+        /// an order one station could cover all at once.
+        ///
+        /// Caveat this does NOT fix: B8 is a per-decision constraint. A parent that keeps residual
+        /// demand is re-decided next time and nothing pins it to the station it used before, so
+        /// cross-period CROSS-STATION filling can still occur. The split-lifetime probe already
+        /// classifies that case (category C), so measure before adding any pinning.
+        /// </summary>
+        public bool ForbidCrossStationOnly = false;
+        /// <summary>
+        /// Under ForbidSplitting, make the ORDER the unit of assignment the way M1G does: the whole
+        /// order is committed to one station and leaves the pending set, whatever could not be drawn
+        /// this decision is left to the pod-selection layer to fetch later, and no split child is
+        /// ever created. false keeps the original reading, which additionally demands the entire
+        /// order be drawn in the same decision.
+        ///
+        /// Why: the original reading conflates "one station" with "all at once", and the second half
+        /// is not what M1G does. M1G's shi5 only constrains SKUs that some pod currently holds
+        /// (`OiSKU.Where(v =&gt; PiSKU.ContainsKey(v.Key))`), so it will happily assign an order whose
+        /// remaining lines nothing can supply yet; the order takes a slot and
+        /// BotManagerPodSelection keeps fetching pods for its outstanding extract requests until it
+        /// finishes. M4G-NS instead has V8g force zhat = 0 for exactly those orders, and B9 then
+        /// pins every draw to zero, so the order cannot be touched at all.
+        ///
+        /// At 1000 SKUs on small/6bot that difference is total: nearly every order has at least one
+        /// line no pod currently holds, so the arm valued 0 lines with 100 orders pending, 75
+        /// storage pods and 4 pods already at stations - lambda escalated 10 -> 320 and still found
+        /// "do nothing" optimal. It served 51 orders and stopped deciding at t=1374 of 7200. M1G on
+        /// the same instance served 393 and ran to the end. The collapse is this modelling choice,
+        /// not a property of not splitting.
+        ///
+        /// The order stays the atom: one station, never re-decided, no children. Only the demand
+        /// that this decision can actually source is priced now, at lambda per line closed; the
+        /// rest carries no reward until it is picked, so nothing is claimed that is not delivered.
+        /// </summary>
+        public bool WholeOrderDeferredFill = false;
 
         /// <summary>Coarsens the splitting atom from the UNIT to the LINE. Unrestricted M4G decides
         /// q[o,i,p,s] per unit, so one order line (o,i) may be served partly at one station and
@@ -2048,6 +2097,145 @@ namespace RAWSimO.Core.Configurations
         /// the decision path bit-identical.
         /// </summary>
         public int SlotShadowProbeCadence = 0;
+
+        /// <summary>
+        /// Valuation-fidelity diagnostic (measurement only, never read back into any decision).
+        /// Writes m4g_valuation_fidelity.csv, one row per decision.
+        ///
+        /// What it answers: delta is a RATIO OF COUNTS - of the lines the valuation layer scored
+        /// closed, what share did the binding layer take. Within one decision the two layers
+        /// cannot disagree in SHAPE, because B1/B6c/B6z nest the binding layer inside the
+        /// valuation layer index by index. Across decisions there is no such tie: a line valued
+        /// but not bound this tick may never be the line that closes later, and delta cannot see
+        /// the difference. Two consequences are worth measuring:
+        ///
+        ///   (A) Identity carry-over. Are the lines the binding layer closes the SAME lines the
+        ///   valuation layer promised, or does the promise get filled by whatever happens to be
+        ///   convenient next tick? Shape drift is harmless while every line carries the same
+        ///   price lambda (a promise kept by a substitute scores identically), so a low carry-over
+        ///   rate is a finding about the estimate's meaning, not a bug - unless DueDatePricing is
+        ///   on, which makes lines heterogeneously priced and turns drift into real bias.
+        ///
+        ///   (B) The mu bias. mu is lambda times the MEAN lines per order, so a valued order and
+        ///   a bound order are exchanged one-for-one regardless of how much work each represents.
+        ///   The valuation layer is slot-free and can favour large orders; the binding layer is
+        ///   slot-bound and may complete small ones. Logging the residual line counts of each side
+        ///   tests whether that asymmetry is systematic (which would make mu a standing
+        ///   over-estimate) or averages out.
+        ///
+        /// Cost: two set operations and one line of CSV per decision. false (default) leaves the
+        /// decision path and every existing output bit-identical.
+        /// </summary>
+        public bool ValuationFidelityLog = false;
+
+        /// <summary>
+        /// EXPERIMENTAL (2026-08-09), default 0 = off, decision path bit-identical when off.
+        ///
+        /// Idle-slot price as a multiple of mu: each station slot left empty this decision costs
+        /// SlotScale * mu metres. 1.0 reads as "leaving a slot empty costs one order's worth of
+        /// value" - zero new free parameters, since mu is measured.
+        ///
+        /// Why it might matter: M1G carries a hand-set w3 = 1000 per idle slot (25x its order
+        /// reward w2 = 40), which force-fills stations; canonical M4G has no such term at all and
+        /// relies purely on the value side to pull orders in. This flag tests whether M4G is
+        /// leaving throughput on the table by not pricing an idle slot.
+        ///
+        /// Scales with mu, which itself scales with lambda, so the Dinkelbach linearisation stays
+        /// intact (the whole value side must remain proportional to lambda or the
+        /// V* = (D* - obj)/lambda recovery silently computes garbage).
+        /// </summary>
+        public double SlotScale = 0.0;
+    }
+
+    /// <summary>
+    /// M4G-NS: the whole-order no-split control arm. Structurally M1G's assignment (one order,
+    /// one station, all-or-nothing) with M4G's self-calibrated pricing substituted for M1G's
+    /// hand-tuned w1/w2/w3.
+    ///
+    /// Inherits M1GConfiguration so every `is M1GConfiguration` type test in the engine passes
+    /// without touching any engine file - the same trick SAM1GConfiguration and M4GConfiguration
+    /// use.
+    ///
+    /// The price list is deliberately NOT IM4GPrices: this arm has no lambda (per line), no rho
+    /// (per unit) and no epsilon (per unit), and the absence is enforced structurally rather than
+    /// by configuration. See spec 2026-08-09 INV-2.
+    /// </summary>
+    public class M4GNSConfiguration : M1GConfiguration
+    {
+        /// <summary>Returns the type of the method.</summary>
+        public override OrderBatchingMethodType GetMethodType() { return OrderBatchingMethodType.M4GNS; }
+
+        /// <summary>Scales mu after it is measured. 1.0 = pure measurement, the intended setting.</summary>
+        public double MuScale = 1.0;
+        /// <summary>Scales delta after it is measured. 1.0 = pure measurement.</summary>
+        public double DeltaScale = 1.0;
+        /// <summary>Completed orders required before mu is measured rather than taken from MuFallback.</summary>
+        public int WarmupOrders = 50;
+        /// <summary>Warm-up metres per completed order, used until WarmupOrders is reached.</summary>
+        public double MuFallback = 24.0;
+        /// <summary>Warm-up realisation rate, used until WarmupOrders is reached.</summary>
+        public double DeltaFallback = 0.05;
+        /// <summary>Pins mu to a constant when &gt; 0 (diagnostics / ablation only).</summary>
+        public double MuFixed = 0;
+        /// <summary>Pins delta to a constant when &gt; 0 (diagnostics / ablation only).</summary>
+        public double DeltaFixed = 0;
+        /// <summary>Stratify delta by committed-pod count, same key M4G uses (min(|Pb|,3)).</summary>
+        public bool StratifiedDelta = true;
+        /// <summary>Minimum valued orders in a stratum before its own ratio is trusted.</summary>
+        public int DeltaStratumMinOrders = 50;
+        /// <summary>Dinkelbach iterations per decision. 0 = single solve at the measured mu.</summary>
+        public int DinkelbachIterations = 5;
+        /// <summary>Stop the Dinkelbach loop once |objective| falls below this.</summary>
+        public double DinkelbachTolerance = 0.5;
+        /// <summary>Max doublings of mu when the solve degenerates to "dispatch nothing".</summary>
+        public int DinkelbachEscalations = 6;
+        /// <summary>Idle-slot price as a multiple of mu. 1.0 = "an empty slot costs one order's
+        /// worth of value". Replaces M1G's hand-set w3 = 1000, which the measured slot shadow
+        /// price (8.51 m) says over-prices a slot by roughly 120x. 0 disables the term.</summary>
+        public double SlotScale = 1.0;
+    }
+
+    /// <summary>
+    /// M5-NS: the greedy counterpart of M4G-NS. Same decision structure (M1G's whole-order
+    /// assignment), same price list (mu, delta, sigma = SlotScale * mu), same solution space -
+    /// the only permitted difference is that a greedy construction replaces the MILP solve.
+    /// Reuses M4GNSPricing rather than declaring its own, which is what structurally guarantees
+    /// the two arms price identically.
+    /// </summary>
+    public class GreedyM5NSConfiguration : M1GConfiguration
+    {
+        /// <summary>Returns the type of the method.</summary>
+        public override OrderBatchingMethodType GetMethodType() { return OrderBatchingMethodType.GreedyM5NS; }
+
+        /// <summary>Scales mu after it is measured. 1.0 = pure measurement.</summary>
+        public double MuScale = 1.0;
+        /// <summary>Scales delta after it is measured. 1.0 = pure measurement.</summary>
+        public double DeltaScale = 1.0;
+        /// <summary>Completed orders required before mu is measured rather than taken from MuFallback.</summary>
+        public int WarmupOrders = 50;
+        /// <summary>Warm-up metres per completed order.</summary>
+        public double MuFallback = 24.0;
+        /// <summary>Warm-up realisation rate.</summary>
+        public double DeltaFallback = 0.05;
+        /// <summary>Pins mu when &gt; 0 (ablation only).</summary>
+        public double MuFixed = 0;
+        /// <summary>Pins delta when &gt; 0 (ablation only).</summary>
+        public double DeltaFixed = 0;
+        /// <summary>Stratify delta by committed-pod count, same key M4G-NS uses.</summary>
+        public bool StratifiedDelta = true;
+        /// <summary>Minimum valued orders in a stratum before its own ratio is trusted.</summary>
+        public int DeltaStratumMinOrders = 50;
+        /// <summary>Idle-slot price as a multiple of mu; mirrors M4GNSConfiguration.SlotScale.</summary>
+        public double SlotScale = 1.0;
+        /// <summary>Outer mu iterations per decision (greedy Dinkelbach).</summary>
+        public int MuIterations = 5;
+        /// <summary>Stop the mu loop once |objective| falls below this.</summary>
+        public double MuTolerance = 0.5;
+        /// <summary>Max doublings of mu when the plan degenerates to "do nothing".</summary>
+        public int MuEscalations = 6;
+        /// <summary>Score an assign move by its TRUE marginal change: an order already counted by
+        /// the valuation layer only improves by mu*(1-delta), not mu. Mirrors M5's FaithfulMarginal.</summary>
+        public bool FaithfulMarginal = true;
     }
 
     #endregion

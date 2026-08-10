@@ -375,6 +375,10 @@ namespace RAWSimO.Core.Configurations
         /// it, and every solution it builds is feasible for the M4G MILP.
         /// </summary>
         GreedyM5,
+        /// <summary>M4G-NS: whole-order atom, self-calibrated pricing. The no-split control arm.</summary>
+        M4GNS,
+        /// <summary>M5-NS: whole-order greedy, the no-split counterpart of HGS-M5.</summary>
+        GreedyM5NS,
     }
     /// <summary>
     /// All types of implemented replenishment batching strategies.
@@ -815,6 +819,8 @@ namespace RAWSimO.Core.Configurations
     [XmlInclude(typeof(M4GConfiguration))]
     [XmlInclude(typeof(GreedyM4GConfiguration))]
     [XmlInclude(typeof(GreedyM5Configuration))]
+    [XmlInclude(typeof(M4GNSConfiguration))]
+    [XmlInclude(typeof(GreedyM5NSConfiguration))]
     public abstract class OrderBatchingConfiguration : ControllerConfigurationBase
     {
         /// <summary>
