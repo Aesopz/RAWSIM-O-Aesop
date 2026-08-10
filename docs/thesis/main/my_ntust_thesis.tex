@@ -21,17 +21,61 @@
 \setmainfont[Mapping=tex-text]{Times New Roman}
 %\setmainfont{Linux Libertine O}
 %\setmainfont{Junicode}
-%\setCJKmainfont{DFKai-SB}     %設定中文字型 
+%% 標楷體只有單一字重，\bfseries 會落空（log: Font shape TU/DFKai-SB(0)/b/n undefined）。
+% AutoFakeBold 讓 XeTeX 以加粗筆畫模擬粗體，與 Word 對標楷體的處理方式一致。
+\setCJKmainfont[AutoFakeBold=3]{DFKai-SB}   % 中文一律標楷體；英文一律 Times New Roman（上方 setmainfont）
+% xeCJK 依字元自動分派，全篇（含封面、標題、表格）皆適用，無須逐處指定     %設定中文字型 
 %\setCJKmainfont{BiauKai}
 
 % Windows: 標楷體 (kaiu.ttf)，系統內建。Linux 原設定為 AR PL KaitiM Big5；macOS 可用 BiauKai
-\setCJKmainfont{DFKai-SB}
+% 標楷體只有單一字重，\bfseries 會落空（log: Font shape TU/DFKai-SB(0)/b/n undefined）。
+% AutoFakeBold 讓 XeTeX 以加粗筆畫模擬粗體，與 Word 對標楷體的處理方式一致。
+\setCJKmainfont[AutoFakeBold=3]{DFKai-SB}   % 中文一律標楷體；英文一律 Times New Roman（上方 setmainfont）
+% xeCJK 依字元自動分派，全篇（含封面、標題、表格）皆適用，無須逐處指定
 \XeTeXlinebreaklocale "zh"      		% These two lines have to be added, 這兩行一定要加，中文才能自動換行 
 \XeTeXlinebreakskip = 0pt plus 1pt      % 	so that the Chinese sentence can change line automatically.
 
 
 
-\input{common_env}		% Basic environment settings, no need to alter 基本的環境設定 無需改變  
+\input{common_env}
+
+% ==========================================================================
+%  格式客製化 — 依 docs/thesis/aesop_thesis.docx 萃取的實際規格
+%  （集中在此，common_env.tex 與 ntust_report.cls 維持範本原樣）
+%
+%   紙張      A4                （Word 檔為 Letter，判定為美規預設未改）
+%   邊界      上/下/右 3cm、左 4cm 裝訂邊、頁首/頁尾 1.25cm
+%   正文      Times New Roman 12pt / 中文 DFKai-SB
+%   行距      1.5 倍            （範本 mybaselinestretch 已是 1.5）
+%   章/節/小節  16 / 13 / 12 pt
+% ==========================================================================
+% 邊界依 Harry_M11301112_thesis_final_submission_FINAL.docx（最終送審版）：
+%   pgSz 11909x16834 twips = A4；pgMar 上1701 下1134 左右各1701 twips
+\geometry{verbose,a4paper,tmargin=3cm,bmargin=2cm,lmargin=3cm,rmargin=3cm,%
+          headsep=1.25cm,footskip=1.25cm}
+
+\makeatletter
+\newcommand{\ntustChapFont}{\fontsize{16}{19.2}\selectfont\bfseries}
+\newcommand{\ntustSecFont}{\fontsize{13}{15.6}\selectfont\bfseries}
+\newcommand{\ntustSubFont}{\fontsize{12}{14.4}\selectfont\bfseries}
+% 預設的 \LARGE/\Large/\large 在 12pt 基底下是 20.74/17.28/14.4pt，均大於 Word 規格
+\def\@makechapterhead#1{%
+  {\parindent \z@ \centering \normalfont
+    \ifnum \c@secnumdepth >\m@ne
+        \ntustChapFont \prechaptername \space \thechapter \space \postchaptername
+    \fi
+    \hspace{1em}
+    \interlinepenalty\@M
+    \ntustChapFont #1\par\nobreak
+    \vskip 20\p@
+  }}
+\renewcommand\section{\@startsection{section}{1}{\z@}%
+    {-3.5ex \@plus -1ex \@minus -.2ex}{2.3ex \@plus.2ex}{\normalfont\ntustSecFont}}
+\renewcommand\subsection{\@startsection{subsection}{2}{\z@}%
+    {-3.25ex\@plus -1ex \@minus -.2ex}{1.5ex \@plus .2ex}{\normalfont\ntustSubFont}}
+\renewcommand\subsubsection{\@startsection{subsubsection}{3}{\z@}%
+    {-3.25ex\@plus -1ex \@minus -.2ex}{1.5ex \@plus .2ex}{\normalfont\ntustSubFont}}
+\makeatother		% Basic environment settings, no need to alter 基本的環境設定 無需改變  
 
 % Personal packages, you may add or delete it as necessary 自己需要的package，可以需要增刪
 \usepackage{subfig}

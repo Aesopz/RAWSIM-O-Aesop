@@ -1,126 +1,46 @@
 %
-% This file is encoded in utf-8.
-% v1.7
-% Enter your thesis title, your name, and your personal information.
-% If the title needs to use math symbols, please use \mbox{}.
-%   For example: My Thesis Title \mbox{$\cal{H}_\infty$} and \mbox{Al$_x$Ga$_{1-x}$As}
-% If your Chinese name contains only 2 characters, please put space in between.
-% If you need to put space between name and name's title (Prof. , Dr. ), 
-%   please use tilde '~' instead of normal space ' '.
-% The default number of advisors used on this template is three (3),
-%   feel free to remove any of them as necessary.
+% this file is encoded in utf-8
 %
-% 填入你的論文題目、姓名等資料
-% 如果題目內有必須以數學模式表示的符號，請用 \mbox{} 包住數學模式，如下範例
-% 如果中文名字是單名，與姓氏之間建議以全形空白填入，如下範例
-% 英文名字中的稱謂，如 Prof. 以及 Dr.，其句點之後請以不斷行空白~代替一般空白，如下範例
-% 如果你的指導教授沒有如預設的三位這麼多，則請把相對應的多餘教授的中文、英文名
-%    的定義以空的大括號表示
-%    如，\renewcommand\advisorCnameB{}
-%          \renewcommand\advisorEnameB{}
-%          \renewcommand\advisorCnameC{}
-%          \renewcommand\advisorEnameC{}
+% 封面、書名頁、書背所需的全部欄位。
+% 內容取自 docs/thesis/aesop_thesis.docx 的封面頁。
+%
 
-% Thesis title (Chinese)
-% 論文題目 (中文)
-% It's not necessary for foreign students to include the Chinese title on the thesis
-\renewcommand\cTitle{
-%可驗證之安全系統的應用
-}
+% ── 論文題目 ──────────────────────────────────────────────
+% 題目以 \\ 手動斷行，斷點依作者指定（勿讓 LaTeX 自動折行）
+\renewcommand\cTitle{考慮訂單拆分之機器人移動履行系統\\揀貨流程線上聯合最佳化}
+\renewcommand\eTitle{Online Joint Optimization of the Order Picking Process With Split Orders in Robotic Mobile Fulfillment Systems}
 
-% Thesis title (Chinese)
-% 論文題目 (英文)
-\renewcommand\eTitle{  
-A Verifiable Secure protocol in a Secure System 
-\mbox{$\cal{H}_\infty$} and \mbox{Al$_x$Ga$_{1-x}$As}
-}
+% ── 研究生 ────────────────────────────────────────────────
+\renewcommand\myCname{莊凱翔}
+\renewcommand\myEname{Kai-Hsiang Chuang}
+\renewcommand\myStudentID{M11301111}
 
-% My full name (Chinese)
-% 我的姓名 (中文)
-% It's not necessary for foreign students to include the Chinese name
-%\renewcommand\myCname{王大明}
-\renewcommand\myCname{Da-Ming Wang}
-
-% My full name (English)
-% 我的姓名 (英文)
-\renewcommand\myEname{Da-Ming Wang}
-
-% My student ID
-%我的學號
-\renewcommand\myStudentID{M1915001}
-
-% My adviser's full name (Chinese)
-% 指導教授A的姓名 (中文)
-\renewcommand\advisorCnameA{陳明明 博士}
-\renewcommand\advisorCnameB{}
+% ── 指導教授 ──────────────────────────────────────────────
+\renewcommand\advisorCnameA{周碩彥 博士}
+\renewcommand\advisorEnameA{Dr.~Shuo-Yan Chou}
+\renewcommand\advisorCnameB{郭伯勳 博士}
+\renewcommand\advisorEnameB{Dr.~Po-Hsun Kuo}
+% 無第三位指導教授：留空即不佔版面
 \renewcommand\advisorCnameC{}
-
-% My adviser's full name (English)
-% 指導教授A的姓名 (英文)
-\renewcommand\advisorEnameA{Dr.~Ming-Ming Cheng}
-\renewcommand\advisorEnameB{}
 \renewcommand\advisorEnameC{}
 
-% Campus' name (Chinese)
-% 校名 (中文)
-\renewcommand\univCname{國立台灣科技大學}
-
-% Campus' name (English)
-% 校名 (英文)
+% ── 校名與系所 ────────────────────────────────────────────
+\renewcommand\univCname{國立臺灣科技大學}
 \renewcommand\univEname{National Taiwan University of Science and Technology}
+\renewcommand\deptCname{工業管理系}
+\renewcommand\fulldeptEname{Department of Industrial Management}
+\renewcommand\deptEname{Industrial Management}
+\renewcommand\collEname{College of Management}
 
-% Department's name (Chinese)
-% 系所名 (中文)
-\renewcommand\deptCname{資~訊~工~程~系}
-
-% Department's name (English)
-% 系所全名 (英文)
-\renewcommand\fulldeptEname{Graduate School of Electro-Optical Engineering}
-
-% Department's short name (English)
-% 系所短名 (英文, 用於書名頁學位名領域)
-\renewcommand\deptEname{Electro-Optical Engineering}
-
-% College's name (English)
-% 學院英文名 (如無，則以空的大括號表示)
-\renewcommand\collEname{College of Electrical and Communication Engineering}
-
-% Degree's name (Chinese)
-% 學位名 (中文)
+% ── 學位 ──────────────────────────────────────────────────
 \renewcommand\degreeCname{碩士}
-%\renewcommand\degreeCname{博士}
-
-% Degree's name (English)
-% 學位名 (英文)
 \renewcommand\degreeEname{Master of Science}
-%\renewcommand\degreeEname{Doctor}
 
-% Oral exam year (Chinese, Taiwanese Year)
-% 口試年份 (中文、民國)
-\renewcommand\cYear{一百零七}
-
-% Oral exam month (Chinese)
-% 口試月份 (中文)
-\renewcommand\cMonth{一} 
-
-% Oral exam date (Chinese)
-% 口試日份 (中文)
-\renewcommand\cDay{十六} 
-
-% Oral exam year (Arabic number, Gregorian Year)
-% 口試年份 (阿拉伯數字、西元)
-\renewcommand\eYear{2018} 
-
-% Oral exam month (English)
-% 口試月份 (英文)
-\renewcommand\eMonth{January}
-
-% Campus' location
-% 學校所在地 (英文)
+% ── 日期 ──────────────────────────────────────────────────
+% 民國紀年用阿拉伯數字（115 年 11 月）；西元供英文書名頁使用
+\renewcommand\cYear{115}
+\renewcommand\cMonth{11}
+\renewcommand\cDay{}
+\renewcommand\eYear{2026}
+\renewcommand\eMonth{November}
 \renewcommand\ePlace{Taipei, Taiwan}
-
-% Graduation year
-%畢業級別；用於書背列印；若無此需要可忽略
-\newcommand\GraduationClass{106}
-
-%%%%%%%%%%%%%%%%%%%%%%

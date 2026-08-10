@@ -55,93 +55,63 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 \begin{titlepage}
-% no page number
-% next page will be page 1
-%
-\begin{center}		% aligned to the center of the page
+% ==========================================================================
+%  封面版面依 docs/thesis/aesop_thesis.docx 逐段萃取重製
+%    校名 26pt 粗 / 系所 26pt 粗 / 學位論文 30pt 粗 -- 皆置中
+%    學號 14pt 粗 -- 靠右
+%    題目 26pt 粗（中文一行、英文一行）-- 置中
+%    研究生 / 指導教授 / 日期 22pt 粗 -- 置中
+%    校徽 2.67x2.75cm，分隔線寬 16.19cm
+%  段間距沿用 Word 的 spacing before（240 twips = 12pt，120 = 6pt）
+% ==========================================================================
+\thispagestyle{empty}
+\begin{center}
 
-% NOTES:
-% font size (relative to 12 pt):
-% 	\large (14pt) < \Large (18pt) < \LARGE (20pt) < \huge (24pt) < \Huge (24 pt)
+% ── 抬頭 ────────────────────────────────────────────────
+%  校名三行「置中於版面」；校徽用 \llap 掛在左側，
+%  \llap 不佔寬度，故不影響文字的置中位置
+\noindent\makebox[0pt][l]{\raisebox{-1.5cm}[0pt][0pt]{\includegraphics[width=2.2cm]{figures/images.png}}}%
+\makebox[\textwidth]{\fontsize{26}{31.2}\selectfont\bfseries \univCname}\\[20pt]
 
-\begin{figure}[htbp]
-	\begin{minipage}[b]{5cm} 
-		\raggedright
-		\includegraphics[width=1.1in]{frontpages/ntust_logo.pdf}
-		\label{fig:ntust_logo}
-	\end{minipage}% 
-	\begin{minipage}[b]{0.5\textwidth} 
-	\centering
-	\makebox[3cm][c]{\Huge{\univCname}}\\	% Display school's Chinese name 顯示中文校名
-	\vspace{0.5cm}
-	\makebox[3cm][c]{\Huge{\deptCname}}\\	% Display department's Chinese name 顯示中文系所名
-	\vspace{0.5cm}
-	\end{minipage}%
-\\ 
-\rule{16cm}{3pt}
-\end{figure}
-%\hfill
+{\fontsize{26}{31.2}\selectfont\bfseries \deptCname}\\[20pt]
 
-\vspace{1cm}
-\makebox[6cm][s]{\textbf{\Huge{\degreeCname 學位論文}}}\\	% Display thesis category (in Chinese) 顯示論文種類 (中文)
-\vspace{1cm}
+{\fontsize{30}{36}\selectfont\bfseries \degreeCname 學位論文}\\[10pt]
 
-\renewcommand{\baselinestretch}{1}		% Set the line spacing to single for the titles (to compress the lines) 行距 1 倍
+% 學號靠右，位於分隔線上方
+\hfill{\fontsize{14}{16.8}\selectfont\bfseries 學號：\myStudentID}\\[2pt]
+\rule{\textwidth}{2pt}
 
-%\Large{\cTitle}\\	% Chinese title 中文題目
-%
-\vspace{1cm}
-%
-\Large{\eTitle}\\	% English title 英文題目
-\vspace{5cm}
+% 線與中文題目之間空一行
+\vspace{\baselineskip}
 
-% \makebox is a text box with specified width;
-% 	option s: stretch
-% 	use \makebox to make sure 「研究生：」 and「指導教授：」 occupy the same width
-%
-\hspace{4.5cm} \makebox[3cm][s]{\Large{研 究 生：}}
-\Large{\myCname}	% Display author's Chinese name 顯示作者中文名
-\hfill \makebox[1cm][s]{}\\
-%
-\vspace{0.3cm}
-\hspace{4.5cm} \makebox[3cm][s]{\Large{學號：}}
-\Large{\myStudentID}	% Display student's ID 顯示學號
-\hfill \makebox[1cm][s]{}\\
-%
-\vspace{1cm}
-\hspace{4.5cm} \makebox[3cm][s]{\Large{指導教授：}}
-\Large{\advisorCnameA}	% Display 1st adviser's name 顯示指導教授 A 中文名
-\hfill \makebox[1cm][s]{}\\
-%
-\ifx \advisorCnameB \itsempty	% Check if the 2nd adviser exists 判斷是否有共同指導的教授 B
-	% If there is no 2nd adviser,
-	%	then no need to occupy the whole space,
-	%	no need to print any white spaces
-	% 沒有 B 教授，所以不佔版面，不印任何空白
+{\fontsize{23}{27.6}\selectfont\bfseries \cTitle}
+
+% 中文題目與英文題目之間空一行
+\vspace{\baselineskip}
+
+{\fontsize{23}{27.6}\selectfont\bfseries \eTitle}
+\vfill
+
+% ── 研究生／指導教授／日期：彼此之間不空行 ──────────────
+{\fontsize{22}{26.4}\selectfont\bfseries 研 究 生：\myCname}\\
+{\fontsize{22}{26.4}\selectfont\bfseries 指導教授：\advisorCnameA}\\
+\ifx \advisorCnameB \itsempty
 	\relax
 \else
-	% If there is a 2nd adviser
-	% 共同指導的教授 B
-	\hspace{4.5cm} \makebox[3cm][s]{}
-	\Large{\advisorCnameB}  	% Display the 2nd adviser 顯示指導教授 B 中文名
-	\hfill \makebox[1cm][s]{}\\
+	{\fontsize{22}{26.4}\selectfont\bfseries \hphantom{指導教授：}\advisorCnameB}\\
 \fi
-%
 \ifx \advisorCnameC \itsempty
 	\relax
 \else
-	\hspace{4.5cm} \makebox[3cm][s]{}
-	\Large{\advisorCnameC}
-	\hfill \makebox[1cm][s]{}\\
+	{\fontsize{22}{26.4}\selectfont\bfseries \hphantom{指導教授：}\advisorCnameC}\\
 \fi
-%
-\vfill
-\makebox[10cm][s]{\Large{中華民國\cYear 年\cMonth 月\cDay 日}}%
-%
+\vspace{\baselineskip}
+
+{\fontsize{22}{26.4}\selectfont\bfseries 中華民國 \cYear 年 \cMonth 月}
+
+\vspace{1.5cm}
 \end{center}
-\renewcommand{\baselinestretch}{\mybaselinestretch}   % Resume the line spacing to the desired setting 恢復原設定
-% It needs a font size changing command to be effective
-% Restore the font size to normal
+\renewcommand{\baselinestretch}{\mybaselinestretch}
 \normalsize
 \end{titlepage}
 
