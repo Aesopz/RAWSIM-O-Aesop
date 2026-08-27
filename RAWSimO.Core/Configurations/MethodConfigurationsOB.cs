@@ -1619,7 +1619,11 @@ namespace RAWSimO.Core.Configurations
         public double LambdaScale { get; set; } = 1.0;
         public double MuScale { get; set; } = 1.0;
         public double DeltaScale { get; set; } = 1.0;
-        public double EpsilonScale { get; set; } = 0.001;
+        /// 0 = canon (2026-08-28): the unit-level tie-break was removed so every remaining
+        /// price is measured, leaving no chosen constant in the objective. Removing it left the
+        /// splitting benefit intact (items +18.0% vs the no-split arm either way) and cost only
+        /// efficiency: energy-per-order gain 34.3% -> 31.5%, distance -30.1% -> -24.9% (seed 0).
+        public double EpsilonScale { get; set; } = 0.0;
         public int WarmupLines { get; set; } = 50;
         public double LambdaFallback { get; set; } = 10.0;
         public double DeltaFallback { get; set; } = 0.05;
@@ -1663,7 +1667,11 @@ namespace RAWSimO.Core.Configurations
         public double LambdaScale { get; set; } = 1.0;
         public double MuScale { get; set; } = 1.0;
         public double DeltaScale { get; set; } = 1.0;
-        public double EpsilonScale { get; set; } = 0.001;
+        /// 0 = canon (2026-08-28): the unit-level tie-break was removed so every remaining
+        /// price is measured, leaving no chosen constant in the objective. Removing it left the
+        /// splitting benefit intact (items +18.0% vs the no-split arm either way) and cost only
+        /// efficiency: energy-per-order gain 34.3% -> 31.5%, distance -30.1% -> -24.9% (seed 0).
+        public double EpsilonScale { get; set; } = 0.0;
         public int WarmupLines { get; set; } = 50;
         public double LambdaFallback { get; set; } = 10.0;
         public double DeltaFallback { get; set; } = 0.05;
@@ -1792,7 +1800,11 @@ namespace RAWSimO.Core.Configurations
         /// <summary>Dose knob on delta (realisation rate of unbound valuation, 0..1).</summary>
         public double DeltaScale { get; set; } = 1.0;
         /// <summary>Epsilon = EpsilonScale * lambda. Tie-break only; must stay far below lambda.</summary>
-        public double EpsilonScale { get; set; } = 0.001;
+        /// 0 = canon (2026-08-28): the unit-level tie-break was removed so every remaining
+        /// price is measured, leaving no chosen constant in the objective. Removing it left the
+        /// splitting benefit intact (items +18.0% vs the no-split arm either way) and cost only
+        /// efficiency: energy-per-order gain 34.3% -> 31.5%, distance -30.1% -> -24.9% (seed 0).
+        public double EpsilonScale { get; set; } = 0.0;
         /// <summary>Below this many cumulative closed lines the fallback prices are used.</summary>
         public int WarmupLines { get; set; } = 50;
         /// <summary>Warm-up lambda in metres per line (measured 10.1-10.5 in the 3-way comparison).</summary>

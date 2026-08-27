@@ -121,7 +121,7 @@
     <DegenerateToBindingOnly>false</DegenerateToBindingOnly>
     <ValuationOrderLimit>0</ValuationOrderLimit>
     <PodCreditCapEnabled>false</PodCreditCapEnabled>
-    <PodTierDrawPricingEnabled>true</PodTierDrawPricingEnabled>
+    <PodTierDrawPricingEnabled>false</PodTierDrawPricingEnabled>
     <IncrementalValuationEnabled>true</IncrementalValuationEnabled>
     <SplitOnlyAtPresentPods>false</SplitOnlyAtPresentPods>
     <SplitMarginalProbeEnabled>false</SplitMarginalProbeEnabled>
