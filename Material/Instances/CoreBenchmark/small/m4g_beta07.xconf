@@ -117,11 +117,11 @@
     <DeltaFallback>0.05</DeltaFallback>
     <LinesPerOrderFallback>2.4</LinesPerOrderFallback>
     <LambdaFixed>0</LambdaFixed>
-    <DeltaFixed>0</DeltaFixed>
+    <DeltaFixed>0.7</DeltaFixed>
     <DegenerateToBindingOnly>false</DegenerateToBindingOnly>
     <ValuationOrderLimit>0</ValuationOrderLimit>
     <PodCreditCapEnabled>false</PodCreditCapEnabled>
-    <PodTierDrawPricingEnabled>false</PodTierDrawPricingEnabled>
+    <PodTierDrawPricingEnabled>true</PodTierDrawPricingEnabled>
     <IncrementalValuationEnabled>true</IncrementalValuationEnabled>
     <SplitOnlyAtPresentPods>false</SplitOnlyAtPresentPods>
     <SplitMarginalProbeEnabled>false</SplitMarginalProbeEnabled>

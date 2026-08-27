@@ -1650,7 +1650,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     var newPodDraws = sym.Qhat.Where(v => snap.Pa.Contains(v.pod))
                         .Select(v => qb["q_" + v.skui.ID + "_" + v.order.ID + "_" + v.pod.ID + "_" + v.outputstation.ID])
                         .ToList();
-                    if (newPodDraws.Count > 0)
+                    // (PodTierPenaltyOnNew) The trip is already priced once in D, independent of
+                    // the draw count, so this per-unit levy charges the same trip a second time and
+                    // its gradient runs against pile-on. Gated so the half can be dropped while the
+                    // -rho reward on Pp pods (a genuine opportunity cost, no D charged) stays.
+                    if (newPodDraws.Count > 0 && _m4gConfig.PodTierPenaltyOnNew)
                         objective = objective + LinearExpression.Sum(newPodDraws) * rho;
                     var processingDraws = sym.Qhat.Where(v => processingPodIds.Contains(v.pod.ID))
                         .Select(v => qb["q_" + v.skui.ID + "_" + v.order.ID + "_" + v.pod.ID + "_" + v.outputstation.ID])

@@ -102,36 +102,25 @@
   <RepositioningConfig xsi:type="DummyRepositioningConfiguration">
     <Name />
   </RepositioningConfig>
-  <OrderBatchingConfig xsi:type="M4GConfiguration">
+  <OrderBatchingConfig xsi:type="M4GNSConfiguration">
     <Name />
     <TieBreaker>EarliestDueTime</TieBreaker>
     <FastLane>true</FastLane>
     <LateBeforeMatch>false</LateBeforeMatch>
     <FastLaneTieBreaker>EarliestDueTime</FastLaneTieBreaker>
-    <LambdaScale>1</LambdaScale>
     <MuScale>1</MuScale>
     <DeltaScale>1</DeltaScale>
-    <EpsilonScale>0.001</EpsilonScale>
-    <WarmupLines>50</WarmupLines>
-    <LambdaFallback>10</LambdaFallback>
+    <WarmupOrders>50</WarmupOrders>
+    <MuFallback>24</MuFallback>
     <DeltaFallback>0.05</DeltaFallback>
-    <LinesPerOrderFallback>2.4</LinesPerOrderFallback>
-    <LambdaFixed>0</LambdaFixed>
+    <MuFixed>0</MuFixed>
     <DeltaFixed>0</DeltaFixed>
-    <DegenerateToBindingOnly>false</DegenerateToBindingOnly>
-    <ValuationOrderLimit>0</ValuationOrderLimit>
-    <PodCreditCapEnabled>false</PodCreditCapEnabled>
-    <PodTierDrawPricingEnabled>false</PodTierDrawPricingEnabled>
-    <IncrementalValuationEnabled>true</IncrementalValuationEnabled>
-    <SplitOnlyAtPresentPods>false</SplitOnlyAtPresentPods>
-    <SplitMarginalProbeEnabled>false</SplitMarginalProbeEnabled>
-    <SplitMarginalProbeEveryNDecisions>50</SplitMarginalProbeEveryNDecisions>
-    <SplitMarginalProbeTimeLimitSec>10</SplitMarginalProbeTimeLimitSec>
-    <ReleaseParentOnFirstSplit>true</ReleaseParentOnFirstSplit>
-    <DinkelbachIterations>5</DinkelbachIterations>
+    <StratifiedDelta>false</StratifiedDelta>
+    <DeltaStratumMinOrders>50</DeltaStratumMinOrders>
+    <DinkelbachIterations>0</DinkelbachIterations>
     <DinkelbachTolerance>0.5</DinkelbachTolerance>
-    <ForbidSplitting>false</ForbidSplitting>
-    <LegacyObjective>false</LegacyObjective>
+    <DinkelbachEscalations>0</DinkelbachEscalations>
+    <SlotScale>1</SlotScale>
   </OrderBatchingConfig>
   <ReplenishmentBatchingConfig xsi:type="SamePodReplenishmentBatchingConfiguration">
     <Name />

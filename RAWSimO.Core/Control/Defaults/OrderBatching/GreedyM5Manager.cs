@@ -1174,7 +1174,15 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             double lambda0 = _pricing.Lambda(cumDist);
             double mu0 = _pricing.Mu(cumDist);
             double epsilon0 = _pricing.Epsilon(cumDist);
-            double rho0 = _pricing.Rho(cumDist, Instance.StatOverallItemsHandled);
+            // (PodTierDrawPricingEnabled) Mirrors M4GManager's T6 gate. Off in canon: the
+            // sunk-vs-new distinction already lives in the trip term (only Pa pods pay travel), so
+            // tier pricing restated the same idea a second time at unit granularity. Zeroing rho at
+            // source is equivalent to dropping both halves (they are the only rho arithmetic in
+            // this class) and leaves RhoForDraw's fromNew/sourced tallies intact - those are
+            // diagnostics, not prices. The decision log then records rho = 0, which is honest.
+            double rho0 = _config.PodTierDrawPricingEnabled
+                ? _pricing.Rho(cumDist, Instance.StatOverallItemsHandled)
+                : 0.0;
 
             // ── Outer lambda iteration: the greedy counterpart of M4G's Dinkelbach loop. mu,
             // epsilon and rho scale proportionally with lambda exactly as in M4GManager.SolveM4G,

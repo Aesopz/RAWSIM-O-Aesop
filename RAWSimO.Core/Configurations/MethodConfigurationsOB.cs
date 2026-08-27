@@ -1671,6 +1671,13 @@ namespace RAWSimO.Core.Configurations
         public double LambdaFixed { get; set; } = 0;
         public double DeltaFixed { get; set; } = 0;
         public double RhoFallback { get; set; } = 15.0;
+        /// <summary>Mirrors M4GConfiguration.PodTierDrawPricingEnabled so M5 keeps M4G's price
+        /// list exactly (feedback_m5_must_mirror_m4g). false = every draw is free regardless of pod
+        /// tier, which is canon: the sunk-vs-new distinction is already carried by the trip term in
+        /// D (only Pa pods pay travel), so rho expressed the same idea a second time at unit
+        /// granularity. Measured on seed 0: removing it left completed orders bit-for-bit identical
+        /// (610) while total distance fell 3.7%.</summary>
+        public bool PodTierDrawPricingEnabled = false;
         /// <summary>Denominate the running prices in Extract-task distance only. false reproduces every published result bit-for-bit. See IM4GPrices.PickDistancePricing.</summary>
         public bool PickDistancePricing { get; set; } = false;
         /// <summary>Condition delta on committed-supply count instead of one system-wide scalar.
@@ -1830,7 +1837,16 @@ namespace RAWSimO.Core.Configurations
         /// unit (their window is closing), queued and en-route pods are free (sunk), and newly
         /// dispatched storage pods pay rho per unit. rho is measured, not tuned. false = no tier
         /// pricing, reproducing the flat behaviour where every draw is free.</summary>
-        public bool PodTierDrawPricingEnabled = true;
+        public bool PodTierDrawPricingEnabled = false;
+        /// <summary>(Experimental) Charge +rho per unit drawn from a newly dispatched (Pa) pod.
+        /// The trip itself is already priced once in D (d_bot_pod + d_pod_station, independent of
+        /// how many units are taken), so this per-unit charge is a second, finer-grained levy on
+        /// the same trip - and because it scales with the draw count it penalises loading up a pod
+        /// that has already been paid for, which is the opposite of the pile-on incentive. false
+        /// keeps only the -rho reward on processing (Pp) pods, whose justification is different:
+        /// those pods pay no D at all, so -rho prices a genuine opportunity cost (skip the unit
+        /// now, pay a future trip to fetch it). true reproduces the canon bit-for-bit.</summary>
+        public bool PodTierPenaltyOnNew = true;
         /// <summary>Prices due dates instead of gating on them. lambda and mu are scaled per order
         /// by (1 + u_o), where u_o = clamp(1 - Timestay_o / Tbar, 0, 1), Timestay is M1G's remaining
         /// slack (DueTime minus the time already elapsed since the order was placed, defined exactly

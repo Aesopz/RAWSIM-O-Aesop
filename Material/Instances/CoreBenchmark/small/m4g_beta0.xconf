@@ -110,7 +110,7 @@
     <FastLaneTieBreaker>EarliestDueTime</FastLaneTieBreaker>
     <LambdaScale>1</LambdaScale>
     <MuScale>1</MuScale>
-    <DeltaScale>1</DeltaScale>
+    <DeltaScale>0</DeltaScale>
     <EpsilonScale>0.001</EpsilonScale>
     <WarmupLines>50</WarmupLines>
     <LambdaFallback>10</LambdaFallback>
@@ -121,7 +121,7 @@
     <DegenerateToBindingOnly>false</DegenerateToBindingOnly>
     <ValuationOrderLimit>0</ValuationOrderLimit>
     <PodCreditCapEnabled>false</PodCreditCapEnabled>
-    <PodTierDrawPricingEnabled>false</PodTierDrawPricingEnabled>
+    <PodTierDrawPricingEnabled>true</PodTierDrawPricingEnabled>
     <IncrementalValuationEnabled>true</IncrementalValuationEnabled>
     <SplitOnlyAtPresentPods>false</SplitOnlyAtPresentPods>
     <SplitMarginalProbeEnabled>false</SplitMarginalProbeEnabled>
