@@ -173,6 +173,10 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             _valFidLog.WriteLine("decision,time,valuedLines,boundLines,"
                 + "prevPromises,boundFromPrevPromises,openPromises,boundFromOpenPromises,boundNovel,"
                 + "valuedOrders,boundOrders,valuedOrderLines,boundOrderLines,delta");
+            _samePodLog = new System.IO.StreamWriter(
+                System.IO.Path.Combine(dir0, "m4g_samepod_realisation.csv"), false) { AutoFlush = true };
+            _samePodLog.WriteLine("decision,time,cumPromisedUnits,cumSettledUnits,samePodRate,"
+                + "outstandingKeys,delta");
         }
 
         /// <summary>
@@ -209,7 +213,39 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             _prevValuedNotBound.Clear();
             foreach (string k in result.ValuedLineKeys)
                 if (!result.BoundLineKeys.Contains(k)) { _prevValuedNotBound.Add(k); _everValuedNotBound.Add(k); }
+
+            // ── Same-pod realisation ledger ──
+            // The line-level backlog above cannot tell whether a promise was kept by the pod that
+            // made it or by a substitute; the old any-pod definition of delta measured 0.699 that
+            // way and over-credited every dispatch. This ledger is keyed by pod, so it answers the
+            // question the AMORTISATION job actually needs: of the units a pod advertised and did
+            // not take, how many did THAT pod later draw before leaving?
+            foreach (var kv in result.PodDrawnUnits)
+            {
+                int owed;
+                if (!_podPromises.TryGetValue(kv.Key, out owed) || owed <= 0) continue;
+                int settled = Math.Min(owed, kv.Value);
+                _podPromiseSettled += settled;
+                owed -= settled;
+                if (owed > 0) _podPromises[kv.Key] = owed; else _podPromises.Remove(kv.Key);
+            }
+            foreach (var kv in result.PodPromisedUnits)
+            {
+                int had; _podPromises.TryGetValue(kv.Key, out had);
+                _podPromises[kv.Key] = had + kv.Value;
+                _podPromiseTotal += kv.Value;
+            }
+            _samePodLog.WriteLine(_decisionIndex + "," + Instance.Controller.CurrentTime + ","
+                + _podPromiseTotal + "," + _podPromiseSettled + ","
+                + (_podPromiseTotal > 0 ? (double)_podPromiseSettled / _podPromiseTotal : 0.0) + ","
+                + _podPromises.Count + "," + delta);
         }
+
+        /// <summary>Outstanding promised-but-undrawn units, keyed "pod:order:sku".</summary>
+        private readonly Dictionary<string,int> _podPromises = new Dictionary<string,int>();
+        private long _podPromiseTotal;
+        private long _podPromiseSettled;
+        private System.IO.StreamWriter _samePodLog;
 
         /// <summary>
         /// Re-solves this decision once per station with one extra free slot, and records the
@@ -1185,6 +1221,14 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             /// <summary>Bot chosen for each newly dispatched pod.</summary>
             public Dictionary<int, Bot> BotByPodId = new Dictionary<int, Bot>();
             /// <summary>Line keys the valuation layer closed.</summary>
+            /// <summary>(ValuationFidelityLog) Units this decision's VALUATION layer claimed from
+            /// each (pod, order, sku) but the binding layer did NOT take. Keyed "pod:order:sku" so
+            /// a later draw can be checked against the pod that made the promise - the same-pod
+            /// realisation rate the line-level ValuedLineKeys cannot see.</summary>
+            public Dictionary<string,int> PodPromisedUnits = new Dictionary<string,int>();
+            /// <summary>(ValuationFidelityLog) Units this decision's BINDING layer actually drew,
+            /// same key shape.</summary>
+            public Dictionary<string,int> PodDrawnUnits = new Dictionary<string,int>();
             public HashSet<string> ValuedLineKeys = new HashSet<string>();
             /// <summary>Line keys the binding layer closed.</summary>
             public HashSet<string> BoundLineKeys = new HashSet<string>();
@@ -1446,7 +1490,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // keeps the flag-off path a strict subset of the flag-on model.
             VariableCollection<string> usVars = null;
             List<string> usNames = new List<string>();
-            if (_m4gConfig.SlotScale > 0)
+            if (_m4gConfig.SlotScale > 0 || _m4gConfig.LexicographicSlotFill)
             {
                 // Only (order, station) pairs that actually own a y variable may be summed - the
                 // same restriction the LegacyIdle block relies on. Referencing an undeclared y
@@ -1497,6 +1541,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             M4GQhatIndex idx = model.Idx;
             VariableCollection<string> bin = model.Bin;
             VariableCollection<string> qb = model.Qb;
+            VariableCollection<string> qh = model.Qh;
             List<int> openOrderIds = model.OpenOrderIds;
             int maxSlots = model.MaxSlots;
 
@@ -1711,6 +1756,21 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     if (snap.Pa.Contains(v.pod)) result.UnitsFromNew += units;
                     else result.UnitsFromSunk += units;
                 }
+                if (_m4gConfig.ValuationFidelityLog)
+                {
+                    int planned = (int)Math.Round(qh[v.name].GetValue());
+                    string pk = v.pod.ID + ":" + v.order.ID + ":" + v.skui.ID;
+                    if (units > 0)
+                    {
+                        int had; result.PodDrawnUnits.TryGetValue(pk, out had);
+                        result.PodDrawnUnits[pk] = had + units;
+                    }
+                    if (planned > units)
+                    {
+                        int had; result.PodPromisedUnits.TryGetValue(pk, out had);
+                        result.PodPromisedUnits[pk] = had + (planned - units);
+                    }
+                }
             }
             foreach (var v in sym.Chat)
             {
@@ -1785,6 +1845,27 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             M4GModel model = BuildModel(snap);
             try
             {
+            // (LexicographicSlotFill) Stage 1: minimise idle slots on their own, then freeze the
+            // achieved count as a constraint. Slot filling becomes a hard priority that never
+            // touches the objective - so it cannot leak into V* and drag the Dinkelbach lambda,
+            // which is exactly what the sigma penalty did (lambda 8.05 -> 0.9 at every sigma from
+            // 5 to 400 mu). The bound is lambda-independent, so it is added once per decision and
+            // holds for every Dinkelbach iteration. Infeasibility is impossible: the stage-1
+            // optimum is by construction attainable.
+            if (_m4gConfig.LexicographicSlotFill && model != null && model.UsNames.Count > 0)
+            {
+                var usList = model.UsNames.Select(n => model.Us[n]).ToList();
+                model.Wrapper.SetObjective(LinearExpression.Sum(usList), OptimizationSense.Minimize);
+                model.Wrapper.Update();
+                model.Wrapper.Reset();
+                model.Wrapper.Optimize();
+                if (model.Wrapper.HasSolution())
+                {
+                    int idleStar = (int)Math.Round(model.Wrapper.GetObjectiveValue());
+                    model.Wrapper.AddConstr(LinearExpression.Sum(usList) <= idleStar, "LexSlot");
+                    model.Wrapper.Update();
+                }
+            }
             result = model == null
                 ? new M4GResult()
                 : SolveM4G(model, snap, lambdaK, lambda0, mu0, epsilon0, rho0, delta);

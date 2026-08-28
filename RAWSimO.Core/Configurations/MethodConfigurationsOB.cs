@@ -2173,6 +2173,21 @@ namespace RAWSimO.Core.Configurations
         /// V* = (D* - obj)/lambda recovery silently computes garbage).
         /// </summary>
         public double SlotScale = 0.0;
+        /// <summary>(Experimental) Fill station slots as a LEXICOGRAPHIC first priority instead of
+        /// pricing idle slots in the objective. Stage 1 minimises the idle-slot count on its own;
+        /// the optimum U* is then frozen as a constraint and stage 2 optimises D - lambda*V over
+        /// the solutions that achieve it.
+        ///
+        /// This is what a big-M slot penalty is approximating, but without the side effect: a
+        /// penalty term enters the objective, hence V* = (D* - objective)/lambda, hence the
+        /// Dinkelbach lambda update. Measured with sigma = 5..400 mu, lambda collapsed from its
+        /// measured 8.05 to ~0.9 in every arm - the price table was rewritten by a term that was
+        /// only ever meant to set a priority. A frozen constraint cannot do that.
+        ///
+        /// Costs one extra solve per decision. Independent of SlotScale; setting both is
+        /// redundant, not wrong.</summary>
+        public bool LexicographicSlotFill = false;
+
     }
 
     /// <summary>
