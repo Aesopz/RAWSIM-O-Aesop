@@ -1,0 +1,758 @@
+<title>M4 模型的來龍去脈</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&family=Spectral:ital,wght@0,400;0,500;1,400;1,500&display=swap">
+
+<style>
+:root{
+  --ink:#12263A; --body:#31424F; --soft:#5D6E7E; --faint:#8A99A6;
+  --paper:#F3F6F9; --card:#FFFFFF; --wash:#E7EEF4; --rule:#D3DDE6;
+  --cost:#B4531A; --cost-bg:#FBEEE4;
+  --val:#0E7C86;  --val-bg:#E2F1F2;
+  --shadow:0 1px 2px rgba(18,38,58,.05), 0 10px 26px -20px rgba(18,38,58,.35);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ink:#EAF1F6; --body:#BECBD6; --soft:#8C9BA8; --faint:#687885;
+    --paper:#0C161F; --card:#13202B; --wash:#182633; --rule:#26343F;
+    --cost:#E08F55; --cost-bg:#2A1D14;
+    --val:#4FBAC4; --val-bg:#122A2C;
+    --shadow:0 1px 2px rgba(0,0,0,.45), 0 12px 30px -22px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#EAF1F6; --body:#BECBD6; --soft:#8C9BA8; --faint:#687885;
+  --paper:#0C161F; --card:#13202B; --wash:#182633; --rule:#26343F;
+  --cost:#E08F55; --cost-bg:#2A1D14;
+  --val:#4FBAC4; --val-bg:#122A2C;
+  --shadow:0 1px 2px rgba(0,0,0,.45), 0 12px 30px -22px rgba(0,0,0,.9);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--body);
+  font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  font-size:17px; line-height:1.92; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1000px; margin:0 auto; padding:0 28px 130px}
+.col{max-width:39em}
+
+header.top{padding:80px 0 44px; border-bottom:1px solid var(--rule); margin-bottom:8px}
+.kicker{font-family:"IBM Plex Mono",monospace; font-size:12px; letter-spacing:.18em;
+        text-transform:uppercase; color:var(--val); font-weight:500}
+h1{font-family:"Noto Serif TC",Georgia,serif; font-weight:700; color:var(--ink);
+   font-size:clamp(2.1rem,5vw,3.1rem); line-height:1.26; margin:.28em 0 .24em;
+   text-wrap:balance}
+.dek{font-size:1.1rem; color:var(--soft); max-width:36em; margin:0}
+.oneline{margin-top:36px; padding:24px 28px; background:var(--card);
+         border:1px solid var(--rule); border-radius:4px; box-shadow:var(--shadow);
+         max-width:41em}
+.oneline p{margin:0; font-size:1.14rem; color:var(--ink); line-height:1.85}
+strong{color:var(--ink); font-weight:700}
+
+section{margin:54px 0 0; padding-top:26px}
+section+section{border-top:1px solid var(--rule)}
+h2{font-family:"Noto Serif TC",Georgia,serif; font-weight:700; color:var(--ink);
+   font-size:1.66rem; line-height:1.42; margin:0 0 8px; text-wrap:balance}
+h2 .n{font-family:"IBM Plex Mono",monospace; font-size:.62em; font-weight:400;
+      color:var(--faint); margin-right:.75em}
+.sub{color:var(--soft); margin:0 0 24px; max-width:39em}
+h3{font-weight:700; color:var(--ink); font-size:1.06rem; margin:34px 0 12px}
+p{margin:0 0 16px}
+a{color:var(--val)}
+
+/* 三拍：問題 → 式子 → 白話 */
+.beat{margin:22px 0 26px; max-width:44em}
+.beat .q{display:flex; gap:12px; align-items:baseline; margin:0 0 12px}
+.beat .q .lbl{flex:none; font-family:"IBM Plex Mono",monospace; font-size:.7rem;
+              letter-spacing:.1em; color:var(--faint); padding-top:.35em}
+.beat .q .txt{font-family:"Noto Serif TC",serif; font-size:1.16rem; color:var(--ink);
+              font-weight:600; line-height:1.6}
+.beat .plain{background:var(--card); border:1px solid var(--rule); border-radius:4px;
+             padding:15px 20px; margin:12px 0 0}
+.beat .plain p{margin:0; font-size:1rem}
+.beat .plain p+p{margin-top:10px}
+
+/* 數學 */
+.m{font-family:Spectral,Georgia,serif; font-style:italic; color:var(--ink)}
+.mr{font-family:Spectral,Georgia,serif; font-style:normal; color:var(--ink)}
+sub,sup{font-size:.66em; font-style:italic; line-height:0}
+.op{display:inline-flex; flex-direction:column; align-items:center;
+    vertical-align:-.42em; line-height:1; margin:0 .12em}
+.op i{font-style:normal; font-size:1.5em; font-family:Spectral,Georgia,serif}
+.op small{font-size:.56em; margin-top:.06em; font-family:Spectral,Georgia,serif;
+          font-style:italic; color:var(--soft)}
+.eqn{background:var(--wash); border:1px solid var(--rule); border-radius:4px;
+     padding:17px 22px; margin:0; overflow-x:auto; line-height:2;
+     font-family:Spectral,Georgia,serif; font-size:1.12rem; color:var(--ink);
+     white-space:nowrap}
+.eqn.wrapok{white-space:normal}
+.eqn .tag{display:inline-block; min-width:3.6em; margin-right:.9em;
+          font-family:"IBM Plex Mono",monospace; font-size:.72em; font-style:normal;
+          color:var(--faint); font-weight:500}
+.cost{color:var(--cost)!important}
+.val{color:var(--val)!important}
+.legend{display:flex; gap:22px; flex-wrap:wrap; margin:14px 0 0; font-size:.9rem}
+.legend span{display:inline-flex; align-items:center; gap:7px; color:var(--soft)}
+.legend i{width:11px; height:11px; border-radius:2px; display:inline-block}
+
+/* 步驟 */
+.steps{counter-reset:s; display:grid; gap:12px; margin:20px 0; max-width:44em}
+.step{counter-increment:s; display:grid; grid-template-columns:38px 1fr; gap:16px;
+      background:var(--card); border:1px solid var(--rule); border-radius:4px;
+      padding:16px 20px}
+.step::before{content:counter(s); font-family:"IBM Plex Mono",monospace;
+              font-size:1.1rem; color:var(--val); font-weight:500; line-height:1.5}
+.step .h{font-weight:700; color:var(--ink); margin:0 0 4px}
+.step p{margin:0; font-size:.98rem}
+
+/* 價目卡 */
+.prices{display:grid; grid-template-columns:repeat(auto-fit,minmax(215px,1fr));
+        gap:14px; margin:20px 0}
+.price{background:var(--card); border:1px solid var(--rule); border-radius:4px;
+       padding:18px 20px}
+.price .s{font-family:Spectral,Georgia,serif; font-style:italic; font-size:1.7rem;
+          color:var(--val); line-height:1; display:block; margin-bottom:10px}
+.price .d{font-size:.98rem; color:var(--ink); margin:0 0 8px; line-height:1.65}
+.price .u{font-family:"IBM Plex Mono",monospace; font-size:.72rem; color:var(--faint);
+          margin:0}
+
+/* β 光譜 */
+.spec{margin:24px 0; max-width:44em}
+.bar{position:relative; height:14px; border-radius:7px; margin:38px 0 8px;
+     background:linear-gradient(90deg,var(--cost) 0%,var(--val) 18%,var(--val) 38%,#B8A03A 46%,var(--cost) 55%,var(--cost) 100%)}
+.pin{position:absolute; top:-32px; transform:translateX(-50%); text-align:center;
+     font-size:.78rem; color:var(--soft); white-space:nowrap}
+.pin b{display:block; font-family:"IBM Plex Mono",monospace; font-size:.9rem; color:var(--ink)}
+.pin::after{content:""; position:absolute; left:50%; top:26px; width:2px; height:18px;
+            background:var(--ink); transform:translateX(-50%); opacity:.5}
+.spec .cap{display:flex; justify-content:space-between; font-size:.86rem;
+           color:var(--faint); margin-top:16px}
+
+/* 表格 */
+.tw{overflow-x:auto; margin:18px 0 22px; border:1px solid var(--rule);
+    border-radius:4px; background:var(--card)}
+table{border-collapse:collapse; width:100%; font-size:.95rem}
+th{text-align:left; padding:11px 16px; background:var(--wash); color:var(--ink);
+   font-weight:700; font-size:.85rem; border-bottom:1px solid var(--rule); white-space:nowrap}
+td{padding:11px 16px; border-bottom:1px solid var(--rule); vertical-align:top; line-height:1.75}
+tr:last-child td{border-bottom:none}
+td.num{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums;
+       white-space:nowrap; color:var(--ink)}
+td.sym{font-family:Spectral,Georgia,serif; font-style:italic; font-size:1.1rem;
+       white-space:nowrap; color:var(--ink)}
+.mono{font-family:"IBM Plex Mono",monospace; font-size:.88em}
+
+.note{margin:22px 0; padding:17px 22px; background:var(--card); border:1px solid var(--rule);
+      border-left:3px solid var(--val); border-radius:0 4px 4px 0; max-width:42em}
+.note.warn{border-left-color:var(--cost)}
+.note h4{margin:0 0 7px; font-size:.98rem; color:var(--val); font-weight:700}
+.note.warn h4{color:var(--cost)}
+.note p{margin:0 0 10px; font-size:.97rem}
+.note p:last-child{margin-bottom:0}
+
+footer{border-top:1px solid var(--rule); padding-top:28px; margin-top:64px;
+       font-size:.9rem; color:var(--faint); max-width:44em; line-height:1.85}
+footer code{font-family:"IBM Plex Mono",monospace; font-size:.9em; color:var(--soft)}
+
+@media (max-width:640px){
+  body{font-size:16px}
+  .wrap{padding:0 18px 90px}
+  header.top{padding:50px 0 34px}
+  .step{grid-template-columns:28px 1fr; gap:12px; padding:14px 16px}
+}
+</style>
+
+<div class="wrap">
+
+<header class="top">
+  <div class="kicker">從零開始 · 完整版</div>
+  <h1>M4 模型的來龍去脈</h1>
+  <p class="dek">一個倉庫每分鐘都要決定：把哪張單交給哪個站台、去搬哪台貨架、派哪台機器人。
+  這份文件從「為什麼需要決定」開始，一路講到目標式裡每一個希臘字母是什麼。</p>
+
+  <div class="oneline">
+    <p><strong>一句話版本：</strong>倉庫裡唯一真正花掉的東西是<span class="cost">走路的距離</span>，
+    唯一真正賺到的東西是<span class="val">把訂單做完</span>。
+    M4 做的事，就是<strong>不斷問「這一步，每賺一分價值要走幾公尺」，然後挑最省的那一步</strong>。</p>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════ -->
+<section>
+  <h2><span class="n">§0</span>先看清楚倉庫在做什麼</h2>
+  <p class="sub">這種倉庫叫 RMFS：貨架會自己走到人面前，人不用去找貨。</p>
+
+  <p class="col">想像一個很大的房間。地上放著幾百台<strong>貨架</strong>，每台貨架上有幾十種商品。
+  房間邊上有幾個<strong>揀貨站台</strong>，站著人（或機械手臂）。
+  地上還跑著幾十台<strong>機器人</strong>，它們可以鑽到貨架底下，把整台貨架扛起來走。</p>
+
+  <p class="col">有人下了一張<strong>訂單</strong>，比方說「洗髮精 ×2、牙刷 ×1、電池 ×3」。
+  系統要做四件事：</p>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>簡稱</th><th>決定什麼</th><th>白話</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">OA</td><td>Order Assignment</td><td>這張單交給哪個站台做</td></tr>
+        <tr><td class="mono">PS</td><td>Pod Selection</td><td>要搬哪一台貨架過來</td></tr>
+        <tr><td class="mono">TA</td><td>Task Allocation</td><td>派哪一台機器人去搬</td></tr>
+        <tr><td class="mono">PP</td><td>Path Planning</td><td>機器人怎麼走才不會撞在一起</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="col">M4 負責<strong>前面三個</strong>，而且是<strong>一起</strong>決定的
+  —— 不是先決定訂單、再決定貨架、再決定機器人，而是同時看，因為它們互相牽制：
+  你選了那台貨架，就決定了哪些訂單做得成；你派了那台機器人，就決定了要走多遠。</p>
+
+  <p class="col">還有一件重要的事：<strong>站台的位子是有限的。</strong>
+  每個站台同時只能掛 6 張單（小規模設定）。一張單做完，才空出一格。
+  <strong>每空出一格，系統就重新決策一次。</strong></p>
+</section>
+
+<!-- ═══════════════════════════════════════════ -->
+<section>
+  <h2><span class="n">§1</span>舊模型的一條規矩，和它的代價</h2>
+
+  <div class="beat">
+    <div class="q"><span class="lbl">規矩</span>
+      <span class="txt">一張訂單，只能整批交給一個站台。</span></div>
+    <div class="eqn wrapok">
+      <span class="tag">(2)</span>
+      <span class="op"><i>∑</i><small>w</small></span>
+      <span class="m">x̂</span><sub>o,w</sub> <span class="mr">≤ 1</span>
+      &nbsp;&nbsp;<span class="mr">∀</span> <span class="m">o</span>
+    </div>
+    <div class="plain">
+      <p><span class="m">x̂</span><sub>o,w</sub> 的意思是「訂單 <span class="m">o</span>
+      交給站台 <span class="m">w</span>」。把所有站台加起來不能超過 1
+      —— 就是說<strong>只能挑一個</strong>。</p>
+    </div>
+  </div>
+
+  <p class="col">這條規矩很自然，但它有一個藏起來的代價：<strong>整張單必須在同一個站台被湊齊。</strong></p>
+
+  <p class="col">回到剛才那張單：洗髮精、牙刷、電池。
+  如果洗髮精和牙刷在同一台貨架上，但電池在另一台貨架上，而那台貨架正好很遠、或正在別的站台服務 ——
+  <strong>這張單就整張卡住，一件都做不了。</strong></p>
+
+  <div class="note warn">
+    <h4>商品種類越多，這件事越糟</h4>
+    <p>一張單要 3 種商品，就得同時湊齊 3 種；要 5 種，就得湊 5 種。
+    倉庫的商品種類（SKU）一多，「一台貨架剛好裝得下一整張單」的機率就越低。</p>
+    <p>結果是：<strong>一趟貨架跑過來，只能服務很少的訂單</strong> —— 走一樣的路，做比較少的事。</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════ -->
+<section>
+  <h2><span class="n">§2</span>第一刀：把「訂單」剁成「件」</h2>
+
+  <div class="beat">
+    <div class="q"><span class="lbl">改成</span>
+      <span class="txt">不再問「這張單去哪個站台」，改問「這一件商品從哪台貨架、在哪個站台被拿走」。</span></div>
+    <div class="eqn wrapok">
+      <span class="m">q</span><sub>o,i,p,w</sub> <span class="mr">∈ ℤ</span><sub>≥0</sub>
+      &nbsp;&nbsp;&nbsp;
+      <span style="font-family:'Noto Sans TC',sans-serif;font-size:.94rem;color:var(--soft)">
+        訂單 <span class="m">o</span> 的商品 <span class="m">i</span>，
+        從貨架 <span class="m">p</span>，在站台 <span class="m">w</span>，拿走幾件</span>
+    </div>
+    <div class="plain">
+      <p>四個下標，一個整數。就這樣。</p>
+      <p><strong>拆單不是新加的功能，而是這個變數自然容許的事。</strong>
+      同一張單的不同商品，可以來自不同貨架、不同站台、甚至不同時間點 ——
+      因為變數本來就是逐件記的。</p>
+    </div>
+  </div>
+
+  <p class="col">順帶一提，這一刀還<strong>讓模型變小了</strong>。
+  舊模型需要一個額外的輔助變數 <span class="m">δ</span><sub>o,p,w</sub>
+  來記「哪台貨架供應哪張單」；
+  新模型的 <span class="m">q</span><sub>o,i,p,w</sub> 下標裡本來就有這個資訊，
+  那個輔助變數和它的兩條限制式一起不見了。</p>
+</section>
+
+<!-- ═══════════════════════════════════════════ -->
+<section>
+  <h2><span class="n">§3</span>副作用：「做完了」不再理所當然</h2>
+
+  <p class="col">舊模型不需要一個叫「完成」的變數。原因很簡單：
+  <strong>因為它規定整張單必須在一個站台湊齊，所以「被指派」就等於「做得完」。</strong></p>
+
+  <p class="col">現在容許只做一半了，這個等號就斷了。
+  一張單可能今天做了兩件、明天做了一件、還差三件。
+  所以要多兩種變數，把「做完」明講出來：</p>
+
+  <div class="eqn wrapok">
+    <span class="m">e</span><sub>o,i</sub>
+    &nbsp;<span style="font-family:'Noto Sans TC',sans-serif;font-size:.94rem;color:var(--soft)">
+    ：訂單 <span class="m">o</span> 的商品 <span class="m">i</span>「這一行」全部拿齊了</span>
+    &nbsp;&nbsp;&nbsp;&nbsp;
+    <span class="m">f</span><sub>o</sub>
+    &nbsp;<span style="font-family:'Noto Sans TC',sans-serif;font-size:.94rem;color:var(--soft)">
+    ：訂單 <span class="m">o</span> 的每一行都拿齊了</span>
+  </div>
+
+  <p class="col" style="margin-top:16px">
+  「行」（line）就是訂單上的一列，例如「電池 ×3」是一行。拿到 2 件不算，要 3 件才算這一行關閉。</p>
+</section>
+
+<!-- ═══════════════════════════════════════════ -->
+<section>
+  <h2><span class="n">§4</span>怎麼判斷「值不值得走這一趟」</h2>
+  <p class="sub">這是整個模型的核心問題。</p>
+
+  <div class="beat">
+    <div class="q"><span class="lbl">問題</span>
+      <span class="txt">派一台機器人去搬一台貨架，要走 30 公尺。這 30 公尺換得到什麼？值嗎？</span></div>
+  </div>
+
+  <p class="col">你可能會想：把「走的距離」和「賺到的價值」加起來比大小就好了 ——</p>
+
+  <div class="eqn wrapok" style="opacity:.55">
+    <span class="mr">min&nbsp;&nbsp;</span>
+    <span class="cost"><span class="m">D</span></span>
+    <span class="mr">&nbsp;−&nbsp;</span>
+    <span class="m">w</span>
+    <span class="val"><span class="m">V</span></span>
+    &nbsp;&nbsp;<span style="font-family:'Noto Sans TC',sans-serif;font-size:.92rem;color:var(--cost)">
+      ← 舊模型的做法，但 <span class="m">w</span> 要人自己填</span>
+  </div>
+
+  <p class="col" style="margin-top:16px">問題出在那個 <span class="m">w</span>：
+  <strong>「一張訂單值幾公尺」這個數字，要人拍腦袋決定。</strong>
+  填 40？填 1000？不同倉庫、不同時段答案都不一樣，而且沒有人真的知道。</p>
+
+  <div class="beat">
+    <div class="q"><span class="lbl">M4 的做法</span>
+      <span class="txt">不要相加，改成相除。</span></div>
+    <div class="eqn">
+      <span class="mr">min&nbsp;&nbsp;</span>
+      <span class="cost"><span class="m">D</span></span>
+      <span class="mr">&nbsp;/&nbsp;</span>
+      <span class="val"><span class="m">V</span></span>
+    </div>
+    <div class="plain">
+      <p><strong>「每賺一分價值，要走幾公尺？」</strong>越小越好。</p>
+      <p>這樣就不用回答「一張單值幾公尺」了 —— 因為分子分母<strong>都用公尺計價</strong>，
+      比值是個沒有單位的數字，自己會說話。</p>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:var(--cost)"></i><span class="m">D</span>　成本側：走路的距離</span>
+    <span><i style="background:var(--val)"></i><span class="m">V</span>　價值側：做完的事</span>
+  </div>
+
+  <h3>D 是什麼</h3>
+  <div class="eqn">
+    <span class="cost">
+      <span class="m">D</span> <span class="mr">=</span>
+      <span class="op"><i>∑</i><small>p ∈ P<sub>a</sub></small></span>
+      <span class="op"><i>∑</i><small>w</small></span>
+      <span class="m">d</span><sub>p,w</sub> <span class="m">z</span><sub>p,w</sub>
+      <span class="mr">&nbsp;+&nbsp;</span>
+      <span class="op"><i>∑</i><small>r ∈ R<sub>a</sub></small></span>
+      <span class="op"><i>∑</i><small>p ∈ P<sub>a</sub></small></span>
+      <span class="m">d</span><sub>r,p</sub> <span class="m">y</span><sub>r,p</sub>
+    </span>
+  </div>
+  <p class="col" style="margin-top:14px">兩段路：<strong>機器人走到貨架</strong>，加上
+  <strong>貨架被搬到站台</strong>。</p>
+
+  <div class="note">
+    <h4>只有「這次新派出去的」才算錢</h4>
+    <p><span class="m">P</span><sub>a</sub> 是還停在儲區、這次才被叫出來的貨架。
+    已經在路上、或已經停在站台的貨架，<strong>那趟路早就花掉了</strong>，
+    再算一次就是重複計費。經濟學叫沉沒成本。</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════ -->
+<section>
+  <h2><span class="n">§5</span>Dinkelbach：比值不能直接解，怎麼辦</h2>
+  <p class="sub">這是整份文件最技術的一段，但直覺其實很日常。</p>
+
+  <p class="col">求解器（Gurobi）只會解<strong>加加減減</strong>的問題，不會解<strong>除法</strong>。
+  你不能直接叫它「把 <span class="m">D</span>/<span class="m">V</span> 最小化」。</p>
+
+  <div class="beat">
+    <div class="q"><span class="lbl">生活比喻</span>
+      <span class="txt">你想買「CP 值最高」的東西，但店員只會回答「這個價錢下最划算的是哪個」。</span></div>
+    <div class="plain">
+      <p>那你就<strong>先猜一個匯率</strong>：「我猜 1 分價值值 <span class="m">λ</span> 公尺」。</p>
+      <p>拿這個匯率去問店員：「在這個匯率下，最划算的方案是哪個？」
+      店員給你一個方案。你回家一算，發現<strong>那個方案實際的匯率</strong>是多少 ——
+      然後拿它當成新的猜測，再問一次。</p>
+      <p>反覆幾次，猜測和實際就會對上。這就是 Dinkelbach。</p>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step"><div>
+      <p class="h">猜一個匯率 <span class="m">λ</span></p>
+      <p>第一次就用歷史平均值當起點。</p>
+    </div></div>
+    <div class="step"><div>
+      <p class="h">在這個匯率下解一個「加減法」問題</p>
+      <p>min&nbsp; <span class="cost"><span class="m">D</span></span> −
+        <span class="m">λ</span><span class="val"><span class="m">V</span></span>
+        &nbsp;—— 這個求解器會解。</p>
+    </div></div>
+    <div class="step"><div>
+      <p class="h">看這個方案「實際」的匯率是多少</p>
+      <p>把答案代回去算 <span class="cost"><span class="m">D</span></span><sup>*</sup> /
+        <span class="val"><span class="m">V</span></span><sup>*</sup>。</p>
+    </div></div>
+    <div class="step"><div>
+      <p class="h">用它當新的 <span class="m">λ</span>，回到第 2 步</p>
+      <p>猜測與實際的差距每一輪都會縮小，最後收斂。</p>
+    </div></div>
+  </div>
+
+  <div class="note warn">
+    <h4>有一個條件不能破：V 的「形狀」不能跟著變</h4>
+    <p>每一輪 <span class="m">λ</span> 都會變。如果 <span class="m">V</span> 裡面各項的
+    <strong>相對比重</strong>也跟著亂變，那你每一輪其實是在比不同的市場，永遠對不上。</p>
+    <p>所以 <span class="m">V</span> 裡的其他價格（<span class="m">μ</span>、
+    <span class="m">ε</span>、<span class="m">ρ</span>）都<strong>跟著 <span class="m">λ</span>
+    等比例縮放</strong>：只有整體水位在動，內部比例永遠不動。</p>
+    <p><strong>這條規則被破壞過一次，代價很直接：</strong>當初 <span class="m">ρ</span>
+    的暖機值是寫死的 15，有人把 <span class="m">λ</span> 的暖機值從 10 改成 5，
+    <span class="mono">ρ/λ</span> 就從 1.5 變成 3.0 ——
+    <strong>每一個動作的分數都變成正的（＝虧本），求解器什麼都不做，整場模擬產出零張訂單。</strong></p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════ -->
+<section>
+  <h2><span class="n">§6</span>價目表：那些希臘字母各是什麼</h2>
+  <p class="sub">重點來了：<strong>沒有任何一個價格是人填的。</strong>
+  它們全都是「走過的距離」除以「做完的事」。</p>
+
+  <div class="prices">
+    <div class="price">
+      <span class="s">λ</span>
+      <p class="d">關掉<strong>一行</strong>值幾公尺</p>
+      <p class="u">距離 ÷ 已關閉行數</p>
+    </div>
+    <div class="price">
+      <span class="s">μ</span>
+      <p class="d">做完<strong>一張單</strong>值幾公尺</p>
+      <p class="u">距離 ÷ 已完成訂單數</p>
+    </div>
+    <div class="price">
+      <span class="s">ρ</span>
+      <p class="d">從<strong>哪一台貨架</strong>拿，差多少</p>
+      <p class="u">距離 ÷ 已揀件數</p>
+    </div>
+    <div class="price">
+      <span class="s">ε</span>
+      <p class="d">平手時，偏好<strong>現在就做</strong></p>
+      <p class="u">0.001 × λ（極小）</p>
+    </div>
+  </div>
+
+  <p class="col">看出規律了嗎？<strong>整個倉庫只量一件事：走了多少公尺。</strong>
+  然後拿它去除以三種不同的「做了多少事」的計數器 —— 行、訂單、件 —— 就得到三個價格。</p>
+
+  <h3>μ 為什麼是 λ 的倍數</h3>
+  <div class="eqn wrapok">
+    <span class="m">μ</span> <span class="mr">=</span> <span class="m">λ</span>
+    <span class="mr">×</span>
+    <span style="font-family:'Noto Sans TC',sans-serif;font-size:.98rem">（每張單平均幾行）</span>
+    &nbsp;&nbsp;<span class="mr">=</span>&nbsp;
+    <span style="font-family:'Noto Sans TC',sans-serif;font-size:.98rem">距離 ÷ 完成訂單數</span>
+  </div>
+  <p class="col" style="margin-top:14px">一張單如果平均有 1.5 行，那做完一張單當然值 1.5 個 λ。
+  <strong>這不是選出來的，是實例本身決定的。</strong></p>
+
+  <h3>ρ 在管什麼：從哪台貨架拿，差很多</h3>
+  <p class="col">同樣拿走一件商品，從不同狀態的貨架拿，對未來的影響完全不同：</p>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>貨架狀態</th><th>價格</th><th>為什麼</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="sym">p ∈ P<sub>p</sub><br><span style="font-family:'Noto Sans TC',sans-serif;font-size:.85rem;color:var(--faint)">正在被揀貨</span></td>
+          <td class="num val">− ρ（獎勵）</td>
+          <td>它<strong>馬上就要走了</strong>。現在不拿，之後為了這件商品得再叫它跑一趟。</td>
+        </tr>
+        <tr>
+          <td class="sym">p ∈ P<sub>a</sub><br><span style="font-family:'Noto Sans TC',sans-serif;font-size:.85rem;color:var(--faint)">這次才新派出</span></td>
+          <td class="num cost">+ ρ（收費）</td>
+          <td>這件商品<strong>確實害我多跑了一趟</strong>，該收錢。</td>
+        </tr>
+        <tr>
+          <td class="sym">p ∈ P<sub>q</sub> ∪ P<sub>b</sub><br><span style="font-family:'Noto Sans TC',sans-serif;font-size:.85rem;color:var(--faint)">排隊中 / 在路上</span></td>
+          <td class="num">0</td>
+          <td>那趟路已經花掉了，不多收也不少給。</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="col"><strong>這一項在舊模型裡不存在。</strong>
+  舊模型的原子是整張訂單，根本沒有「從哪台貨架拿這一件」這個問題。
+  把原子變細，等於<strong>打開了一個新的定價維度</strong>。</p>
+</section>
+
+<!-- ═══════════════════════════════════════════ -->
+<section>
+  <h2><span class="n">§7</span>β：看得到的，和做得到的</h2>
+  <p class="sub">這是整個模型最容易講錯、也最需要想清楚的一個數。</p>
+
+  <div class="beat">
+    <div class="q"><span class="lbl">問題</span>
+      <span class="txt">一台貨架載著 7 條線份的商品，但站台現在只空得出 1 格。
+      這台貨架該算「值 1 條線」還是「值 7 條線」？</span></div>
+  </div>
+
+  <p class="col">兩個答案都會壞掉：</p>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>算法</th><th>會發生什麼</th></tr></thead>
+      <tbody>
+        <tr><td>只算 <strong>1 條</strong>（現在綁得下的）</td>
+          <td>一趟路要 30 公尺，一條線只值 8 公尺 → <strong>永遠不值得派車</strong>，站台餓死。</td></tr>
+        <tr><td>算 <strong>7 條</strong>（理論上覆蓋的）</td>
+          <td>那 7 條裡有很多會被<strong>別台貨架</strong>做掉 → 這台被記了不屬於它的功勞。</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="col">所以模型分成<strong>兩層</strong>來記帳：</p>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>層</th><th>變數</th><th>意思</th></tr></thead>
+      <tbody>
+        <tr><td><strong>估值層</strong></td>
+          <td class="sym">q̂, ê<sub>o,i</sub>, f̂<sub>o</sub></td>
+          <td>這次決策<strong>看得到</strong>的：如果站台吃得下，能關掉哪些行</td></tr>
+        <tr><td><strong>綁定層</strong></td>
+          <td class="sym">q, e<sub>o,i</sub>, f<sub>o</sub></td>
+          <td>這次決策<strong>真的做到</strong>的：被槽位限制之後，實際關掉哪些行</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="beat">
+    <div class="q"><span class="lbl">β 就是</span>
+      <span class="txt">歷史上，「看得到」的裡面有幾成真的「做到了」。</span></div>
+    <div class="eqn wrapok">
+      <span class="m">β</span> <span class="mr">=</span>
+      <span style="font-family:'Noto Sans TC',sans-serif;font-size:1rem">
+        累積<strong>綁定</strong>行數 &nbsp;÷&nbsp; 累積<strong>估值</strong>行數</span>
+      &nbsp;&nbsp;<span class="mr">≈ 0.19</span>
+    </div>
+    <div class="plain">
+      <p>估值層每宣稱 100 條線可以關，綁定層當期實際只吃得下大約 19 條。
+      <strong>所以那些「看得到但這次做不到」的行，只給 19 折。</strong></p>
+    </div>
+  </div>
+
+  <h3>放進目標式長這樣</h3>
+  <div class="eqn wrapok">
+    <span class="val">
+      <span class="m">λ</span> <span class="mr">[ (1−</span><span class="m">β</span><span class="mr">)</span>
+      <span class="op"><i>∑</i><small>o,i</small></span><span class="m">e</span><sub>o,i</sub>
+      <span class="mr">&nbsp;+&nbsp;</span> <span class="m">β</span>
+      <span class="op"><i>∑</i><small>o,i</small></span><span class="m">ê</span><sub>o,i</sub>
+      <span class="mr">]</span>
+    </span>
+    &nbsp;&nbsp;<span class="mr" style="color:var(--faint)">等價於</span>&nbsp;&nbsp;
+    <span class="val">
+      <span class="m">λ</span>
+      <span class="op"><i>∑</i><small>&nbsp;</small></span><span class="m">e</span>
+      <span class="mr">&nbsp;+&nbsp;</span>
+      <span class="m">λβ</span>
+      <span class="op"><i>∑</i><small>&nbsp;</small></span>
+      <span class="mr">(</span><span class="m">ê</span> <span class="mr">−</span> <span class="m">e</span><span class="mr">)</span>
+    </span>
+  </div>
+  <p class="col" style="margin-top:14px">
+  右邊那個寫法比較好懂：<strong>真的做到的，領全額 λ；只是看得到的，領 λ × β。</strong></p>
+</section>
+
+<!-- ═══════════════════════════════════════════ -->
+<section>
+  <h2><span class="n">§8</span>把 β 轉到兩端，會發生什麼</h2>
+  <p class="sub">這是實際跑出來的，不是推論。</p>
+
+  <div class="spec">
+    <div class="bar">
+      <div class="pin" style="left:0%"><b>0</b>短視</div>
+      <div class="pin" style="left:19%"><b>0.19</b>量測值</div>
+      <div class="pin" style="left:45%"><b>0.5</b>懸崖</div>
+      <div class="pin" style="left:100%"><b>1</b>崩潰</div>
+    </div>
+    <div class="cap"><span>只看現在做得到的</span><span>只看看得到的</span></div>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>β</th><th>完成訂單</th><th>pile-on</th><th>能耗／單</th><th>總距離</th><th>趟次</th></tr></thead>
+      <tbody>
+        <tr><td class="sym">0</td><td class="num">574</td><td class="num cost">4.129</td><td class="num cost">1.3605</td><td class="num">9808</td><td class="num cost">141</td></tr>
+        <tr><td class="sym">0.19（閉環）</td><td class="num val">610</td><td class="num val">6.040</td><td class="num val">1.0932</td><td class="num">8339</td><td class="num">101</td></tr>
+        <tr><td class="sym">0.40</td><td class="num">607</td><td class="num">6.010</td><td class="num">1.1542</td><td class="num">8725</td><td class="num">—</td></tr>
+        <tr><td class="sym">0.50</td><td class="num cost">12</td><td class="num">—</td><td class="num">—</td><td class="num">1234</td><td class="num">—</td></tr>
+        <tr><td class="sym">1.00</td><td class="num cost">0</td><td class="num">—</td><td class="num">—</td><td class="num">896</td><td class="num">21</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>β = 0：不是不派車，是「挑貨架挑得很笨」</h3>
+  <p class="col">直覺上你可能以為它會變得不敢派車。<strong>實際相反：趟次多了 40%，距離多了 18%，
+  但訂單反而少了 6%。</strong></p>
+  <p class="col">因為 β=0 時，一台載了 7 條線的貨架，和一台只載 1 條線的，
+  <strong>在目標式眼中一樣值錢</strong> —— 反正只有現在綁得下的那一條算數。
+  於是它拿完那一條就不管了，下次需要再叫一台新的來。</p>
+  <p class="col"><strong>pile-on 從 6.04 掉到 4.13</strong>（每台貨架到站服務的訂單數少了三分之一），
+  趟次因此暴增，每張訂單的能耗漲了 24.5%。</p>
+
+  <h3>β = 1：模型算出「什麼都不做最賺」</h3>
+  <p class="col">看那個式子：<span class="m">λ</span>(1−<span class="m">β</span>) 在
+  <span class="m">β</span>=1 時<strong>字面歸零</strong>。
+  也就是說，一條線不管你綁不綁定，都領一樣的錢。</p>
+  <p class="col">但綁定<strong>還是有成本</strong>（從新派出的貨架拿要付 +ρ）。
+  於是最佳解變成：<strong>派一台車、把所有能看到的都「估值」一遍、然後一件都不拿。</strong></p>
+  <p class="col">接著兩個迴路把系統鎖死：貨架派出去沒被取空 → 機器人不釋放 → 沒車可派 →
+  什麼都估不到 → 目標式的最小值變成 0，而 0 對應「什麼都不做」。
+  沒有訂單完成 → 沒有槽位釋放 → 決策再也不被觸發，整場模擬停在第 36 次決策。</p>
+
+  <div class="note">
+    <h4>所以 β 到底在管什麼</h4>
+    <p><strong>它決定「挑哪台貨架」的時候，這台貨架<em>現在用不上</em>的那部分覆蓋算幾分。</strong></p>
+    <p>β 太小 → 只看眼前那一條線 → 挑貨架很短視 → 一趟只做一點事。<br>
+    β 太大 → 執行本身沒有報酬 → 只看不做 → 系統停擺。</p>
+    <p>量測出來的 0.19 落在平坦區，離懸崖還有 2.4 倍的餘裕。</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════ -->
+<section>
+  <h2><span class="n">§9</span>完整的模型，一次看完</h2>
+
+  <h3>目標式</h3>
+  <div class="eqn">
+    <span class="mr">min&nbsp;&nbsp;</span>
+    <span class="cost"><span class="m">D</span></span>
+    <span class="mr">&nbsp;/&nbsp;</span>
+    <span class="val"><span class="m">V</span></span>
+  </div>
+  <div class="eqn" style="margin-top:12px">
+    <span class="val">
+      <span class="m">V</span> <span class="mr">=</span>
+      <span class="m">λ</span> <span class="mr">[ (1−</span><span class="m">β</span><span class="mr">)</span>
+      <span class="op"><i>∑</i><small>o,i</small></span><span class="m">e</span><sub>o,i</sub>
+      <span class="mr">+</span> <span class="m">β</span>
+      <span class="op"><i>∑</i><small>o,i</small></span><span class="m">ê</span><sub>o,i</sub><span class="mr">]</span>
+      <span class="mr">&nbsp;+&nbsp;</span>
+      <span class="m">μ</span> <span class="mr">[ (1−</span><span class="m">β</span><span class="mr">)</span>
+      <span class="op"><i>∑</i><small>o</small></span><span class="m">f</span><sub>o</sub>
+      <span class="mr">+</span> <span class="m">β</span>
+      <span class="op"><i>∑</i><small>o</small></span><span class="m">f̂</span><sub>o</sub><span class="mr">]</span>
+      <span class="mr">&nbsp;+&nbsp;</span>
+      <span class="m">ε</span> <span class="op"><i>∑</i><small>&nbsp;</small></span><span class="m">q</span>
+      <span class="mr">&nbsp;+&nbsp;</span>
+      <span class="m">ρ</span> <span class="mr">[</span>
+      <span class="op"><i>∑</i><small>p ∈ P<sub>p</sub></small></span><span class="m">q</span>
+      <span class="mr">−</span>
+      <span class="op"><i>∑</i><small>p ∈ P<sub>a</sub></small></span><span class="m">q</span>
+      <span class="mr">]</span>
+    </span>
+  </div>
+
+  <h3>限制式：三組</h3>
+  <p class="col"><strong>資源組（R1–R5）</strong>：跟舊模型完全一樣，一個字都沒改。</p>
+  <div class="tw">
+    <table>
+      <tbody>
+        <tr><td class="mono">R1</td><td class="sym"><span class="op"><i>∑</i><small>w</small></span>z<sub>p,w</sub> ≤ 1</td><td>一台貨架只能去一個站台</td></tr>
+        <tr><td class="mono">R2</td><td class="sym"><span class="op"><i>∑</i><small>w</small></span>z<sub>p,w</sub> ≤ <span class="op"><i>∑</i><small>r</small></span>y<sub>r,p</sub></td><td>要搬貨架，得先有機器人</td></tr>
+        <tr><td class="mono">R3</td><td class="sym"><span class="op"><i>∑</i><small>p</small></span>y<sub>r,p</sub> ≤ 1</td><td>一台機器人只能搬一台貨架</td></tr>
+        <tr><td class="mono">R4</td><td class="sym"><span class="op"><i>∑</i><small>r</small></span>y<sub>r,p</sub> ≤ 1</td><td>一台貨架只能被一台機器人搬</td></tr>
+        <tr><td class="mono">R5</td><td class="sym">z<sub>p,w</sub> = 1, y<sub>r,p</sub> = 1</td><td>已經在路上的，這次要繼承</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="col"><strong>估值組（V1–V4）</strong>：規範「看得到什麼」。</p>
+  <div class="tw">
+    <table>
+      <tbody>
+        <tr><td class="mono">V1</td><td class="sym"><span class="op"><i>∑</i><small>o</small></span>q̂<sub>o,i,p,w</sub> ≤ n̂<sub>i,p</sub> z<sub>p,w</sub></td><td>那台貨架上要真的有貨，而且要被派過來</td></tr>
+        <tr><td class="mono">V2</td><td class="sym"><span class="op"><i>∑</i><small>p,w</small></span>q̂<sub>o,i,p,w</sub> ≤ n<sub>i,o</sub></td><td>不能拿超過訂單還缺的量</td></tr>
+        <tr><td class="mono">V2a</td><td class="sym"><span class="op"><i>∑</i><small>p ∈ P<sub>a</sub></small></span>q̂ ≤ max(0, D<sub>i</sub> − S<sub>i</sub>)</td><td><strong>新貨架只能對「在路上的貨架蓋不到的淨需求」計分</strong></td></tr>
+        <tr><td class="mono">V3</td><td class="sym"><span class="op"><i>∑</i><small>p,w</small></span>q̂ ≥ n<sub>i,o</sub> ê<sub>o,i</sub></td><td>一行要拿滿才算關閉</td></tr>
+        <tr><td class="mono">V4</td><td class="sym">ê<sub>o,i</sub> ≥ f̂<sub>o</sub></td><td>每一行都關了，整張單才算完成</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="col"><strong>綁定組（B1–B7）</strong>：規範「真的做到什麼」。</p>
+  <div class="tw">
+    <table>
+      <tbody>
+        <tr><td class="mono">B1</td><td class="sym">q<sub>o,i,p,w</sub> ≤ q̂<sub>o,i,p,w</sub></td><td>做到的不能超過看得到的</td></tr>
+        <tr><td class="mono">B2</td><td class="sym"><span class="op"><i>∑</i><small>i,p</small></span>q ≤ N<sub>o</sub> x<sub>o,w</sub></td><td>在某站台為某訂單取貨，就要佔它一個槽位</td></tr>
+        <tr><td class="mono">B3</td><td class="sym"><span class="op"><i>∑</i><small>o</small></span>x<sub>o,w</sub> ≤ c<sub>w</sub>(t)</td><td>槽位不能超賣（上限 6）</td></tr>
+        <tr><td class="mono">B4</td><td class="sym">x<sub>o,w</sub> ≤ <span class="op"><i>∑</i><small>i,p</small></span>q</td><td>不能佔著槽位卻不取貨</td></tr>
+        <tr><td class="mono">B5</td><td class="sym"><span class="op"><i>∑</i><small>p,w</small></span>q ≥ n<sub>i,o</sub> e<sub>o,i</sub></td><td>要拿滿才算真的關閉這一行</td></tr>
+        <tr><td class="mono">B6</td><td class="sym">e ≤ ê,&nbsp; f ≤ f̂</td><td>做到的是看得到的子集</td></tr>
+        <tr><td class="mono">B7</td><td class="sym">e<sub>o,i</sub> ≥ f<sub>o</sub></td><td>每行都真的關了，才算真的完成</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note">
+    <h4>V2a 特別說一下：這條在防「重複計算」</h4>
+    <p>如果沒有它，估值層每次決策都拿全新的貨架去對<strong>整個待辦清單</strong>計分 ——
+    即使為同一批需求派出的貨架<strong>正在路上</strong>。
+    結果是同樣約 31 條線在連續每一次決策被重新計價，並重新「正當化」一次新的派車。</p>
+    <p>實測：中位數的決策會扣掉 <strong>6 件</strong>已經在路上的供給，
+    而中位數的估值量也才 6 條線 —— <strong>這條不是小修正，是主力。</strong></p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════ -->
+<section>
+  <h2><span class="n">§10</span>三十秒速查</h2>
+  <div class="tw">
+    <table>
+      <thead><tr><th>符號</th><th>是什麼</th><th>怎麼來的</th></tr></thead>
+      <tbody>
+        <tr><td class="sym">q<sub>o,i,p,w</sub></td><td>拿幾件（決策的最小單位）</td><td>整數變數</td></tr>
+        <tr><td class="sym">D</td><td>這次決策要走的路</td><td>只算新派出的貨架與機器人</td></tr>
+        <tr><td class="sym">V</td><td>這次決策賺到的價值</td><td>四個價格加起來，全部以公尺計</td></tr>
+        <tr><td class="sym">λ</td><td>一行值幾公尺</td><td>距離 ÷ 已關閉行數</td></tr>
+        <tr><td class="sym">μ</td><td>一張單值幾公尺</td><td>λ × 每單行數</td></tr>
+        <tr><td class="sym">ρ</td><td>從哪台貨架拿的差價</td><td>距離 ÷ 已揀件數</td></tr>
+        <tr><td class="sym">ε</td><td>平手時偏好現在做</td><td>0.001 × λ</td></tr>
+        <tr><td class="sym">β</td><td>看得到的裡面有幾成做得到</td><td>綁定行數 ÷ 估值行數 ≈ 0.19</td></tr>
+        <tr><td class="mono">Dinkelbach</td><td>把除法變成加減法的迭代</td><td>猜匯率 → 解 → 更新匯率</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="col" style="margin-top:22px"><strong>最後再回到那一句話：</strong>
+  倉庫唯一花掉的是<span class="cost">走路</span>，唯一賺到的是<span class="val">把事做完</span>。
+  M4 把所有東西都換算成公尺，然後問一個問題 ——
+  <strong>「這一步，每賺一分價值要走幾公尺？」</strong></p>
+</section>
+
+<footer>
+  模型陳述取自 <code>M4GManager.cs</code>（限制式 R／V／B、目標式 T1–T6）與
+  <code>M4GPricing.cs</code>，設定為正典的 <code>m4g.xconf</code>。
+  §8 的數字為小規模 6 機器人、seed 0 的單場實測；β = 0 一列來自
+  <code>m4g_beta0.xconf</code>（<code>DeltaScale = 0</code>）。
+  基準模型的符號與式號沿用 Jiao et al. (2026), <em>Omega</em> 138:103374。
+</footer>
+
+</div>

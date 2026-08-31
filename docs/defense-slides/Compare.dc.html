@@ -1,0 +1,115 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
+           background: #F4F2ED; color: #12212E; }
+    a { color: #0E7C86; } a:hover { color: #0A5D64; }
+    .m  { font-family: Cambria, "Times New Roman", serif; font-style: italic; }
+    sub, sup { font-size: 0.66em; }
+    td { font-size: 12.5px; line-height: 1.5; }
+    .hd { font-family: Consolas, monospace; font-size: 11px; font-weight: 700;
+          letter-spacing: 0.1em; padding: 8px 12px; }
+    .rl { color: #6B767F; font-size: 12px; padding: 7px 12px; vertical-align: top; }
+    .c1 { padding: 7px 12px; vertical-align: top; color: #444C54; }
+    .c2 { padding: 7px 12px; vertical-align: top; color: #12212E; }
+  </style>
+</helmet>
+<div style="width: 1280px; height: 720px; box-sizing: border-box; padding: 44px 60px 32px;
+            display: flex; flex-direction: column; background: #F4F2ED;">
+
+  <div style="font-family: Consolas, monospace; font-size: 12px; letter-spacing: 0.14em;
+              color: #0E7C86; font-weight: 700;">總覽 · 增量對照</div>
+  <div style="font-size: 28px; font-weight: 700; margin-top: 6px; letter-spacing: -0.01em;">
+    M1G &rarr; M4G：改了什麼，沒改什麼
+  </div>
+  <div style="height: 2px; background: #D5D0C6; margin: 12px 0 12px;"></div>
+
+  <table style="width: 100%; border-collapse: collapse; background: #FFFFFF; border: 1px solid #D5D0C6;">
+    <tr style="background: #12212E; color: #F4F2ED;">
+      <td class="hd" style="width: 150px; color: #7EB8BD;">維度</td>
+      <td class="hd" style="width: 420px;">M1G</td>
+      <td class="hd" style="color: #7EB8BD;">M4G</td>
+    </tr>
+
+    <tr style="border-bottom: 1px solid #E6E2DA; background: #EAF4F4;">
+      <td class="rl" style="color:#0E7C86; font-weight:700;">決策原子</td>
+      <td class="c1">訂單 &mdash; <span class="m">y<sub>os</sub></span> &isin; {0,1}</td>
+      <td class="c2"><b style="color:#0E7C86;">件 &mdash; <span class="m">q<sub>oips</sub></span> &isin; &#8484;<sub>&ge;0</sub></b></td></tr>
+
+    <tr style="border-bottom: 1px solid #E6E2DA;">
+      <td class="rl">拆單能力</td>
+      <td class="c1">無。一單整批、單站、當期</td>
+      <td class="c2">跨站、跨期、多貨架皆可，由價格決定是否行使</td></tr>
+
+    <tr style="border-bottom: 1px solid #E6E2DA;">
+      <td class="rl">完成變數</td>
+      <td class="c1">無 &mdash; 指派即蘊含完整覆蓋（shi5）</td>
+      <td class="c2">須有 <span class="m">c<sub>oi</sub></span>、<span class="m">z<sub>o</sub></span>；容許部分滿足後「指派」不再蘊含「完成」</td></tr>
+
+    <tr style="border-bottom: 1px solid #E6E2DA;">
+      <td class="rl">槽位限制</td>
+      <td class="c1">shi4 <b style="color:#A33B2A;">等式</b>：&Sigma;<span class="m">y<sub>aos</sub></span> = <span class="m">C<sub>s</sub></span> &minus; <span class="m">u<sub>s</sub></span></td>
+      <td class="c2">B3 <b>不等式</b>：&Sigma;<span class="m">y<sub>os</sub></span> &le; <span class="m">C<sub>s</sub></span>（空槽不被強制填滿）</td></tr>
+
+    <tr style="border-bottom: 1px solid #E6E2DA; background: #FDF7E8;">
+      <td class="rl" style="color:#B8861F; font-weight:700;">兩層價格比</td>
+      <td class="c1">手工釘死 1000 : 40（隱含 <span class="m">&delta;</span> &asymp; 0.038）</td>
+      <td class="c2"><b style="color:#B8861F;"><span class="m">&delta;</span> 由系統歷史自我校準</b>（實測 &asymp; 0.18）</td></tr>
+
+    <tr style="border-bottom: 1px solid #E6E2DA;">
+      <td class="rl">目標式型態</td>
+      <td class="c1">線性加權和，權重外生且固定</td>
+      <td class="c2">比值 <span class="m">D</span>/<span class="m">V</span>，經 Dinkelbach 線性化</td></tr>
+
+    <tr style="border-bottom: 1px solid #E6E2DA;">
+      <td class="rl">價格量綱</td>
+      <td class="c1">無量綱權重</td>
+      <td class="c2">全部以<b>公尺</b>計價，可直接互相比較</td></tr>
+
+    <tr style="border-bottom: 1px solid #E6E2DA;">
+      <td class="rl">貨架行程成本</td>
+      <td class="c1">僅新派出者計費</td>
+      <td class="c2">同左，另加貨架層級定價 <span class="m">&rho;</span>（訂單原子下無對應物）</td></tr>
+
+    <tr style="border-bottom: 1px solid #E6E2DA; background: #F7F6F2;">
+      <td class="rl" style="font-weight:700;">維持不變</td>
+      <td class="c1" colspan="2">
+        <b>TA 在模型內</b>（<span class="m">y<sub>rp</sub></span>）&nbsp;·&nbsp;
+        貨架/機器人限制式語意相同（shi6&ndash;shi11 &rarr; R1&ndash;R5）&nbsp;·&nbsp;
+        每空一格觸發決策 &nbsp;·&nbsp; 站台容量為<b>訂單級</b> &nbsp;·&nbsp;
+        路徑規劃 WHCA*<span class="m">n</span> 與貨架放回策略完全相同
+      </td></tr>
+  </table>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 26px; margin-top: 16px; flex-grow: 1;">
+    <div style="border-left: 3px solid #0E7C86; padding: 6px 0 6px 14px;">
+      <div style="font-size: 13.5px; font-weight: 700; margin-bottom: 5px;">為何這是<b style="color:#0E7C86;">增量</b>而非新模型</div>
+      <div style="font-size: 12px; color: #6B767F; line-height: 1.65;">
+        限制式集合、變數語意、決策時機、下游控制器全部承接 M1G。
+        真正被替換的只有兩件事：<b>決策原子</b>與<b>目標式</b>。
+      </div>
+    </div>
+    <div style="border-left: 3px solid #B8861F; padding: 6px 0 6px 14px;">
+      <div style="font-size: 13.5px; font-weight: 700; margin-bottom: 5px;">兩者不是一般式與特例</div>
+      <div style="font-size: 12px; color: #6B767F; line-height: 1.65;">
+        M4G 的<b>可行解集合嚴格包含</b> M1G 的可行解集合；
+        但兩者<b>目標式不同族</b>，且皆為逐期最佳化 &mdash;
+        解空間的包含關係<b>不蘊含</b>軌跡表現的支配關係。
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1280,"height":720}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
+           background: #F4F2ED; color: #12212E; }
+    a { color: #0E7C86; } a:hover { color: #0A5D64; }
+    .m  { font-family: Cambria, "Times New Roman", serif; font-style: italic; }
+    sub, sup { font-size: 0.66em; }
+    .cid { font-family: Consolas, monospace; font-size: 11px; color: #6B767F; }
+    .cd  { font-family: Cambria, "Times New Roman", serif; font-size: 14.5px; }
+    .cw  { font-size: 11.5px; color: #6B767F; line-height: 1.5; }
+  </style>
+</helmet>
+<div style="width: 1280px; height: 720px; box-sizing: border-box; padding: 44px 60px 32px;
+            display: flex; flex-direction: column; background: #F4F2ED;">
+
+  <div style="font-family: Consolas, monospace; font-size: 12px; letter-spacing: 0.14em;
+              color: #0E7C86; font-weight: 700;">增量 ① · 決策原子</div>
+  <div style="font-size: 28px; font-weight: 700; margin-top: 6px; letter-spacing: -0.01em;">
+    由「訂單」降到「件」&mdash;&mdash; 以及隨之浮現的結構後果
+  </div>
+  <div style="height: 2px; background: #D5D0C6; margin: 12px 0 12px;"></div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px; margin-bottom: 16px;">
+    <div style="background: #FFFFFF; border: 1px solid #D5D0C6; padding: 14px 18px;">
+      <div class="cid" style="color:#6B767F; font-weight:700; letter-spacing:0.1em;">M1G</div>
+      <div style="font-family: Cambria, 'Times New Roman', serif; font-size: 21px; margin: 7px 0 6px;">
+        <span class="m">y<sub>os</sub></span> &isin; {0, 1}</div>
+      <div class="cw">原子＝<b>訂單</b>。一張單只能整批、單站、當期指派。</div>
+    </div>
+    <div style="background: #FFFFFF; border: 1px solid #D5D0C6; border-left: 4px solid #0E7C86; padding: 14px 18px;">
+      <div class="cid" style="color:#0E7C86; font-weight:700; letter-spacing:0.1em;">M4G</div>
+      <div style="font-family: Cambria, 'Times New Roman', serif; font-size: 21px; margin: 7px 0 6px; color:#0E7C86;">
+        <span class="m">q<sub>oips</sub></span> &isin; &#8484;<sub>&ge;0</sub></div>
+      <div class="cw">原子＝<b>件</b>。訂單 <span class="m">o</span> 的 SKU <span class="m">i</span>
+        由貨架 <span class="m">p</span> 於站台 <span class="m">s</span> 取幾件 &mdash;
+        <b>跨站、跨期、多貨架皆可</b>。</div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 0.95fr 1.15fr; gap: 26px; flex-grow: 1;">
+
+    <div>
+      <div style="font-family: Consolas, monospace; font-size: 11px; color: #B8861F;
+                  font-weight: 700; letter-spacing: 0.1em; margin-bottom: 8px;">兩層各自的變數集合</div>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr style="background:#EAF4F4;">
+          <td colspan="2" style="padding: 5px 8px; font-size: 12px; font-weight: 700; color:#0E7C86;">估值層（帶帽）</td></tr>
+        <tr style="border-bottom: 1px solid #E6E2DA;">
+          <td class="cd" style="width: 74px; padding: 5px 8px;"><span class="m">q&#770;<sub>oips</sub></span></td>
+          <td class="cw" style="padding: 5px 0;">估值取件量</td></tr>
+        <tr style="border-bottom: 1px solid #E6E2DA;">
+          <td class="cd" style="padding: 5px 8px;"><span class="m">c&#770;<sub>oi</sub></span></td>
+          <td class="cw" style="padding: 5px 0;">訂單行 (<span class="m">o</span>,<span class="m">i</span>) 已被取滿</td></tr>
+        <tr style="border-bottom: 1px solid #E6E2DA;">
+          <td class="cd" style="padding: 5px 8px;"><span class="m">z&#770;<sub>o</sub></span></td>
+          <td class="cw" style="padding: 5px 0;">訂單 <span class="m">o</span> 全部行皆關閉</td></tr>
+        <tr style="background:#FDF7E8;">
+          <td colspan="2" style="padding: 5px 8px; font-size: 12px; font-weight: 700; color:#B8861F;">綁定層</td></tr>
+        <tr style="border-bottom: 1px solid #E6E2DA;">
+          <td class="cd" style="padding: 5px 8px;"><span class="m">q<sub>oips</sub></span></td>
+          <td class="cw" style="padding: 5px 0;">實際取件量</td></tr>
+        <tr style="border-bottom: 1px solid #E6E2DA;">
+          <td class="cd" style="padding: 5px 8px;"><span class="m">y<sub>os</sub></span></td>
+          <td class="cw" style="padding: 5px 0;">訂單 <span class="m">o</span> 於站台 <span class="m">s</span> 佔用一個槽位</td></tr>
+        <tr style="border-bottom: 1px solid #E6E2DA;">
+          <td class="cd" style="padding: 5px 8px;"><span class="m">c<sub>oi</sub></span>, <span class="m">z<sub>o</sub></span></td>
+          <td class="cw" style="padding: 5px 0;">綁定的行關閉與訂單完成</td></tr>
+        <tr>
+          <td class="cd" style="padding: 5px 8px;"><span class="m">x<sub>ps</sub></span>, <span class="m">y<sub>rp</sub></span></td>
+          <td class="cw" style="padding: 5px 0;">貨架與機器人指派（<b>與 M1G 相同</b>，TA 仍在模型內）</td></tr>
+      </table>
+    </div>
+
+    <div>
+      <div style="font-family: Consolas, monospace; font-size: 11px; color: #B8861F;
+                  font-weight: 700; letter-spacing: 0.1em; margin-bottom: 8px;">限制式的對應改寫</div>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr style="border-bottom: 1px solid #E6E2DA;">
+          <td class="cid" style="width: 96px; padding: 5px 0; vertical-align: top;">shi2 &rarr; <b style="color:#0E7C86;">（移除）</b></td>
+          <td class="cw" style="padding: 5px 0 5px 8px;">一單一站的限制取消；<b>拆單即由此浮現</b>，而非新增功能</td></tr>
+        <tr style="border-bottom: 1px solid #E6E2DA;">
+          <td class="cid" style="padding: 5px 0; vertical-align: top;">shi5 &rarr; V1&ndash;V3</td>
+          <td class="cw" style="padding: 5px 0 5px 8px;">整單覆蓋不等式，拆成<b>逐 (SKU, 貨架, 站台) 的取件上限</b>與<b>逐行的關閉條件</b></td></tr>
+        <tr style="border-bottom: 1px solid #E6E2DA;">
+          <td class="cid" style="padding: 5px 0; vertical-align: top;">&mdash; &rarr; V4 / B7</td>
+          <td class="cw" style="padding: 5px 0 5px 8px;"><b style="color:#0E7C86;">新增完成變數。</b>容許部分滿足後，「指派」不再蘊含「完成」，故 <span class="m">c</span>、<span class="m">z</span> 必須存在</td></tr>
+        <tr style="border-bottom: 1px solid #E6E2DA;">
+          <td class="cid" style="padding: 5px 0; vertical-align: top;">shi3 &rarr; B1</td>
+          <td class="cw" style="padding: 5px 0 5px 8px;">綁定 &le; 估值，由訂單層級改為<b>逐件</b>：<span class="m">q</span> &le; <span class="m">q&#770;</span></td></tr>
+        <tr style="border-bottom: 1px solid #E6E2DA; background:#FDF7E8;">
+          <td class="cid" style="padding: 5px 0; vertical-align: top; color:#B8861F; font-weight:700;">shi4 &rarr; B3</td>
+          <td class="cw" style="padding: 5px 4px 5px 8px;">&Sigma;<sub><span class="m">o</span></sub> <span class="m">y<sub>os</sub></span>
+            <b style="color:#A33B2A;"> &le; </b> <span class="m">C<sub>s</sub></span> &mdash;
+            <b style="color:#A33B2A;">等式改為不等式</b>，空槽不再被強制填滿</td></tr>
+        <tr>
+          <td class="cid" style="padding: 5px 0; vertical-align: top;">shi6&ndash;shi11 &rarr; R1&ndash;R5</td>
+          <td class="cw" style="padding: 5px 0 5px 8px;">貨架/機器人/承諾繼承的限制式<b>語意不變</b>，僅重新編號</td></tr>
+      </table>
+
+      <div style="border-left: 3px solid #0E7C86; padding: 8px 0 8px 13px; margin-top: 12px;">
+        <div class="cw" style="color:#12212E;">
+          <b>槽位仍以訂單計。</b>拆到兩個站台就佔用兩個槽位（B2/B3）&mdash;
+          這是同期跨站拆單罕見的<b>結構性原因</b>，非模型缺陷。
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1280,"height":720}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>

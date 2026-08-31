@@ -1,0 +1,606 @@
+# -*- coding: utf-8 -*-
+"""Fill slides 24-27 (Chapter 05 Methodology) of Defense.pptx.
+
+Design vocabulary lifted from the deck's own content slides (10-13):
+  dark header bar  #1F3864 navy / #3B6135 green, white Times New Roman Bold 13.7pt
+  light panel      #EDF3FC / #EEF5EA
+  body             Times New Roman 16-18pt #404040
+  accent           #4F8B3A (green), #1F3864 (navy)
+Canvas is 20" x 11.25"; the content band is x 0.385..19.615, y 1.45..10.10.
+"""
+import io, os, re
+
+E = 914400.0
+SLIDES = "unpacked/ppt/slides"
+
+NAVY, NAVY_MID, NAVY_LT = "1F3864", "9DB8DA", "EDF3FC"
+GREEN, GREEN_MID, GREEN_LT = "3B6135", "9CBE8C", "EEF5EA"
+ACC = "4F8B3A"
+BODY, MUTED, WHITE = "404040", "595959", "FFFFFF"
+TNR, TNRB = "Times New Roman", "Times New Roman Bold"
+
+L, R = 0.385, 19.615          # content left / right edge
+TOP, BOT = 1.45, 10.10        # content top / bottom edge
+
+_uid = [200]
+
+
+def nid():
+    _uid[0] += 1
+    return _uid[0]
+
+
+def emu(v):
+    return int(round(v * E))
+
+
+def esc(t):
+    return t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+# ── run helpers ───────────────────────────────────────────────────────────
+def run(text, sz=1600, color=BODY, bold=False, italic=False, face=None, base=None):
+    """One text run. base: 'sub' | 'sup' | None."""
+    face = face or (TNRB if bold else TNR)
+    attrs = 'lang="en-US" sz="%d"' % sz
+    if bold:
+        attrs += ' b="true"'
+    if italic:
+        attrs += ' i="true"'
+    if base == "sub":
+        attrs += ' baseline="-25000"'
+    elif base == "sup":
+        attrs += ' baseline="30000"'
+    return ('<a:r><a:rPr %s><a:solidFill><a:srgbClr val="%s"/></a:solidFill>'
+            '<a:latin typeface="%s"/><a:ea typeface="%s"/><a:cs typeface="%s"/>'
+            '</a:rPr><a:t xml:space="preserve">%s</a:t></a:r>'
+            % (attrs, color, face, face, face, esc(text)))
+
+
+def var(name, sub="", sz=1600, color=BODY, sup=""):
+    """An italic symbol with an optional subscript / superscript."""
+    out = run(name, sz, color, italic=True)
+    if sub:
+        out += run(sub, sz, color, italic=True, base="sub")
+    if sup:
+        out += run(sup, sz, color, italic=True, base="sup")
+    return out
+
+
+def para(runs, align="l", line=None, before=0, indent=None):
+    pPr = '<a:pPr algn="%s"' % align
+    inner = ""
+    if indent is not None:
+        pPr += ' marL="%d" indent="%d"' % (emu(indent), -emu(indent))
+    pPr += ">"
+    if line:
+        inner += "<a:lnSpc><a:spcPts val=\"%d\"/></a:lnSpc>" % line
+    if before:
+        inner += "<a:spcBef><a:spcPts val=\"%d\"/></a:spcBef>" % before
+    inner += "<a:buNone/>"
+    return "<a:p>" + pPr + inner + "</a:pPr>" + "".join(runs) + "</a:p>"
+
+
+# ── shape helpers ─────────────────────────────────────────────────────────
+def rect(x, y, w, h, fill=None, line=None, lw=1):
+    i = nid()
+    fill_xml = ('<a:solidFill><a:srgbClr val="%s"/></a:solidFill>' % fill) if fill \
+        else "<a:noFill/>"
+    line_xml = ('<a:ln w="%d"><a:solidFill><a:srgbClr val="%s"/></a:solidFill></a:ln>'
+                % (int(lw * 12700), line)) if line else "<a:ln><a:noFill/></a:ln>"
+    return ('<p:sp><p:nvSpPr><p:cNvPr name="Shape %d" id="%d"/><p:cNvSpPr/><p:nvPr/>'
+            '</p:nvSpPr><p:spPr><a:xfrm><a:off x="%d" y="%d"/><a:ext cx="%d" cy="%d"/>'
+            '</a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom>%s%s</p:spPr>'
+            '<p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:endParaRPr lang="en-US"/></a:p>'
+            '</p:txBody></p:sp>'
+            % (i, i, emu(x), emu(y), emu(w), emu(h), fill_xml, line_xml))
+
+
+def tbox(x, y, w, h, paras, anchor="t"):
+    i = nid()
+    return ('<p:sp><p:nvSpPr><p:cNvPr name="Text %d" id="%d"/><p:cNvSpPr txBox="true"/>'
+            '<p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="%d" y="%d"/>'
+            '<a:ext cx="%d" cy="%d"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/>'
+            '</a:prstGeom><a:noFill/></p:spPr><p:txBody>'
+            '<a:bodyPr anchor="%s" wrap="square" rtlCol="false" tIns="0" lIns="0" '
+            'bIns="0" rIns="0"/><a:lstStyle/>%s</p:txBody></p:sp>'
+            % (i, i, emu(x), emu(y), emu(w), emu(h), anchor, "".join(paras)))
+
+
+def bar(x, y, w, label, dark=NAVY, h=0.46, sz=1370):
+    """Dark section header bar with white label."""
+    return (rect(x, y, w, h, fill=dark)
+            + tbox(x + 0.20, y + 0.10, w - 0.40, h - 0.16,
+                   [para([run(label, sz, WHITE, bold=True)], line=int(sz * 1.15))]))
+
+
+def panel(x, y, w, h, light=NAVY_LT):
+    return rect(x, y, w, h, fill=light)
+
+
+def block(x, y, w, label, body_h, paras, dark=NAVY, light=NAVY_LT, pad=0.22, top=0.16):
+    """Header bar + light panel + the panel's text. Returns (xml, total height)."""
+    bh = 0.46
+    xml = bar(x, y, w, label, dark, bh)
+    xml += panel(x, y + bh, w, body_h, light)
+    xml += tbox(x + pad, y + bh + top, w - 2 * pad, body_h - top - 0.10, paras)
+    return xml, bh + body_h
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Slide 24 — Baseline: M1G
+# ══════════════════════════════════════════════════════════════════════════
+def slide24():
+    xml = ""
+    colw_l = 11.05
+    colw_r = R - (L + colw_l + 0.45)
+    xr = L + colw_l + 0.45
+
+    # ---- left: decision variables ----------------------------------------
+    def vrow(sym, sub, desc, color=BODY, bold_desc=False):
+        return para([var(sym, sub, 1600, color)] + [run("   " + desc, 1600, BODY,
+                                                        bold=bold_desc)],
+                    line=1960, before=60)
+
+    vars_paras = [
+        para([run("Binary unless stated; every symbol below is a variable of the "
+                  "same single-epoch MILP.", 1400, MUTED)], line=1700),
+        vrow("x", "ps", "pod p is dispatched to station s"),
+        para([var("y", "os", 1600, NAVY), run("   ", 1600),
+              run("order o is ", 1600, NAVY, bold=True),
+              run("valued", 1600, NAVY, bold=True),
+              run(" at station s  — not slot-limited", 1600, NAVY)],
+             line=1960, before=60),
+        para([var("y", "aos", 1600, GREEN), run("   ", 1600),
+              run("order o is ", 1600, GREEN, bold=True),
+              run("bound", 1600, GREEN, bold=True),
+              run(" at station s  — consumes a slot", 1600, GREEN)],
+             line=1960, before=60),
+        vrow("y", "rp", "robot r carries pod p   (task allocation is inside the model)"),
+        para([var("u", "s", 1600), run("   station s's unused slots   ", 1600),
+              run("(integer)", 1400, MUTED)], line=1960, before=60),
+        vrow("d", "ops", "pod p serves order o at station s"),
+    ]
+    x1, h1 = block(L, TOP, colw_l, "Decision Variables", 2.28, vars_paras)
+    xml += x1
+
+    # ---- left: objective --------------------------------------------------
+    y2 = TOP + h1 + 0.15
+    obj = [run("min   ", 1800, BODY, bold=True)]
+    obj += [var("w", "1", 1800), run("·(travel distance of newly dispatched pods "
+                                     "and their robots)", 1800)]
+    obj2 = [run("            + ", 1800), var("w", "2", 1800), run(" Σ ", 1800),
+            var("y", "os", 1800, NAVY), run("   + ", 1800), var("w", "3", 1800),
+            run(" Σ ", 1800), var("u", "s", 1800)]
+    obj_paras = [
+        para(obj, line=2160),
+        para(obj2, line=2160, before=40),
+        para([run("w₁ = 1  (metres)          w₂ = −40  (assignment reward)          "
+                  "w₃ = 1000  (idle-slot penalty)", 1500, MUTED)],
+             line=1800, before=140),
+        para([run("All three are exogenous hand-tuned constants; the original authors "
+                  "state they were ", 1500, MUTED),
+              run("determined by a series of preliminary experiments", 1500, MUTED,
+                  italic=True), run(".", 1500, MUTED)], line=1800, before=40),
+    ]
+    x2, h2 = block(L, y2, colw_l, "Objective", 1.70, obj_paras)
+    xml += x2
+
+    # ---- left: constraints -------------------------------------------------
+    y3 = y2 + h2 + 0.15
+
+    def crow(tag, expr_runs, note):
+        return para([run(tag + "   ", 1500, NAVY, bold=True)] + expr_runs
+                    + [run("     " + note, 1500, MUTED)], line=1880, before=70)
+
+    cons_paras = [
+        crow("shi2", [run("Σ", 1600), run("ₛ ", 1400), var("y", "os", 1600, NAVY),
+                      run(" ≤ 1", 1600)],
+             "one order to at most one station — the no-splitting rule"),
+        crow("shi3", [var("y", "aos", 1600, GREEN), run(" ≤ ", 1600),
+                      var("y", "os", 1600, NAVY)],
+             "binding is a subset of valuation"),
+        para([run("shi4   ", 1500, GREEN, bold=True), run("Σ", 1600),
+              run("ₒ ", 1400), var("y", "aos", 1600, GREEN),
+              run("  =  ", 1600, GREEN, bold=True), var("C", "s", 1600),
+              run(" − ", 1600), var("u", "s", 1600),
+              run("     slot conservation — an ", 1500, MUTED),
+              run("equality", 1500, GREEN, bold=True),
+              run(", not an inequality", 1500, MUTED)], line=1880, before=70),
+        crow("shi5", [run("Σ", 1600), run("ₒ ", 1400), var("d", "oi", 1600),
+                      var("y", "os", 1600, NAVY), run(" ≤ Σ", 1600), run("ₚ ", 1400),
+                      var("k", "pi", 1600), var("x", "ps", 1600)],
+             "the whole order must be covered at one station"),
+        para([run("shi6 – shi11", 1500, NAVY, bold=True),
+              run("   one pod per station, one robot per pod, one pod per robot, and "
+                  "inheritance of pods and robots already committed by the system.",
+                  1500, BODY)], line=1880, before=70),
+        para([run("shi12 – shi13", 1500, NAVY, bold=True),
+              run("   a pod may serve an order only once both are at the station; a "
+                  "newly dispatched pod must serve at least one order.", 1500, BODY)],
+             line=1880, before=70),
+        para([run("No completion variable exists.", 1500, BODY, bold=True),
+              run("  Under shi5 an assignment already implies full coverage, so "
+                  "“completed” needs no variable. Pod-to-order-line "
+                  "attribution is resolved by a greedy pass ", 1500, BODY),
+              run("outside", 1500, BODY, bold=True),
+              run(" the MILP.", 1500, BODY)], line=1880, before=140),
+    ]
+    x3, h3 = block(L, y3, colw_l, "Constraints", BOT - y3 - 0.46, cons_paras)
+    xml += x3
+
+    # ---- right: key observation --------------------------------------------
+    obs = [
+        para([run("M1G already separates a ", 1850, BODY),
+              run("valuation", 1850, NAVY, bold=True), run(" layer from a ", 1850, BODY),
+              run("binding", 1850, GREEN, bold=True),
+              run(" layer. The proposed model does not invent this split — it "
+                  "re-prices it.", 1850, BODY)], line=2280),
+        para([var("y", "os", 1900, NAVY), run("   valuation", 1900, NAVY, bold=True)],
+             line=2280, before=440),
+        para([run("shi2 + shi5 only. Free of the slot limit, so it may claim more "
+                  "value than the station can hold. Carries w₂ = −40.", 1700, BODY)],
+             line=2080, before=70),
+        para([var("y", "aos", 1900, GREEN), run("   binding", 1900, GREEN, bold=True)],
+             line=2280, before=400),
+        para([run("shi3 + shi4. This is what actually executes — the station's order "
+                  "queue is built from it. Carries no coefficient in the objective.",
+                  1700, BODY)], line=2080, before=70),
+        para([run("Substituting the shi4 equality", 1800, BODY, bold=True)],
+             line=2160, before=480),
+        para([var("u", "s", 1700), run(" = ", 1700), var("C", "s", 1700),
+              run(" − Σ", 1800), run("ₒ ", 1600), var("y", "aos", 1800, GREEN)],
+             line=2200, before=120),
+        para([var("w", "3", 1700), run(" Σ", 1700), run("ₛ ", 1500), var("u", "s", 1700),
+              run("  =  const − 1000 · Σ ", 1800), var("y", "aos", 1800, GREEN)],
+             line=2200, before=120),
+        para([run("Effective coefficients:  ", 1750, BODY),
+              run("valuation −40", 1750, NAVY, bold=True), run("  /  ", 1750, BODY),
+              run("binding −1000", 1750, GREEN, bold=True)], line=2100, before=420),
+        para([run("⇒  an implicit realisation rate ", 1900, BODY),
+              var("δ", "", 1900, ACC), run(" = 40 / 1000 ≈ ", 1900, BODY),
+              run("0.038", 1900, ACC, bold=True)], line=2280, before=170),
+        para([run("The ratio is pinned by hand. The long-term benefit it stands for is, "
+                  "in the authors' own words, ", 1500, MUTED),
+              run("“cannot be accurately quantified”", 1500, MUTED,
+                  italic=True),
+              run(". That is the opening this study takes.", 1550, MUTED)],
+             line=1880, before=440),
+    ]
+    xo, _ = block(xr, TOP, colw_r, "Key Observation  ·  Two Layers Already Exist",
+                  BOT - TOP - 0.46, obs, dark=GREEN, light=GREEN_LT)
+    xml += xo
+    return xml
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Slide 25 — Proposed Exact Model: M4G
+# ══════════════════════════════════════════════════════════════════════════
+def slide25():
+    xml = ""
+    colw = (R - L - 0.45) / 2.0
+    xr = L + colw + 0.45
+
+    # ---- atom contrast strip ----------------------------------------------
+    strip_h = 1.24
+    half = (R - L - 0.30) / 2.0
+    xml += rect(L, TOP, half, strip_h, fill=NAVY_LT)
+    xml += tbox(L + 0.26, TOP + 0.18, half - 0.52, strip_h - 0.30, [
+        para([run("M1G   ", 1400, NAVY, bold=True),
+              run("atom = the order", 1400, MUTED)], line=1700),
+        para([var("y", "os", 2100, NAVY), run("  ∈ {0, 1}", 2100, NAVY)],
+             line=2400, before=60),
+        para([run("One order, in full, at one station, in this epoch.", 1500, BODY)],
+             line=1800, before=60),
+    ])
+    xml += rect(L + half + 0.30, TOP, half, strip_h, fill=GREEN_LT)
+    xml += tbox(L + half + 0.56, TOP + 0.18, half - 0.52, strip_h - 0.30, [
+        para([run("M4G   ", 1400, GREEN, bold=True),
+              run("atom = the item", 1400, MUTED)], line=1700),
+        para([var("q", "oips", 2100, GREEN), run("  ∈ ℤ", 2100, GREEN),
+              run("≥0", 1500, GREEN, base="sub")], line=2400, before=60),
+        para([run("How many units of SKU i of order o are drawn from pod p at "
+                  "station s.", 1500, BODY)], line=1800, before=60),
+    ])
+
+    y = TOP + strip_h + 0.24
+
+    # ---- left: constraint rewrite -----------------------------------------
+    def crow(lhs, rhs_runs, before=90):
+        return para([run(lhs, 1500, GREEN, bold=True)] + rhs_runs,
+                    line=1880, before=before)
+
+    left = [
+        crow("shi2  →  removed", [
+            run("   the one-order-one-station rule is dropped. ", 1500, BODY),
+            run("Splitting is not an added feature — it is what remains once the "
+                "atom is finer.", 1500, BODY, bold=True)], before=0),
+        crow("shi5  →  V1–V3", [
+            run("   whole-order coverage becomes a per-(SKU, pod, station) draw "
+                "limit plus a per-line closure test.", 1500, BODY)]),
+        crow("new   →  V4 / B7", [
+            run("   completion variables ", 1500, BODY), var("c", "oi", 1500),
+            run(", ", 1500), var("z", "o", 1500),
+            run(" become necessary: once partial fulfilment is allowed, "
+                "“assigned” no longer implies “completed”.",
+                1500, BODY)]),
+        crow("shi3  →  B1", [
+            run("   binding ≤ valuation, restated per unit:  ", 1500, BODY),
+            var("q", "oips", 1500), run(" ≤ ", 1500), var("q̂", "oips", 1500)]),
+        para([run("shi4  →  B3", 1500, ACC, bold=True),
+              run("   Σ", 1600), run("ₒ ", 1400), var("y", "os", 1600),
+              run(" ≤ ", 1600, ACC, bold=True), var("C", "s", 1600),
+              run("   — the equality becomes an inequality, so idle slots are no "
+                  "longer force-filled.", 1500, BODY)], line=1880, before=90),
+        crow("shi6–shi11  →  R1–R5", [
+            run("   pod, robot and inheritance constraints are renumbered; their "
+                "meaning is unchanged.", 1500, BODY)]),
+        para([run("Slots are still counted per order.", 1500, BODY, bold=True),
+              run("  Splitting one order across two stations therefore costs two "
+                  "slots (B2/B3) — a structural reason why same-epoch cross-station "
+                  "splits stay rare, not a defect of the model.", 1500, BODY)],
+             line=1880, before=190),
+    ]
+    xl, _ = block(L, y, colw, "① Decision Atom  ·  Constraint Rewrite",
+                  BOT - y - 0.46, left, dark=NAVY, light=NAVY_LT)
+    xml += xl
+
+    # ---- right: pricing ----------------------------------------------------
+    right = [
+        para([run("min   ", 1800, BODY, bold=True), var("D", "", 1800),
+              run(" / ", 1800), var("V", "", 1800),
+              run("        Dinkelbach  ⇒   min   ", 1600, MUTED),
+              var("D", "", 1800), run(" − ", 1800), var("λ", "", 1800),
+              var("V", "", 1800)], line=2200),
+        para([run("Distance per unit of value delivered. Every price below is "
+                  "denominated in ", 1500, BODY),
+              run("metres", 1500, BODY, bold=True),
+              run(", so they are directly comparable with ", 1500, BODY),
+              var("D", "", 1500), run(".", 1500, BODY)], line=1820, before=80),
+        para([run("T1 / T2   ", 1500, GREEN, bold=True),
+              run("travel — only newly dispatched pods pay; pods already en route or "
+                  "at a station are sunk.", 1500, BODY)], line=1860, before=180),
+        para([run("T3          ", 1500, GREEN, bold=True),
+              run("line closure ", 1500, BODY), var("λ", "", 1500),
+              run(" — a bound line earns the full price, a line only the valuation "
+                  "layer can close earns ", 1500, BODY), var("δ", "", 1500, ACC),
+              run(" times it.", 1500, BODY)], line=1860, before=90),
+        para([run("T4          ", 1500, GREEN, bold=True),
+              run("order completion ", 1500, BODY), var("μ", "", 1500),
+              run(" — the same two-layer split.", 1500, BODY)], line=1860, before=90),
+        para([run("T5          ", 1500, GREEN, bold=True),
+              run("immediacy ", 1500, BODY), var("ε", "", 1500),
+              run(" — among equally valued solutions, prefer the one that executes "
+                  "now.", 1500, BODY)], line=1860, before=90),
+        para([run("T6          ", 1500, GREEN, bold=True),
+              run("pod tier ", 1500, BODY), var("ρ", "", 1500),
+              run(" — binding layer only. ", 1500, BODY),
+              run("This term has no counterpart under an order atom.", 1500, BODY,
+                  bold=True)], line=1860, before=90),
+        para([run("Prices are measured, not tuned", 1600, NAVY, bold=True)],
+             line=1980, before=200),
+        para([var("μ", "", 1600), run("  =  cumulative distance ÷ cumulative "
+                                           "completed orders", 1500, BODY)],
+             line=1860, before=70),
+        para([var("δ", "", 1600, ACC),
+              run("  =  cumulative bound completions ÷ cumulative valued completions",
+                  1500, BODY)], line=1860, before=70),
+        para([run("δ replaces M1G's hand-pinned 1000 : 40. It is a ", 1500, BODY),
+              run("realisation rate read off the system's own history", 1500, ACC,
+                  bold=True),
+              run(", recomputed as the run proceeds — no value in the price list is "
+                  "set by the modeller.", 1500, BODY)], line=1860, before=90),
+    ]
+    xrr, _ = block(xr, y, colw, "② Objective  ·  Self-Calibrated Pricing",
+                   BOT - y - 0.46, right, dark=GREEN, light=GREEN_LT)
+    xml += xrr
+    return xml
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Slide 26 — Proposed Heuristic: M5
+# ══════════════════════════════════════════════════════════════════════════
+def slide26():
+    xml = ""
+    colw_l = 11.05
+    colw_r = R - (L + colw_l + 0.45)
+    xr = L + colw_l + 0.45
+
+    why = [
+        para([run("M4G solves a MILP at every free slot. At the fleet sizes this "
+                  "study targets that becomes the bottleneck, so the same model is "
+                  "also given a greedy solver.", 1600, BODY)], line=1980),
+        para([run("M5 asks one question repeatedly:  ", 1600, BODY),
+              run("what is the single best marginal move right now?", 1600, NAVY,
+                  bold=True)], line=1980, before=120),
+        para([run("A.  draw-line", 1600, NAVY, bold=True),
+              run("      take one order line to its full current residual from stock "
+                  "already standing at a station.", 1600, BODY)], line=1940,
+             before=190),
+        para([run("Δ = −", 1600), var("λ", "", 1600),
+              run("   (−", 1600), var("μ", "", 1600),
+              run(" if it was the order's last open line)   ±", 1600),
+              var("ρ", "", 1600), run(" per unit by pod tier   −", 1600),
+              var("ε", "", 1600), run(" per unit", 1600)],
+             line=1900, before=60),
+        para([run("B.  dispatch", 1600, NAVY, bold=True),
+              run("        fetch an idle pod, paying robot→pod plus pod→station "
+                  "distance.", 1600, BODY)], line=1940, before=150),
+        para([run("Scored ", 1600, BODY), run("net of the draw-line moves it "
+                                              "immediately unlocks", 1600, BODY,
+                                              bold=True),
+              run(" — a dispatch on its own is pure cost and would never be taken.",
+                  1600, BODY)], line=1900, before=60),
+        para([run("Accept the most negative move; stop when none is negative.",
+                  1700, NAVY, bold=True)], line=2050, before=190),
+        para([run("Station slots and free robots stay ", 1600, BODY),
+              run("hard constraints, never prices", 1600, BODY, bold=True),
+              run(" — exactly as in M4G's B3.", 1600, BODY)], line=1940, before=70),
+    ]
+    xl, _ = block(L, TOP, colw_l, "Marginal-Line Greedy", BOT - TOP - 0.46, why)
+    xml += xl
+
+    align = [
+        para([run("Every move sets a variable that already exists in M4G's MILP, and "
+                  "the loop keeps R1–R5 / V1–V4 / B1–B7 satisfied throughout.",
+                  1600, BODY)], line=1980),
+        para([run("⇒  every M5 solution is feasible for M4G", 1700, GREEN, bold=True)],
+             line=2060, before=140),
+        para([run("obj(M5)  ≥  obj(M4G)", 1800, GREEN, bold=True)],
+             line=2160, before=90),
+        para([run("With both objectives written from the same price list, the gap "
+                  "between them is a ", 1500, BODY),
+              run("real and reportable optimality gap", 1500, BODY, bold=True),
+              run(" rather than an unexplained difference.", 1500, BODY)],
+             line=1860, before=90),
+        para([run("The objective is M4G's, term for term", 1600, GREEN, bold=True)],
+             line=1980, before=220),
+        para([run("including the valuation layer: a bound line earns −", 1500, BODY),
+              var("λ", "", 1500), run(", a line only the valuation layer can "
+                                           "close earns −", 1500, BODY),
+              var("λ", "", 1500), var("δ", "", 1500, ACC),
+              run(". δ is calibrated from the same bound-to-valued ratio, so the two "
+                  "solvers price identically.", 1500, BODY)], line=1860, before=70),
+        para([run("Declared difference:  line granularity", 1600, GREEN, bold=True)],
+             line=1980, before=220),
+        para([run("λ accrues only when a line closes in full (V3 / B5), so a per-unit "
+                  "move would score ≈ 0 for every unit but the last and a greedy "
+                  "search would never reach it.", 1500, BODY)], line=1860, before=70),
+        para([run("The cost is that one line cannot be assembled from two pods, which "
+                  "M4G can do. This gap is declared, not hidden.", 1500, BODY)],
+             line=1860, before=70),
+    ]
+    xrr, _ = block(xr, TOP, colw_r, "Why the Comparison Stays Clean",
+                   BOT - TOP - 0.46, align, dark=GREEN, light=GREEN_LT)
+    xml += xrr
+    return xml
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Slide 27 — Model Comparison Framework
+# ══════════════════════════════════════════════════════════════════════════
+def slide27():
+    xml = ""
+    # ---- comparison table --------------------------------------------------
+    tw = R - L
+    c0, c1 = 3.30, 7.55
+    c2 = tw - c0 - c1
+    hh = 0.50
+    rows = [
+        ("Decision atom",
+         [run("order — ", 1500, BODY), var("y", "os", 1500), run(" ∈ {0,1}", 1500)],
+         [run("item — ", 1500, BODY, bold=True), var("q", "oips", 1500),
+          run(" ∈ ℤ", 1500), run("≥0", 1300, BODY, base="sub")], True),
+        ("Order splitting",
+         [run("none; one order in full at one station", 1500, BODY)],
+         [run("across stations, epochs and pods — exercised only when the prices "
+              "justify it", 1500, BODY)], False),
+        ("Completion variable",
+         [run("none; assignment implies full coverage (shi5)", 1500, BODY)],
+         [run("required — ", 1500, BODY), var("c", "oi", 1500), run(", ", 1500),
+          var("z", "o", 1500),
+          run("; partial fulfilment breaks the implication", 1500, BODY)], False),
+        ("Slot constraint",
+         [run("shi4 ", 1500, BODY), run("equality", 1500, BODY, bold=True),
+          run(" — idle slots are force-filled", 1500, BODY)],
+         [run("B3 ", 1500, BODY), run("inequality", 1500, BODY, bold=True),
+          run(" — idle slots may be left open", 1500, BODY)], False),
+        ("Two-layer price ratio",
+         [run("pinned by hand at 1000 : 40   (implicit δ ≈ 0.038)", 1500, BODY)],
+         [run("δ measured from the system's own history", 1500, ACC, bold=True)], True),
+        ("Objective form",
+         [run("weighted linear sum; weights exogenous and fixed", 1500, BODY)],
+         [run("ratio D / V, linearised by Dinkelbach", 1500, BODY)], False),
+        ("Price dimension",
+         [run("dimensionless weights", 1500, BODY)],
+         [run("all prices in metres", 1500, BODY)], False),
+    ]
+    y = TOP
+    xml += rect(L, y, tw, hh, fill=NAVY)
+    xml += tbox(L + 0.20, y + 0.12, c0 - 0.40, hh - 0.20,
+                [para([run("Dimension", 1370, WHITE, bold=True)], line=1600)])
+    xml += tbox(L + c0 + 0.20, y + 0.12, c1 - 0.40, hh - 0.20,
+                [para([run("M1G   (baseline)", 1370, WHITE, bold=True)], line=1600)])
+    xml += tbox(L + c0 + c1 + 0.20, y + 0.12, c2 - 0.40, hh - 0.20,
+                [para([run("M4G / M5   (proposed)", 1370, WHITE, bold=True)],
+                      line=1600)])
+    y += hh
+    rh = 0.55
+    for label, a, b, hi in rows:
+        xml += rect(L, y, tw, rh, fill=(GREEN_LT if hi else NAVY_LT))
+        xml += tbox(L + 0.20, y + 0.15, c0 - 0.40, rh - 0.22,
+                    [para([run(label, 1500, NAVY, bold=True)], line=1780)])
+        xml += tbox(L + c0 + 0.20, y + 0.15, c1 - 0.40, rh - 0.22,
+                    [para(a, line=1780)])
+        xml += tbox(L + c0 + c1 + 0.20, y + 0.15, c2 - 0.40, rh - 0.22,
+                    [para(b, line=1780)])
+        y += rh
+    # unchanged row
+    xml += rect(L, y, tw, 0.74, fill="F2F2F2")
+    xml += tbox(L + 0.20, y + 0.17, c0 - 0.40, 0.52,
+                [para([run("Held constant", 1500, MUTED, bold=True)], line=1780)])
+    xml += tbox(L + c0 + 0.20, y + 0.17, tw - c0 - 0.40, 0.52,
+                [para([run("task allocation inside the model  ·  pod and robot "
+                           "constraints  ·  decision triggered on every freed slot  ·  "
+                           "order-level station capacity  ·  identical path planning "
+                           "and pod-return policy", 1500, BODY)], line=1780)])
+    y += 0.74 + 0.20
+
+    # ---- evaluation design -------------------------------------------------
+    colw = (R - L - 0.45) / 2.0
+    xr = L + colw + 0.45
+    ev_l = [
+        para([run("Small instance   ", 1600, NAVY, bold=True),
+              run("M4G  vs  M1G", 1700, BODY, bold=True)], line=2050),
+        para([run("Isolates the effect of the model itself: the exact solver is "
+                  "compared against the exact baseline it was derived from, under an "
+                  "identical simulator configuration.", 1500, BODY)],
+             line=1860, before=90),
+        para([run("Large instance   ", 1600, NAVY, bold=True),
+              run("M5  vs  HADGS", 1700, BODY, bold=True)], line=2050, before=170),
+        para([run("At fleet scale the baseline's own authors report M1G still leaves "
+                  "a 15.4 % gap and evaluate only their heuristic — so the comparison "
+                  "follows their experimental design rather than departing from it.",
+                  1500, BODY)], line=1860, before=90),
+    ]
+    xl, _ = block(L, y, colw, "Evaluation Design", BOT - y - 0.46, ev_l)
+    xml += xl
+
+    ev_r = [
+        para([run("Every arm runs on the same simulator build; the configuration "
+                  "files differ only in the order-batching block.", 1500, BODY)],
+             line=1860),
+        para([run("Reported metrics", 1600, GREEN, bold=True)], line=1980, before=140),
+        para([run("Orders completed, ", 1500, BODY),
+              run("items handled", 1500, BODY, bold=True),
+              run(" and backlog are reported together: splitting creates "
+                  "work-in-progress, so completed-order count alone understates a "
+                  "splitting model.", 1500, BODY)], line=1860, before=70),
+        para([run("Pile-on and energy per order measure the efficiency channel the "
+                  "objective targets.", 1500, BODY)], line=1860, before=70),
+        para([run("Paired by seed", 1600, GREEN, bold=True)], line=1980, before=170),
+        para([run("Arms share seeds and are compared with a paired test, so "
+                  "instance-to-instance variation is differenced out.", 1500, BODY)],
+             line=1860, before=70),
+    ]
+    xrr, _ = block(xr, y, colw, "Experimental Controls", BOT - y - 0.46, ev_r,
+                   dark=GREEN, light=GREEN_LT)
+    xml += xrr
+    return xml
+
+
+# ══════════════════════════════════════════════════════════════════════════
+def patch(n, xml):
+    p = os.path.join(SLIDES, "slide%d.xml" % n)
+    s = io.open(p, encoding="utf-8").read()
+    assert "</p:spTree>" in s
+    s = s.replace("</p:spTree>", xml + "</p:spTree>")
+    io.open(p, "w", encoding="utf-8", newline="").write(s)
+    print("patched slide%d.xml  (+%d chars)" % (n, len(xml)))
+
+
+if __name__ == "__main__":
+    patch(24, slide24())
+    patch(25, slide25())
+    patch(26, slide26())
+    patch(27, slide27())

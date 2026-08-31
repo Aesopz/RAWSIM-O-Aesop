@@ -1,0 +1,1183 @@
+                                                                                European Journal of Operational Research 288 (2021) 80­97
+
+                                                                       Contents lists available at ScienceDirect
+
+                           European Journal of Operational Research
+
+                                                                journal homepage: www.elsevier.com/locate/ejor
+
+Production, Manufacturing, Transportation and Logistics
+
+Introducing split orders and optimizing operational policies in robotic
+mobile fulfillment systems
+
+Lin Xie a,, Nils Thieme a, Ruslan Krenzler a, Hanyi Li b
+
+a Leuphana University of Lüneburg, Universitätallee 1, 21335 Lüneburg, Germany
+b Beijing Hanning Intelligent Tech Co., Ltd, Room 107­108, No.9 Kexing Road, Fengtai, Beijing, China
+
+article info                         abstract
+
+Article history:                     In robotic mobile fulfillment systems, human pickers don't go to the inventory area to search for and
+Received 26 December 2019            pick the ordered items. Instead, robots carry shelves (called "pods") containing ordered items from the
+Accepted 17 May 2020                 inventory area to picking stations. At the picking stations, pickers put ordered items into totes; then these
+Available online 26 May 2020         items are transported to the packing stations. This type of warehousing system relieves the human pick-
+                                     ers and improves the picking process. In this paper, we concentrate on decisions about the assignment of
+Keywords:                            pods to stations and orders to stations to fulfill picking for each incoming customer's order. In previous
+logistics                            research for an RMFS with multiple picking stations, these decisions are made sequentially with heuris-
+MIP models                           tics. Instead, we present a new MIP-model to integrate both decision problems. To improve the system
+Integrated operational optimization  performance even more, we extend our model by splitting orders. This means parts of an order are al-
+Robotic mobile fulfillment systems   lowed to be picked at different stations. To the best of the authors' knowledge, this is the first publication
+Split orders                         on split orders in an RMFS. And we prove the computational complexity of our models. We analyze differ-
+                                     ent performance metrics, such as pile-on, pod-station visits, robot moving distance and throughput. We
+                                     compare the results of our models in different instances with the sequential method in our open-source
+                                     simulation framework RAWSim-O. The integration of the decisions brings better performances, and al-
+                                     lowing split orders further improves the performances (for example: increasing throughput by 46%). In
+                                     order to reduce the computational time for a real-world application, we have proposed a heuristic.
+
+                                                                                                                     © 2020 The Author(s). Published by Elsevier B.V.
+                                            This is an open access article under the CC BY license. (http://creativecommons.org/licenses/by/4.0/)
+
+1. Introduction                                                                    2007). The unproductive searching and traveling times require the
+                                                                                   picker-to-parts system to have a large workforce, especially for
+    The most important and time-consuming task in a warehouse                      companies which have millions of small items in large warehouses,
+is the collection of items from their storage locations to fufill cus-             such as e-commerce companies like Amazon or retailers like Zara
+tomer orders. The process is called order picking, which may con-                  and Walmart, which provide both brick-and-mortar and online
+stitute about 50­65% of the operating costs. Therefore, the order                  shops. Dependent on the type of retailers, they are facing many
+picking is considered as the highest-priority area for productivity                diverse customer orders each day (both single-line and multi-line
+improvements (see De Koster, Le-Duc, & Roodbergen, 2007). Due                      orders). Also, the workforce of such companies is under high pres-
+to the increasingly fast-paced economy, it is becoming more and                    sure due to the long traveling time (see Wulfraat, 2012). Kiva Sys-
+more important that the orders are processed in a short time win-                  tems LLC, now Amazon Robotics LLC, came up with a unique solu-
+dow.                                                                               tion to avoid the unproductive times of human pickers in picker-to-
+                                                                                   parts systems; therefore, this solution accelerates the order picking
+    In a traditional manual order picking system (also called a                    process (see Wurman, D'Andrea, & Mountz, 2008). In such system,
+picker-to-parts system), the pickers spend 70% of their working time               robots are sent to carry storage units, so-called "pods," from the in-
+on the tasks of search and travel (see Tompkins, 2010; for an                      ventory area and bring them to human operators, who work only
+overview of manual order picking systems see De Koster et al.,                     at picking stations. At the stations, the items are picked according
+                                                                                   to the customers' orders. After picking, the robot transports the
+   Corresponding author.                                                           pod back to the storage area. There are also some other suppli-
+     E-mail addresses: xie@leuphana.de (L. Xie), nils.thieme@stud.leuphana.de (N.  ers of such systems, such as Scallog, Swisslog (KUKA), GreyOrange
+                                                                                   and Hitachi (see Banker, 2016). All of these systems may differ
+Thieme), ruslan.krenzler@leuphana.de (R. Krenzler), hli@hanningzn.com (H. Li).
+
+https://doi.org/10.1016/j.ejor.2020.05.032
+0377-2217/© 2020 The Author(s). Published by Elsevier B.V. This is an open access article under the CC BY license. (http://creativecommons.org/licenses/by/4.0/)
+L. Xie, N. Thieme and R. Krenzler et al. / European Journal of Operational Research 288 (2021) 80­97                                             81
+
+Table 1                                    publications
+Literatur overview in an RMFS.
+                                           Lamballais, Roy, and De Koster (2017),
+  decision problems                        Lamballais, Roy, and De Koster (2019)
+
+  Strategic level:                         Yuan, Dong, and Li (2016), Yuan and Gong (2017),
+  storage area dimensioning,               Zou, Xu, De Koster et al. (2018), Otten, Krenzler, Xie, Daduna, and Kruse (2019)
+  workstation placement
+  Tactical level:                          Zhang, Yang, and Weng (2019), Roy, Nigam, de Koster, Adan, and Resing (2019)
+  number of robots                         Boysen et al. (2017)
+                                           Cohen, Uras, and Koenig (2015),Cohen, Wagner, Kumar, Choset, and Koenig (2017),
+  Operational level:                       Merschformann et al. (2017)
+  decisions for each incoming order about
+  which robot carries                      Merschformann (2017),
+  which pod                                Weidinger, Boysen, and Briskorn (2018),
+  along which path                         Krenzler, Xie, and Li (2018)
+                                           Wurman et al. (2008),
+  to which station                         Merschformann et al. (2019)
+  decisions about where to                 Merschformann et al. (2018)
+  put the used pod back to                 Xie et al. (2019)
+                                           Hanson, Medbo, and Johansson (2018)
+  decision rules
+
+  simulation
+  demonstration
+  performance characteristics
+
+technically in certain aspects, such as the lifting mechanism, but      Table 2
+they share the same principle of the system (see the description        The operational decision problems in an RMFS.
+of such system in Section 2). This system is called robotic mobile
+fulfillment system (RMFS).                                              Decision problem                      Description
+
+1.1. Research background                                                Order Assignment:                     assignment of replenishment
+                                                                        Replenishment Order Assignment (ROA)  orders to replenishment stations
+    In an RMFS environment, various optimization and allocation         Pick Order Assignment (POA)           assignment of pick orders to
+problems have to be solved in real time. An overview of an              Task Creation:                        picking stations
+RMFS and other automated warehousing systems can be found in            Replenishment Pod Selection (RPS)
+Azadeh, de Koster, and Roy (2017) and Boysen, de Koster, and Wei-                                             selection of pods that will
+dinger (2018). Here we give you an short literature overview of         Pick Pod Selection (PPS)              move to a replenishment station
+RMFSs in Table 1, which also includes new researches that are not                                             to store replenishment items
+listed in both overview papers. The classification of three levels of   Pod Repositioning (PR)                selection of pods to use for
+problems is based on Merschformann, Lamballais, de Koster, and                                                picking the pick orders assigned
+Suhl (2019).                                                            Task Allocation (TA)                  at a picking station
+                                                                                                              assignment of an available
+    In this work, we concentrate on operational problems. As            Path Planning (PP)                    storage location to a pod that
+shown in Table 1, there are usually the following decision prob-                                              is not in the inventory area
+lems in the order picking process in an RMFS (described in                                                    assignment of generated tasks for
+Wurman et al., 2008 and Merschformann, Xie, & Li, 2018): Each                                                 robots in RPS, PPS, PR and
+time a new order arrives, we have to decide which robot carries                                               additional tasks such as idling
+which pod along which path to which station to fulfill picking. So                                            planning of the paths for the
+the order is first assigned to a station (pick order assignment, in                                           robots to execute
+short: POA), and then one or several pods are assigned to that sta-
+tion to fulfill that order (pick pod selection, in short: PPS). Robots  the assumption that orders have already been assigned to stations
+are assigned to deliver pods to that station (robot task allocation),   (in other words: without optimization of POA), such as in Boysen,
+while path planning plans the paths for the robots. After a pod is      Briskorn, and Emde (2017).
+finished at a picking station, we have to decide where to put it
+back in the inventory area (pod repositioning). And there are two           Due to the importance of POA, POA and PPS should be opti-
+decisions for the replenishment process, namely replenishment or-       mized together; however, the complexity is increased due to con-
+der assignment and replenishment pod station. Table 2 describes         sidering all possible pods and multiple picking stations (see ex-
+the operational problems in an RMFS.                                    amples in Section 2.2). Therefore, the authors in Wurman et al.
+                                                                        (2008) and Merschformann et al. (2019) provided heuristics to
+1.2. Contributions and paper structure                                  solve POA and PPS sequentially, first POA and then PPS. We list
+                                                                        here the contributions of our work:
+    We concentrate in this paper on the picking process, especially
+POA and PPS. In the studies of the throughput performance of deci-       · We develop a new mathematical model to solve integrated POA
+sion rules for multiple online decision problems in Merschformann           and PPS for multiple stations.
+et al. (2019), they concluded that POA should be paid more at-
+tention in the literature and practice, since it affects the through-    · We extend our integrated model to allow split orders, so not
+put performance of RMFS the most. In Boysen et al. (2018), they             all parts of an order are picked at the same station. To the best
+mentioned that the existing research into order picking is under            of the authors' knowledge, this is the first publication on split
+                                                                            orders in an RMFS. The literature review of split orders can be
+                                                                            found in Section 2.3.
+
+                                                                         · We develop a heuristic for our new models to solve a real-
+                                                                            world instance.
+82                                           L. Xie, N. Thieme and R. Krenzler et al. / European Journal of Operational Research 288 (2021) 80­97
+
+                                                      Retrieval
+
+                                                                                 Storage
+
+                                             Storage
+
+                              Replenishment                                      Retrieval Order picking
+
+                                                                                                                      Order packing
+
+                                                                 Retrieval
+
+                                                                                 Order picking
+
+                                                                                                Transport to packing
+                                                                                                        staon
+
+                                                                 Fig. 1. The central process of an RMFS.
+
+    Table 3                                                                          The pods are transported by robots between the inventory area
+    Terms related to orders.                                                     and workstations. Fig. 1 shows the central process in a simplified
+                                                                                 RMFS from replenishment to packing:
+    Term                      Description
+                                                                                  · Retrieval process: After the arrival of a replenishment order,
+    SKU                       stock keeping unit                                     robots carry selected pods to a replenishment station to store
+    order line                one SKU with the ordered quantity                      units in pods. Similarly, after receiving a pick order, robots carry
+    item                      a physical unit of one SKU                             selected pods to a picking station, where the items for the order
+    pick order                a set of order lines from a customer's order           lines are picked. Note that in order to fulfill pick orders, several
+    split order               a pick order that is separated into several parts      pods may be needed, since orders may have multiple lines. The
+    replenishment order       a number of physical units of one SKU                  items in (parts of) an order are picked into a tote.
+    backlog                   all unfulfilled orders
+                                                                                  · Storage process: After a pod has been processed at one or more
+Table 4                                                                              stations, it is brought back to a storage location in the storage
+The central components of an RMFS.                                                   area. The retrieval and storage processes are based on Hoffman
+                                                                                     et al. (2013).
+    Component                 Description
+                                                                                  · Transport to packing stations: Once a tote is filled, it is trans-
+    pods                      movable shelves, on which inventory is stored          ported by a conveyor to packing stations for packing.
+    storage area              the inventory area where the pods are stored
+    workstations:                                                                 · Packing process: If all items in an order are contained in a tote,
+    picking stations          where pickers pick the order items                     packers are prompted by computer to select the correct-sized
+    packing stations          where packers pack the pick order items and            box and pack the items. A split order has items delivered via
+                              the split orders are consolidated                      multiple totes, since the items are picked by different pickers
+    replenishment stations    where replenishment items are stored to pods           (picking stations). In this case, packers first sort items from a
+    robots                    moving underneath pods and carrying them to            tote to a correct-sized box on the shelf so that the items from
+                              workstations                                           that order are grouped together. Packers are prompted by com-
+    conveyors                 transporting the pick orders between picking and       puter to put the box for the split order on one given position
+                              packing stations to finish packing                     on the shelf, and later to find the box in the shelf to put the
+                                                                                     rest of that order into the box. We use the term shelf to clar-
+ · We extend our open-source simulation framework RAWSim-O                           ify that they might be different to the pods, since they do not
+    to evaluate the decisions made based on our new models.                          need to be moved. Once all the items of a split order are in
+                                                                                     a box, the packer packs the box, and a space is open for the
+    This paper is organized as follows: In the next section, we de-                  next split order. This packing process is based on the packing
+scribe the RMFS and operational decision problems in detail. Af-                     process in Amazon (see Toister, 2017).
+ter that, we will describe our idea of integrated POA and PPS and
+split orders with examples. In Section 3, a mathematical model of                2.2. POA and PPS
+integrated POA and PPS and the extensions with split orders are
+described. We present simulation evaluations in Section 4.2. Fi-                     We concentrate in this paper on the online decisions for POA
+nally, we draw conclusions and give pointers for further research                and PPS for multiple stations. For better clarification, online in our
+in Section 5.                                                                    case does not mean that we consider orders that have arrived over
+                                                                                 a number of time periods. In order to have enough optimization
+2. Problem description with examples                                             potential, we assume that we know all orders in advance (for ex-
+                                                                                 ample, we gather all orders that have come in the last hour in the
+    In this section, we first describe the RMFS, and the decision                backlog). But our methods can support the decisions for the new
+problems in an RMFS. After that, we will describe our idea of inte-              incoming orders in each period (see Section 4.3). Instead, online
+grated POA and PPS and split orders with examples.                               decisions in our case means that we have to make decisions for
+                                                                                 both problems for each new period t. Period t - 1 is changed to
+2.1. RMFS                                                                        t if some jobs are finished at the stations while there are unful-
+                                                                                 filled orders in the backlog. Also, situations such as the inventory
+    Firstly, we define some terms related to orders before explain-              of pods and the positions of pods in the queues at stations can and
+ing the processes in an RMFS in Table 3.                                         will change from t - 1 to t. They are important for the POA and PPS
+
+    The central components of an RMFS are listed in Table 4.
+L. Xie, N. Thieme and R. Krenzler et al. / European Journal of Operational Research 288 (2021) 80­97  83
+
+decisions and are hard to calculate exactly in advance, since errors   ders, both pods from the storage area, pods 3 and 4, are needed
+and delays in previous time periods can affect them. For these rea-    at each station. After items from pods 1 and 2 are picked, they
+sons, we make the decisions for the integrated POA and PPS just        are returned to the storage area. In the PPS, pod 3 visits station 1,
+before the respective time period starts. This allows us to react to   while pod 4 visits station 2 (Fig. 2(c)). After picking in both sta-
+the current situation and take errors or delays from previous pe-      tions, pods 3 and 4 switch stations so that the last item of each
+riods into account. Furthermore, we test our results in a simula-      order can be picked (Fig. 2(d)). In total, 6 pod-station visits were
+tion framework, which provides us with the actual information for      necessary to fulfill both orders in this example, therefore the pile-
+each time period. In the literature, the online decisions for POA and  on can be calculated as 12 picks/6 pods = 2 picks/pod.
+PPS are usually solved sequentially for multiple stations (first POA,
+then PPS; see Wurman et al., 2008, Merschformann et al., 2019).            Integrated PPS and POA In the integrated PPS and POA approach,
+The sequential approach limits the information for both decisions.     we have more information while assigning orders to stations, since
+Therefore, the decisions for POA and PPS should be made simulta-       pods and orders are assigned to stations at the same time. This
+neously to achieve optimum performance, so we can use informa-         allows us to find optimal solutions that might not be intuitive at
+tions about all pods and orders, including those that are assigned     first glance and would not be found by the sequential POA and PPS.
+to stations and are unassigned. However, the complexity of solving     Note that we use information about all pods, including assigned
+integrated POA and PPS is increased, and the integrated problem is     ones at stations and unassigned ones in the storage area, but this
+NP-hard (see the proof in Section 3). We will describe the differ-     way increases the complexity to solve both problems.
+ence between sequential and integrated problems with Example 1.
+To the best of the authors' knowledge, this is the first publication       Using the same initial state as in the previous explanation of
+about the integrated POA and PPS for multiple stations.                the sequential POA and PPS in Example 1 (see Fig. 3(a)), we in-
+                                                                       tegrate these two decisions and assign orders and pods such that
+    Objective Before we explain POA and PPS with examples, we          the number of pod-station visits is minimized. This leads to the
+want to firstly explain our objective of POA and PPS. An RMFS          assignment of orders 1 and 2 and pod 3 to station 1, and orders 3
+with higher throughput is better. Based on the performance anal-       and 4 and pod 4 to station 2 (see Fig. 3(b) and 3(c)). This results
+ysis of decision rules for multiple online decision problems in        in a pile-on of 3 (12 picks/4 pods) compared to 2 (12 picks/6 pods)
+Merschformann et al. (2019), they found that a high pile-on (the       in the sequential example and only requires 4 pod-station visits to
+number of picks per handled pod) and a short distance traveled by      fulfill all orders instead of 6.
+robots together is a indicator for the success of a decision rule ap-
+plied in an RMFS (to achieve high throughput). In order to achieve         Based on this example, we can see the benefit of integrating
+that, we aim at minimizing the number of visits by pods to sta-        POA and PPS by using information about the inventory of all pods
+tions (in short: pod-station visits) for each decision of the POA and  in these decisions. Therefore, we present a mathematical model in
+PPS problems. If fewer pod-station visits are needed for the given     this paper that integrates POA and PPS for multiple stations and
+orders, a shorter distance traveled by the robots can be achieved,     takes information about the inventory of all pods into account.
+and higher pile-on can be expected to finish the given orders. Fur-
+thermore, a smaller number of pod-station visits also causes fewer     2.3. Allowing split orders in our integrated approach
+changes of pods, and the waiting time of human pickers between
+changes of pods is reduced (see Boysen et al., 2017; they also min-        In our integrated approach mentioned above, an order is only
+imize pod-station visits for the assignment of pods to orders). An-    allowed to be assigned to a single station. The second contribution
+other time component of human pickers is retrieving the items          of this paper is to allow split orders in our integrated approach.
+from their shelves, which is considered to be fixed. Due to the re-    And we also prove that the models to allow split orders are NP-
+duced waiting time, more orders can be handled within a mini-          hard (see Section 3). A split order means that we divide an order
+mal time. So, this matches the suggestion in Van Gils, Ramaekers,      into two or more parts for picking (perhaps at different stations). A
+Caris, and de Koster (2018) for an efficient order picking in picker-  similar term, "splitting orders," can be traced back to 1979, when
+to-parts systems.                                                      it was used by Armstrong, Cook, and Saipe (1979). They used split
+                                                                       orders to keep batch sizes constant in batch picking. In Il-Choe and
+Example 1. Fig. 2(a) illustrates a small problem to fulfill four or-   Sharp (1991) and De Koster, Le-Duc, and Zaerpour (2012) split or-
+ders 1, 2, 3 and 4. The different colors represent different SKUs      ders are used as part of the zoning in traditional picker-to-parts
+(stock keeping units). For simplicity, the quantity of each SKU in     warehouses, in which a storage area is split into multiple parts
+the orders is one. We have in total two picking stations. There is     (called zones), each with a different order picker. When an order
+two empty totes at each station. In this example we assume that        contains several SKUs that are stored in different zones, the SKUs
+each tote can hold three items. Pod 1 is currently at station 1 and    for the order are picked separately in each zone and merged later
+pod 2 at station 2, while pods 3 and 4 are in the storage area.        for shipping. To the best of the authors' knowledge, this is the first
+                                                                       publication on split orders in an RMFS.
+    Sequential POA and PPS In the sequential POA and PPS, we use
+the same decision rule, Pod-Match, as in Merschformann et al.              According to the following example, we expect allowing split
+(2019), which assigns the orders from the backlog to a station so      orders in an RMFS provide a better solution.
+that the items for the orders best match the pods that are already
+assigned to that station. Note that there is another more common       Example 2. Fig. 4 illustrates the decision problem when assign-
+decision rule in Merschformann et al. (2019) (called Common-Lines)     ing orders and pods to two picking stations. We have one empty
+and Wurman et al. (2008), grouping similar orders at picking sta-      tote at each station, while we have two identical orders 1 and 2 in
+tions in POA. However, the decision rule Pod-Match for POA is          the backlog (in Fig. 4(a)). We assume that each tote can hold two
+shown to perform better in Merschformann et al. (2019), since this     items. These two orders contain SKUs shown in blue and orange.
+rule uses information about assigned pods at stations in addition      These two SKUs are located in two different pods, namely pod 1
+to information about orders in the backlog.                            with the orange SKU and pod 2 with the blue SKU. Fig. 4(b) shows
+                                                                       the optimal solution to the problem without split orders. We need
+    In Example 1, in the POA problem we assign orders 2 and 3 to       pod 1 to visit station 1 and pod 2 to visit station 2; after that, pod
+station 1 (Fig. 2(b)), since two of their items can be picked from     2 visits station 1 and pod 1 visits station 2. In total, we need four
+pod 1 ­ the pod that is already at station 1. For the same reason,     visits by pods to the stations to fulfill both orders. Instead, if we
+we assign orders 1 and 4 to station 2. To fulfill the assigned or-     split orders 1 and 2 into blue and orange parts (see Fig. 4(c)), the
+                                                                       blue ones can be picked from pod 2 at station 2, while the orange
+84          L. Xie, N. Thieme and R. Krenzler et al. / European Journal of Operational Research 288 (2021) 80­97
+
+    orders
+
+    1       2          3  4
+
+            pod 3         pod 1 station 1                             pod 3                                23
+                                                                                    pod 1 station 1
+
+                                                                                                                  14
+
+            pod 4            pod 2 station 2                          pod 4         pod 2 station 2
+
+                   (a) Initial state                                  (b) POA: orders 2 and 3  station 1,
+                                                                      orders 1 and 4  station 2
+
+                   pod 1                           23                        pod 1                                3
+                             pod 3 station 1                                        pod 4 station 1
+
+                                              14                                                                  1
+
+                   pod 2  pod 4 station 2                                    pod 2  pod 3 station 2
+
+            (c) PPS I: pod 3  station 1, pod 4  (d) PPS II: pod 4  station 1, pod 3 
+
+            station 2                                                 station 2
+
+                          Fig. 2. An example for the sequential POA and PPS (best viewed in color).
+
+ones can be picked from pod 1 at station 1. This allows both orders       Pregenerated orders We store pregenerated orders in the back-
+to be fulfilled with only two visits by pods to the stations instead  log before the beginning of optimization, so we get the same or-
+of four. Note that in this paper we don't use one empty tote for      ders for testing different approaches. From time to time, no new
+exactly one order, but for several items, to enable comparison be-    incoming orders are stored to the backlog for the optimization. Our
+tween the solutions with and without split orders. We will explain    approaches terminate if the backlog is empty.
+more about this in Section 3.1 in the paragraph Capacity of a pick-
+ing station.                                                              Split order Splitting an order means separating the original or-
+                                                                      der into two or more parts (up to the number of SKUs in the or-
+    However, the split orders might need additional consolidation     der). If an order is not split, we ensure that all order lines in that
+time in packing stations, where customers' orders are packed and      order are assigned for picking at the same station (within a time
+ready for shipping. We ignore this time in our study, we will de-     period). If an order is split, this constraint is relaxed by allowing
+scribe that in Section 3.1.                                           order lines for that order to be assigned to more than one picking
+                                                                      station or more than one time period. There are two variants of a
+3. Mathematical model                                                 split order:
+
+    In this section, we describe the assumptions in Section 3.1 be-       split among stations: all order lines for a pick order are as-
+fore we present our mathematical model of integrated POA and                   signed in the same period but may be assigned to different
+PPS (we call it the integrated model), and extend it with two vari-            picking stations (see Example 1 in Section 1)
+ants of allowing split orders.
+                                                                          split over timesteps: order lines for a pick order may be as-
+3.1. Assumption                                                                signed in different time periods and to different picking sta-
+                                                                               tions (see an example in Appendix A)
+    SKUs All different SKUs in orders are available in pods. We as-
+sume that the quantity of the order line for each SKU is one. This        Capacity of a picking station Commonly, the capacity of a pick-
+assumption is consistent with common practice, since the number       ing station is defined as the number of orders that can be handled
+of items per order line is low. If a pod contains a SKU, then we      at a time (order capacity). According to Wulfraat (2012), the typi-
+assume that there are enough items in that pod to fulfill all orders  cal station can support 6 to 12 orders to be picked at a time. The
+for that SKU.                                                         introductory example of split orders shows that traditional order
+                                                                      capacity is incompatible with split orders, since simply counting
+                                                                      the number of assigned orders does not work anymore when only
+L. Xie, N. Thieme and R. Krenzler et al. / European Journal of Operational Research 288 (2021) 80­97                                                        85
+
+Fig. 3. Same example as in Fig. 2 (see Fig. 3(a)), but the decision is made by the integrated POA and PPS (see Fig. 3(b) and 3(c)) (best viewed in color).
+
+parts of an order are assigned to the station. Instead, we introduce  easily extended to support a limited packing capacity, as shown in
+in this paper a new way to define the capacity of a picking station   Section 4.3.
+­ limited by the number of items to be handled at a time ­ that
+works for both, whole orders and split orders. We call this type          Conveyor We assume that the conveyors between picking and
+of capacity item capacity. Another advantage of item capacity is a    packing stations are long enough to temporarily store orders and
+fairer distribution of workload among all stations, since the num-    parts of them. The conveyors serve as a buffer to synchronize the
+ber of assigning items equals the number of picks. Note that the      picking and packing stations.
+number of items in each order differs and reflects the number of
+picks.                                                                    Consolidation time for split orders We consider the consolidation
+                                                                      time as the additional time for the packer to pack the split orders.
+    Capacity of a packing station Orders that are not split can be    Based on the packing process in Amazon (described at the end of
+packed directly by packers as soon as they arrive at the packing      Section 2.1, and the part of Fig. 4 on the right-hand side), shelves
+stations. Split orders require storage space on shelves at packing    are used in the packing station to temporarily store split orders.
+stations to wait until all parts of the order are picked. Once all    Each time a part of a split order arrives, the packer puts this part
+parts of a split order are picked, it can be packed and one space     into the corresponding box on the shelf. Once all items of the split
+on the shelf becomes free for the next split order. The capacity      order are in the box, the packer packs the box, and a space is open
+of a packing station is therefore defined as the number of shelves    for the next split order. This process is almost the same as the pro-
+multiplied by the number of boxes which can be stored on a shelf.     cess for a normal order, i.e. folding a new box, putting all items in
+We set the total capacity of all packing stations to a parameter C,   the box and packing it. The additional time for packers caused by
+and we assume it is large enough for all necessary split orders       the split orders is the searching time for the correct split-order box
+in this paper. This assumption is supported by the calculation in     on the shelf, which we consider to be minimal since the position of
+Appendix B. In our calculation, up to 78 split orders can be stored   the box is stored on the computer. Therefore, we ignore this time
+on a shelf. And usually, in practice, there is more than one packing  in our study.
+station. If more split orders are required, then additional shelves
+can be installed at packing stations. However, the situation might        Maximal order size We assume that every order in the backlog
+differ from one company to another. Therefore, our model can be       can fit into some picking station. That means the maximal item ca-
+                                                                      pacity of the largest picking station is not smaller than the number
+                                                                      of items of the largest order.
+86             L. Xie, N. Thieme and R. Krenzler et al. / European Journal of Operational Research 288 (2021) 80­97
+
+    orders
+
+    1       2
+
+               pod 1                                                    station 1
+
+               pod 2                     station 2
+                      (a) Initial state
+
+                                        1
+               pod 1 station 1
+
+                                       2
+               pod 2 station 2
+
+                                        1                                                                       1/2
+               pod 2 station 1
+                                                                                   pod 1 station 1
+
+                                                                                                                        1/2
+
+                      2
+
+                                              pod 1 station 2                                              pod 2 station 2
+
+            (b) Without split orders: first, pod 1                      (c) With split orders: pod 1  station
+            station 1 and pod 2  station 2 (upper                       1 and pod 2  station 2
+            part); then, pod 2  station 1 and pod
+            1  station 2 (lower part)
+
+               Fig. 4. A solution for without and with split orders (best viewed in color).
+
+    Queue There is a queue at each station (for example, in Fig. 3(b),  picking station. All pods are in the storage area, so there are no
+pod 1 and pod 3 are in the queue at station (1). The space in a         pods waiting at picking stations. At t = 1 we start to assign orders
+queue is limited. Each time a pod leaves the queue, one pod can         from the backlog and pods to picking stations. Each time t changes,
+be added at the end of the queue. Pods leave a station once their       the current situation in the warehouse (such as which pods are
+inventory cannot be used anymore to fulfill any further assigned        currently in storage or on their way to stations, free capacity at
+orders. If pod 1 leaves the queue, pod 3 moves forwards to the          stations, inventory of pods, decreasing order backlog) is updated
+picker.                                                                 and used to compute the next decisions. This way, we can handle
+                                                                        errors or delays in the execution of previous decisions. The model
+    Period Once there is enough free item capacity at a station and     described in this section is solved in each period t using informa-
+there are unfilled orders in the backlog, the time period is changed    tion about the current state of the warehouse.
+from t to t + 1 for all t  1. The required amount of free item ca-
+pacity is defined as the capacity that is needed to fit the smallest        Shared storage policy Items of the same SKU are randomly
+available order. In t = 0, no orders are assigned or picked at any      spread over multiple pods. In Boysen et al. (2017), where this pol-
+                                    L. Xie, N. Thieme and R. Krenzler et al. / European Journal of Operational Research 288 (2021) 80­97                  87
+
+icy is called mixed-shelves storage, the authors showed that this                us  Z  0, s  S                                                (10)
+policy is efficient.
+                                                                                     In the integrated model given above, we aim at minimizing the
+    Pods selection Our model computes the smallest possible set of               number of pods used in each period, while keeping the unused
+pods to fulfill all assigned orders at each station in each period,              capacity of stations as low as possible. Constraint set (2) sets the
+without considering the distance between the selected pods and                   value of yos to 1 for all assigned order/station tuples and ensures
+picking stations.                                                                that, if an order is assigned to a station, all order lines in the order
+                                                                                 are assigned to the same station as this order. And if an order is
+    Sequencing of pods During each period t we need to know the                  not assigned to any station, none of its order lines can be assigned
+sequence of pods at each station. As our model only calculates the               to a station. Constraint set (3) ensures that each order can be as-
+optimal sets of pods for each station, we use the following policy               signed to at most one station. Constraint set (4) ensures that the
+to create a sequence of pods: Robots begin immediately to carry                  number of assigned items equals the amount of available capac-
+all assigned pods to the respective stations and the sequencing of               ity minus the amount of unused capacity us at each station s  S.
+pods is decided by the order of their arrival at the station. This               Each us increases the value of the cost function (assuming Wu > 0).
+ensures that station idle times are kept at a minimum.                           Constraint set (5) ensures that for each order line of an order that
+                                                                                 is assigned to a station, at least one pod p  Pi is assigned to the
+    Without replenishment We assume that there is enough inven-                  same station. Constraint set (6) ensures that pods that were as-
+tory for all orders, so no replenishment is required.                            signed in previous periods and are currently on their way to a sta-
+                                                                                 tion or in a station's queue stay assigned to that station. Constraint
+3.2. Integrated model                                                            sets (7)­(9) ensure that the respective variables can only have bi-
+                                                                                 nary values while (10) ensures that us can only have non-negative
+Firstly, we define the notation for the following model.                         integer values.
+Sets :
+
+              P      Set of pods                                                 Proposition 1. The integrated model always has a feasible solution
+                                                                                 which we can find in polynomial time.
+              S      Set of currently available picking stations
+
+              Ps     Set of pods Ps  P that are currently at station s
+              PiSKU  Set of pods PiSKU  P that include SKU i
+              O      Set of current orders in the backlog
+
+              Io     Set of SKUs Io  I that constitutes an order o  O
+
+Parameters :                                                                     Proof. See Appendix C.
+
+              Cs Current capacity of each picking station s  S                   Proposition 2. The optimal solution of the integrated model is NP-
+                                                                                 hard.
+
+Decision variables:                                                              Proof. See Appendix C.
+
+        x ps         1, pod p  P is assigned to station s  S
+                                             0, else
+                                                                                 3.3. Split-among-stations model
+                     1, order o  O is assigned to station s  S
+        y os                                  0, else
+
+        y ios                                                                        This model is an extension of the integrated model from the
+                    1, SKU i  Io of order o  O is assigned to station s  S       previous section. Now we allow splitting the SKUs in an order be-
+                                                                                 tween two or more stations. We need the following additional de-
+                                                       0, else                   cision variables.
+
+        us Amount of unused capacity for a station s  S                              Additional decision variables:
+
+    The integrated model is invoked in the simulation each time the              yo     1, order o  O is assigned
+time period t is changed. However, for simplicity the parameter t is                    0, else
+not used in the model. Note that all sets, parameters and decision
+variables may change for each time period t.                                     eo the number of additional assigned picking stations for an order o  O
+
+Min                  xps + Wu · us                                          (1)
+
+        pP sS        s S                                                         Min           xps + Wu · us                              (1)
+                                                                                  s.t.
+s.t. yos = yios, i  Io, o  O, s  S                                          (2)         pP sS       s S
+
+                                                                                        (4) - (10)
+
+     yos  1, o  O                                                           (3)         yos  yios, i  Io, o  O, s  S                           (2.1)
+                                                                                                                                               (3.1)
+s S                                                                                        yos  yo, o  O                                       (11)
+
+                                                                                        s S                                                    (12)
+
+        yios + us = Cs, s  S                                                (4)            yios = yo, i  Io, o  O
+
+oO iIo                                                                                  s S
+
+        xps  yios, i  Io, o  O, s  S                                        (5)  yo  yos, o  O, s  S
+
+pPiSKU
+
+xps = 1, p  Ps, s  S                                                        (6)     yios  yos, o  O, s  S                                      (13)
+
+                                                                                 i I o
+
+yos  {0, 1}, o  O, s  S                                                     (7)
+
+                                                                                 yo  {0, 1}, o  O                                              (14)
+
+yios  {0, 1}, i  Io, o  O, s  S                                             (8)      The cost function (1) and constraints (4)­(10) are carried over
+                                                                                 from the previous model. Constraint set (2) is relaxed, so that the
+xps  {0, 1}, p  P, s  S                                                     (9)  order lines for an order don't have to be assigned to the same sta-
+                                                                                 tion anymore (see constraint set (2.1)), but yos is still set to 1 for all
+88                          L. Xie, N. Thieme and R. Krenzler et al. / European Journal of Operational Research 288 (2021) 80­97
+
+                              Start                           Framework                       End
+                            Inialize                             Agent                  Output results
+
+                                                                        Update
+
+                                                              Simulator
+
+                                             Opmizer                                    Visualizer
+
+                            Opmize                                              Render
+
+                            Fig. 5. Overview of the simulation process (see Merschformann et al., 2018).
+
+stations the order is assigned to. Constraint set (3) is also relaxed,   not assigning all order lines of an order at once (see constraint set
+to allow for the assignment of an order to more than one station         (11.1)). The new constraint set (15) ensures that the value of yibo is
+(see constraint set (3.1)). Constraint set (11) now ensures that if      binary.
+an order is active (at least one order line is assigned to a station),
+all of its order lines have to be assigned to stations. Constraint set   Proposition 5. Every solution of the split-among-stations model also
+(12) sets the value of yo to 1 for each order that is assigned to        solves the split-over-time model. There is always a feasible solution of
+at least to a station. Constraint set (13) ensures that an order can     the split-over-time model. The split-over-time model always provides
+only be assigned to a station if at least one order line of the order    a solution that is better than, or equally good as, the split-among-
+is assigned to that station. Constraint set (14) ensures that yo is a    stations model.
+binary variable for each o  O.
+                                                                         Proof. See Appendix C.
+Proposition 3. Every solution of the integrated model also solves the
+split-among-stations model. There is always a feasible solution of the   Proposition 6. The optimal solution of the split-over-time model is
+split-among-stations model. The split-among-stations model always        NP-hard.
+provides a solution that is better than, or equally good as, the inte-
+grated model.                                                            Proof. See Remark 1 in Appendix C.
+
+Proof. See Appendix C.                                                   4. Computational evaluation
+
+Proposition 4. The optimal solution of the split-among-stations              In this section, we describe the parameters and results of the
+model is NP-hard.                                                        computational evaluation. We first describe the open-source simu-
+                                                                         lation framework used for this paper in Section 4.1. Next, we show
+Proof. See Remark 1 in Appendix C.                                       the results of the simulation in Section 4.2. In Section 4.3, we make
+                                                                         some remarks regarding the assumptions that were made in our
+3.4. Split-over-time model                                               computational evaluation from a practical point of view.
+
+    This model is an extension of the split-among-stations model         4.1. Simulation framework
+from the previous section. Here we also allow every order to be
+split over different time periods. This means some SKUs for an or-           In the following evaluation we use RAWSim-O from
+der may be assigned in one period while the others will stay in the      Merschformann et al. (2018), an open-source, agent-based and
+backlog to be assigned in later periods. We define one additional        event-driven simulation framework providing a detailed view
+binary variable.                                                         of an RMFS. The source code is available at www.rawsim-o.de.
+                                                                         Fig. 5 shows an overview of the simulation process, which is
+    Additional decision variable:                                        managed by the core simulator instance. The tasks of the simulator
+                                                                         include:
+     y ib o  1, SKU i  Io, o  O is moved back to the backlog
+             0, else                                                      · updating agents, which can resemble real entities, such as
+                                                                             robots and stations
+Min          xps + Wu · us              (1)
+                                                                          · passing decisions to optimizers, which can either decide imme-
+     pP sS   s S                                                             diately or buffer multiple requests and release the decision later
+
+s.t. (2.1) - (3.1), (4) - (10), (12) - (20)                               · exposing information to a visualizer, which allows optional vi-
+                                                                             sual feedback in 2D or 3D.
+         yios + ybio = yo, i  Io, o  O                        (11.1)
+                                                                (15)         The hierarchy of decision problems regarding the assignment
+      s S                                                                of replenishment orders, pick orders and pods to station is illus-
+                                                                         trated in Fig. 6. We develop a new optimizer, called POA & PPS,
+     ybio  {0, 1}, i  Io, o  O                                           to make integrated decisions for both POA and PPS. Furthermore,
+
+    All constraints from the previous model are carried over, ex-
+cept for constraint set (11). Constraint set (11.1) is relaxed to allow
+             L. Xie, N. Thieme and R. Krenzler et al. / European Journal of Operational Research 288 (2021) 80­97      89
+
+                        Requests:
+
+Repl. order  ROA  RSP                                                       Insert
+ received
+                                                                                         Trips:
+
+Pick order   POA & PPS                                                      Extract  TA                            PP
+received
+
+                                                                            Store    PR
+
+             Fig. 6. Order of decisions to be made after receiving a pick or replenishment order.
+
+we extend the new optimizer to support split orders. And we de-                                 Fig. 7. Probabilities of order lengths for |I| = 20.
+fine new type of capacity for each station, called item capacity, in
+RAWSim-O. If a replenishment order needs to be assigned to a re-                                     Fig. 8. Probabilities of SKUs for |I| = 20.
+plenishment station, the optimizers of ROA and RPS are responsi-            Onal, Zhang, and Das (2017). The SKUs in the order are then cho-
+ble for choosing a replenishment station and a pod. This results in         sen by sampling without replacement from I using the probabil-
+an insertion request, i.e. a request for a robot to bring the selected
+pod to the given workstation. If a picking order needs to be as-            ity mass function of a geometric distribution with p = 5/|I|, to ac-
+signed to a picking station, the new optimizer POA & PPS submits
+all necessary information in the simulator to our model and con-            count for the varying demand for different SKUs. Fig. 8 shows the
+verts its solution into extraction requests in the simulator. Extrac-
+tion requests contain both, the item that needs to be picked and            probabilities of SKUs for |I| = 20.
+the pod that it should be picked from. The model is in this case ei-
+ther the integrated model in Section 3.2, the split-among-stations              A shared storage strategy (as described in Bartholdi & Hackman,
+model in Section 3.3 or the split-over-time model in Section 3.4.           2017) is applied to fill the pods. To determine the initial inventory
+Our models were implemented in the python API of Gurobi Opti-
+mizer. Note that in Merschformann et al. (2018), first the POA op-
+timizer is called and the extraction requests are generated; after
+that, the PPS optimizer is called. In other words, pods are only as-
+signed to stations after orders have already been assigned. More-
+over, in our new optimizer, extraction requests for an order can
+be assigned to different stations to support split orders. We define
+the item capacity as the sum of the extract requests at one station
+for each (part of an) order that has at least one unfulfilled request
+at that station. Furthermore, the system generates a store request
+each time a pod needs to be transported back from a station to a
+storage location, and the PR optimizer decides on the storage loca-
+tion for that pod. The TA optimizer assigns robots to these tasks.
+All tasks result in robot trips, which are planned by a PP optimizer.
+
+    The simulation framework conceptually consists of three differ-
+ent inputs:
+
+ · instance configuration: contains orders, initial inventory and
+    available SKUs (see Section 4.1.1)
+
+ · layout configuration: determines the characteristics and dimen-
+    sions of the warehouse layout (see Section 4.1.2)
+
+ · optimizer configuration: specifies the decision rules for all op-
+    erational problems in an RMFS (see Section 4.1.3).
+
+    We describe these three inputs for our experiments in this pa-
+per in the following sections.
+
+4.1.1. Instance generation
+    First, we describe how we generate SKUs and orders, and how
+
+to fill the pods. The set of SKUs is generated as I = {i1, ..., i|I|}. For
+each order o1, ..., o|O| the number of different SKUs in it is deter-
+mined by a truncated (1 to |I|) geometric distribution with p = 0.4
+
+(see Fig. 7 for |I| = 20). And the number of items for a SKU is set
+
+to 1. It is typical in online retailing that most of the orders contain
+very few line items, such as in Bozer and Aldarondo (2018) and
+90                        L. Xie, N. Thieme and R. Krenzler et al. / European Journal of Operational Research 288 (2021) 80­97
+
+                                         Fig. 9. Simulation layout.
+
+    Table 5                                                             Table 6
+    Instance parameters.                                                Decision rules.
+
+    Symbol Description     Values                                         Decision Problem  Sequential    Integrated (without/with split orders)
+
+    |O|  Number of orders  50, 150, 250                                   POA               Pod-Match     Model
+                           20, 100                                        PPS               Demand        Model
+    |I|  Number of SKUs    50, 100                                        ROA               not relevant  not relevant
+                           2, 3                                           RPS               not relevant  not relevant
+    |P|  Number of pods                                                   PR                Nearest       Nearest
+                                                                          PP                WHCAn         WHCAn
+         SKUs per pod
+
+of the pods, lists of all SKUs in randomized order are concatenated     binations achieved the best throughput. The rule Pod-Match for the
+                                                                        POA problem selects the pick order from the backlog that best
+until the combined list includes at least |P| ·  elements. Then, for    matches the pods already assigned to the station. Out of all pods
+                                                                        that could fulfill at least part of an assigned order, the decision
+each pod p1, ..., p|P|, the inventory is determined by cutting off the  rule Demand for PPS chooses the pod whose inventory is in most
+                                                                        demand when combining all unfulfilled orders. The ROA and RPS
+first  items in the list.                                               problems are concerned with the replenishment process and thus
+                                                                        not relevant to our tests. The decision rule Nearest for PR assigns
+    We generate instances with different parameters from Table 5.       the closest parking space to each pod leaving a picking station. For
+By considering all possible combinations of the parameters, we          the PP problem, non-volatile windowed hierarchical cooperative A
+generate 24 instances. We test all methods in this paper with the       (called WHCAn) from Merschformann, Xie, and Erdmann (2017) is
+pregenerated instances to see the efficiency of the different algo-     used. In this algorithm, A is used to find the optimal path with-
+rithms. In a real RMFS, the orders would not be known at the            out considering collisions for each robot, while a space-time reser-
+start of the simulation but would instead be received during run-       vation table is used within a limited time window to avoid colli-
+time. Our methods are also compatible with this type of order-          sions between robots. Non-volatile means that the existing path
+generation (see Section 4.3).                                           and reservation are stored for each robot within a limited time
+                                                                        window. The model used for POA and PPS to test our integrated
+4.1.2. Layout                                                           approach is the integrated model described in Section 3 and both
+    The layout is identical for most of the test instances and is il-   of its extensions for split orders.
+
+lustrated in Fig. 9: 428 pods (blue squares), 504 storage locations     4.2. Simulation results
+in 2 × 4 blocks, 4 picking stations (red squares) and 8 robots (gray
+circles). The length of station queues is 12. As we are focusing on         Each combination of method and instance is simulated ten
+the decisions made in the order picking process, we disregard the       times to lessen the effect of randomness caused by other optimiz-
+replenishment process. When the number of pods is higher than           ers and simulation components. Testing was done on 12 Intel Xeon
+the value of P, only |P| pods have an inventory and the empty           X5650 Cores with 24 Gigabyte RAM. The following performance
+pods are not taken into consideration. The capacity of picking sta-     metrics are tested:
+tions is similar to that used in Boysen et al. (2017). Boysen et al.
+(2017) used an order capacity of 6 orders. Since we use item ca-         · the number of pod-station visits per order
+pacity instead of order capacity, we multiply 6 by 2.5, the mean of      · the distance driven by robots per order
+the distribution used to determine the number of items per order         · pile-on: the number of picks per pod-station visit
+(described in Section 4.1.1), which leads to an item capacity of 15.     · throughput: picks per hour.
+
+4.1.3. Decision rules
+    Table 6 lists the decision rules for all operational problems in
+
+the evaluation. The definitions of these can be found in Table 2.
+    The POA and PPS decision rules selected for the sequential ap-
+
+proach are based on Merschformann et al. (2019), since these com-
+L. Xie, N. Thieme and R. Krenzler et al. / European Journal of Operational Research 288 (2021) 80­97                       91
+
+Fig. 10. Normalized pod-station visits per order.
+
+                                                                      Fig. 12. Normalized pile-on (best viewed in color).
+
+Fig. 11. Normalized robot distances per order.
+
+    The parameter Wu is set to 2, since we aim to fully utilize                                 Fig. 13. Picks per hour (best viewed in color).
+the picking station's capacity whenever possible. The highest pos-
+sible cost of assigning an additional SKU is 1 (one additional pod    sequential approach, pods may have to be transported directly be-
+needed, just for this SKU), therefore any value of Wu greater than    tween stations, because the orders that share the same pods are
+1 ensures that as many orders as possible are assigned. Further pa-   assigned to different stations. Therefore, there are pods moving be-
+rameters used in the simulation can be found in Appendix D, such      tween picking stations. In the integrated approach, we try to assign
+as parameters for robot movement.                                     orders which share the same pods to the same stations; therefore,
+                                                                      it reduces the number of pods moving between picking stations.
+    Fig. 10 shows the average number of pod-station visits per or-    This explains why the distances per robot in the integrated ap-
+der relative to the sequential approach for each instance set of      proach do not show as much of an improvement as pod-station
+50, 150 and 250 orders. Compared to the sequential approach for       visits per order compared to the sequential approach.
+the number of pod-station visits per order: the integrated model
+improves this performance by 20% to 30% for different instance            Fig. 12 shows the average pile-on of all methods for each in-
+sets, the split-among-stations model (in short in figures and ta-     stance set of 50, 150 and 250 orders. Our approach with split or-
+bles: split) shows improvements of about 50%, and the split-over-     ders causes more picks per pod-station visit (PSV), especially in
+time model (in short in figures and tables: timesplit) improves on    the split-over-time model (up to 5.5 times as many picks per PSV)
+the sequential solution by 57% to 80% for different instance sets.    (best viewed in color).
+
+    Fig. 11 shows similar improvements for the average distances          In Fig. 13 we get the average picks per hour for each instance
+driven by robots to complete an order for each instance set. The      set of 50, 150 and 250 orders. From 30% up to 46% more picks per
+correlation between pod-station visits and distances driven by        hours can be achieved by the split-among-stations and split-over-
+robots confirms our assumption in Section 1, that distances driven    time.
+by robots can be reduced by minimizing the number of pod-station
+visits. As the layout shown in Fig. 9 demonstrates, the distance be-      Fig. 14 illustrates the total computing times for each instance
+tween the inventory area and a picking station is in most cases       set of 50, 150 and 250 orders. The total computing time for the in-
+greater than the distance between any two picking stations. Both a    tegrated approaches with and without split orders are much larger
+pod coming from the inventory area to a station and a pod com-        than those for the sequential approach. We divide the total com-
+ing from another picking station count as pod-station visits. In the
+92              L. Xie, N. Thieme and R. Krenzler et al. / European Journal of Operational Research 288 (2021) 80­97
+
+                       Fig. 14. Computing time for the first period and others (best viewed in color).
+
+    Table 7
+    Computing time per simulation time for t > 1.
+
+    Instance set Sequential Integrated Split              Timesplit
+
+    50   0.07%  0.17%                              0.24%  0.61%
+                                                          6.41%
+    150  0.07%  1.4%                               3.46%  14.67%
+
+    250  0.07%  3.39%                              9.67%
+
+    Table 8
+    Computing time t > 1 per order (in seconds).
+
+    Instance set Sequential Integrated Split              Timesplit                                 Fig. 15. Example of the heuristic method.
+
+    50   0.01   0.03                               0.03   0.08         4.2.1. A Heuristic method for a real-world instance
+                                                          0.62             The Canadian logistics company Think logistics (see
+    150  0.01   0.21                               0.4    1.34
+                                                                       ThinkLogistics, 2012) owns an RMFS, which stores 2000 SKUs
+    250  0.01   0.48                               1.06                in 217 pods. And there are 15 robots used in the system. We
+                                                                       generated an instance of 2000 orders and 25 SKUs per pod, and
+puting time into the time at t = 1 and the time of the remaining       tested it in the similar layout as in Fig. 9 (15 instead of 8 robots
+periods t > 1. The period at t = 1 takes a lot of time, since no or-   were used). SKUs and orders were generated as described in
+ders or pods have previously been assigned to any stations and         Section 4.1.1. The computational time of our integrated models
+therefore more decisions are necessary than in the following pe-       increased extremly for such instance. Therefore, we developed a
+riods. As this usually happens at most once a day (when the sys-       heuristic method to accelerate the computational time. The main
+tem is stopped and then restarted), we can consider it a warm-         idea is instead of considering all orders in the backlog as input for
+up. It is more interesting to see the periods t > 1, since most deci-
+sions are made in those periods. Note that the decisions at t = 1      our models, we select only part of them (n  |O|) in the following
+in the split-over-time model are faster than those in the integrated
+and split-among-stations models. The reason is that the split-over-    way: First, all orders in the backlog are sorted according to the
+time model can easily find the best possible solution in the first     percentage of orders lines in each respective order for which a
+timestep, where only one pod is needed at each station. Table 7        pod containing the sku currently is in a stations queue (in short:
+shows the total computing time of the decisions in t > 1 in rela-      match). Then the best n orders are selected. Fig. 15 shows an
+tion to the simulation time. We deem computing times acceptable        example to explain this heuristic method. We have two orders 1
+as long as they are lower than the total simulation time. In our       and 2 in the backlog and we want to pick up n = 1 order. And
+tests, computing the decisions took at most around 15% of the sim-     pod 1 visits currently station 1. We have one open tote in station
+ulation time (split-over-time, 250-order instance set). The average    1 and the match of order 1 to pod 1 is 100%, since all items of
+time for the assignment of one order is at most 1.5 seconds (see       order 1 are stored in pod 1. The match of order 2 to pod 1 is 50%.
+Table 8).                                                              So order 1 should be firstly picked from the backlog.
+
+                                                                           We test this method for different n in all instance sets (50-,
+                                                                       150-, 250-order) and model variants to analyze the effect n has on
+L. Xie, N. Thieme and R. Krenzler et al. / European Journal of Operational Research 288 (2021) 80­97                                                                     93
+
+Fig. 16. Computational time vs. the number of pick-station visits for the 250-order instance set by prefiltering n orders (n is from 10 to 250) (best viewed in color).
+
+computing time and the quality of the solution (number of pick-       · Reduced size of queues: We set the size of the queue at each
+station visits). The results of different n between 10 and 250 for       picking station to be 12 (see Section 4.1.2). Based on our ob-
+250-order instances in the split-among-stations model are illus-         servation in the simulation, the queue is rarely full; one of the
+trated in Fig. 16. The results of other instance sets show a simi-       main reasons for this is that we minimize the number of pod-
+lar distribution for the integrated approaches. By using the heuris-     station visits. And allowing split orders reduces the number
+tic method, we can save more than 55% in computing time while            of pod-station visits by up to 80%. In general, fewer pods are
+pod-station visits rise by 1% compared to the optimal results of         brought to queues. So, allowing split orders might cause the
+the split-among-stations model (see order count 50 in Fig. 16 and        additional positive side-effect that the required space at pick-
+order count 250 is the optimal solution).                                ing stations is reduced.
+
+    For testing the large instance, we chose n = 40 and solved        · Capacity of packing stations: for the results shown above, we
+with split-over-time method, since this method brings the best           assumed the capacity of packing stations for split orders to be
+performance, but it reqires more computational time. Compared to         large enough to store all possible split orders. As this capacity
+the sequential solution, we can reduce the number of pod-station         might differ from one company to another, a situation where
+visits by 60%, same is the reduced distances drived by robots. 47%       not enough capacity is available to allow for the splitting of all
+more picks per hours can be achieved, while the average compu-           orders is conceivable. In order to consider this situation, we can
+tational time of each order is 4.6 seconds, which is acceptable. We      extend, for example, the models in Sections 3.3 and 3.4 with
+simulated this instance ten times and the testing was done on Intel      the following parameters, variables and constraints. We need
+Xeon E5-2670 16 Cores with 24 GB RAM.                                    two additional parameters: C for the total capacity of packing
+                                                                         stations (in other words: number of available split orders) and
+4.3. Practical remarks                                                   N for the number of stations. The binary variable ylo is activated
+                                                                         if order o  O is split, while nl counts the number of currently
+    Some assumptions in Section 3.1 might differ from real-world         active split orders from the previous periods. Note that, this
+scenarios. In this section we discuss them from a practical point of     number is decreased by one if one split order is picked com-
+view.                                                                    pletely.
+
+ · Real-world orders: in this paper we use pregenerated instances          yos - eo = yo, o  O        (3.2)
+    to test the performance of different approaches. Instead, in a
+    real RMFS, new orders would constantly come in while the op-      s S
+    timization algorithms are running. Even completely new SKUs
+    could be stocked during the optimization. To account for this,    ylo  eo/N, o  O                        (16)
+    our simulation RAWSim-O was recently extended by an inter-
+    face to an ERP system to allow for its use as a robot control     ylo  eo, o  O                          (17)
+    system in real warehouses, as described in Xie, Li, and Thieme
+    (2019). This new feature of the simulator could also be used in   nl + ylo  C                            (18)
+    conjunction with the content presented in this paper, to imple-
+    ment the model presented here in a real warehouse and use         yol  {0, 1}, o  O                      (19)
+    real instances instead of pregenerated testing instances.
+                                                                      eo  Z  0, o  O                         (20)
+ · Considering orders with deadlines: in this paper we don't gen-
+    erate orders with deadlines. The reason for that is we want to    In constraint set (3.2), eo is counted as the number of addi-
+    see maximum effects of our methods. However, our heuristic        tional stations to finish picking order o. Constraint sets (16) and
+    can be easily extended to select the orders with tight deadlines
+    first.
+94  L. Xie, N. Thieme and R. Krenzler et al. / European Journal of Operational Research 288 (2021) 80­97
+
+              Fig. 17. An example of using separators in totes (LocusBot).  fill all customer orders. First, we introduced a new mathematical
+                                                                            model to integrate POA and PPS (in short: integrated). Second, we
+   (17) make sure that yol is equal to one if eo  0, while constraint       extended the integrated model to allow for split orders. An order
+   set (18) makes sure that the number of split orders is less than         is split when not all of its parts are assigned together to a sta-
+   C. Constraint set (19) defines ylo as binary variables for each or-      tion. Two variations of split orders are considered: split-among-
+   der o  O, while constraint set (20) ensures that eo can only             stations (all order lines of a pick order have to be assigned in the
+   have non-negative integer values.                                        same time period, but may be assigned to different picking sta-
+   To see the impact that a limited capacity of packing stations            tions) and split-over-time (order lines of a pick order may be as-
+   has on the solution, we tested the 250-order instance set for            signed in different time periods and to different picking stations).
+   a packing station capacity of 10. When applying this limited             In the instances we tested, the number of pod-station visits could
+   capacity to the split-among-stations model, pod-station visits           be reduced by up to 30% using the integrated model, 50% using
+   were reduced by 35% compared to the sequential approach, in-             the split-among-stations model and up to 80% using the split-over-
+   stead of nearly 50% when packing capacity is not limited. Sim-           time model compared to the state-of-the-art sequential approach
+   ilar effect can be achieved by the split-over-time model. But            described in Merschformann et al. (2019).
+   the split-over-time model needs higher packing capacity, since
+   some incomplete orders stay longer in packing stations. Note                 Additionally, we analyzed the simulation results with regard to
+   that the capacity limit of 10 is an extreme case and the solu-           three additional performance metrics, namely robot distances, pile-
+   tion is still better than that of the sequential approach. In the        on and picks per hour (throughput). According to our experiments,
+   real world, higher capacities are possible.                              a reduction in pod-station visits induces a reduction in robot dis-
+· Item capacity: this capacity is used for comparing the sequen-            tances and by definition it comes with higher pile-on. The picks
+   tial and integrated approaches. The capacity of a picking station        per hour can be increased, due to the shorter waiting time of pick-
+   in the real world is limited by the number of totes, which de-           ers, caused by more efficient order assignments which require the
+   pends on the size of a tote. There are the following possibilities       robots to drive less distance and therefore better supply the sta-
+   to apply our approaches without changing the layout of picking           tions with pods to pick from.
+   stations:
+                                                                                The running times for our test instances with 50, 150 and 250
+    · using different sizes of totes, with smaller ones for split or-       orders were acceptable; however, we needed a heuristic method
+       ders                                                                 to test a real-world instance with 2000 orders. For instances of
+                                                                            that size, it is not practicable to consider all unfulfilled orders in
+    · using separators in totes for split orders (an example: Lo-           the models at each period; moreover, not all orders are suitable in
+       cusBot in Fig. 17).                                                  each period. Therefore, we selected 40 best orders according to our
+                                                                            heuristic in each period to submit to the model. Still, a 60% reduc-
+· Reliability of the simulation: as described in Xie et al. (2019),         tion in pod-station visits and distances driven by robots could be
+   the simulation framework RAWSim-O was extended to connect                achieved using the split-over-time model, and 47% more picks per
+   to an ERP system and industry robots. So the optimizers in the           hours can be achieved with acceptable running times.
+   simulation, including the newly developed ones in this paper,
+   can be applied directly in real-world scenarios.                             We additionally discussed some assumptions for the mathemat-
+                                                                            ical models from a practical point of view, such as the extension
+                                                                            of the split-among-stations model to support limited capacity of
+                                                                            packing stations.
+
+                                                                                Since an RMFS is a new type of warehousing system, the con-
+                                                                            cepts specific to RMFSs have not received much scholarly atten-
+                                                                            tion. For example, the implementation of priority zones (see Flipse,
+                                                                            2011). These zones are located in the proximity of workstations to
+                                                                            store pods which might be used in the near future. Determining
+                                                                            the optimal size of priority zones would also be interesting.
+
+                                                                            Acknowledgments
+
+                                                                                The authors would like to thank two anonymous referees for
+                                                                            their insightful comments and suggestions. Nils Thieme and Ruslan
+                                                                            Krenzler are funded by the industrial project "Robotic Mobile Ful-
+                                                                            fillment System", which is financially supported by Ecopti GmbH
+                                                                            (Paderborn, Germany) and Beijing Hanning Tech Co., Ltd. (Beijing,
+                                                                            China). We would like to thank the Paderborn Center for Parallel
+                                                                            Computing for providing their clusters for our numerical experi-
+                                                                            ments.
+
+5. Conclusions                                                              Appendix A. Example of the split-over-time approach
+
+    In an RMFS, the decision on the assignment of orders to sta-                We have in this example one open position for station 1,
+tions (POA) affects the throughput of the whole system the most             while we have two identical orders 1 and 2 in the backlog (in
+(see Merschformann et al., 2019). Moreover, the decision on the as-         Fig. A.18(a)). These two orders contain SKUs shown in blue and or-
+signment of pods to stations (PPS) should be made together with             ange. These two SKUs are located in two different pods, namely
+POA to get better results (see Example 1 in Section 2.2). Therefore,        pod 1 with the orange SKU and pod 2 with the blue SKU. By al-
+we developed novel methods to solve both POA and PPS for multi-             lowing the orders 1 and 2 to be split into blue and orange parts,
+ple stations and make online decisions that minimize the number             the orange ones can firstly be picked from pod 1 at station 1 in
+of visits by pods to stations (in short: pod-station visits) to ful-        period 1, while one position is open at station 2 (see Fig. A.18(b)).
+L. Xie, N. Thieme and R. Krenzler et al. / European Journal of Operational Research 288 (2021) 80­97                                                                        95
+
+Fig. A1. An example of the split-over-time approach.
+
+                                                                                          Proof of Proposition 1. By the assumption about Maximal order
+
+                                                                                          size in Section 3.1, there exists an order o such that o has no more
+
+                                                                                          items than capcity Cs at some station s  S. Let us select this or-
+                                                                                          der and the corresponding pods for our solution.
+
+                                                                                              Formally this means: Set xps := 1 for all p  Ps as required by
+                                                                                          (6). Set yo := 1 and yo := 0 otherwise. Set yo s := 1 and set yos := 0
+                                                                                          otherwise. Then (3) holds. Set yio s := 1 for all i  Io and yios := 0
+                                                                                          otherwise. Then (2) holds. By the choice of o and s constraint
+                                                                                          (4) holds too. Finally, we set xps := 1 for all p  PiSKU with i  Io ,
+                                                                                          then (5) is fulfilled. Thus we have constructed a feasible solution.
+
+                                                                                          To find order o and to set to set correspoding variables, we only
+
+                                                                                          need polynomial time.
+
+                                                                                          Proof of Proposition 2. The main idea of the proof is that we can
+
+Fig. B1. Positions of the boxes in size S (left) and M (right) within a tier of a shelf.  select parameters for the integrated model with available stations
+
+After that, the blue ones are picked from pod 2 at station 2 in pe-                       set S := {1, . . . , k} from Section 3.2 in such a way that Eqs. (1)­(10)
+riod 2 (see Fig. A.18(c)). This allows both orders to be fulfilled with
+two visits of pods to the stations.                                                       solve a given set covering problem. That means, given a set of sets
+
+Appendix B. Calculation example for the capacity of a packing                             A := A1, . . . , An, the universe U :=      n      Ai,  and  a  set  B  U.  Find  a
+station                                                                                                                               i =1
+                                                                                          minimal index set J  {1, . . . , n} such that corresponding sets Ai
+    As mentioned before, the capacity of a packing station de-                                                                    n
+pends on the number of parking shelves and their sizes. Ac-                               cover the set B, or formally, B         jJ  Ai  .
+cording to Wulfraat (2012), the typical size of a shelf is
+99cm × 99cm × 244cm. And we have two common sizes of                                      We define an order o1 which has the same elements as the set
+boxes, namely 25cm × 17.5cm × 10cm and 37.5cm × 30cm × 13.5cm
+(see DHL Packsets in sizes S and M in https://www.dhl.de/                                 B1 := B. We assume that the capacities of all the stations Cs, s  S
+en/privatkunden/pakete-versenden/verpacken.html). As shown in
+Fig. B.19(a) and B.19(b), we can store 12 and 6 boxes within a tier                       are equal the size of the order o1. Furthermore, we create disjoint
+of a shelf for the boxes in sizes S and M respectively. Then we as-
+sume we store boxes in size S in half of the shelves, and boxes                           orders o2, . . . , ok and define correspondsing disjoint sets B2, . . . , Bk,
+in size M in the other half. By considering spaces for open boxes
+and usable vertical spaces of a shelf, we assume 100centimetres of                        which do not share any elements from the universe U. All the or-
+vertical space is available for five tiers of boxes with sizes S, while
+another 100centimetres is available for three tiers of boxes with                         ders form the set of current orders in the backlog O := {os|s  S}.
+size M. Based on these assumptions, we get to store 78 boxes in
+total on a shelf. In other words, we can store 78 split orders on a                          For every order oi, i  {2, . . . , k} we also define additional set
+shelf.                                                                                    An+i-1 := Bi+1. We define a set of pods P = {1, . . . , n, n + 1 . . . , n +
+                                                                                          k} such that every pod p in P has the same elements as set Ap.
+Appendix C. Omitted Proofs
+                                                                                          Now we force the integrated model to assign all the orders
+    In this section we prove that the models in Section 3 always
+have feasible solutions.                                                                  o1, . . . , ok. In order to do it, we set the weight Wu := |B| + 1. Be-
+                                                                                          cause every order o  O needs maximaly |os| = |B| pods, it is
+
+                                                                                          cheaper to use as many available capacities as possible. Because
+
+                                                                                          we have k orders, k stations, and the size of every order is the
+
+                                                                                          same as avaialble capacity of any station, the optimal solution will
+
+                                                                                          assign all the orders and no capacity will be left. That means, for
+
+                                                                                          every optimal solution, the unused capacity is us = 0 for all s  S.
+
+                                                                                          Therefore xps in (1) also solves
+
+                                                                                          Min         x ps .                                                          (C. 1)
+
+                                                                                               pP sS
+
+                                                                                              Let xps be an optimal solution of the integrated problem. Be-
+                                                                                          cause this solution minimizes (C. 1), it describes a minimal set of
+
+                                                                                          pods to fulfill all the orders o1, . . . , ok. Formally, we define an index
+96                            L. Xie, N. Thieme and R. Krenzler et al. / European Journal of Operational Research 288 (2021) 80­97
+
+set                                                                            References
+
+J := p  P : s  S : xps = 1                                             (C. 2)  Armstrong, R. D., Cook, W. D., & Saipe, A. L. (1979). Optimal batching in a semi-au-
+
+then the index set J is a mininal set with                                     tomated order picking system. Journal of the Operational Research Society, 30(8),
+
+                                                                               711­720 .
+
+k                                                                              Azadeh, K., de Koster, M., & Roy, D. (2017). Robotized warehouse systems: Develop-
+
+      Bs  Ap.                                                          (C. 3)  ments and research opportunities. Research paper (no. ERS-2017-009-LIS), ERIM
+
+                                                                               Report Series Research in Management.
+
+s =1  pJ                                                                       Banker, S. (2016). Robots in the warehouse: It's not just Amazon. http://www.forbes.
+
+                                                                               com .
+
+    Recall, B2, . . . , Bk are the same as An+1, . . . , An+k-1 with no ele-   Bartholdi, J., & Hackman, S. (2017). Warehouse & distribution science: release 0.98.
+
+ments from universe U. Thus, J := J \ {n + 1, . . . , n + k - 1} solves        Supply Chain and Logistics Institute.
+
+our initial set covering problem                                               Boysen, N., Briskorn, D., & Emde, S. (2017). Parts-to-picker based order processing
+
+                                                                               in a rack-moving mobile robots environment. European Journal of Operational
+
+B = B1                        Ap = Ap.                                 (C. 4)  Research, 262(2), 550­562.
+
+                                                                               Boysen, N., de Koster, R., & Weidinger, F. (2018). Warehousing in the e-commerce
+
+         pJ \{n+1,...,n+k-1}  p J                                              era: A survey. European Journal of Operational Research.
+
+                                                                               Bozer, Y. A., & Aldarondo, F. J. (2018). A simulation-based comparison of two goods-
+
+                                                                               to-person order picking systems in an online retail setting. International Journal
+
+                                                                               of Production Research, 56(11), 3838­3858. doi:10.1080/00207543.2018.1424364.
+
+Remark 1. The proof of Proposition 2 also proves that the split-               Cohen, L., Uras, T., & Koenig, S. (2015). Feasibility study: Using highways for bound-
+among-stations model is NP-hard if xt p is the optimal solution for
+(1), subject to constraints (2.1), (3.1), (4)-(10), and (11)-(14). This is     ed-suboptimal multi-agent path finding. In Proceedings of the eighth annual sym-
+because, after we found an optimal solution xps, we do not require
+every order o  O to be assigned to only one station to construct a             posium on combinatorial search.
+minimal index set J.
+                                                                               Cohen, L., Wagner, G., Kumar, T. K. S., Choset, H., & Koenig, S. (2017). Rapid random-
+    The proof of Proposition 2 also proves that the split-over-time
+model is NP-hard, when we use the optimal solution of the split-               ized restarts for multi-agent path finding solvers. arXiv preprint: 1706.02794
+over-time model for xt p. The constant Wu forces any optimal so-
+lution of the split-over-the time problem to use all available ca-             De Koster, R., Le-Duc, T., & Roodbergen, K. J. (2007). Design and control of ware-
+pacities. Because we have capacity for all orders in the backlog,
+no orders will be split in time. Thus, any optimal solution of the             house order picking: A literature review. European Journal of Operational Re-
+split-over-the time model is simultaniously an optimal solution of
+split-among-stations model, which is NP-hard.                                  search, 182(2), 481­501.
+
+Proof of Proposition 3. We show that every solution of the inte-               De Koster, R. B., Le-Duc, T., & Zaerpour, N. (2012). Determining the number of zones
+
+grated model also solves the split-among-stations. Let (xps )pP,sS ,           in a pick-and-sort order picking system. International Journal of Production Re-
+(yo)oO, (yos )oO,sS , and (yios )oO,ioIo,sS be a solution of the in-
+                                                                               search, 50(3), 757­771.
+tegrated model. From (2) follows (2.1). Set eo := 0 for all o  Io,
+then from (3) follows (3.1), (12) and (20). Substitute (2) into (3),           Flipse, M. (2011). Altering and improving Kiva. Working Paper, Vrije Universiteit Am-
+then (11) follows. If we sum (3) on both sides of the equation over
+i  Io we get ioIo yios = ioIo yos  yos and therefore (13) holds.               sterdam.
+
+    From the first part of this proof and Proposition 1, it follows            Hanson, R., Medbo, L., & Johansson, M. I. (2018). Performance characteristics of
+that there is a feasible solution for the split-among-stations model.
+                                                                               robotic mobile fulfilment systems in order picking applications. IFAC-PapersOn-
+    Finally, we have the same objective function (1). Because the
+split-among-station problem is an optimization problem, its opti-              Line, 51(11), 1493­1498.
+mal solution is either
+                                                                               Hoffman, A. E., Mountz, M. C., Barbehenn, M. T., Allard, J. R., Kimmel, M. E., San-
+    (xps )pP,sS , (yo)oO, (yos )oO,sS , (yios )oO,ioIo,sS or better.
+                                                                               tini, F., Decker, M. H., D'Andrea, R., & Wurman, P. R. (2013). System and method
+Proof of Proposition 5. The proof is analogous to the proof
+                                                                               for inventory management using mobile drive units. https://www.google.com/
+of Proposition 3. Let (xps )pP,sS , (yo)oO, (yos )oO,sS , and
+(yios )oO,ioIo,sS , (eo)oO, be a solution of the split-among-stations          patents/US20130103552 .
+
+model. Set all yiob := 0, then (11.1) holds. Furthermore, we have              Il-Choe, K., & Sharp, G. (1991). Small parts order picking: Design and oper-
+the same objective function (1). With the same argumentation as
+in the proof of Proposition 3, we conclude all the statements of               ation. https://www2.isye.gatech.edu/mgoetsch/cali/Logistics%20Tutorial/order/
+Proposition 5.
+                                                                               article.htm .
+Appendix D. Additional parameters in the simulation
+                                                                               Krenzler, R., Xie, L., & Li, H. (2018). Deterministic Pod Repositioning Problem in
+
+                                                                               Robotic Mobile Fulfillment Systems. ArXiv e-prints,.
+
+                                                                               Lamballais, T., Roy, D., & De Koster, M. (2017). Estimating performance in a robotic
+
+                                                                               mobile fulfillment system. European Journal of Operational Research, 256(3),
+
+                                                                               976­990 .
+
+                                                                               Lamballais, T., Roy, D., & De Koster, R. B. (2019). Inventory allocation in robotic mo-
+
+                                                                               bile fulfillment systems. IISE Transactions, 1­17.
+
+                                                                               Merschformann, M. (2017). Active repositioning of storage units in robotic mobile
+
+                                                                               fulfillment systems. In Proceedings of the operations research proceedings 2017
+
+                                                                               (pp. 379­385). Springer.
+
+                                                                               Merschformann, M., Lamballais, T., de Koster, M., & Suhl, L. (2019). Decision rules for
+
+                                                                               robotic mobile fulfillment systems. Operations Research Perspectives, 6, 100128.
+
+                                                                               Merschformann, M., Xie, L., & Erdmann, D. (2017). Multi-Agent Path Finding with
+
+                                                                               Kinematic Constraints for Robotic Mobile Fulfillment Systems. ArXiv e-prints,.
+
+                                                                               Merschformann, M., Xie, L., & Li, H. (2018). RAWSim-O: A simulation framework for
+
+                                                                               robotic mobile fulfillment systems. Logistics Research, 11:8.
+
+                                                                               Onal, S., Zhang, J., & Das, S. (2017). Modelling and performance evaluation of explo-
+
+                                                                               sive storage policies in internet fulfilment warehouses. International Journal of
+
+                                                                               Production Research, 55(20), 5902­5915.
+
+                                                                               Otten, S., Krenzler, R., Xie, L., Daduna, H., & Kruse, K. (2019). Lost-customers approx-
+
+                                                                               imation of semi-open queueing networks with backordering­An application to
+
+                                                                               minimise the number of robots in robotic mobile fulfilment systems. ArXiv e-
+
+                                                                               prints,.
+
+                                                                               Roy, D., Nigam, S., de Koster, R., Adan, I., & Resing, J. (2019). Robot-storage zone
+
+                                                                               assignment strategies in mobile fulfillment systems. Transportation Research Part
+
+                                                                               E: Logistics and Transportation Review, 122, 119­142.
+
+                                                                               ThinkLogistics (2012). Thinking robots ­ canadian logistics company deploys Kiva
+
+                                                                               robots in the warehouse. Materials Management & Distribution (Canada's Sup-
+
+      Table D.9                                                                ply Chain Magazine)https://www.thinklogistics.com/wp-content/uploads/2013/
+      Parameters of robot movement and time for picking units.
+                                                                               02/MMD- ThinkLogistics.pdf.
+
+                                                                               Toister, J. (2017). An inside look at Amazon's fulfillment cen-
+
+      Parameter                                           Value                ter         operations.      https://www.toistersolutions.com/blog/2017/4/10/
+
+      Robot acceleration/deceleration                                          an- inside- look- at- amazons- fulfillment- center- operations.
+      Robot maximum velocity
+      Time needed for a full turn of a robot              1     m              Tompkins, J. A. (2010). Facilities planning (4th). Hoboken, NJ and Chichester: John
+      Time needed for lifting and storing a pod                 s2
+      Time needed for picking a unit                                m          Wiley & Sons.
+      Time needed for handling a unit at picking station  1.5       s
+                                                                               Van Gils, T., Ramaekers, K., Caris, A., & de Koster, R. B. (2018). Designing efficient
+                                                          2.5 s
+                                                                               order picking systems by combining planning problems: State-of-the-art classi-
+                                                          2.2 s
+                                                                               fication and review. European Journal of Operational Research, 267(1), 1­15.
+                                                          7s
+                                                                               Weidinger, F., Boysen, N., & Briskorn, D. (2018). Storage assignment with rack-mov-
+                                                          13 s
+                                                                               ing mobile robots in kiva warehouses. Transportation Science, 52(6), 1479­1495.
+
+                                                                               Wulfraat, M. (2012). Is Kiva Systems a good fit for your distribution center? An
+
+                                                                               unbiased distribution consultant evaluation.http://www.mwpvl.com/html/kiva_
+
+                                                                               systems.html .
+L. Xie, N. Thieme and R. Krenzler et al. / European Journal of Operational Research 288 (2021) 80­97  97
+
+Wurman, P. R., D'Andrea, R., & Mountz, M. (2008). Coordinating hundreds of cooper-        Zhang, J., Yang, F., & Weng, X. (2019). A building-block-based genetic algorithm for
+     ative, autonomous vehicles in warehouses. AI Magazine, 29. doi:10.1609/aimag.             solving the robots allocation problem in a robotic mobile fulfilment system.
+     v29i1.2082 .                                                                              Mathematical Problems in Engineering, 2019.
+
+Xie, L., Li, H., & Thieme, N. (2019). From simulation to real-world robotic mobile        Zou, B., Xu, X., De Koster, R., et al. (2018). Evaluating battery charging and swapping
+     fulfillment systems. Logistics Research, 12:9.                                            strategies in a robotic mobile fulfillment system. European Journal of Operational
+                                                                                               Research, 267(2), 733­753.
+Yuan, R., Dong, T., & Li, J. (2016). Research on the collision-free path planning of
+     multi-agvs system based on improved a algorithm. American Journal of Opera-
+     tions Research, 06(06), 442­449. doi:10.4236/ajor.2016.66041.
+
+Yuan, Z., & Gong, Y. Y. (2017). Bot-in-time delivery for robotic mobile fulfillment sys-
+     tems. IEEE Transactions on Engineering Management, 64(1), 83­93. doi:10.1109/
+     TEM.2016.2634540 .
+
