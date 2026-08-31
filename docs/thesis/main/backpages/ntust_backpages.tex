@@ -6,9 +6,9 @@
 %%% References Document/ Bibliography 
 \newpage
 \addcontentsline{toc}{chapter}{\nameRef}
-\renewcommand{\bibname}{\protect\makebox[5cm][s]{\nameRef}}		% '\makebox{}' is fragile, '\protect' will help
-\bibliographystyle{ieeetr}										% Using IEEE Trans journal format
-{\footnotesize
+\renewcommand{\bibname}{\nameRef}		% '\makebox{}' is fragile, '\protect' will help
+\bibliographystyle{ntust_apa7}										% APA 7 書目格式（見 main/ntust_apa7.bst），內文引用為 [n]
+{\normalsize
 \bibliography{my_bib}  											% 'my_bib' is a BibTeX file located in the parent directory, it comprises all the references for the thesis
 }
 

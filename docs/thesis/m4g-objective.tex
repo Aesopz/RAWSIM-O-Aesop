@@ -1,0 +1,159 @@
+% ============================================================================
+% M4G 正典模型（2026-08-28：ratio-first 兩階段字典序，beta = 1）
+% 需要 amsmath, amssymb
+% 符號格式與簡報一致：所有集合寫成 X(t)，所有加總標明完整索引集合，不省略。
+% ============================================================================
+
+% ------------------------------------------------------------------ 集合
+\begin{align}
+P_a(t) \;&=\; \text{本期可新派的貨架} \notag\\
+P_b(t) \;&=\; \text{已在途或已在站的貨架（行程沉沒）} \notag\\
+W_a(t) \;&=\; \text{本期尚有剩餘槽位的揀貨站台} \notag\\
+R_a(t) \;&=\; \text{本期閒置的機器人} \notag\\
+O(t)   \;&=\; \text{本期待處理的訂單} \notag\\
+L(t)   \;&=\; \bigl\{ (o,i) \;:\; o \in O(t),\; d_{o,i} > 0 \bigr\} \notag\\
+Q(t)   \;&=\; \bigl\{ (o,i,p,w) \;:\; (o,i) \in L(t),\; p \in P_a(t) \cup P_b(t),\; w \in W_a(t),\; s_{p,i} > 0 \bigr\} \notag
+\end{align}
+
+% ------------------------------------------------------------------ 參數
+\begin{align}
+d_{o,i}   \;&=\; \text{訂單 } o \text{ 的 SKU } i \text{ 尚缺件數} \notag\\
+D_o       \;&=\; \sum_{i \,:\, (o,i) \in L(t)} d_{o,i} \notag\\
+s_{p,i}   \;&=\; \text{貨架 } p \text{ 上 SKU } i \text{ 的可用庫存} \notag\\
+C_w       \;&=\; \text{站台 } w \text{ 本期的剩餘槽位數} \notag\\
+d_{p,w}   \;&=\; \text{貨架 } p \text{ 送至站台 } w \text{ 的行走距離} \notag\\
+d_{r,p}   \;&=\; \text{機器人 } r \text{ 前往貨架 } p \text{ 的行走距離} \notag\\
+b_i       \;&=\; \max\Bigl(0,\; \sum_{o \,:\, (o,i) \in L(t)} d_{o,i} \;-\; \text{(SKU } i \text{ 的在途供給)}\Bigr) \notag\\
+\lambda   \;&=\; \frac{D^{\mathrm{cum}}}{L^{\mathrm{cum}}}
+              \quad [\text{公尺 / 行}] \notag\\
+\mu       \;&=\; \lambda \cdot \frac{L^{\mathrm{cum}}}{N^{\mathrm{cum}}}
+              \;=\; \frac{D^{\mathrm{cum}}}{N^{\mathrm{cum}}}
+              \quad [\text{公尺 / 訂單}] \notag
+\end{align}
+
+% ------------------------------------------------------------------ 決策變數
+\begin{align}
+z_{p,w}          \;&\in\; \{0,1\}
+   && p \in P_a(t) \cup P_b(t),\; w \in W_a(t) \notag\\
+y_{r,p}          \;&\in\; \{0,1\}
+   && r \in R_a(t),\; p \in P_a(t) \notag\\
+\hat{q}_{o,i,p,w} \;&\in\; \mathbb{Z}_{\ge 0}
+   && (o,i,p,w) \in Q(t) \quad \text{(估值層)} \notag\\
+q_{o,i,p,w}      \;&\in\; \mathbb{Z}_{\ge 0}
+   && (o,i,p,w) \in Q(t) \quad \text{(綁定層)} \notag\\
+\hat{e}_{o,i},\; e_{o,i} \;&\in\; \{0,1\}
+   && (o,i) \in L(t) \notag\\
+\hat{f}_{o},\; f_{o} \;&\in\; \{0,1\}
+   && o \in O(t) \notag\\
+x_{o,w}          \;&\in\; \{0,1\}
+   && o \in O(t),\; w \in W_a(t) \notag\\
+u_{w}            \;&\in\; \mathbb{Z}_{\ge 0}
+   && w \in W_a(t) \notag
+\end{align}
+
+% ------------------------------------------------------------------ 目標式
+\begin{equation}
+\min \; \frac{D}{V}
+\qquad \xrightarrow{\;\text{Dinkelbach}\;} \qquad
+\min \; D - V
+\end{equation}
+
+\begin{aligned}
+D \;=\;\; & \sum_{p \in P_a(t)} \sum_{w \in W_a(t)} d_{p,w}\, z_{p,w}
+        \;+\; \sum_{r \in R_a(t)} \sum_{p \in P_a(t)} d_{r,p}\, y_{r,p} \\[14pt]
+V \;=\;\; & \lambda \!\!\sum_{(o,i) \in L(t)}\!\! \hat{e}_{o,i}
+        \;+\; \mu \sum_{o \in O(t)} \hat{f}_{o}
+\end{aligned}
+
+% Dinkelbach 迭代（lambda 與 mu 同比例縮放，故 V^{*} 可由目標值回推）
+\begin{align}
+\lambda_{k+1} \;&=\; \frac{D^{*}}{V^{*}_{\text{(行當量)}}},
+\qquad
+V^{*}_{\text{(行當量)}} \;=\; \frac{D^{*} - F(\lambda_k)}{\lambda_k},
+\qquad
+\mu_k \;=\; \frac{L^{\mathrm{cum}}}{N^{\mathrm{cum}}} \cdot \lambda_k
+\end{align}
+
+% ------------------------------------------------------------------ 兩階段字典序
+\begin{align}
+\textbf{階段一：}\quad
+& \lambda^{*},\, F^{*} \;\longleftarrow\; \min \; D - V \;\;\text{（Dinkelbach 迭代至收斂）} \\[8pt]
+\textbf{階段二：}\quad
+& \min \sum_{w \in W_a(t)} u_{w}
+  \qquad \text{s.t.} \qquad D - V \;\le\; F^{*}
+\end{align}
+
+% ------------------------------------------------------------------ 限制式：估值層
+\begin{align}
+\sum_{o \,:\, (o,i,p,w) \in Q(t)} \hat{q}_{o,i,p,w}
+   \;&\le\; s_{p,i}\, z_{p,w}
+   && \forall\, i,\; \forall\, p \in P_a(t) \cup P_b(t),\; \forall\, w \in W_a(t)
+   \tag{V1}\\[6pt]
+\sum_{(p,w) \,:\, (o,i,p,w) \in Q(t)} \hat{q}_{o,i,p,w}
+   \;&\le\; d_{o,i}
+   && \forall\, (o,i) \in L(t)
+   \tag{V2}\\[6pt]
+\sum_{\substack{(o,p,w) \,:\, (o,i,p,w) \in Q(t) \\ p \,\in\, P_a(t)}} \hat{q}_{o,i,p,w}
+   \;&\le\; b_i
+   && \forall\, i
+   \tag{V2a}\\[6pt]
+\sum_{(p,w) \,:\, (o,i,p,w) \in Q(t)} \hat{q}_{o,i,p,w}
+   \;&\ge\; d_{o,i}\, \hat{e}_{o,i}
+   && \forall\, (o,i) \in L(t)
+   \tag{V3}\\[6pt]
+\hat{e}_{o,i} \;&\ge\; \hat{f}_{o}
+   && \forall\, (o,i) \in L(t)
+   \tag{V4}
+\end{align}
+
+% ------------------------------------------------------------------ 限制式：資源
+\begin{align}
+\sum_{w \in W_a(t)} z_{p,w} \;&\le\; 1
+   && \forall\, p \in P_a(t) \cup P_b(t)
+   \tag{R1}\\[6pt]
+\sum_{w \in W_a(t)} z_{p,w} \;&\le\; \sum_{r \in R_a(t)} y_{r,p}
+   && \forall\, p \in P_a(t)
+   \tag{R2}\\[6pt]
+\sum_{p \in P_a(t)} y_{r,p} \;&\le\; 1
+   && \forall\, r \in R_a(t)
+   \tag{R3}\\[6pt]
+\sum_{r \in R_a(t)} y_{r,p} \;&\le\; 1
+   && \forall\, p \in P_a(t)
+   \tag{R4}\\[6pt]
+z_{p,w} \;=\; 1,\quad y_{r,p} \;&=\; 1
+   && \forall\, p \in P_b(t) \;\text{（已在途，釘定其既有指派）}
+   \tag{R5}
+\end{align}
+
+% ------------------------------------------------------------------ 限制式：綁定層
+\begin{align}
+q_{o,i,p,w} \;&\le\; \hat{q}_{o,i,p,w}
+   && \forall\, (o,i,p,w) \in Q(t)
+   \tag{B1}\\[6pt]
+\sum_{(i,p) \,:\, (o,i,p,w) \in Q(t)} q_{o,i,p,w}
+   \;&\le\; D_o\, x_{o,w}
+   && \forall\, o \in O(t),\; \forall\, w \in W_a(t)
+   \tag{B2}\\[6pt]
+\sum_{o \in O(t)} x_{o,w} \;&\le\; C_w
+   && \forall\, w \in W_a(t)
+   \tag{B3}\\[6pt]
+\sum_{o \in O(t)} x_{o,w} \;+\; u_w \;&=\; C_w
+   && \forall\, w \in W_a(t)
+   \tag{B3s}\\[6pt]
+x_{o,w} \;&\le\; \sum_{(i,p) \,:\, (o,i,p,w) \in Q(t)} q_{o,i,p,w}
+   && \forall\, o \in O(t),\; \forall\, w \in W_a(t)
+   \tag{B4}\\[6pt]
+\sum_{(p,w) \,:\, (o,i,p,w) \in Q(t)} q_{o,i,p,w}
+   \;&\ge\; d_{o,i}\, e_{o,i}
+   && \forall\, (o,i) \in L(t)
+   \tag{B5}\\[6pt]
+e_{o,i} \;&\le\; \hat{e}_{o,i}
+   && \forall\, (o,i) \in L(t)
+   \tag{B6c}\\[6pt]
+f_{o} \;&\le\; \hat{f}_{o}
+   && \forall\, o \in O(t)
+   \tag{B6z}\\[6pt]
+e_{o,i} \;&\ge\; f_{o}
+   && \forall\, (o,i) \in L(t)
+   \tag{B7}
+\end{align}

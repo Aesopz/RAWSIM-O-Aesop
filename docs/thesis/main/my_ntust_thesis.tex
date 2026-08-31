@@ -40,42 +40,125 @@
 \input{common_env}
 
 % ==========================================================================
-%  格式客製化 — 依 docs/thesis/aesop_thesis.docx 萃取的實際規格
+%  格式客製化 — 規格萃取自 Harry_M11301112_thesis_final_submission_FINAL.docx
 %  （集中在此，common_env.tex 與 ntust_report.cls 維持範本原樣）
 %
-%   紙張      A4                （Word 檔為 Letter，判定為美規預設未改）
-%   邊界      上/下/右 3cm、左 4cm 裝訂邊、頁首/頁尾 1.25cm
-%   正文      Times New Roman 12pt / 中文 DFKai-SB
-%   行距      1.5 倍            （範本 mybaselinestretch 已是 1.5）
-%   章/節/小節  16 / 13 / 12 pt
+%   紙張    A4（pgSz 11909x16834 twips）
+%   邊界    上 3cm、下 2cm、左右各 3cm（pgMar 1701/1134/1701/1701 twips）
+%   正文    Times New Roman 12pt（sz 24）／中文 DFKai-SB，行距 1.5（line 360 auto）
+%           段後 6pt（after 120）、首行縮排 21.6pt（firstLine 432）
+%   章標題  20pt 粗體置中（sz 40），「Chapter N」與章名分兩行，前 48pt／後 24pt
+%   節標題  18pt 粗體（sz 36），前後各 12pt
+%   小節    14pt 粗體（sz 28），前後各 12pt
+%   目錄    12pt、單倍行距、段後 1pt、點引導至右側頁碼
+%           節縮排 left 32.4pt / hanging 14.4pt；小節 left 54pt / hanging 18pt
 % ==========================================================================
-% 邊界依 Harry_M11301112_thesis_final_submission_FINAL.docx（最終送審版）：
-%   pgSz 11909x16834 twips = A4；pgMar 上1701 下1134 左右各1701 twips
 \geometry{verbose,a4paper,tmargin=3cm,bmargin=2cm,lmargin=3cm,rmargin=3cm,%
           headsep=1.25cm,footskip=1.25cm}
 
+% 正文段落：首行縮排；indentfirst 讓每節第一段也縮排（Word 的行為）
+\usepackage{indentfirst}
+\setlength{\parindent}{21.6pt}
+
 \makeatletter
-\newcommand{\ntustChapFont}{\fontsize{16}{19.2}\selectfont\bfseries}
-\newcommand{\ntustSecFont}{\fontsize{13}{15.6}\selectfont\bfseries}
-\newcommand{\ntustSubFont}{\fontsize{12}{14.4}\selectfont\bfseries}
-% 預設的 \LARGE/\Large/\large 在 12pt 基底下是 20.74/17.28/14.4pt，均大於 Word 規格
+\newcommand{\ntustChapFont}{\fontsize{20}{24}\selectfont\bfseries}
+\newcommand{\ntustSecFont}{\fontsize{18}{21.6}\selectfont\bfseries}
+\newcommand{\ntustSubFont}{\fontsize{14}{16.8}\selectfont\bfseries}
+
+% 章標題：CHAPTER N 一行、章名一行，兩行皆全大寫置中，且緊貼版面頂端
+\renewcommand\prechaptername{CHAPTER}
 \def\@makechapterhead#1{%
   {\parindent \z@ \centering \normalfont
     \ifnum \c@secnumdepth >\m@ne
-        \ntustChapFont \prechaptername \space \thechapter \space \postchaptername
+        {\ntustChapFont \prechaptername \space \thechapter}\par\nobreak
     \fi
-    \hspace{1em}
     \interlinepenalty\@M
-    \ntustChapFont #1\par\nobreak
-    \vskip 20\p@
+    {\ntustChapFont \MakeUppercase{#1}}\par\nobreak
+    \vskip 24\p@
+  }}
+% 目錄中的章條目同樣全大寫（Harry 送審版的目錄即為大寫）
+\def\@chapter[#1]#2{\ifnum \c@secnumdepth >\m@ne
+    \refstepcounter{chapter}%
+    \typeout{\@chapapp\space\thechapter.}%
+    \addcontentsline{toc}{chapter}{\protect\numberline{\thechapter}\MakeUppercase{#1}}%
+  \else
+    \addcontentsline{toc}{chapter}{\MakeUppercase{#1}}%
+  \fi
+  \chaptermark{#1}%
+  \addtocontents{lof}{\protect\addvspace{10\p@}}%
+  \addtocontents{lot}{\protect\addvspace{10\p@}}%
+  \if@twocolumn
+    \@topnewpage[\@makechapterhead{#2}]%
+  \else
+    \@makechapterhead{#2}%
+    \@afterheading
+  \fi}
+% 前置頁與參考文獻的無編號章標題：20pt 粗體置中，同樣貼齊版面頂端
+\def\@makeschapterhead#1{%
+  {\parindent \z@ \centering \normalfont
+    \interlinepenalty\@M
+    {\ntustChapFont #1}\par\nobreak
+    \vskip 24\p@
   }}
 \renewcommand\section{\@startsection{section}{1}{\z@}%
-    {-3.5ex \@plus -1ex \@minus -.2ex}{2.3ex \@plus.2ex}{\normalfont\ntustSecFont}}
+    {12\p@ \@plus 2\p@ \@minus 2\p@}{12\p@ \@plus 2\p@}{\normalfont\ntustSecFont}}
 \renewcommand\subsection{\@startsection{subsection}{2}{\z@}%
-    {-3.25ex\@plus -1ex \@minus -.2ex}{1.5ex \@plus .2ex}{\normalfont\ntustSubFont}}
+    {12\p@ \@plus 2\p@ \@minus 2\p@}{12\p@ \@plus 2\p@}{\normalfont\ntustSubFont}}
 \renewcommand\subsubsection{\@startsection{subsubsection}{3}{\z@}%
-    {-3.25ex\@plus -1ex \@minus -.2ex}{1.5ex \@plus .2ex}{\normalfont\ntustSubFont}}
-\makeatother		% Basic environment settings, no need to alter 基本的環境設定 無需改變  
+    {12\p@ \@plus 2\p@ \@minus 2\p@}{12\p@ \@plus 2\p@}{\normalfont\ntustSubFont}}
+% 編號與標題之間只用一個空格（預設 \@seccntformat 是 \quad，看起來過寬）
+\renewcommand{\@seccntformat}[1]{\csname the#1\endcsname\space}
+\makeatother
+
+% ── 目錄／圖目錄／表目錄 ───────────────────────────────────
+% 規格實測自 docs/thesis/Harrison_Thesis.pdf：
+%   12pt、行距 20.6pt（＝Word 1.5 倍，沿用全文 mybaselinestretch）、條目間無額外間距
+%   條目一律靠左，節縮排約 11pt、小節約 22pt；點引導直達右界、頁碼右對齊
+\usepackage[titles]{tocloft}   % titles: 不接管標題排版，維持 \@makeschapterhead 的置中 20pt
+\renewcommand{\cftdotsep}{2}   % 點距（預設 4.5 太疏）
+\cftsetpnumwidth{2.4em}        % 容納 VIII / XIII
+\cftsetrmarg{2.6em}
+
+% 頁碼一律 12pt（範本的 plain 樣式會縮成小字，與參考論文不符）
+\fancyfoot[C]{\normalsize\thepage}
+\fancypagestyle{plain}{%
+  \fancyhf{}%
+  \fancyfoot[C]{\normalsize\thepage}%
+  \renewcommand{\headrulewidth}{0pt}}
+
+% 條目之間不再另加間距——1.5 倍行距本身已提供足夠留白
+\setlength{\cftbeforechapskip}{0pt}
+\setlength{\cftbeforesecskip}{0pt}
+\setlength{\cftbeforesubsecskip}{0pt}
+\setlength{\cftbeforefigskip}{0pt}
+\setlength{\cftbeforetabskip}{0pt}
+
+% 章：不加粗、行首無縮排，編號前冠上 CHAPTER
+\renewcommand{\cftchapfont}{\normalfont\normalsize}   % tocloft 預設為 large 粗體，須顯式還原成 12pt
+\renewcommand{\cftchappagefont}{\normalfont\normalsize}
+\renewcommand{\cftchapleader}{\normalfont\cftdotfill{\cftdotsep}}
+\renewcommand{\cftchappresnum}{\prechaptername\space}
+\renewcommand{\cftchapaftersnumb}{\space}
+\setlength{\cftchapindent}{0pt}
+\setlength{\cftchapnumwidth}{5.4em}
+
+% 節／小節：縮排小，編號與標題間僅一個空格（Harrison 以前導空白縮排）
+\setlength{\cftsecindent}{11pt}      \setlength{\cftsecnumwidth}{1.8em}
+\setlength{\cftsubsecindent}{22pt}   \setlength{\cftsubsecnumwidth}{2.7em}
+
+% 圖表目錄：條目前冠 Figure / Table
+\renewcommand{\cftfigpresnum}{Figure\space}
+\renewcommand{\cfttabpresnum}{Table\space}
+\renewcommand{\cftfigaftersnumb}{\space}
+\renewcommand{\cfttabaftersnumb}{\space}
+\setlength{\cftfigindent}{0pt}       \setlength{\cftfignumwidth}{4.6em}
+\setlength{\cfttabindent}{0pt}       \setlength{\cfttabnumwidth}{4.2em}
+
+% -- 引用與參考文獻 --------------------------------------
+% 內文引用一律 [1]、[2,3]、[4-6]（numbers + sort&compress），
+% 書目條目由 ntust_apa7.bst 以 APA 7 格式排版
+\usepackage[numbers,sort&compress]{natbib}
+\setlength{\bibsep}{6pt}
 
 % Personal packages, you may add or delete it as necessary 自己需要的package，可以需要增刪
 \usepackage{subfig}
