@@ -636,6 +636,9 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             public double Delta;
             public bool CompletesOrder;
             public bool NeedsSlot;
+            /// <summary>(LexSlotFillLeastResidual) Units this order would still be short of after
+            /// this move. 0 means the move completes it. Ranking key only - never priced.</summary>
+            public int ResidualAfter;
         }
 
         /// <summary>One accepted dispatch: pod -> station, carried by bot.</summary>
@@ -699,7 +702,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 // Iterating res directly visits the same entries in the same order, so the moves
                 // are generated identically.
                 int openCount = 0;
-                foreach (var p in res) if (p.Value > 0) openCount++;
+                int residualUnits = 0;
+                foreach (var p in res) if (p.Value > 0) { openCount++; residualUnits += p.Value; }
                 if (openCount == 0) continue;
                 foreach (var line in res)
                 {
@@ -723,7 +727,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                             StationIndex = s,
                             Units = line.Value,
                             CompletesOrder = completes,
-                            NeedsSlot = !holdsSlot
+                            NeedsSlot = !holdsSlot,
+                            ResidualAfter = residualUnits - line.Value
                         };
                         double lamEff = _config.FaithfulMarginal ? lambda * (1.0 - delta) : lambda;
                         double muEff = _config.FaithfulMarginal ? mu * (1.0 - delta) : mu;
@@ -922,9 +927,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     while (true)
                     {
                         var moves = EnumerateLineMoves(trial, lambda, mu, rho, epsilon, delta);
-                        M5LineMove best = null;
-                        foreach (var m in moves)
-                            if (m.Delta < 0 && (best == null || m.Delta < best.Delta)) best = m;
+                        M5LineMove best = SelectDraw(moves, false);
                         if (best == null) break;
                         unlocked += best.Delta;
                         ApplyToBooks(trial, best);
@@ -951,6 +954,79 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// The greedy construction at one lambda. Builds a plan against a throwaway copy of the
         /// books; nothing here touches the engine.
         /// </summary>
+        /// <summary>
+        /// Picks the draw-line move to accept, or null to stop drawing.
+        ///
+        /// Default rule (unchanged): the most negative move; ties prefer the move that does NOT
+        /// consume a fresh slot, conserving capacity for a later order.
+        ///
+        /// LexicographicRatioFirst: at delta = 1 every move scores exactly 0, so the default rule
+        /// accepts nothing. A zero-scoring move is then accepted when it claims a slot, and the
+        /// tie-break flips to prefer the slot-claiming move - the greedy counterpart of freezing
+        /// the ratio and minimising idle slots underneath it. Moves that neither improve the
+        /// objective nor claim a slot are still refused, so this cannot run away: every accepted
+        /// zero-move strictly decreases FreeSlots.
+        /// </summary>
+        /// <param name="conserveSlotOnTie">Legacy path only. BuildPlan breaks a tie toward the move
+        /// that does not consume a fresh slot; the dispatch lookahead never had that tie-break and
+        /// must not gain one, or the flag-off path stops reproducing published results bit-for-bit.
+        /// Irrelevant under LexicographicRatioFirst, which defines its own tie-break in the
+        /// opposite direction for both callers.</param>
+        private M5LineMove SelectDraw(List<M5LineMove> moves, bool conserveSlotOnTie)
+        {
+            M5LineMove best = null;
+            if (_config.LexicographicRatioFirst)
+            {
+                bool leastResidual = _config.LexSlotFillLeastResidual;
+                bool smallestLine = _config.LexSlotFillSmallestLine;
+                bool continueOrder = _config.LexSlotFillContinueOrder;
+                foreach (var m in moves)
+                {
+                    bool improves = m.Delta < -LexZeroTolerance;
+                    bool free = Math.Abs(m.Delta) <= LexZeroTolerance;
+                    bool fillsSlot = free && m.NeedsSlot;
+                    // EnumerateLineMoves only emits a move with NeedsSlot == false when the order
+                    // ALREADY holds a slot at that station, so this reads as "top up an order whose
+                    // slot is already paid for" and nothing else.
+                    bool topsUpOrder = continueOrder && free && !m.NeedsSlot;
+                    if (!improves && !fillsSlot && !topsUpOrder) continue;
+                    if (best == null || m.Delta < best.Delta) { best = m; continue; }
+                    if (m.Delta != best.Delta) continue;
+                    // Tied on the objective. Claiming a slot always wins - that is the whole point
+                    // of accepting a zero. Only when both claim (or both do not) does the residual
+                    // key separate them.
+                    if (m.NeedsSlot != best.NeedsSlot)
+                    {
+                        if (m.NeedsSlot) best = m;
+                        continue;
+                    }
+                    // Smallest line first. This is the key that reproduces M4G rev-lex's shape:
+                    // with the draw variables unpriced, the exact solver settles on the cheapest
+                    // way to satisfy B4 (y needs one drawn line), which is the line with the fewest
+                    // units - hence 1.09 items per closed line against the greedy's 1.52. Ranking
+                    // tied moves by Units makes the greedy land on the same members of the tie set.
+                    if (smallestLine && m.Units != best.Units)
+                    {
+                        if (m.Units < best.Units) best = m;
+                        continue;
+                    }
+                    if (leastResidual && m.ResidualAfter < best.ResidualAfter) best = m;
+                }
+                return best;
+            }
+            foreach (var m in moves)
+                if (m.Delta < 0 && (best == null
+                    || m.Delta < best.Delta
+                    || (conserveSlotOnTie && m.Delta == best.Delta && !m.NeedsSlot && best.NeedsSlot)))
+                    best = m;
+            return best;
+        }
+
+        /// <summary>Below this magnitude a move's score counts as "no change to the objective" for
+        /// LexicographicRatioFirst. Mirrors M4GConfiguration.LexTieTolerance: a numerical guard on
+        /// an exactly-zero coefficient, far below the metre scale at which moves differ.</summary>
+        private const double LexZeroTolerance = 1e-4;
+
         private M5Plan BuildPlan(M5EpochState seed, HashSet<Pod> paCandidates,
             double lambda, double mu, double delta, double rho, double epsilon)
         {
@@ -961,12 +1037,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             while (true)
             {
                 var moves = EnumerateLineMoves(st, lambda, mu, rho, epsilon, delta);
-                M5LineMove bestDraw = null;
-                foreach (var m in moves)
-                    if (m.Delta < 0 && (bestDraw == null
-                        || m.Delta < bestDraw.Delta
-                        || (m.Delta == bestDraw.Delta && !m.NeedsSlot && bestDraw.NeedsSlot)))
-                        bestDraw = m;
+                M5LineMove bestDraw = SelectDraw(moves, true);
 
                 Pod dPod; int dStation; Bot dBot; double dDelta;
                 EvaluateDispatch(st, paCandidates, dispatched, lambda, mu, delta, rho, epsilon,

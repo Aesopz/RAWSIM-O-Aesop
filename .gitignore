@@ -63,3 +63,11 @@ docs/thesis/**/*.ttf
 docs/thesis/ntust-thesis-master/
 # 學長的 Word 檔（7MB，僅供內容搬移參考）
 docs/thesis/*.docx
+
+# LaTeX -output-directory（全部是衍生物，含 pdf；原始碼在 main/）
+docs/thesis/main/$out/
+docs/thesis/**/*.loa
+
+# pptx 解包工作目錄（unzip 產物，含 5MB 內嵌字型；原始 .pptx 才是來源）
+slide/*/u/
+slide/work/unpacked/

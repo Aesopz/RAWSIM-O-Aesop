@@ -1619,6 +1619,10 @@ namespace RAWSimO.Core.Configurations
         public double LambdaScale { get; set; } = 1.0;
         public double MuScale { get; set; } = 1.0;
         public double DeltaScale { get; set; } = 1.0;
+        /// <summary>Mirror of M4GConfiguration.SeparateOrderDelta. Off keeps the greedy pricing
+        /// identical to every published result.</summary>
+        public bool SeparateOrderDelta { get; set; } = false;
+
         /// 0 = canon (2026-08-28): the unit-level tie-break was removed so every remaining
         /// price is measured, leaving no chosen constant in the objective. Removing it left the
         /// splitting benefit intact (items +18.0% vs the no-split arm either way) and cost only
@@ -1667,6 +1671,10 @@ namespace RAWSimO.Core.Configurations
         public double LambdaScale { get; set; } = 1.0;
         public double MuScale { get; set; } = 1.0;
         public double DeltaScale { get; set; } = 1.0;
+        /// <summary>Mirror of M4GConfiguration.SeparateOrderDelta. Off keeps the greedy pricing
+        /// identical to every published result.</summary>
+        public bool SeparateOrderDelta { get; set; } = false;
+
         /// 0 = canon (2026-08-28): the unit-level tie-break was removed so every remaining
         /// price is measured, leaving no chosen constant in the objective. Removing it left the
         /// splitting benefit intact (items +18.0% vs the no-split arm either way) and cost only
@@ -1773,6 +1781,69 @@ namespace RAWSimO.Core.Configurations
         /// 0 (default) = no cap, every Pa pod fully evaluated: the strictly-aligned reference.
         /// </summary>
         public int CandidatePodTopK = 0;
+
+        /// <summary>(GreedyM5) Mirror of M4GConfiguration.LexicographicRatioFirst. Only meaningful
+        /// at DeltaFixed = 1, where lamEff = lambda*(1-delta) and muEff are both zero and every
+        /// draw-line move scores exactly 0 - the greedy counterpart of the exact model's beta = 1
+        /// degeneracy, and it stops the plan dead for the same reason ("accept the most negative
+        /// move" never fires on a zero).
+        ///
+        /// Restores progress the same way the exact model does, without a price: a zero-scoring
+        /// move is accepted when it CLAIMS A SLOT, and among tied moves the slot-claiming one wins
+        /// instead of losing. Strictly ordered after the ratio, exactly as the exact model's
+        /// tie-break is: the existing "bestDraw.Delta &lt;= dDelta" test still lets any
+        /// objective-improving dispatch pre-empt a zero-scoring draw, so slots are only filled once
+        /// nothing left improves the ratio.
+        ///
+        /// The dispatch lookahead's inner harvest uses the same rule - it must, or the lookahead
+        /// and the real run would disagree about what a pod unlocks, which is the one invariant
+        /// EvaluateDispatch's trial clone exists to preserve.</summary>
+        public bool LexicographicRatioFirst = false;
+
+        /// <summary>(GreedyM5, requires LexicographicRatioFirst) Among moves tied at zero that all
+        /// claim a slot, take the one leaving the ORDER closest to done (fewest units still short;
+        /// 0 = this move completes it).
+        ///
+        /// This does not contradict the exact model: at beta = 1 the draw variables carry a zero
+        /// objective coefficient, so which order receives a given slot is genuinely undetermined
+        /// there - Gurobi returns an arbitrary member of that tie set and the greedy has to pick
+        /// one too. This picks a specific member rather than the enumeration-order default, and the
+        /// choice is forward-looking in the second stage's own currency: the order nearest
+        /// completion frees its slot soonest, and free slots are exactly what stage 2 minimises.
+        ///
+        /// Without it the greedy ranks tied moves by nothing at all, which is why the faithful
+        /// mirror alone reversed the sign of every efficiency metric against M4G's.</summary>
+        public bool LexSlotFillLeastResidual = false;
+
+        /// <summary>(GreedyM5, requires LexicographicRatioFirst) Among moves tied at zero that all
+        /// claim a slot, take the line with the FEWEST units. Ranked ahead of
+        /// LexSlotFillLeastResidual when both are on.
+        ///
+        /// This is the key that reproduces M4G rev-lex's operating shape rather than merely
+        /// avoiding its collapse. With the draw variables carrying a zero objective coefficient,
+        /// the exact solver satisfies B4 (a claimed slot needs one drawn line) as cheaply as it
+        /// can, which lands it on single-unit lines: 1.09 items per closed line against the
+        /// greedy's 1.52, and 1311 closed lines against 938. Ranking tied moves by unit count picks
+        /// the same members of the tie set the solver picks, so the two agree on shape and not just
+        /// on throughput.</summary>
+        public bool LexSlotFillSmallestLine = false;
+
+        /// <summary>(GreedyM5, requires LexicographicRatioFirst) Also accept a zero-scoring move on
+        /// an order that ALREADY holds its slot at that station, not only one that claims a fresh
+        /// slot.
+        ///
+        /// Without this the greedy binds exactly one line per slot claim, because a top-up move
+        /// scores zero and claims nothing - an artefact of how the acceptance test was written, not
+        /// something the exact model does. B4 only requires that a claimed slot carry at least one
+        /// drawn line; it never caps the count. The measured consequence is 1.50 closed lines per
+        /// completed order against M4G rev-lex's 2.16.
+        ///
+        /// Terminates: an accepted move zeroes that line's residual, so the same (order, sku,
+        /// station) triple is never emitted twice and the move set strictly shrinks.
+        ///
+        /// Claiming a fresh slot still outranks topping up, so idle slots are still minimised
+        /// first - the top-up only spends capacity that has already been paid for.</summary>
+        public bool LexSlotFillContinueOrder = false;
     }
 
     /// <summary>
@@ -2187,6 +2258,125 @@ namespace RAWSimO.Core.Configurations
         /// Costs one extra solve per decision. Independent of SlotScale; setting both is
         /// redundant, not wrong.</summary>
         public bool LexicographicSlotFill = false;
+
+        /// <summary>(M4G, experimental) Reverses the lexicographic order: the ratio comes FIRST and
+        /// slot filling only breaks ties among solutions that already achieve it. Requires
+        /// LexicographicSlotFill (it supplies the us variables); ignored on its own.
+        ///
+        /// Stage 1 is the ordinary Dinkelbach loop, run to convergence. Only afterwards is
+        /// "objective &lt;= obj* + LexTieTolerance" added and the objective switched to sum(us),
+        /// so the tie-break happens strictly after lambda has settled and cannot touch the
+        /// V* = (D* - objective)/lambda recovery the loop depends on.
+        ///
+        /// Only meaningful at DeltaFixed = 1. With beta &lt; 1 the binding variables carry positive
+        /// objective coefficients, the ratio optimum is near-unique, the tie set is empty and this
+        /// is inert. At beta = 1 those coefficients are zero, every binding pattern consistent with
+        /// the chosen valuation ties, and the tie-break is what stops the solver from choosing the
+        /// q = 0 member of that set (measured: pure beta = 1 completes 0 orders).
+        ///
+        /// Versus the forward order (fill slots, then optimise the ratio inside that bound): this
+        /// never sacrifices the ratio to fill a slot, at the cost of one extra solve per decision.</summary>
+        /// <summary>(M4G, experimental) Weights each BOUND line closure by 1 + scarcity, where
+        /// scarcity in [0,1] is how short the sunk pods' stock of that SKU falls of the outstanding
+        /// backlog demand for it.
+        ///
+        /// The reading is cost-to-go, not preference. A line whose SKU the already-committed pods
+        /// still cover in abundance costs nothing to postpone - a trip somebody has already paid
+        /// for will serve it next epoch. A line whose SKU has no sunk supply left costs a whole new
+        /// dispatch if postponed, so closing it now is worth strictly more. That is a sourcing
+        /// fact, unlike DueDatePricing which encodes a preference about order urgency.
+        ///
+        /// Deliberately applied to the binding layer ONLY: the valuation layer keeps a uniform
+        /// lambda, so "the objective counts how many lines, not which ones" still holds there and
+        /// the shape drift measured in the valuation-fidelity log stays harmless.
+        ///
+        /// It also gives the greedy strictly more gradient rather than less, since scarcity is a
+        /// local quantity every candidate move can evaluate from its own books - the opposite of
+        /// the lexicographic route, which removed the gradient the greedy needs.
+        ///
+        /// First-order: scarcity is read off the pre-decision books, so it ignores the sunk stock
+        /// this very decision consumes and under-states crowding-out.</summary>
+        /// <summary>(M4G, experimental) Measure the realisation rate separately for lines and for
+        /// orders, instead of applying the line-level beta to the mu terms as well.
+        ///
+        /// The two rates are not the same, and the gap is measurable: an order enters a station
+        /// whole the moment any of it is bound, while its lines are gated one at a time by slot
+        /// capacity. On the canonical seed the order-level rate is 0.2837 against the line-level
+        /// 0.1995 - 1.42x - so the shared beta under-credits valued orders by about 30%, worth
+        /// roughly 6% of V.
+        ///
+        /// Off by default: it takes the price table from three measured numbers to four, and the
+        /// canonical results were produced with the shared rate.</summary>
+        public bool SeparateOrderDelta { get; set; } = false;
+
+        public bool ScarcityWeightedBinding = false;
+
+        /// <summary>(M4G, experimental) Order-level counterpart of ScarcityWeightedBinding, and the
+        /// one that expresses the intent. The bound COMPLETION reward mu*(1-delta) is weighted by
+        /// 1 + w_o, where w_o is the MAXIMUM per-SKU scarcity over the order's open lines.
+        ///
+        /// Max, not mean: a single line with no sunk supply behind it already forces a fresh
+        /// dispatch if the order is deferred, however easy its other lines are. w_o is therefore
+        /// "how expensive is this order to finish later", which is exactly the difficulty the
+        /// binding layer should be paying attention to.
+        ///
+        /// Why completion rather than line closure: the line-level version was measured to scatter
+        /// the model across scarce SKUs instead of consolidating whole orders (pile-on -4.7%,
+        /// lines per trip 8.75 -> 8.45, orders -3.8%). Paying the premium only when an order
+        /// actually finishes keeps the consolidation incentive that mu exists to provide, and adds
+        /// the difficulty signal on top of it rather than in competition with it.
+        ///
+        /// Also far cheaper to solve: one distinct coefficient per order rather than per line, so
+        /// it does not flatten the symmetry the branch-and-bound relies on (the line-level version
+        /// cost +65% solve time).</summary>
+        public bool ScarcityWeightedCompletion = false;
+
+        /// <summary>(M4G, experimental) Pays the full price on BOTH layers: a bound line earns
+        /// lambda and a valued line earns lambda too, rather than the two coefficients splitting a
+        /// single lambda between them. Orders likewise earn mu on both.
+        ///
+        /// This is not a delta setting. The canonical pair lambda*(1-delta) / lambda*delta is
+        /// constrained to sum to lambda by construction, so "full credit on both" is unreachable
+        /// through any delta and needs its own objective.
+        ///
+        /// The reason the canonical form discounts at all is repeated valuation across epochs: an
+        /// open line is re-valued at every decision until it is finally closed - measured at 4872
+        /// valuations for 962 closures, about 5x - so paying the closed-line price on every
+        /// valuation credits the same work roughly five times, inflating V and collapsing the
+        /// Dinkelbach lambda. Unlike DeltaFixed = 1 this keeps a non-zero bound coefficient, so
+        /// binding still scores and the greedy still has a gradient; the failure mode to look for
+        /// is over-dispatch, not deadlock.</summary>
+        public bool FullCreditBothLayers = false;
+
+        /// <summary>(M4G, experimental) Tiers the VALUATION credit by whether a line's deferred
+        /// closure has already been paid for.
+        ///
+        /// A line the sunk pods (Pb - at a station or en route, their travel charged in an earlier
+        /// decision) can cover in full will be closed by a trip nobody has to buy again, so it
+        /// earns the whole lambda. A line that still needs a fresh dispatch earns only
+        /// lambda*beta, the measured share such claims historically convert.
+        ///
+        /// The point is interpretability: it replaces "a global 0.19 conversion ratio" with a
+        /// statement about whether the travel bill is already settled, which is a physical fact
+        /// rather than a statistic. beta survives, but only on the pods whose trip is still being
+        /// decided - the one place the credit actually changes a dispatch.
+        ///
+        /// Applied to the valued coefficient ONLY. Keeping the original (1-beta)/beta pair, which
+        /// sums to lambda, would drive the bound increment to zero on the sunk-coverable lines and
+        /// reproduce the beta = 1 gradient collapse on a subset - fatal for the greedy mirror.
+        /// Decoupled, the bound increment stays lambda*(1-beta) everywhere.
+        ///
+        /// The tier is computed from the snapshot, so it adds no variables and no big-M. It ignores
+        /// contention between orders competing for the same sunk stock, which makes it optimistic.</summary>
+        public bool TieredBetaBySunkCoverage = false;
+
+        public bool LexicographicRatioFirst = false;
+
+        /// <summary>(M4G) Slack in metres allowed on the frozen objective when
+        /// LexicographicRatioFirst re-solves. Exact equality on a floating-point objective value
+        /// risks reporting infeasible on rounding alone; this is a numerical guard, not a
+        /// relaxation knob - keep it far below the ~metre scale at which decisions differ.</summary>
+        public double LexTieTolerance = 1e-4;
 
     }
 

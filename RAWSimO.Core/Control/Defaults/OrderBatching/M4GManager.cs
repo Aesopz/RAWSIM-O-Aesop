@@ -256,7 +256,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// BASE solve's values rather than the last probe's.
         /// </summary>
         private void ProbeSlotShadowPrices(M4GSnapshot snap, M4GResult baseResult, double lambdaK,
-            double lambda0, double mu0, double epsilon0, double rho0, double delta)
+            double lambda0, double mu0, double epsilon0, double rho0, double delta, double deltaOrder)
         {
             EnsureSlotShadowLog();
             int savedQmax = _lastQmax;
@@ -272,7 +272,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     {
                         probe = BuildModel(snap);
                         if (probe == null) continue;
-                        M4GResult r = SolveM4G(probe, snap, lambdaK, lambda0, mu0, epsilon0, rho0, delta);
+                        M4GResult r = SolveM4G(probe, snap, lambdaK, lambda0, mu0, epsilon0, rho0, delta, deltaOrder);
                         if (!r.HasSolution) continue;
                         _slotShadowLog.WriteLine(_decisionIndex + "," + Instance.Controller.CurrentTime + ","
                             + station.ID + "," + original + "," + baseResult.Objective + ","
@@ -1532,8 +1532,102 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// Dinkelbach iteration; every call replaces the objective outright and leaves the
         /// constraint system untouched.
         /// </summary>
+        /// <summary>
+        /// (TieredBetaBySunkCoverage) Line keys "orderId_skuId" whose full residual is already
+        /// coverable by the sunk pods alone. Their deferred closure rides a trip that has already
+        /// been charged, so the valuation layer credits them at the full lambda rather than at the
+        /// measured conversion share.
+        /// </summary>
+        private HashSet<string> BuildSunkCoveredLines(M4GSnapshot snap)
+        {
+            // Collect the demanded SKUs once, keyed by id so the set is stable and loggable.
+            Dictionary<int, ItemDescription> skuById = new Dictionary<int, ItemDescription>();
+            foreach (var order in snap.PendingOrders)
+                foreach (var line in snap.Residuals[order])
+                    if (line.Value > 0 && !skuById.ContainsKey(line.Key.ID))
+                        skuById[line.Key.ID] = line.Key;
+            Dictionary<int, int> stock = new Dictionary<int, int>();
+            foreach (var kv in skuById)
+            {
+                int total = 0;
+                foreach (var pod in snap.Pb) total += pod.CountAvailable(kv.Value);
+                stock[kv.Key] = total;
+            }
+            HashSet<string> covered = new HashSet<string>();
+            foreach (var order in snap.PendingOrders)
+                foreach (var line in snap.Residuals[order])
+                {
+                    int have;
+                    if (line.Value > 0 && stock.TryGetValue(line.Key.ID, out have) && have >= line.Value)
+                        covered.Add(order.ID + "_" + line.Key.ID);
+                }
+            return covered;
+        }
+
+        /// <summary>
+        /// (ScarcityWeightedBinding) Per-SKU scarcity of SUNK supply against outstanding demand:
+        /// max(0, 1 - sunkStock / backlogDemand), in [0,1].
+        ///
+        /// 0 means the pods already committed cover every open unit of this SKU, so postponing any
+        /// of its lines costs nothing - a trip that has already been paid for will serve them.
+        /// 1 means no sunk supply exists at all, so every deferred line of this SKU will need a
+        /// fresh dispatch. The weight the objective applies is (1 + scarcity), i.e. a line nobody
+        /// else can cover is worth up to twice one that is amply covered.
+        ///
+        /// First-order approximation: computed from the PRE-decision books, so it ignores the
+        /// stock this decision is about to consume and therefore under-states crowding-out.
+        /// </summary>
+        private Dictionary<int, double> BuildSkuScarcity(M4GSnapshot snap)
+        {
+            Dictionary<int, ItemDescription> skuById = new Dictionary<int, ItemDescription>();
+            Dictionary<int, int> demand = new Dictionary<int, int>();
+            foreach (var order in snap.PendingOrders)
+                foreach (var line in snap.Residuals[order])
+                {
+                    if (line.Value <= 0) continue;
+                    if (!skuById.ContainsKey(line.Key.ID)) skuById[line.Key.ID] = line.Key;
+                    int cur;
+                    demand[line.Key.ID] = (demand.TryGetValue(line.Key.ID, out cur) ? cur : 0) + line.Value;
+                }
+            Dictionary<int, double> scarcity = new Dictionary<int, double>();
+            foreach (var kv in skuById)
+            {
+                int sunk = 0;
+                foreach (var pod in snap.Pb) sunk += pod.CountAvailable(kv.Value);
+                int need = demand[kv.Key];
+                double s = need <= 0 ? 0.0 : 1.0 - (double)sunk / need;
+                scarcity[kv.Key] = s < 0.0 ? 0.0 : s;
+            }
+            return scarcity;
+        }
+
+        /// <summary>
+        /// (ScarcityWeightedCompletion) Per-ORDER difficulty: the maximum per-SKU scarcity over the
+        /// order's open lines, in [0,1]. Max rather than mean because one line nobody has sunk
+        /// stock for already forces a fresh dispatch if the order is deferred - the other lines
+        /// being easy does not make the order cheap to finish later.
+        /// </summary>
+        private Dictionary<int, double> BuildOrderScarcity(M4GSnapshot snap)
+        {
+            Dictionary<int, double> perSku = BuildSkuScarcity(snap);
+            Dictionary<int, double> perOrder = new Dictionary<int, double>();
+            foreach (var order in snap.PendingOrders)
+            {
+                double worst = 0.0;
+                foreach (var line in snap.Residuals[order])
+                {
+                    if (line.Value <= 0 || !snap.PiSKU.ContainsKey(line.Key)) continue;
+                    double w;
+                    if (perSku.TryGetValue(line.Key.ID, out w) && w > worst) worst = w;
+                }
+                perOrder[order.ID] = worst;
+            }
+            return perOrder;
+        }
+
         private M4GResult SolveM4G(M4GModel model, M4GSnapshot snap, double lambda, double lambda0,
-            double mu0, double epsilon0, double rho0, double delta)
+            double mu0, double epsilon0, double rho0, double delta, double deltaOrder,
+            bool applySlotTieBreak = false)
         {
             M4GResult result = new M4GResult();
             LinearModel wrapper = model.Wrapper;
@@ -1648,19 +1742,124 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 }
                 else
                 {
-                var chatBoundVars = sym.Chat.Select(v => bin["c_" + v.order.ID + "_" + v.skui.ID]).ToList();
-                if (chatBoundVars.Count > 0)
-                    objective = objective + LinearExpression.Sum(chatBoundVars) * (-lambda * (1.0 - delta));
-                var chatValuedVars = sym.Chat.Select(v => bin[v.name]).ToList();
-                if (chatValuedVars.Count > 0)
-                    objective = objective + LinearExpression.Sum(chatValuedVars) * (-lambda * delta);
+                // (FullCreditBothLayers) Pay the FULL price on both layers: a bound line earns
+                // lambda and a valued line earns lambda as well, instead of the pair splitting one
+                // lambda between them. Not reachable through delta, whose two coefficients are
+                // constrained to sum to lambda by construction - this is a different objective, not
+                // a delta setting, which is why it needs its own flag.
+                //
+                // Expected to over-credit: a line is re-valued every decision until it is finally
+                // closed (measured: 4872 valued for 962 closed, i.e. about 5x), so paying the full
+                // closed-line price on every valuation counts the same work roughly five times.
+                bool fullCredit = _m4gConfig.FullCreditBothLayers;
+                double lamBound = fullCredit ? lambda : lambda * (1.0 - delta);
+                double lamValued = fullCredit ? lambda : lambda * delta;
+                double muBound = fullCredit ? mu : mu * (1.0 - deltaOrder);
+                double muValued = fullCredit ? mu : mu * deltaOrder;
+                // (ScarcityWeightedBinding) Weight each bound line closure by how expensive that
+                // line would be to finish LATER. A line whose SKU the sunk pods still cover in
+                // abundance costs nothing to defer - somebody's already-paid trip will serve it.
+                // A line whose SKU has no sunk supply left costs a whole new dispatch, so closing
+                // it now is worth strictly more. The weight is 1 + scarcity, scarcity in [0,1].
+                //
+                // This is a cost-to-go term, not a preference: it says "deferring this line costs
+                // lambda extra metres", which is a sourcing fact, unlike a due-date weight which
+                // would say "I would rather do this one first". Applied to the BINDING layer only,
+                // so the valuation layer's lambda stays uniform and the delta-as-exchange-rate
+                // reading survives intact.
+                Dictionary<int, double> scarcity = _m4gConfig.ScarcityWeightedBinding
+                    ? BuildSkuScarcity(snap) : null;
+                if (scarcity != null)
+                {
+                    objective = objective + LinearExpression.Sum(sym.Chat.Select(v =>
+                    {
+                        double w;
+                        if (!scarcity.TryGetValue(v.skui.ID, out w)) w = 0.0;
+                        return bin["c_" + v.order.ID + "_" + v.skui.ID] * (-lamBound * (1.0 + w));
+                    }), wrapper);
+                }
+                else
+                {
+                    var chatBoundVars = sym.Chat.Select(v => bin["c_" + v.order.ID + "_" + v.skui.ID]).ToList();
+                    if (chatBoundVars.Count > 0)
+                        objective = objective + LinearExpression.Sum(chatBoundVars) * (-lamBound);
+                }
+                // (TieredBetaBySunkCoverage) The valuation credit is tiered by whether the line's
+                // deferred closure is already paid for. A line the SUNK pods (Pb - at a station or
+                // en route, their travel charged in an earlier decision) can cover in full will be
+                // closed by a trip nobody has to buy again, so it earns the whole lambda; a line
+                // that still needs a fresh dispatch earns only the measured share that such claims
+                // historically convert.
+                //
+                // Deliberately applied to the VALUED coefficient only. Forcing the pair to sum to
+                // lambda - the original (1-beta)/beta split - would drive the bound increment to
+                // zero on exactly the sunk-coverable lines, reproducing the beta = 1 gradient
+                // collapse on a subset and breaking the greedy mirror. Decoupling keeps the bound
+                // increment at lambda*(1-beta) everywhere, so every draw move still scores.
+                //
+                // The tier is a snapshot parameter, not a variable: no new binaries, no big-M. It
+                // ignores contention between orders competing for the same sunk stock, which makes
+                // it optimistic; that is a deliberate simplification for a first probe.
+                HashSet<string> sunkCovered = (_m4gConfig.TieredBetaBySunkCoverage && !fullCredit)
+                    ? BuildSunkCoveredLines(snap) : null;
+                if (sunkCovered != null)
+                {
+                    objective = objective + LinearExpression.Sum(sym.Chat.Select(v =>
+                        bin[v.name] * (-lambda * (sunkCovered.Contains(v.order.ID + "_" + v.skui.ID)
+                            ? 1.0 : delta))), wrapper);
+                }
+                else
+                {
+                    var chatValuedVars = sym.Chat.Select(v => bin[v.name]).ToList();
+                    if (chatValuedVars.Count > 0)
+                        objective = objective + LinearExpression.Sum(chatValuedVars) * (-lamValued);
+                }
                 // T4: same split for completed orders. Same guard rationale as T3.
-                var zhatBoundVars = sym.Zhat.Select(v => bin["z_" + v.order.ID]).ToList();
-                if (zhatBoundVars.Count > 0)
-                    objective = objective + LinearExpression.Sum(zhatBoundVars) * (-mu * (1.0 - delta));
-                var zhatValuedVars = sym.Zhat.Select(v => bin[v.name]).ToList();
-                if (zhatValuedVars.Count > 0)
-                    objective = objective + LinearExpression.Sum(zhatValuedVars) * (-mu * delta);
+                // (ScarcityWeightedCompletion) Order-level counterpart of the line-level weight,
+                // and the one that matches the intent: an order is HARD when at least one of its
+                // open lines has no sunk supply behind it, because finishing it later then costs a
+                // fresh dispatch no matter how easy its other lines are. The weight is therefore
+                // the MAX scarcity over the order's open lines, not the mean - a single unsourced
+                // line is enough to make the whole order expensive to defer.
+                //
+                // Weighting completion rather than line closure is what keeps the pile-on
+                // incentive intact: the extra credit is only paid when the order actually
+                // finishes, so the model still has a reason to consolidate a whole order onto one
+                // trip instead of harvesting scarce lines across many.
+                Dictionary<int, double> orderScarcity = _m4gConfig.ScarcityWeightedCompletion
+                    ? BuildOrderScarcity(snap) : null;
+                if (orderScarcity != null)
+                {
+                    objective = objective + LinearExpression.Sum(sym.Zhat.Select(v =>
+                    {
+                        double w;
+                        if (!orderScarcity.TryGetValue(v.order.ID, out w)) w = 0.0;
+                        return bin["z_" + v.order.ID] * (-muBound * (1.0 + w));
+                    }), wrapper);
+                }
+                else
+                {
+                    var zhatBoundVars = sym.Zhat.Select(v => bin["z_" + v.order.ID]).ToList();
+                    if (zhatBoundVars.Count > 0)
+                        objective = objective + LinearExpression.Sum(zhatBoundVars) * (-muBound);
+                }
+                if (sunkCovered != null)
+                {
+                    // An order is sunk-covered only when EVERY one of its open lines is - a partial
+                    // cover still needs a new trip to finish the order, so mu must not be paid in
+                    // full for it.
+                    objective = objective + LinearExpression.Sum(sym.Zhat.Select(v =>
+                        bin[v.name] * (-mu * (snap.Residuals[v.order]
+                            .Where(pp => pp.Value > 0 && snap.PiSKU.ContainsKey(pp.Key))
+                            .All(pp => sunkCovered.Contains(v.order.ID + "_" + pp.Key.ID))
+                            ? 1.0 : delta))), wrapper);
+                }
+                else
+                {
+                    var zhatValuedVars = sym.Zhat.Select(v => bin[v.name]).ToList();
+                    if (zhatValuedVars.Count > 0)
+                        objective = objective + LinearExpression.Sum(zhatValuedVars) * (-muValued);
+                }
                 }
                 // T5: tie-break that prefers executing now among equally valued solutions. sym.Qhat
                 // is guaranteed non-empty by the early return above, but guard anyway for consistency.
@@ -1730,9 +1929,32 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             wrapper.Optimize();
             result.SolveSec = (DateTime.Now - solveStart).TotalSeconds;
             if (!wrapper.HasSolution()) return result;
+            double objStar = wrapper.GetObjectiveValue();
+
+            // (LexicographicRatioFirst) Ratio-first tie-break. Freeze the achieved ratio objective
+            // as a constraint, then minimise idle slots among the solutions that still achieve it.
+            // Called only once, after the Dinkelbach loop has converged, so the added constraint
+            // never reaches an iteration whose V* = (D* - objective)/lambda recovery would be
+            // corrupted by it - and the model is disposed straight after, so the constraint does
+            // not leak into the next decision. result.Objective keeps objStar rather than the
+            // re-solve's value, which is a slot count, not a distance.
+            if (applySlotTieBreak && model.Us != null && model.UsNames.Count > 0)
+            {
+                wrapper.AddConstr(objective <= objStar + _m4gConfig.LexTieTolerance, "LexTie");
+                var tieUs = model.UsNames.Select(n => model.Us[n]).ToList();
+                wrapper.SetObjective(LinearExpression.Sum(tieUs), OptimizationSense.Minimize);
+                wrapper.Update();
+                wrapper.Reset();
+                wrapper.Optimize();
+                result.SolveSec = (DateTime.Now - solveStart).TotalSeconds;
+                // Infeasible here would mean the frozen bound excluded its own witness - only
+                // reachable through numerical error. Keep the pre-tie-break solution's absence
+                // rather than committing a half-read model.
+                if (!wrapper.HasSolution()) return result;
+            }
 
             result.HasSolution = true;
-            result.Objective = wrapper.GetObjectiveValue();
+            result.Objective = objStar;
             result.Rho = rho;
             result.LambdaUsed = lambda;
             // D* (spec: "realised distance terms"): read back the same T1/T2 travel-cost terms
@@ -1830,6 +2052,10 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // Delta(int)/RegisterDecision(int) fall through to the system-wide totals.
             int deltaStratum = DeltaStratum(snap);
             double delta = _pricing.Delta(deltaStratum);
+            // Line-level beta prices the lambda terms; the mu terms use the order-level rate when
+            // SeparateOrderDelta is on, since an order's valuation converts at a materially
+            // different rate than a line's (measured 0.2837 vs 0.1995).
+            double deltaOrder = _m4gConfig.SeparateOrderDelta ? _pricing.DeltaOrder() : delta;
 
             // ── Dinkelbach iteration (0 = single step at the historical lambda, unchanged
             // behaviour). The model is built ONCE and re-solved at each new lambda: no constraint
@@ -1852,7 +2078,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // 5 to 400 mu). The bound is lambda-independent, so it is added once per decision and
             // holds for every Dinkelbach iteration. Infeasibility is impossible: the stage-1
             // optimum is by construction attainable.
-            if (_m4gConfig.LexicographicSlotFill && model != null && model.UsNames.Count > 0)
+            if (_m4gConfig.LexicographicSlotFill && !_m4gConfig.LexicographicRatioFirst
+                && model != null && model.UsNames.Count > 0)
             {
                 var usList = model.UsNames.Select(n => model.Us[n]).ToList();
                 model.Wrapper.SetObjective(LinearExpression.Sum(usList), OptimizationSense.Minimize);
@@ -1868,7 +2095,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             }
             result = model == null
                 ? new M4GResult()
-                : SolveM4G(model, snap, lambdaK, lambda0, mu0, epsilon0, rho0, delta);
+                : SolveM4G(model, snap, lambdaK, lambda0, mu0, epsilon0, rho0, delta, deltaOrder);
             totalSolveSec = result.SolveSec;
             // LegacyObjective replaces the whole lambda-scaled value side with a fixed order
             // reward (see SolveM4G), so there is no ratio left to linearise: Dinkelbach's
@@ -1900,7 +2127,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     {
                         escalations++;
                         double lambdaUp = lambdaK * 2.0;
-                        M4GResult upRes = SolveM4G(model, snap, lambdaUp, lambda0, mu0, epsilon0, rho0, delta);
+                        M4GResult upRes = SolveM4G(model, snap, lambdaUp, lambda0, mu0, epsilon0, rho0, delta, deltaOrder);
                         totalSolveSec += upRes.SolveSec;
                         if (!upRes.HasSolution) break;
                         result = upRes;
@@ -1911,7 +2138,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     if (vStar <= 0) break;                                    // ratio undefined - keep this solution
                     if (Math.Abs(result.Objective) <= _m4gConfig.DinkelbachTolerance) break;  // converged
                     double lambdaNext = result.DStar / vStar;
-                    M4GResult next = SolveM4G(model, snap, lambdaNext, lambda0, mu0, epsilon0, rho0, delta);
+                    M4GResult next = SolveM4G(model, snap, lambdaNext, lambda0, mu0, epsilon0, rho0, delta, deltaOrder);
                     totalSolveSec += next.SolveSec;
                     if (!next.HasSolution) break;                             // keep the previous solution
                     // Guard against MILP-integrality overshoot. Dinkelbach's continuous-relaxation
@@ -1932,6 +2159,17 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     dinkIters++;
                 }
             }
+            // (LexicographicRatioFirst) The tie-break runs here, on the converged lambda, so the
+            // committed solution is the slot-fullest member of the ratio-optimal set. A degenerate
+            // re-solve keeps the pre-tie-break decision rather than discarding the whole decision.
+            if (_m4gConfig.LexicographicSlotFill && _m4gConfig.LexicographicRatioFirst
+                && result.HasSolution && !_m4gConfig.LegacyObjective
+                && model != null && model.UsNames.Count > 0)
+            {
+                M4GResult tied = SolveM4G(model, snap, lambdaK, lambda0, mu0, epsilon0, rho0, delta, deltaOrder, true);
+                totalSolveSec += tied.SolveSec;
+                if (tied.HasSolution) result = tied;
+            }
             }
             finally
             {
@@ -1944,7 +2182,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // world the base decision was made in.
             if (_m4gConfig.SlotShadowProbeCadence > 0 && result.HasSolution
                 && _decisionIndex % _m4gConfig.SlotShadowProbeCadence == 0)
-                ProbeSlotShadowPrices(snap, result, lambdaK, lambda0, mu0, epsilon0, rho0, delta);
+                ProbeSlotShadowPrices(snap, result, lambdaK, lambda0, mu0, epsilon0, rho0, delta, deltaOrder);
 
             // Must run before WriteDecision so splitsDeferred/splitsCommitted reflect this
             // decision's own commit, not the previous one's leftover counters.
@@ -1972,6 +2210,10 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // after WriteDecision so the logged delta (like lambda/mu) reflects state prior to
             // this decision's own contribution - same convention as RegisterClosedLines below.
             _pricing.RegisterDecision(result.BoundLineKeys.Count, result.ValuedLineKeys.Count, deltaStratum);
+                // Order counts feed the separate order-level realisation rate. Registered
+                // unconditionally so the statistic is available for diagnostics even when
+                // SeparateOrderDelta is off - it is only READ under the flag.
+                _pricing.RegisterDecisionOrders(result.BoundOrders, result.ValuedOrders);
             // (ValuationFidelityLog, gated) Measurement only - see M4GConfiguration. Placed after
             // RegisterDecision so the logged delta matches the decision log's convention.
             if (_m4gConfig.ValuationFidelityLog)
