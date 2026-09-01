@@ -285,7 +285,13 @@ namespace RAWSimO.Core.Control
             OutputStation.UnregisterExtractTask(this);
             // Record orders-per-pod-visit KPI sample (diagnostic for value-vs-distance tradeoff)
             if (ServedOrdersThisVisit.Count > 0)
+            {
                 Instance.StatPodVisitOrdersServedSamples.Add(ServedOrdersThisVisit.Count);
+                // Paired sample: how full the station was. A pod can only serve orders that are
+                // standing in a slot, so this is the ceiling on what the visit could achieve.
+                Instance.StatPodVisitSlotsOccupiedSamples.Add(OutputStation.CapacityInUse);
+                Instance.StatPodVisitSlotCapacitySamples.Add(OutputStation.Capacity);
+            }
         }
     }
     /// <summary>

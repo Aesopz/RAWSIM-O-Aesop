@@ -237,6 +237,13 @@ namespace RAWSimO.Core
         /// Used to decide if starvation-aware OB+PS has value-differentiation headroom over distance-min.
         /// </summary>
         public List<int> StatPodVisitOrdersServedSamples = new List<int>();
+        /// <summary>Paired with StatPodVisitOrdersServedSamples: how many of the station's order
+        /// slots were occupied when that pod visit ended. Measures the option value of a filled
+        /// slot - a pod can only serve orders that are actually standing in a slot, so an empty
+        /// slot caps how much work an arriving pod can do. Diagnostic only.</summary>
+        public List<int> StatPodVisitSlotsOccupiedSamples = new List<int>();
+        /// <summary>Paired likewise: the station's total slot capacity at that moment.</summary>
+        public List<int> StatPodVisitSlotCapacitySamples = new List<int>();
         /// <summary>
         /// Diagnostic KPI: per-station inbound-pod count snapshot taken at the start of each OB decision trigger.
         /// One sample per (trigger × station) pair. Distribution reveals queue congestion at decision time.
@@ -2052,6 +2059,19 @@ namespace RAWSimO.Core
                     for (int i = 0; i < n; i++)
                         sw.WriteLine(i + ";" + StatPodQueueWaitSamples[i].ToString(IOConstants.FORMATTER) + ";" +
                                      StatPodPickingTimeSamples[i].ToString(IOConstants.FORMATTER));
+                }
+                // Paired (orders served, slots occupied, slot capacity) per pod visit - the data
+                // needed to price an empty slot: how much less work does a pod do when it arrives
+                // to a half-empty station?
+                string slotCsv = Path.Combine(SettingConfig.StatisticsDirectory, "pod_visit_slots.csv");
+                int sN = Math.Min(StatPodVisitOrdersServedSamples.Count,
+                                  Math.Min(StatPodVisitSlotsOccupiedSamples.Count, StatPodVisitSlotCapacitySamples.Count));
+                using (var sw = new StreamWriter(slotCsv))
+                {
+                    sw.WriteLine("idx;orders_served;slots_occupied;slot_capacity");
+                    for (int i = 0; i < sN; i++)
+                        sw.WriteLine(i + ";" + StatPodVisitOrdersServedSamples[i] + ";" +
+                                     StatPodVisitSlotsOccupiedSamples[i] + ";" + StatPodVisitSlotCapacitySamples[i]);
                 }
             }
 
