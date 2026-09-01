@@ -1633,6 +1633,10 @@ namespace RAWSimO.Core.Configurations
         public double DeltaFallback { get; set; } = 0.05;
         public double LinesPerOrderFallback { get; set; } = 2.4;
         public double LambdaFixed { get; set; } = 0;
+        /// <summary>&gt; 0 pins mu directly (open-loop ablation); see M4GConfiguration.MuFixed.</summary>
+        public double MuFixed { get; set; } = 0;
+        /// <summary>See M4GConfiguration.ServiceEquivalentDenominator.</summary>
+        public bool ServiceEquivalentDenominator { get; set; } = false;
         public double DeltaFixed { get; set; } = 0;
         public double RhoFallback { get; set; } = 15.0;
         /// <summary>Denominate the running prices in Extract-task distance only. false reproduces every published result bit-for-bit. See IM4GPrices.PickDistancePricing.</summary>
@@ -1685,6 +1689,10 @@ namespace RAWSimO.Core.Configurations
         public double DeltaFallback { get; set; } = 0.05;
         public double LinesPerOrderFallback { get; set; } = 2.4;
         public double LambdaFixed { get; set; } = 0;
+        /// <summary>&gt; 0 pins mu directly (open-loop ablation); see M4GConfiguration.MuFixed.</summary>
+        public double MuFixed { get; set; } = 0;
+        /// <summary>See M4GConfiguration.ServiceEquivalentDenominator.</summary>
+        public bool ServiceEquivalentDenominator { get; set; } = false;
         public double DeltaFixed { get; set; } = 0;
         public double RhoFallback { get; set; } = 15.0;
         /// <summary>Mirrors M4GConfiguration.PodTierDrawPricingEnabled so M5 keeps M4G's price
@@ -1886,6 +1894,19 @@ namespace RAWSimO.Core.Configurations
         public double LinesPerOrderFallback { get; set; } = 2.4;
         /// <summary>&gt; 0 overrides the running lambda with this fixed value (open-loop ablation).</summary>
         public double LambdaFixed { get; set; } = 0;
+        /// <summary>
+        /// &gt; 0 overrides the running mu with this fixed value (open-loop ablation).
+        ///
+        /// Needed because mu = MuScale * lambda * (closed lines / completed orders), so
+        /// LambdaFixed alone does NOT freeze mu - the lines-per-order ratio keeps drifting.
+        /// Measured on the order-atomic no-split arm: with LambdaFixed set, lambda took ONE value
+        /// but mu still took 1381 distinct values spanning 14.79-20.18 (a 36% range). That arm's
+        /// objective contains mu and nothing else, so freezing lambda there froze nothing at all.
+        /// Any "static price" ablation must pin whichever price the objective actually carries.
+        /// </summary>
+        public double MuFixed { get; set; } = 0;
+        /// <summary>See ServiceEquivalentDenominator below; declared here for the interface.</summary>
+        public bool ServiceEquivalentDenominator { get; set; } = false;
         /// <summary>&gt; 0 overrides the running delta with this fixed value (open-loop ablation).</summary>
         public double DeltaFixed { get; set; } = 0;
         /// <summary>Warm-up rho in metres per unit picked (pod-tier draw pricing fallback).</summary>
@@ -2115,6 +2136,102 @@ namespace RAWSimO.Core.Configurations
         /// splitting entirely; this arm isolates what the unit-level atom is worth on top of the
         /// line-level one. false = current behaviour (unit-level, unrestricted).</summary>
         public bool LineAtomicSplitting = false;
+
+        /// <summary>
+        /// (Requires <see cref="LineAtomicSplitting"/>.) Drops the unit-level draw variables
+        /// qhat/q entirely and states the model on the line-to-station indicators alone.
+        ///
+        /// Under line atomicity the pod-level split of a line's units carries NO decision
+        /// information: for a fixed (sku, station) any pod standing there may serve any order,
+        /// so V1 + V9 form a complete-bipartite transportation problem whose feasibility is
+        /// exactly the aggregate inequality "demand landed &lt;= stock present". Its constraint
+        /// matrix is a network matrix, so an INTEGER allocation exists whenever the aggregate
+        /// holds - which means the per-pod variables can be recovered greedily after the solve
+        /// instead of being branched on inside it.
+        ///
+        /// The one thing the aggregate cannot express is V2a, which caps draws from newly
+        /// dispatched (Pa) pods only. That is restored with one integer variable v[i,w] = units
+        /// of SKU i served at station w out of Pa stock, which is |SKU| x |stations| instead of
+        /// qhat's |lines| x |pods| x |stations|.
+        ///
+        /// Variables removed: qhat, q  (|Q(t)| each, and |Q(t)| is dominated by the pod index).
+        /// Variables added:   ghat[o,i,w], g[o,i,w] binary, v[i,w] integer.
+        /// Constraints V1, V2, V2a, V3, V9, V10, B1, B2, B4, B5, B6c, B11, B12 are restated;
+        /// R1-R5, V4, V4g, B3, B6z, B7 and the objective are untouched, and no price changes.
+        ///
+        /// false = build the full unit-level model (required for the item-level ablation, which
+        /// this formulation cannot express at all).
+        /// </summary>
+        public bool CompactLineModel = false;
+
+        /// <summary>
+        /// (Requires <see cref="CompactLineModel"/>.) The no-split control, stated in M4G's own
+        /// variables and measured prices: the atom reverts from the LINE to the whole ORDER,
+        /// which is exactly M1G's assignment semantics.
+        ///
+        /// M1G's shi5 reads "sum over orders assigned to w of their FULL demand for sku i &lt;=
+        /// aggregate stock of pods sent to w", so yos[o,w] = 1 commits the entire order at that
+        /// station; the MILP has no notion of half an order, and the pod-to-item allocation is
+        /// done greedily outside it. The compact model's V1' has that identical aggregate form,
+        /// so the two differ in ONE thing only - whether the object being placed is a line or an
+        /// order.
+        ///
+        /// Because assignment implies full coverage, every line of an assigned order closes with
+        /// it: e == f identically. The lambda terms are therefore not information but a redundant
+        /// restatement of the mu terms, and they are dropped - the objective becomes
+        /// min D - mu*(sum f + beta*sum(fhat - f)). Beta is calibrated on ORDERS here (bound
+        /// orders / valued orders), which is the same realisation rate one atom up.
+        ///
+        /// This is what makes the comparison against the canon clean: same code, same solver,
+        /// same self-calibrated prices, same two-layer structure, differing only in the atom.
+        /// M4GNSManager is a different control - it mirrors M1G's structure but carries its own
+        /// price set (mu, delta, sigma, no lambda), so it measures splitting AND pricing together.
+        /// </summary>
+        public bool OrderAtomicNoSplit = false;
+
+        /// <summary>
+        /// Two-stage pricing: find lambda on a restricted problem that is guaranteed non-degenerate,
+        /// then take the decision at that lambda with no restriction.
+        ///
+        /// Textbook Dinkelbach needs P(x) &gt; 0 for every feasible x. Here the null plan (dispatch
+        /// nothing) is feasible with D = P = 0, so F(lambda) = min(D - lambda*P) is capped at 0 and
+        /// F(lambda) = 0 for EVERY lambda &lt;= lambda*. The "price is too low" signal is therefore
+        /// flat and unreadable, which is the only reason DinkelbachEscalations (doubling lambda on
+        /// a degenerate solve) exists at all. Measured: the loop stops after one step in 48% of
+        /// decisions and never moves in 35%.
+        ///
+        /// Stage 1 solves the SAME objective over the subset that dispatches at least one new pod
+        /// (sum over p in Pa of z[p,w] &gt;= 1). Every solution there has D &gt; 0 and P &gt; 0, so the
+        /// assumption holds, F is strictly positive below lambda*, and the Newton step converges
+        /// monotonically from any starting value - no escalation needed. Stage 2 then solves the
+        /// unrestricted problem once at that lambda*, and is free to dispatch nothing.
+        ///
+        /// Note the restriction must be on DISPATCH, not on progress: a plan drawing only from
+        /// sunk stock has D = 0 with P &gt; 0, whose true exchange rate is 0 - forcing P &gt;= 1 would
+        /// leave the ratio degenerate again.
+        ///
+        /// This is NOT lexicographic optimisation. Stage 1's solution is discarded; only the
+        /// scalar lambda* survives, and it enters stage 2 as a coefficient, never as a constraint.
+        /// The two stages share one objective form and differ only in feasible set.
+        ///
+        /// lambda* reads as "the cheapest metres per unit of progress available when a fetch is
+        /// unavoidable" - which is exactly the price the dispatch/no-dispatch decision needs.
+        /// </summary>
+        public bool TwoStagePricing = false;
+
+        /// <summary>
+        /// Price progress per SERVICE EQUIVALENT instead of per closed line.
+        ///
+        /// The objective's progress term is P = sum(e) + kappa*sum(f): completing an order earns
+        /// mu = kappa*lambda on top of its lines. But the running price divides distance by closed
+        /// LINES only, so order completions collect reward while contributing nothing to the
+        /// denominator. Measured on the canon: the service-equivalent denominator is 2.03x the
+        /// line count, i.e. lambda is high by almost exactly a factor of two, and the stated unit
+        /// "metres per line" does not match what the objective actually pays for.
+        ///
+        /// true divides by (closed lines + kappa * completed orders) instead, which is the same
+        /// quantity the objective prices. Measured level: 4.18 vs 8.49 on the canon.
+        /// </summary>
 
         /// <summary>
         /// Rewrites <see cref="ForbidSplitting"/>'s all-or-nothing condition in its tight,

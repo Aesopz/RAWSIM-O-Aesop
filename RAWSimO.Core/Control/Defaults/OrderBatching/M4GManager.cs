@@ -304,7 +304,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             _decisionLog = new System.IO.StreamWriter(System.IO.Path.Combine(dir, "m4g_decision_log.csv"), false)
             { AutoFlush = true };
             _decisionLog.WriteLine("decision,time,solved,pendingOrders,stationsWithCap,podsPa,podsPb,botsRa,"
-                + "lambda,mu,delta,epsilon,valuedLines,boundLines,valuedOrders,boundOrders,newTrips,boundUnits,"
+                + "lambda,mu,delta,epsilon,lambdaRef,lambdaDF,dStar,valuedLines,boundLines,valuedOrders,boundOrders,newTrips,boundUnits,"
                 + "objective,solveSec,qmax,rho,unitsFromSunk,unitsFromNew,inboundCoverUnits,"
                 + "splitsDeferred,splitsCommitted,wipOrders,wipUnits,dinkIters,lambdaStart,lambdaEnd,"
                 + "tbar,urgentOrders");
@@ -335,7 +335,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
 
         /// <summary>Writes one decision row. Every numeric field is written unformatted for exact diffing.</summary>
         private void WriteDecision(bool solved, int pendingOrders, int stationsWithCap, int podsPa, int podsPb,
-            int botsRa, double lambda, double mu, double delta, double epsilon, int valuedLines, int boundLines,
+            int botsRa, double lambda, double mu, double delta, double epsilon, double lambdaRef, double lambdaDF, double dStar,
+            int valuedLines, int boundLines,
             int valuedOrders, int boundOrders, int newTrips, int boundUnits, double objective, double solveSec,
             int qmax, double rho, int unitsFromSunk, int unitsFromNew, double inboundCoverUnits,
             int splitsDeferred, int splitsCommitted, int dinkIters, double lambdaStart, double lambdaEnd)
@@ -349,6 +350,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 (solved ? "1" : "0"),
                 pendingOrders.ToString(), stationsWithCap.ToString(), podsPa.ToString(), podsPb.ToString(),
                 botsRa.ToString(), lambda.ToString(), mu.ToString(), delta.ToString(), epsilon.ToString(),
+                lambdaRef.ToString(), lambdaDF.ToString(), dStar.ToString(),
                 valuedLines.ToString(), boundLines.ToString(), valuedOrders.ToString(), boundOrders.ToString(),
                 newTrips.ToString(), boundUnits.ToString(), objective.ToString(), solveSec.ToString(),
                 qmax.ToString(), rho.ToString(), unitsFromSunk.ToString(), unitsFromNew.ToString(),
@@ -730,8 +732,13 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 sym.Zhat.Add(new Symbol { order = order, name = "zh_" + order.ID });
                 foreach (var sku in snap.Residuals[order].Where(p => snap.PiSKU.ContainsKey(p.Key)))
                 {
-                    sym.Chat.Add(new Symbol { order = order, skui = sku.Key,
-                        name = "ch_" + order.ID + "_" + sku.Key.ID });
+                    // (OrderAtomicNoSplit) No line object exists in that arm: assignment covers
+                    // the order in full, so e == f identically and the lambda terms would restate
+                    // the mu terms. Not emitting Chat removes them from the objective, the
+                    // constraints and the read-back in one place.
+                    if (!_m4gConfig.OrderAtomicNoSplit)
+                        sym.Chat.Add(new Symbol { order = order, skui = sku.Key,
+                            name = "ch_" + order.ID + "_" + sku.Key.ID });
                     // (ForbidCrossStationOnly) An order that already took stock at a station is
                     // pinned there for the rest of its life. B8 alone only says "one station per
                     // DECISION"; a parent carrying residual demand is re-decided next tick and
@@ -753,6 +760,333 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 }
             }
             return sym;
+        }
+
+        /// <summary>(CompactLineModel) One (order, sku, station) line-placement candidate.</summary>
+        private sealed class M4GPlacement
+        {
+            public Order Order;
+            public ItemDescription Sku;
+            public OutputStation Station;
+            /// <summary>The line's full residual demand - the only quantity the model needs.</summary>
+            public int Units;
+            /// <summary>Valuation-layer indicator name (ghat).</summary>
+            public string GhName;
+            /// <summary>Binding-layer indicator name (g).</summary>
+            public string GbName;
+        }
+
+        /// <summary>
+        /// (CompactLineModel) Builds the whole draw structure on line-to-station indicators, with
+        /// no unit-level variables at all. Replaces V1, V2, V2a, V3, V9, V10, B1, B2, B4, B5, B6c,
+        /// B11 and B12; every other constraint and the objective are added by the shared code paths
+        /// exactly as in the full model.
+        ///
+        /// The equivalence rests on one observation: with the line as the atom, the per-pod split
+        /// of its units is a complete-bipartite transportation problem (any pod standing at the
+        /// station may serve any order), so feasibility reduces to the aggregate stock inequality
+        /// and an integer allocation always exists. See IM4GPrices.CompactLineModel.
+        /// </summary>
+        private void AddCompactConstraints(LinearModel wrapper, M4GSnapshot snap, M4GSymbols sym,
+            VariableCollection<string> bin, M4GModel model)
+        {
+            // ── ghat / g placement indicators, one pair per (order, sku, station) ──
+            foreach (var order in snap.PendingOrders)
+                foreach (var sku in snap.Residuals[order].Where(p => snap.PiSKU.ContainsKey(p.Key)))
+                {
+                    // Same pinning filter BuildSymbols applies to Qhat, so the compact model spans
+                    // the identical candidate set - not a superset that could find better solutions.
+                    int pinned = -1;
+                    bool isPinned = _m4gConfig.ForbidSplitting && _m4gConfig.ForbidCrossStationOnly
+                        && _nsStationPin.TryGetValue(order.ID, out pinned);
+                    var ghVars = new List<Variable>();
+                    var gbVars = new List<Variable>();
+                    foreach (var station in snap.Cs.Keys)
+                    {
+                        if (isPinned && station.ID != pinned) continue;
+                        // A station can only host this line if SOME pod carrying the sku may go
+                        // there; otherwise the placement is structurally infeasible and omitting
+                        // it shrinks the model instead of leaving the solver to derive ghat = 0.
+                        if (!snap.PiSKU[sku.Key].Any(p => sym.Xps.Any(
+                                v => v.pod.ID == p.ID && v.outputstation.ID == station.ID)))
+                            continue;
+                        string gh = "gh_" + order.ID + "_" + sku.Key.ID + "_" + station.ID;
+                        string gb = "gb_" + order.ID + "_" + sku.Key.ID + "_" + station.ID;
+                        model.Places.Add(new M4GPlacement
+                        {
+                            Order = order, Sku = sku.Key, Station = station, Units = sku.Value,
+                            GhName = gh, GbName = gb
+                        });
+                        ghVars.Add(bin[gh]);
+                        gbVars.Add(bin[gb]);
+                        // (B1') binding placement implies valuation placement. In the full model
+                        // this is B1 summed over pods; here it must be stated, because there are
+                        // no per-pod variables left to sum.
+                        wrapper.AddConstr(bin[gb] <= bin[gh], "B1c");
+                    }
+                    if (ghVars.Count == 0) continue;
+                    // (V10) at most one station per valued line, and chat is exactly "some station
+                    // took it". Equality, for the reason spelled out at V9/V10 in the full model.
+                    wrapper.AddConstr(LinearExpression.Sum(ghVars)
+                        == bin["ch_" + order.ID + "_" + sku.Key.ID], "V10c");
+                    // (B12) the binding-layer mirror.
+                    wrapper.AddConstr(LinearExpression.Sum(gbVars)
+                        == bin["c_" + order.ID + "_" + sku.Key.ID], "B12c");
+                }
+
+            // ── (V1') stock feasibility per (sku, station), split by pod tier so that V2a can
+            // still speak about Pa draws alone. v[i,w] is the Pa-sourced part; Pb stock at the
+            // station is free to use because its trip is already sunk. ──
+            int vMax = 1;
+            foreach (var sku in snap.PiSKU.Keys)
+            {
+                int total = snap.PendingOrders.Sum(o =>
+                {
+                    int need; Dictionary<ItemDescription, int> res;
+                    return snap.Residuals.TryGetValue(o, out res) && res.TryGetValue(sku, out need) ? need : 0;
+                });
+                if (total > vMax) vMax = total;
+            }
+            VariableCollection<string> vPa = new VariableCollection<string>(
+                wrapper, VariableType.Integer, 0, vMax, (string s) => { return s; });
+
+            foreach (var sku in snap.PiSKU.Keys)
+            {
+                var vNames = new List<Variable>();
+                foreach (var station in snap.Cs.Keys)
+                {
+                    var landed = model.Places
+                        .Where(pl => pl.Sku.ID == sku.ID && pl.Station.ID == station.ID)
+                        .Select(pl => pl.Units * bin[pl.GhName]).ToList();
+                    if (landed.Count == 0) continue;
+                    var pbStock = new List<LinearExpression>();
+                    var paStock = new List<LinearExpression>();
+                    foreach (var pod in snap.PiSKU[sku])
+                    {
+                        string xn = "xps_" + pod.ID + "_" + station.ID;
+                        if (!sym.Xps.Any(v => v.name == xn)) continue;
+                        double s = pod.CountAvailable(sku);
+                        if (s <= 0) continue;
+                        (snap.Pa.Contains(pod) ? paStock : pbStock).Add(s * bin[xn]);
+                    }
+                    string vn = "vpa_" + sku.ID + "_" + station.ID;
+                    Variable vVar = vPa[vn];
+                    vNames.Add(vVar);
+                    // demand landed here <= sunk stock present + Pa units accounted for by vVar
+                    LinearExpression supply = vVar;
+                    foreach (var e in pbStock) supply = supply + e;
+                    wrapper.AddConstr(LinearExpression.Sum(landed) <= supply, "V1c");
+                    // vVar may not exceed the Pa stock actually dispatched here
+                    if (paStock.Count == 0)
+                        wrapper.AddConstr(vVar <= 0, "V1cPa");
+                    else
+                    {
+                        LinearExpression pa = paStock[0];
+                        for (int k = 1; k < paStock.Count; k++) pa = pa + paStock[k];
+                        wrapper.AddConstr(vVar <= pa, "V1cPa");
+                    }
+                }
+                // (V2a) Pa draws for this sku, pooled across stations, may only serve demand that
+                // inbound supply cannot already cover. Same aggregate bound as the full model.
+                if (vNames.Count > 0 && _m4gConfig.IncrementalValuationEnabled)
+                {
+                    double inbound = snap.Pb.Sum(p => p.CountAvailable(sku));
+                    double totalResidual = snap.PendingOrders.Sum(o =>
+                    {
+                        int need; Dictionary<ItemDescription, int> res;
+                        return snap.Residuals.TryGetValue(o, out res) && res.TryGetValue(sku, out need) ? need : 0;
+                    });
+                    _lastInboundCoverUnits += Math.Min(totalResidual, inbound);
+                    wrapper.AddConstr(LinearExpression.Sum(vNames)
+                        <= Math.Max(0.0, totalResidual - inbound), "V2ac");
+                }
+            }
+
+            // ── (B2'/B4') slot occupancy. Unit counts come straight from the placement indicators. ──
+            foreach (var order in snap.PendingOrders)
+            {
+                int totalResidual = snap.Residuals[order].Values.Sum();
+                foreach (var station in snap.Cs.Keys)
+                {
+                    var mine = model.Places
+                        .Where(pl => pl.Order.ID == order.ID && pl.Station.ID == station.ID).ToList();
+                    if (mine.Count == 0) continue;
+                    string yName = "y_" + order.ID + "_" + station.ID;
+                    var units = mine.Select(pl => pl.Units * bin[pl.GbName]).ToList();
+                    wrapper.AddConstr(LinearExpression.Sum(units) <= totalResidual * bin[yName], "B2c");
+                    var flags = mine.Select(pl => bin[pl.GbName]).ToList();
+                    wrapper.AddConstr(bin[yName] <= LinearExpression.Sum(flags), "B4c");
+                }
+            }
+
+            // ── (V7/B8, gated) ForbidSplitting: one station per order, in both layers. This is
+            // the SYMBOL-ALIGNED no-split control: the canon model plus exactly this restriction,
+            // written in the canon's own variables and prices, so the comparison isolates
+            // cross-station splitting and nothing else. M4GNSManager is a different thing - it
+            // mirrors M1G's order-level structure and carries its own price set (mu, delta, sigma
+            // with no lambda at all), so a comparison against it measures splitting AND pricing
+            // together. Cross-PERIOD pinning is already enforced by the placement filter above,
+            // which is what makes this "one station for life" rather than "one station per
+            // decision" (ForbidCrossStationOnly). ──
+            if (_m4gConfig.ForbidSplitting)
+                foreach (var order in snap.PendingOrders)
+                {
+                    var mine = model.Places.Where(pl => pl.Order.ID == order.ID).ToList();
+                    if (mine.Count == 0) continue;
+                    var stations = mine.Select(pl => pl.Station).GroupBy(s => s.ID)
+                        .Select(g => g.First()).ToList();
+                    // Valuation layer: yhat[o,w] dominates every line this order places at w.
+                    var yhVars = new List<Variable>();
+                    foreach (var station in stations)
+                    {
+                        string yh = "yhc_" + order.ID + "_" + station.ID;
+                        foreach (var pl in mine.Where(p => p.Station.ID == station.ID))
+                            wrapper.AddConstr(bin[pl.GhName] <= bin[yh], "V7ac");
+                        yhVars.Add(bin[yh]);
+                    }
+                    if (yhVars.Count > 0)
+                        wrapper.AddConstr(LinearExpression.Sum(yhVars) <= 1, "V7bc");
+                    // Binding layer: x[o,w] already exists. Only stations this order can actually
+                    // reach are summed - referencing a y that no B2c/B4c pair constrains would
+                    // manufacture a free binary.
+                    var xVars = stations.Select(st => bin["y_" + order.ID + "_" + st.ID]).ToList();
+                    if (xVars.Count > 0)
+                        wrapper.AddConstr(LinearExpression.Sum(xVars) <= 1, "B8c");
+                }
+        }
+
+        /// <summary>
+        /// (OrderAtomicNoSplit) The no-split control: M1G's assignment semantics written in M4G's
+        /// variables and prices. One indicator per (order, station) in each layer; assigning an
+        /// order claims its WHOLE demand at that station, which is exactly M1G's shi5. There is no
+        /// line object, so no lambda - see IM4GPrices.OrderAtomicNoSplit for why that is a removal
+        /// of redundancy rather than a second change of policy.
+        ///
+        ///   (NS1) sum_o d[o,i] * yhat[o,w] &lt;= (Pb stock at w) + v[i,w]      [= shi5, tier-split]
+        ///   (NS1a) v[i,w] &lt;= (Pa stock at w)                                 and V2a on sum_w v
+        ///   (NS2) sum_w yhat[o,w] == fhat[o]                                  [= shi2, tightened]
+        ///   (NS3) x[o,w] &lt;= yhat[o,w]                                        [= shi3]
+        ///   (NS4) sum_w x[o,w]    == f[o]
+        ///   B3 (slot capacity) is added by the caller and is the ONLY thing separating the layers.
+        /// </summary>
+        private void AddOrderAtomicConstraints(LinearModel wrapper, M4GSnapshot snap, M4GSymbols sym,
+            VariableCollection<string> bin, M4GModel model)
+        {
+            // ── one (order, station) placement pair per candidate assignment ──
+            foreach (var order in snap.PendingOrders)
+            {
+                int pinned = -1;
+                bool isPinned = _nsStationPin.TryGetValue(order.ID, out pinned);
+                int totalResidual = snap.Residuals[order].Values.Sum();
+                var yhVars = new List<Variable>();
+                var xVars = new List<Variable>();
+                foreach (var station in snap.Cs.Keys)
+                {
+                    if (isPinned && station.ID != pinned) continue;
+                    string yh = "oyh_" + order.ID + "_" + station.ID;
+                    string xb = "y_" + order.ID + "_" + station.ID;
+                    model.Places.Add(new M4GPlacement
+                    {
+                        Order = order, Sku = null, Station = station,
+                        Units = totalResidual, GhName = yh, GbName = xb
+                    });
+                    // (NS3) binding assignment implies valuation assignment.
+                    wrapper.AddConstr(bin[xb] <= bin[yh], "NS3");
+                    yhVars.Add(bin[yh]);
+                    xVars.Add(bin[xb]);
+                }
+                // (NS2/NS4) fhat and f ARE the assignment indicators - equality, not <=, so the
+                // solver cannot draw an order's stock while leaving its completion flag at 0 to
+                // dodge a price, the same reason V10 is an equality in the line-atomic model.
+                if (yhVars.Count > 0)
+                    wrapper.AddConstr(LinearExpression.Sum(yhVars) == bin["zh_" + order.ID], "NS2");
+                else
+                    wrapper.AddConstr(bin["zh_" + order.ID] == 0, "NS2");
+                if (xVars.Count > 0)
+                    wrapper.AddConstr(LinearExpression.Sum(xVars) == bin["z_" + order.ID], "NS4");
+                else
+                    wrapper.AddConstr(bin["z_" + order.ID] == 0, "NS4");
+            }
+
+            // ── (NS1) shi5: an assigned order's FULL demand must be covered by the aggregate
+            // stock standing at that station. Split by pod tier so V2a survives unchanged. ──
+            int vMax = 1;
+            foreach (var sku in snap.PiSKU.Keys)
+            {
+                int total = snap.PendingOrders.Sum(o =>
+                {
+                    int need; Dictionary<ItemDescription, int> res;
+                    return snap.Residuals.TryGetValue(o, out res) && res.TryGetValue(sku, out need) ? need : 0;
+                });
+                if (total > vMax) vMax = total;
+            }
+            VariableCollection<string> vPa = new VariableCollection<string>(
+                wrapper, VariableType.Integer, 0, vMax, (string s) => { return s; });
+
+            foreach (var sku in snap.PiSKU.Keys)
+            {
+                var vNames = new List<Variable>();
+                foreach (var station in snap.Cs.Keys)
+                {
+                    var landed = new List<LinearExpression>();
+                    foreach (var pl in model.Places.Where(p => p.Station.ID == station.ID))
+                    {
+                        int need; Dictionary<ItemDescription, int> res;
+                        if (!snap.Residuals.TryGetValue(pl.Order, out res)
+                            || !res.TryGetValue(sku, out need) || need <= 0) continue;
+                        landed.Add(need * bin[pl.GhName]);
+                    }
+                    if (landed.Count == 0) continue;
+                    var pbStock = new List<LinearExpression>();
+                    var paStock = new List<LinearExpression>();
+                    foreach (var pod in snap.PiSKU[sku])
+                    {
+                        string xn = "xps_" + pod.ID + "_" + station.ID;
+                        if (!sym.Xps.Any(v => v.name == xn)) continue;
+                        double s = pod.CountAvailable(sku);
+                        if (s <= 0) continue;
+                        (snap.Pa.Contains(pod) ? paStock : pbStock).Add(s * bin[xn]);
+                    }
+                    Variable vVar = vPa["vpa_" + sku.ID + "_" + station.ID];
+                    vNames.Add(vVar);
+                    LinearExpression supply = vVar;
+                    foreach (var e in pbStock) supply = supply + e;
+                    wrapper.AddConstr(LinearExpression.Sum(landed) <= supply, "NS1");
+                    if (paStock.Count == 0)
+                        wrapper.AddConstr(vVar <= 0, "NS1a");
+                    else
+                    {
+                        LinearExpression pa = paStock[0];
+                        for (int k = 1; k < paStock.Count; k++) pa = pa + paStock[k];
+                        wrapper.AddConstr(vVar <= pa, "NS1a");
+                    }
+                }
+                // (V2a deliberately ABSENT here.) Incremental valuation - deducting inbound Pb
+                // supply from what newly dispatched Pa pods may be valued against - is an M4G
+                // addition with no counterpart in M1G, whose shi5 is the bare stock inequality.
+                // This arm exists to be M1G's constraint set with measured prices, so carrying
+                // V2a would make it differ from the canon in TWO ways (the atom AND an extra
+                // valuation bound) and stop the comparison isolating splitting.
+                //
+                // v[i,w] is still needed: NS1 has to know how much of the demand landing at w is
+                // served out of Pa stock rather than sunk stock, which is what ties valuation to
+                // the dispatch decision. Only the pooled cap on sum_w v is dropped.
+            }
+        }
+
+        /// <summary>
+        /// (TwoStagePricing stage 1) "At least one storage pod is dispatched this decision".
+        /// Removes the null plan, so every feasible solution has D &gt; 0 and P &gt; 0 and standard
+        /// Dinkelbach applies without any upward search. Returns silently when no Pa pod can go
+        /// anywhere - the caller then has no stage-1 problem to solve and keeps the historical price.
+        /// </summary>
+        private void AddForceDispatch(LinearModel wrapper, M4GSnapshot snap, M4GSymbols sym,
+            VariableCollection<string> bin)
+        {
+            var newPodVars = sym.Xps.Where(v => snap.Pa.Contains(v.pod))
+                .Select(v => bin[v.name]).ToList();
+            if (newPodVars.Count == 0) return;
+            wrapper.AddConstr(LinearExpression.Sum(newPodVars) >= 1, "FD");
         }
 
         /// <summary>Adds the shared pod/bot constraints R1-R5 (spec 3.4).</summary>
@@ -1293,6 +1627,16 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             public VariableCollection<string> Bin;
             public VariableCollection<string> Qh;
             public VariableCollection<string> Qb;
+            /// <summary>(CompactLineModel) true when Qh/Qb were never created and the draw
+            /// structure lives in the ghat/g binaries instead. Read-back must then synthesise
+            /// BoundDraws greedily rather than reading q.</summary>
+            public bool Compact;
+            /// <summary>(OrderAtomicNoSplit) true when the atom is the whole order, so Places
+            /// carries one entry per (order, station) with Sku == null.</summary>
+            public bool OrderAtomic;
+            /// <summary>(CompactLineModel) One entry per (order, sku, station) line-placement
+            /// candidate, carrying the ghat/g variable names. Empty unless Compact.</summary>
+            public List<M4GPlacement> Places = new List<M4GPlacement>();
             /// <summary>Orders that acquired an "open_o" indicator (WIP holding, gated).</summary>
             public List<int> OpenOrderIds = new List<int>();
             /// <summary>Upper bound for the legacy idle-slot integer variables.</summary>
@@ -1314,7 +1658,12 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// the returned model and must dispose it once every value has been read back out of the
         /// solved variables (GetValue() queries the live Gurobi model, it does not cache).
         /// </summary>
-        private M4GModel BuildModel(M4GSnapshot snap)
+        private M4GModel BuildModel(M4GSnapshot snap) { return BuildModel(snap, false); }
+
+        /// <param name="forceDispatch">(TwoStagePricing stage 1) Adds "at least one new pod is
+        /// dispatched", which removes the null plan from the feasible set and makes the ratio
+        /// problem non-degenerate. See IM4GPrices.TwoStagePricing.</param>
+        private M4GModel BuildModel(M4GSnapshot snap, bool forceDispatch)
         {
             M4GSymbols sym = BuildSymbols(snap);
             if (sym.Qhat.Count == 0) return null;
@@ -1334,6 +1683,58 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             int maxSlots = snap.Cs.Count > 0 ? snap.Cs.Values.DefaultIfEmpty(1).Max() : 1;
             VariableCollection<string> bin = new VariableCollection<string>(wrapper, VariableType.Binary, 0, 1,
                 (string s) => { return s; });
+            // (CompactLineModel) The unit-level variables are never created; the draw structure
+            // lives in the placement binaries instead. Everything that does not touch q - the
+            // resource layer, the completion couplings, slot capacity and the objective - is
+            // stated identically, so this branch is a re-encoding of the same model, not a
+            // different one. Requires LineAtomicSplitting: without it the line is not the atom and
+            // the transportation argument that licenses dropping q does not hold.
+            if (_m4gConfig.CompactLineModel && _m4gConfig.LineAtomicSplitting)
+            {
+                M4GModel compact = new M4GModel
+                {
+                    Wrapper = wrapper, Sym = sym, Idx = idx, Bin = bin,
+                    Qh = null, Qb = null, Compact = true, MaxSlots = maxSlots
+                };
+                _lastInboundCoverUnits = 0.0;
+                AddSharedConstraints(wrapper, snap, sym, bin);
+                compact.OrderAtomic = _m4gConfig.OrderAtomicNoSplit;
+                if (compact.OrderAtomic)
+                    AddOrderAtomicConstraints(wrapper, snap, sym, bin, compact);
+                else
+                    AddCompactConstraints(wrapper, snap, sym, bin, compact);
+                foreach (var order in snap.PendingOrders)
+                {
+                    // (V4) completing an order requires every one of its lines closed. Vacuous in
+                    // the order-atomic arm, where there is no line variable to require.
+                    if (!compact.OrderAtomic)
+                    foreach (var sku in snap.Residuals[order].Where(p => snap.PiSKU.ContainsKey(p.Key)))
+                        wrapper.AddConstr(bin["ch_" + order.ID + "_" + sku.Key.ID]
+                            >= bin["zh_" + order.ID], "V4");
+                    // (V4g) an order with a line no pod can cover must not collect the reward.
+                    if (_m4gConfig.HonestCompletionReward
+                        && !snap.Residuals[order].All(p => snap.PiSKU.ContainsKey(p.Key)))
+                        wrapper.AddConstr(bin["zh_" + order.ID] == 0, "V4g");
+                    // (B7) a bound completion needs every line bound-closed. Vacuous likewise.
+                    if (!compact.OrderAtomic)
+                    foreach (var sku in snap.Residuals[order].Where(p => snap.PiSKU.ContainsKey(p.Key)))
+                        wrapper.AddConstr(bin["c_" + order.ID + "_" + sku.Key.ID]
+                            >= bin["z_" + order.ID], "B7");
+                    // (B6z) binding completion is a subset of valued completion.
+                    wrapper.AddConstr(bin["z_" + order.ID] <= bin["zh_" + order.ID], "B6z");
+                }
+                // (B3) slot capacity - the model's core scarcity, and the ONLY constraint the
+                // valuation layer does not see.
+                foreach (var station in snap.Cs.Keys)
+                {
+                    var ys = snap.PendingOrders.Select(o => bin["y_" + o.ID + "_" + station.ID]).ToList();
+                    if (ys.Count > 0)
+                        wrapper.AddConstr(LinearExpression.Sum(ys) <= snap.Cs[station], "B3");
+                }
+                if (forceDispatch) AddForceDispatch(wrapper, snap, sym, bin);
+                return compact;
+            }
+
             VariableCollection<string> qh = new VariableCollection<string>(wrapper, VariableType.Integer, 0, maxUnits,
                 (string s) => { return s; });
             VariableCollection<string> qb = new VariableCollection<string>(wrapper, VariableType.Integer, 0, maxUnits,
@@ -1513,6 +1914,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 }
             }
 
+            if (forceDispatch) AddForceDispatch(wrapper, snap, sym, bin);
             return new M4GModel
             {
                 Wrapper = wrapper, Sym = sym, Idx = idx, Bin = bin, Qh = qh, Qb = qb,
@@ -1863,10 +2265,17 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 }
                 // T5: tie-break that prefers executing now among equally valued solutions. sym.Qhat
                 // is guaranteed non-empty by the early return above, but guard anyway for consistency.
-                var qbTieVars = sym.Qhat.Select(v =>
-                    qb["q_" + v.skui.ID + "_" + v.order.ID + "_" + v.pod.ID + "_" + v.outputstation.ID]).ToList();
-                if (qbTieVars.Count > 0)
-                    objective = objective + LinearExpression.Sum(qbTieVars) * (-epsilon);
+                // (CompactLineModel) T5 and T6 are per-UNIT prices, so they have no expression in a
+                // model whose finest object is the line. Both are zero in the canon (EpsilonScale
+                // = 0, PodTierDrawPricingEnabled = false), which is exactly why the compact
+                // encoding is available at all - it could not reproduce them if they were live.
+                if (!model.Compact)
+                {
+                    var qbTieVars = sym.Qhat.Select(v =>
+                        qb["q_" + v.skui.ID + "_" + v.order.ID + "_" + v.pod.ID + "_" + v.outputstation.ID]).ToList();
+                    if (qbTieVars.Count > 0)
+                        objective = objective + LinearExpression.Sum(qbTieVars) * (-epsilon);
+                }
                 // T6: pod-tier draw pricing (rho), binding layer only - the tier preference is about
                 // which pod actually gets drained, and only bound (qb) draws have real-world effects.
                 // A unit bound from a Pp pod (processing right now, window closing) is rewarded -rho:
@@ -1888,7 +2297,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     if (openVars.Count > 0)
                         objective = objective + LinearExpression.Sum(openVars) * kappa;
                 }
-                if (_m4gConfig.PodTierDrawPricingEnabled)
+                if (_m4gConfig.PodTierDrawPricingEnabled && !model.Compact)
                 {
                     HashSet<int> processingPodIds = BuildProcessingPodIds(snap);
                     var newPodDraws = sym.Qhat.Where(v => snap.Pa.Contains(v.pod))
@@ -1968,6 +2377,65 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 if (Math.Round(bin[v.name].GetValue()) != 0)
                     dStar += M1GBotPodCost(v.robot, v.pod);
             result.DStar = dStar;
+            if (model.Compact)
+            {
+                // (CompactLineModel) The solver decided WHICH lines land WHERE; it never decided
+                // which pod supplies which unit, because under line atomicity that choice carries
+                // no objective value. Recover one feasible allocation greedily - V1' guarantees the
+                // stock standing at the station covers everything bound there, and the underlying
+                // transportation matrix is a network matrix, so a greedy fill always closes every
+                // line. Sunk pods (Pb) are drained before newly dispatched ones (Pa), which is the
+                // same tier order GreedyM5Manager.DrawOrder walks.
+                var remaining = new Dictionary<string, int>();
+                Func<Pod, ItemDescription, int> stockOf = (pod, sku) =>
+                {
+                    string k = pod.ID + ":" + sku.ID;
+                    int left;
+                    if (!remaining.TryGetValue(k, out left)) { left = pod.CountAvailable(sku); remaining[k] = left; }
+                    return left;
+                };
+                // (OrderAtomicNoSplit) The atom is the whole order, so every line of an assigned
+                // order is drawn in full at that station. Expand each assignment into its lines
+                // and reuse the same greedy fill; NS1 guarantees the stock is there.
+                var places = model.OrderAtomic
+                    ? model.Places.SelectMany(p => snap.Residuals[p.Order]
+                          .Where(e => e.Value > 0 && snap.PiSKU.ContainsKey(e.Key))
+                          .Select(e => new M4GPlacement
+                          {
+                              Order = p.Order, Sku = e.Key, Station = p.Station,
+                              Units = e.Value, GhName = p.GhName, GbName = p.GbName
+                          })).ToList()
+                    : model.Places;
+                foreach (var pl in places)
+                {
+                    if (Math.Round(bin[pl.GbName].GetValue()) == 0) continue;
+                    int need = pl.Units;
+                    var here = snap.PiSKU[pl.Sku]
+                        .Where(p => Math.Round(bin["xps_" + p.ID + "_" + pl.Station.ID].GetValue()) != 0)
+                        .OrderBy(p => snap.Pa.Contains(p) ? 1 : 0)
+                        .ToList();
+                    foreach (var pod in here)
+                    {
+                        if (need == 0) break;
+                        int have = stockOf(pod, pl.Sku);
+                        if (have <= 0) continue;
+                        int take = Math.Min(have, need);
+                        remaining[pod.ID + ":" + pl.Sku.ID] = have - take;
+                        var draw = new Symbol { order = pl.Order, skui = pl.Sku, pod = pod,
+                            outputstation = pl.Station };
+                        int had; result.BoundDraws.TryGetValue(draw, out had);
+                        result.BoundDraws[draw] = had + take;
+                        if (snap.Pa.Contains(pod)) result.UnitsFromNew += take; else result.UnitsFromSunk += take;
+                        need -= take;
+                    }
+                    if (need > 0)
+                        throw new InvalidOperationException(
+                            "CompactLineModel: bound line " + pl.Order.ID + "/" + pl.Sku.ID
+                            + " short by " + need + " units at station " + pl.Station.ID
+                            + " - V1' should have made this impossible.");
+                }
+            }
+            else
             foreach (var v in sym.Qhat)
             {
                 int units = (int)Math.Round(qb["q_" + v.skui.ID + "_" + v.order.ID + "_" + v.pod.ID
@@ -2064,7 +2532,46 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // constraints per iteration was pure duplicated work. The model is disposed as soon
             // as the loop ends - everything downstream reads plain C# fields off `result`, never
             // the live Gurobi variables. ──
-            double lambdaK = lambda0;
+            // (TwoStagePricing) Stage 1: recover lambda* on the restricted problem, where the
+            // null plan is infeasible so standard Dinkelbach converges from any starting value
+            // and no escalation is needed. The stage-1 SOLUTION is thrown away - only the scalar
+            // survives, and it enters stage 2 as the objective coefficient. See
+            // IM4GPrices.TwoStagePricing for why this is not lexicographic optimisation.
+            double stageOneLambda = lambda0;
+            double stageOneSec = 0.0;
+            int stageOneIters = 0;
+            if (_m4gConfig.TwoStagePricing)
+            {
+                M4GModel priced = BuildModel(snap, true);
+                if (priced != null)
+                {
+                    try
+                    {
+                        double lk = lambda0;
+                        M4GResult r0 = SolveM4G(priced, snap, lk, lambda0, mu0, epsilon0, rho0, delta, deltaOrder);
+                        stageOneSec += r0.SolveSec;
+                        for (int i = 0; i < _m4gConfig.DinkelbachIterations && r0.HasSolution; i++)
+                        {
+                            double p = lk > 0 ? (r0.DStar - r0.Objective) / lk : 0.0;
+                            if (p <= 0) break;                                   // cannot happen on the
+                            if (Math.Abs(r0.Objective) <= _m4gConfig.DinkelbachTolerance) break;
+                            double ln = r0.DStar / p;
+                            if (ln <= 0) break;
+                            M4GResult rn = SolveM4G(priced, snap, ln, lambda0, mu0, epsilon0, rho0, delta, deltaOrder);
+                            stageOneSec += rn.SolveSec;
+                            if (!rn.HasSolution) break;
+                            r0 = rn; lk = ln; stageOneIters++;
+                        }
+                        if (r0.HasSolution && lk > 0) stageOneLambda = lk;
+                    }
+                    finally { priced.Dispose(); }
+                }
+            }
+
+            double lambdaK = _m4gConfig.TwoStagePricing ? stageOneLambda : lambda0;
+            // Stage-1 work is real work: fold it into the logged totals so solveSec and dinkIters
+            // stay comparable with the single-stage arm instead of silently hiding a second solve.
+            double carrySec = stageOneSec; int carryIters = stageOneIters;
             M4GResult result;
             double totalSolveSec;
             int dinkIters = 0;
@@ -2096,13 +2603,17 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             result = model == null
                 ? new M4GResult()
                 : SolveM4G(model, snap, lambdaK, lambda0, mu0, epsilon0, rho0, delta, deltaOrder);
-            totalSolveSec = result.SolveSec;
+            totalSolveSec = result.SolveSec + carrySec;
+            dinkIters += carryIters;
             // LegacyObjective replaces the whole lambda-scaled value side with a fixed order
             // reward (see SolveM4G), so there is no ratio left to linearise: Dinkelbach's
             // re-solve-at-a-new-lambda loop is skipped entirely rather than iterating over a
             // parameter the objective no longer uses. The single solve above (built at lambda0,
             // which SolveM4G ignores in this mode) stands as the decision.
-            if (result.HasSolution && !_m4gConfig.LegacyObjective)
+            // (TwoStagePricing) Stage 2 is ONE solve at lambda*, nothing more. Iterating here
+            // would re-open the degenerate search this design exists to avoid, and would also
+            // discard the price stage 1 just established.
+            if (result.HasSolution && !_m4gConfig.LegacyObjective && !_m4gConfig.TwoStagePricing)
             {
                 int escalations = 0;
                 for (int i = 0; i < _m4gConfig.DinkelbachIterations; i++)
@@ -2200,7 +2711,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             WriteDecision(result.HasSolution, snap.PendingOrders.Count, snap.Cs.Count(c => c.Value > 0),
                 snap.Pa.Count, snap.Pb.Count, snap.Ra.Count,
                 _pricing.Lambda(cumDistAfter), _pricing.Mu(cumDistAfter), _pricing.Delta(deltaStratum),
-                _pricing.Epsilon(cumDistAfter),
+                _pricing.Epsilon(cumDistAfter), _pricing.LambdaRef,
+                _pricing.LambdaDenomFix(cumDistAfter), result.DStar,
                 result.ValuedLineKeys.Count, result.BoundLineKeys.Count, result.ValuedOrders, result.BoundOrders,
                 result.NewTripCount, result.BoundDraws.Values.Sum(), result.Objective, totalSolveSec, _lastQmax,
                 result.Rho, result.UnitsFromSunk, result.UnitsFromNew, _lastInboundCoverUnits,
@@ -2209,7 +2721,13 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // Feed this decision's valuation/binding line counts into delta's running totals,
             // after WriteDecision so the logged delta (like lambda/mu) reflects state prior to
             // this decision's own contribution - same convention as RegisterClosedLines below.
-            _pricing.RegisterDecision(result.BoundLineKeys.Count, result.ValuedLineKeys.Count, deltaStratum);
+            // (OrderAtomicNoSplit) There are no line keys in that arm, so beta is calibrated on
+            // ORDERS - bound orders over valued orders - which is the same realisation rate one
+            // atom up and keeps the price self-consistent with what the objective actually pays.
+            if (_m4gConfig.OrderAtomicNoSplit && _m4gConfig.CompactLineModel)
+                _pricing.RegisterDecision(result.BoundOrders, result.ValuedOrders, deltaStratum);
+            else
+                _pricing.RegisterDecision(result.BoundLineKeys.Count, result.ValuedLineKeys.Count, deltaStratum);
                 // Order counts feed the separate order-level realisation rate. Registered
                 // unconditionally so the statistic is available for diagnostics even when
                 // SeparateOrderDelta is off - it is only READ under the flag.
@@ -2440,6 +2958,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     (Instance.ItemManager as ItemManager).TakeAvailableOrder(order);
                 }
             }
+            // Measurement only: what the price WOULD be if the numerator were this decision's own
+            // dispatch distance and the denominator matched the objective's progress term.
+            // Registered BEFORE the counters below so kappa reflects the same state the decision
+            // was priced at. Nothing reads LambdaRef back into a decision.
+            _pricing.RegisterReplacementSample(result.DStar, closedLines, completedOrders);
             _pricing.RegisterClosedLines(closedLines);
             _pricing.RegisterCompletedOrders(completedOrders);
         }

@@ -31,6 +31,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         double LinesPerOrderFallback { get; }
         /// <summary>&gt; 0 overrides the running lambda with this fixed value (open-loop ablation).</summary>
         double LambdaFixed { get; }
+        /// <summary>Divide distance by service equivalents rather than closed lines.</summary>
+        bool ServiceEquivalentDenominator { get; }
+        /// <summary>&gt; 0 pins mu directly. Required for a genuine static-price ablation:
+        /// LambdaFixed alone leaves mu drifting through the lines-per-order ratio.</summary>
+        double MuFixed { get; }
         /// <summary>&gt; 0 overrides the running delta with this fixed value (open-loop ablation).</summary>
         double DeltaFixed { get; }
         /// <summary>
@@ -147,6 +152,9 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         {
             if (_config.LambdaFixed > 0) return _config.LambdaFixed;
             if (InWarmup) return _config.LambdaScale * _config.LambdaFallback;
+            // (ServiceEquivalentDenominator) Divide by what the objective actually pays for.
+            if (_config.ServiceEquivalentDenominator && _serviceEquiv > 0)
+                return _config.LambdaScale * (cumulativeDistanceMetres / _serviceEquiv);
             return _config.LambdaScale * (cumulativeDistanceMetres / Math.Max(1, _closedLines));
         }
 
@@ -154,6 +162,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// <param name="cumulativeDistanceMetres">Instance.StatOverallDistanceTraveled at decision time.</param>
         public double Mu(double cumulativeDistanceMetres)
         {
+            if (_config.MuFixed > 0) return _config.MuFixed;
             double linesPerOrder = _completedOrders > 0
                 ? (double)_closedLines / _completedOrders
                 : _config.LinesPerOrderFallback;
@@ -239,6 +248,49 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// <summary>Records orders completed by this decision.</summary>
         public void RegisterCompletedOrders(int count)
         { if (count > 0) _completedOrders += count; }
+
+        // ── Replacement-cost pricing statistics (MEASUREMENT ONLY - nothing reads these back
+        // into a price yet). The running lambda divides fleet distance by CLOSED LINES, but the
+        // objective's progress term is P = sum(e) + kappa*sum(f): an order completion earns
+        // mu = kappa*lambda yet contributes nothing to the denominator. The price is therefore
+        // high by roughly the factor (1 + kappa*orders/lines) ~ 2, which is close to the ratio
+        // Dinkelbach revises away every decision (8.9 -> 3.8). These two accumulators measure
+        // what the price WOULD be with both ends made consistent:
+        //   numerator   - only the distance this decision's own dispatches actually paid (DStar),
+        //                 excluding replenishment, pod returns and sunk trips
+        //   denominator - realised service equivalent, lines + kappa * completed orders
+        private double _pricedDistance;
+        private double _serviceEquiv;
+
+        /// <summary>Cumulative distance charged to M4G's own dispatches (sum of DStar).</summary>
+        public double CumulativePricedDistance { get { return _pricedDistance; } }
+        /// <summary>Cumulative realised progress in service-equivalents.</summary>
+        public double CumulativeServiceEquivalent { get { return _serviceEquiv; } }
+        /// <summary>Replacement cost in metres per service-equivalent; 0 before any progress.</summary>
+        public double LambdaRef { get { return _serviceEquiv > 0 ? _pricedDistance / _serviceEquiv : 0.0; } }
+
+        /// <summary>
+        /// The denominator-only correction: the CURRENT numerator (whatever distance span the
+        /// caller prices in) over the service equivalent instead of closed lines. Measurement
+        /// only. This is the variant that keeps numerator and denominator at the same scope -
+        /// both are whole-run totals - and only repairs the missing order term, unlike LambdaRef
+        /// whose numerator is a marginal quantity while its denominator is a total.
+        /// </summary>
+        public double LambdaDenomFix(double cumulativeDistanceMetres)
+        { return _serviceEquiv > 0 ? cumulativeDistanceMetres / _serviceEquiv : 0.0; }
+
+        /// <summary>
+        /// Adds one decision's realised sample to the replacement-cost statistics. Measurement
+        /// only - no decision reads LambdaRef.
+        /// </summary>
+        public void RegisterReplacementSample(double dStar, int closedLines, int completedOrders)
+        {
+            if (dStar > 0) _pricedDistance += dStar;
+            double kappa = _completedOrders > 0
+                ? (double)_closedLines / _completedOrders
+                : _config.LinesPerOrderFallback;
+            _serviceEquiv += closedLines + kappa * completedOrders;
+        }
 
         /// <summary>
         /// Records one decision's valuation/binding line counts into the running totals that
