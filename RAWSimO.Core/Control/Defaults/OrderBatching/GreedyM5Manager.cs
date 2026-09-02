@@ -886,6 +886,82 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             return survivors;
         }
 
+        /// <summary>
+        /// (UpperBoundJump) A provable upper bound on the optimal ratio lambda* = min D/P for this
+        /// epoch, or 0 when none can be constructed (no free bot, no free slot, or no candidate pod
+        /// that makes any line coverable). Faithful mirror of M4GManager.ComputeLambdaUpperBound.
+        ///
+        /// lambda* is a minimum over the feasible set, so ANY feasible non-empty plan bounds it:
+        /// lambda* &lt;= D(x)/P(x). Take x = "one bot fetches one pod to one station with a free slot,
+        /// and one order line is bound there". That plan closes a line, so its P in line-equivalents
+        /// is at least 1, and lambda* &lt;= D(x). The cheapest such x gives the tightest bound of the
+        /// family, and no plan has to be built to find it.
+        ///
+        /// The coverability test is the one EnumerateLineMoves uses: the station cannot cover the
+        /// line from the stock standing there now, but could once this pod's stock joins the
+        /// aggregate. That is exactly when binding the line becomes feasible.
+        ///
+        /// The bound ignores that the plan usually closes several lines, so it overestimates -
+        /// the safe direction, since Dinkelbach converges monotonically downward from any lambda
+        /// above lambda*. A loose bound costs iterations, never correctness.
+        /// </summary>
+        private double ComputeLambdaUpperBound(M5EpochState st, HashSet<Pod> paCandidates)
+        {
+            if (st.FreeBots.Count == 0 || paCandidates.Count == 0) return 0.0;
+
+            // SKU -> the residual line sizes of orders still open this epoch.
+            var demandBySku = new Dictionary<ItemDescription, List<int>>();
+            foreach (var order in st.ScanOrder)
+            {
+                if (st.Committed.Contains(order)) continue;
+                Dictionary<ItemDescription, int> res;
+                if (!st.Residuals.TryGetValue(order, out res)) continue;
+                foreach (var line in res)
+                {
+                    if (line.Value <= 0) continue;
+                    List<int> lst;
+                    if (!demandBySku.TryGetValue(line.Key, out lst))
+                        demandBySku[line.Key] = lst = new List<int>();
+                    lst.Add(line.Value);
+                }
+            }
+            if (demandBySku.Count == 0) return 0.0;
+
+            double best = double.PositiveInfinity;
+            foreach (var pod in paCandidates)
+            {
+                double dBot = double.PositiveInfinity;
+                foreach (var bot in st.FreeBots)
+                {
+                    double d = M1GBotPodCost(bot, pod);
+                    if (d < dBot) dBot = d;
+                }
+                if (double.IsPositiveInfinity(dBot)) continue;
+
+                for (int s = 0; s < st.StationList.Count; s++)
+                {
+                    if (st.FreeSlots[s] <= 0) continue;
+                    OutputStation station = st.StationList[s];
+                    double cost = dBot + M1GPodStationCost(pod, station) + PodStationExtraCost(pod, station);
+                    if (cost >= best) continue;                 // cannot improve the incumbent
+                    bool closesALine = false;
+                    foreach (var e in st.Avail[pod])
+                    {
+                        int have = e.Value;
+                        List<int> needs;
+                        if (have <= 0 || !demandBySku.TryGetValue(e.Key, out needs)) continue;
+                        int stock;
+                        st.PerStationAvail[s].TryGetValue(e.Key, out stock);
+                        foreach (int need in needs)
+                            if (stock < need && stock + have >= need) { closesALine = true; break; }
+                        if (closesALine) break;
+                    }
+                    if (closesALine) best = cost;
+                }
+            }
+            return double.IsPositiveInfinity(best) ? 0.0 : best;
+        }
+
         private void EvaluateDispatch(M5EpochState st, HashSet<Pod> paCandidates, HashSet<Pod> alreadyDispatched,
             double lambda, double mu, double delta, double rho, double epsilon,
             out Pod bestPod, out int bestStation, out Bot bestBot, out double bestDelta)
@@ -1271,6 +1347,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             M5Plan plan = BuildPlan(st, Pa, lambdaK, mu0, delta, rho0, epsilon0);
             int lambdaIters = 0;
             int escalations = 0;
+            bool jumpedToBound = false;
             for (int i = 0; i < _config.LambdaIterations; i++)
             {
                 double vStar = lambdaK > 0 ? (plan.DStar - plan.Objective) / lambdaK : 0.0;
@@ -1284,6 +1361,25 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 // narrowed to picking distance alone). Doubling lambda and retrying lets the
                 // search approach the fixed point from below as well. 0 (default) keeps the
                 // original one-sided behaviour bit-for-bit.
+                // (UpperBoundJump) Degenerate plan: the empty plan is best at this lambda, so
+                // there is no D*/V* to iterate from. Move ONCE to a provable upper bound on
+                // lambda* and let the normal Newton steps walk back down monotonically. Skip when
+                // the bound is not above the current lambda - lambda was already high enough and
+                // the degeneracy is physical (no bot, no slot, nothing coverable), not a price
+                // failure. Mirrors M4GManager exactly, including its position ahead of escalation.
+                if (vStar <= 0 && _config.UpperBoundJump && !jumpedToBound && lambdaK > 0)
+                {
+                    double lambdaUb = ComputeLambdaUpperBound(st, Pa);
+                    if (lambdaUb > lambdaK)
+                    {
+                        jumpedToBound = true;
+                        double ratioUb = lambda0 > 0 ? lambdaUb / lambda0 : 1.0;
+                        plan = BuildPlan(st, Pa, lambdaUb, mu0 * ratioUb, delta, rho0 * ratioUb, epsilon0 * ratioUb);
+                        lambdaK = lambdaUb;
+                        lambdaIters++;
+                        continue;
+                    }
+                }
                 if (vStar <= 0 && escalations < _config.LambdaEscalations && lambdaK > 0)
                 {
                     escalations++;

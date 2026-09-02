@@ -118,7 +118,10 @@
     <LinesPerOrderFallback>2.4</LinesPerOrderFallback>
     <LambdaFixed>0</LambdaFixed>
     <DeltaFixed>0</DeltaFixed>
+    <IncrementalValuationEnabled>false</IncrementalValuationEnabled>
+    <LambdaEscalations>0</LambdaEscalations>
     <ReleaseParentOnFirstSplit>true</ReleaseParentOnFirstSplit>
+    <UpperBoundJump>true</UpperBoundJump>
   </OrderBatchingConfig>
   <ReplenishmentBatchingConfig xsi:type="SamePodReplenishmentBatchingConfiguration">
     <Name />

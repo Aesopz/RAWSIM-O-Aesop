@@ -665,6 +665,101 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         }
 
         /// <summary>
+        /// (UpperBoundJump) A provable upper bound on the optimal ratio lambda* = min D/P over the
+        /// current snapshot, or 0 when no bound can be constructed (no free bot, no free slot, or
+        /// no pod that makes any line coverable).
+        ///
+        /// Why any feasible non-null plan suffices: lambda* is a minimum over the feasible set, so
+        /// for ANY feasible x, lambda* &lt;= D(x)/P(x). Take x = "one bot fetches one pod to one
+        /// station with a free slot, and one order line is bound there". That plan closes a line,
+        /// so its P (in line-equivalents) is at least 1, and lambda* &lt;= D(x)/1 = D(x). The
+        /// cheapest such x gives the tightest bound of this family. No solve is needed.
+        ///
+        /// The line-coverability test mirrors ScreenPaCandidates: the station cannot cover the line
+        /// from its committed (Pb) stock alone, but could once this pod's stock joins the
+        /// aggregate. That is exactly the condition under which binding the line is feasible.
+        ///
+        /// The bound ignores that the plan usually closes several lines, so it overestimates -
+        /// which is the safe direction. Dinkelbach converges monotonically downward from any
+        /// lambda_0 above lambda* (Kouarfate et al., Lemma 2.9 iv), so a loose bound costs
+        /// iterations, never correctness.
+        /// </summary>
+        private double ComputeLambdaUpperBound(M4GSnapshot snap)
+        {
+            if (snap.Ra.Count == 0 || snap.Pa.Count == 0) return 0.0;
+            var stations = snap.Cs.Keys.Where(s => snap.Cs[s] > 0).OrderBy(s => s.ID).ToList();
+            if (stations.Count == 0) return 0.0;
+
+            // Stock already committed to each station - the baseline a candidate pod adds to.
+            var stationStock = new List<Dictionary<ItemDescription, int>>();
+            foreach (var station in stations)
+            {
+                var agg = new Dictionary<ItemDescription, int>();
+                HashSet<Pod> inbound;
+                if (snap.InboundPods.TryGetValue(station, out inbound))
+                    foreach (var pod in inbound)
+                        foreach (var sku in pod.ItemDescriptionsContained)
+                        {
+                            int a = pod.CountAvailable(sku);
+                            if (a <= 0) continue;
+                            int cur;
+                            agg[sku] = (agg.TryGetValue(sku, out cur) ? cur : 0) + a;
+                        }
+                stationStock.Add(agg);
+            }
+
+            // SKU -> the residual line sizes demanding it.
+            var demandBySku = new Dictionary<ItemDescription, List<int>>();
+            foreach (var order in snap.PendingOrders)
+            {
+                Dictionary<ItemDescription, int> res;
+                if (!snap.Residuals.TryGetValue(order, out res)) continue;
+                foreach (var line in res)
+                {
+                    if (line.Value <= 0) continue;
+                    List<int> lst;
+                    if (!demandBySku.TryGetValue(line.Key, out lst))
+                        demandBySku[line.Key] = lst = new List<int>();
+                    lst.Add(line.Value);
+                }
+            }
+            if (demandBySku.Count == 0) return 0.0;
+
+            double best = double.PositiveInfinity;
+            foreach (var pod in snap.Pa)
+            {
+                double dBot = double.PositiveInfinity;
+                foreach (var bot in snap.Ra)
+                {
+                    double d = M1GBotPodCost(bot, pod);
+                    if (d < dBot) dBot = d;
+                }
+                if (double.IsPositiveInfinity(dBot)) continue;
+
+                for (int s = 0; s < stations.Count; s++)
+                {
+                    double cost = dBot + M1GPodStationCost(pod, stations[s])
+                                + PodStationExtraCost(pod, stations[s]);
+                    if (cost >= best) continue;                 // cannot improve the incumbent
+                    bool closesALine = false;
+                    foreach (var sku in pod.ItemDescriptionsContained)
+                    {
+                        int have = pod.CountAvailable(sku);
+                        List<int> needs;
+                        if (have <= 0 || !demandBySku.TryGetValue(sku, out needs)) continue;
+                        int stock;
+                        stationStock[s].TryGetValue(sku, out stock);
+                        foreach (int need in needs)
+                            if (stock < need && stock + have >= need) { closesALine = true; break; }
+                        if (closesALine) break;
+                    }
+                    if (closesALine) best = cost;
+                }
+            }
+            return double.IsPositiveInfinity(best) ? 0.0 : best;
+        }
+
+        /// <summary>
         /// (StratifiedDelta, gated) Which delta bucket this decision belongs to, or -1 when the
         /// flag is off so every price read falls back to the system-wide ratio.
         ///
@@ -2616,6 +2711,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             if (result.HasSolution && !_m4gConfig.LegacyObjective && !_m4gConfig.TwoStagePricing)
             {
                 int escalations = 0;
+                bool jumpedToBound = false;
                 for (int i = 0; i < _m4gConfig.DinkelbachIterations; i++)
                 {
                     // V* = (D* - objective) / lambda_k. The objective returned by the solver is
@@ -2634,6 +2730,28 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     // run collapses from 603 completed orders to 38 with only 5 pod dispatches.
                     // Doubling lambda on a degenerate solve lets the fixed point be approached
                     // from below too. 0 (default) reproduces the one-sided behaviour bit-for-bit.
+                    // (UpperBoundJump) Degenerate incumbent: the null plan is optimal at this
+                    // lambda, so there is no D*/V* to iterate from. Rather than doubling blindly,
+                    // move ONCE to a provable upper bound on lambda* and let the normal Newton
+                    // steps walk back down - monotonically, since every lambda_k from here on is
+                    // above lambda*. Only worth doing when the bound is actually above the current
+                    // lambda; if it is not, lambda was already high enough and the degeneracy
+                    // means this snapshot genuinely has nothing worth dispatching.
+                    if (vStar <= 0 && _m4gConfig.UpperBoundJump && !jumpedToBound && lambdaK > 0)
+                    {
+                        double lambdaUb = ComputeLambdaUpperBound(snap);
+                        if (lambdaUb > lambdaK)
+                        {
+                            jumpedToBound = true;
+                            M4GResult ubRes = SolveM4G(model, snap, lambdaUb, lambda0, mu0, epsilon0, rho0, delta, deltaOrder);
+                            totalSolveSec += ubRes.SolveSec;
+                            if (!ubRes.HasSolution) break;
+                            result = ubRes;
+                            lambdaK = lambdaUb;
+                            dinkIters++;
+                            continue;
+                        }
+                    }
                     if (vStar <= 0 && escalations < _m4gConfig.DinkelbachEscalations && lambdaK > 0)
                     {
                         escalations++;

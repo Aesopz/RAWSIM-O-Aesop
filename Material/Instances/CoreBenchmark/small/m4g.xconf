@@ -135,6 +135,7 @@
     <LineAtomicSplitting>true</LineAtomicSplitting>
     <CompactLineModel>true</CompactLineModel>
     <LegacyObjective>false</LegacyObjective>
+    <UpperBoundJump>true</UpperBoundJump>
   </OrderBatchingConfig>
   <ReplenishmentBatchingConfig xsi:type="SamePodReplenishmentBatchingConfiguration">
     <Name />

@@ -1852,6 +1852,17 @@ namespace RAWSimO.Core.Configurations
         /// Claiming a fresh slot still outranks topping up, so idle slots are still minimised
         /// first - the top-up only spends capacity that has already been paid for.</summary>
         public bool LexSlotFillContinueOrder = false;
+
+        /// <summary>(GreedyM5) Mirror of M4GConfiguration.UpperBoundJump. On a degenerate plan
+        /// (V* &lt;= 0, i.e. the empty plan is optimal at the current lambda), jump lambda ONCE to a
+        /// provable upper bound on lambda* = min D/P instead of doubling it (LambdaEscalations).
+        ///
+        /// Must track M4G: the iron rule is that any default baked into the M4G canon has a
+        /// counterpart here that is switched on with it, or the exact-vs-greedy ablation stops
+        /// comparing the same model. The bound is constructed identically - the cheapest single
+        /// dispatch that makes some order line coverable at a station with a free slot - because a
+        /// plan that closes one line has P &gt;= 1, so its travel alone bounds the ratio.</summary>
+        public bool UpperBoundJump = false;
     }
 
     /// <summary>
@@ -2494,6 +2505,31 @@ namespace RAWSimO.Core.Configurations
         /// risks reporting infeasible on rounding alone; this is a numerical guard, not a
         /// relaxation knob - keep it far below the ~metre scale at which decisions differ.</summary>
         public double LexTieTolerance = 1e-4;
+
+        /// <summary>(M4G) On a degenerate solve (V* &lt;= 0, i.e. "dispatch nothing" is optimal at
+        /// the current lambda), jump lambda ONCE to a provable upper bound on the optimal ratio
+        /// lambda* = min D/P instead of doubling it blindly (DinkelbachEscalations).
+        ///
+        /// Dinkelbach's convergence proof assumes P(x) &gt; 0 on the whole feasible set. Here the
+        /// null plan (D = P = 0) is feasible, so F(lambda) = min(D - lambda*P) &lt;= 0 always and
+        /// F(lambda) = 0 only certifies lambda &lt;= lambda* - the "price too low" signal is flat and
+        /// the search cannot climb. Kouarfate et al. (arXiv:2605.06528) hit the identical pathology
+        /// in a QUBO split-selection setting (their trivial vectors q = 0 / q = 1 have n = d = 0)
+        /// and resolve it the same way: do NOT excise the degenerate point with slack variables -
+        /// that only enlarges the model - but (a) update lambda to a known upper bound when the
+        /// incumbent is degenerate (their Lemma 2.6 ii) and (b) require a non-degenerate incumbent
+        /// before declaring convergence (their Theorem 2.2). Their Lemma 2.9 (iv) then gives
+        /// monotone convergence from above.
+        ///
+        /// The bound used here: any feasible non-null plan x bounds lambda* &lt;= D(x)/P(x), and a
+        /// plan that closes one order line has P &gt;= 1, so the cheapest single dispatch that makes
+        /// some line coverable at a station with a free slot bounds lambda* by its travel alone.
+        /// Loose but provable, and it costs no solve. See ComputeLambdaUpperBound.
+        ///
+        /// Independent of DinkelbachEscalations; when both are on this branch is tried first.
+        /// Canon leaves it off, and escalation off too - the escalation ablation was bit-identical
+        /// on 7/7 KPIs, so nothing in canon currently reaches either branch.</summary>
+        public bool UpperBoundJump = false;
 
     }
 
