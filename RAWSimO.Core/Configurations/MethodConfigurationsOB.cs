@@ -2305,6 +2305,18 @@ namespace RAWSimO.Core.Configurations
         public double LegacyOrderReward = -40;
         /// <summary>Legacy w3, the idle-slot weight.</summary>
         public double LegacyIdleSlotWeight = 0;
+        /// <summary>(LegacyObjective) Attach the w2 order reward to the VALUATION variable zh_o
+        /// instead of the binding variable z_o.
+        ///
+        /// M1G's w2 multiplies yos - the potential-assignment variable, not yaos - so the faithful
+        /// mirror rewards valuation. The difference is exactly the implied realisation rate: with
+        /// z_o a valued-but-unbound order earns 0 (beta = 0); with zh_o it earns |w2| = 40 against
+        /// the 1040 a bound order collects via w2 + w3, i.e. beta = 40/1040 = 0.0385, which is the
+        /// value recovered algebraically from M1G elsewhere in this project.
+        ///
+        /// false (default) keeps the original binding-reward form so published LegacyObjective
+        /// results stay reproducible.</summary>
+        public bool LegacyRewardValuation = false;
         /// <summary>
         /// Measurement-only probe: every N-th decision, re-solve the SAME model once per station
         /// with that station's free-slot count raised by one, and log the objective improvement.

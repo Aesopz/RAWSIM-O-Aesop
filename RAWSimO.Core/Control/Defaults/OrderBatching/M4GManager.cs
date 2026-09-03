@@ -2177,7 +2177,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 // PendingOrders) also skips the Dinkelbach iteration entirely in this mode, since
                 // the ratio objective this loop optimises is undefined without a lambda-scaled
                 // value side to linearise.
-                var zVars = sym.Zhat.Select(v => bin["z_" + v.order.ID]).ToList();
+                // (LegacyRewardValuation) M1G attaches w2 to yos, the valuation variable.
+                // v.name is zh_<order>; "z_"+order.ID is the binding counterpart.
+                var zVars = _m4gConfig.LegacyRewardValuation
+                    ? sym.Zhat.Select(v => bin[v.name]).ToList()
+                    : sym.Zhat.Select(v => bin["z_" + v.order.ID]).ToList();
                 if (zVars.Count > 0)
                     objective = objective + LinearExpression.Sum(zVars) * _m4gConfig.LegacyOrderReward;
 
