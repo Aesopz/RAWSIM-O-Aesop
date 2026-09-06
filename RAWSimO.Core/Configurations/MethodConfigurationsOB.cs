@@ -1863,6 +1863,20 @@ namespace RAWSimO.Core.Configurations
         /// dispatch that makes some order line coverable at a station with a free slot - because a
         /// plan that closes one line has P &gt;= 1, so its travel alone bounds the ratio.</summary>
         public bool UpperBoundJump = false;
+
+        /// <summary>(GreedyM5) Score a dispatch by its MARGINAL unlock rather than by the whole
+        /// harvest of the trial books.
+        ///
+        /// EvaluateDispatch places a candidate pod on a throwaway copy and harvests every draw the
+        /// copy then allows. Many of those draws needed no pod - they were already available - so
+        /// the pod collects credit it did not create, while the comparison on the other side is a
+        /// SINGLE draw. The valuation term was already differenced against a no-dispatch baseline;
+        /// this makes the draw term match, so both halves are true marginals.
+        ///
+        /// This changes WHICH member of the feasible set the greedy lands on, never the set
+        /// itself: every move still sets only variables M4G's MILP has, and the constraints hold
+        /// throughout. false (default) reproduces published HGS-M5 results bit-for-bit.</summary>
+        public bool MarginalDispatchScore = false;
     }
 
     /// <summary>

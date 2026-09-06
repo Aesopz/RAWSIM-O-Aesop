@@ -122,6 +122,7 @@
     <LambdaEscalations>0</LambdaEscalations>
     <ReleaseParentOnFirstSplit>true</ReleaseParentOnFirstSplit>
     <UpperBoundJump>true</UpperBoundJump>
+    <MarginalDispatchScore>true</MarginalDispatchScore>
   </OrderBatchingConfig>
   <ReplenishmentBatchingConfig xsi:type="SamePodReplenishmentBatchingConfiguration">
     <Name />

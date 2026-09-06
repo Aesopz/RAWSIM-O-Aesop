@@ -971,8 +971,34 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
 
             // Baseline valuation credit BEFORE any dispatch, so each candidate is charged only for
             // the credit it actually adds (M4G prices the level, the greedy must price the delta).
+            // (MarginalDispatchScore) The baseline a candidate is scored AGAINST: what this
+            // epoch would harvest with NO dispatch at all. Without it, `unlocked` below credits a
+            // pod with every draw the trial books allow - including the ones that needed no pod -
+            // so a dispatch is compared against a SINGLE draw while carrying the value of all of
+            // them. The valuation half was already differenced; this makes the draw half match.
+            //
+            // Costs one extra harvest per decision (not per pod - it is computed once here), and
+            // the baseline valuation is taken AFTER that harvest so both halves of the baseline
+            // describe the same post-draw state.
+            double baseUnlocked = 0.0;
             int baseVLines, baseVOrders;
-            ValuationSweep(st, out baseVLines, out baseVOrders);
+            if (_config.MarginalDispatchScore)
+            {
+                M5EpochState nodisp = st.CloneForTrial();
+                while (true)
+                {
+                    var bmoves = EnumerateLineMoves(nodisp, lambda, mu, rho, epsilon, delta);
+                    M5LineMove bbest = SelectDraw(bmoves, false);
+                    if (bbest == null) break;
+                    baseUnlocked += bbest.Delta;
+                    ApplyToBooks(nodisp, bbest);
+                }
+                ValuationSweep(nodisp, out baseVLines, out baseVOrders);
+            }
+            else
+            {
+                ValuationSweep(st, out baseVLines, out baseVOrders);
+            }
             double baseValuation = -lambda * delta * baseVLines - mu * delta * baseVOrders;
 
             IEnumerable<Pod> candidates = ScreenCandidates(st, paCandidates, alreadyDispatched, lambda, delta);
@@ -1017,7 +1043,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     ValuationSweep(trial, out vLines, out vOrders);
                     double valuation = -lambda * delta * vLines - mu * delta * vOrders;
 
-                    double net = cost + unlocked + (valuation - baseValuation);
+                    double net = cost + (unlocked - baseUnlocked) + (valuation - baseValuation);
                     if (net < bestDelta)
                     {
                         bestDelta = net; bestPod = pod; bestStation = s; bestBot = bot;
