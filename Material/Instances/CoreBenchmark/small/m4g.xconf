@@ -118,8 +118,10 @@
     <LinesPerOrderFallback>2.4</LinesPerOrderFallback>
     <LambdaFixed>0</LambdaFixed>
     <DeltaFixed>0</DeltaFixed>
+    <PickDistancePricing>true</PickDistancePricing>
     <DegenerateToBindingOnly>false</DegenerateToBindingOnly>
     <ValuationOrderLimit>0</ValuationOrderLimit>
+    <UrgentOrderGate>true</UrgentOrderGate>
     <PodCreditCapEnabled>false</PodCreditCapEnabled>
     <PodTierDrawPricingEnabled>false</PodTierDrawPricingEnabled>
     <IncrementalValuationEnabled>false</IncrementalValuationEnabled>

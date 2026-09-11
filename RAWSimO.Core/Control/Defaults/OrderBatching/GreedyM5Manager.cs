@@ -344,6 +344,20 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             PiSKU = GeneratePiSKU(allPods);
             var piSkuCopy = PiSKU; // out params cannot be captured by lambdas (CS1628)
             pendingOrders = new HashSet<Order>(candidates.Where(o => o.RemainingPositions.Any(p => piSkuCopy.ContainsKey(p.Key))));
+
+            // (UrgentOrderGate) Faithful mirror of M4GManager's port of HADGS's Od switch:
+            // once the orders whose remaining slack is under UrgentSlackSec number at least the
+            // free slots, they become the entire candidate set. No feasibility test, as in HADGS.
+            if (_config.UrgentOrderGate && pendingOrders.Count > 0)
+            {
+                DateTime nowU = Instance.SettingConfig.StartTime
+                    .AddSeconds(Convert.ToInt32(Instance.Controller.CurrentTime));
+                var od = new HashSet<Order>(pendingOrders.Where(o =>
+                    o.DueTime - (nowU - o.TimePlaced).TotalSeconds < _config.UrgentSlackSec));
+                int freeSlots = Cs.Values.Sum();
+                if (od.Count > 0 && od.Count >= freeSlots)
+                    pendingOrders = od;
+            }
             OiSKU = GenerateOiSKUSplit(pendingOrders);
 
             // HGS-M4 narrows Pa a SECOND time here, against the SKUs of the final admitted order
@@ -907,7 +921,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// </summary>
         private double ComputeLambdaUpperBound(M5EpochState st, HashSet<Pod> paCandidates)
         {
-            if (st.FreeBots.Count == 0 || paCandidates.Count == 0) return 0.0;
+            if (st.FreeBots.Count == 0) { _lastLbFail = 1; return 0.0; }
+            if (paCandidates.Count == 0) { _lastLbFail = 2; return 0.0; }
 
             // SKU -> the residual line sizes of orders still open this epoch.
             var demandBySku = new Dictionary<ItemDescription, List<int>>();
@@ -925,7 +940,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     lst.Add(line.Value);
                 }
             }
-            if (demandBySku.Count == 0) return 0.0;
+            if (demandBySku.Count == 0) { _lastLbFail = 4; return 0.0; }
 
             double best = double.PositiveInfinity;
             foreach (var pod in paCandidates)
@@ -959,7 +974,10 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     if (closesALine) best = cost;
                 }
             }
-            return double.IsPositiveInfinity(best) ? 0.0 : best;
+            if (double.IsPositiveInfinity(best)) { _lastLbFail = 5; return 0.0; }
+            _lastLbFail = 0;
+            _lastLbValue = best;
+            return best;
         }
 
         private void EvaluateDispatch(M5EpochState st, HashSet<Pod> paCandidates, HashSet<Pod> alreadyDispatched,
@@ -1289,6 +1307,12 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         // ── Per-decision summary logger ──
         private System.IO.StreamWriter _decisionLog;
         private int _decisionIndex = 0;
+        /// <summary>(Diagnostic only.) Mirrors M4GManager's _lastLbFail: why
+        /// ComputeLambdaUpperBound returned 0 - -1 not requested, 0 bound found, 1 no idle bot,
+        /// 2 no candidate pod, 4 no residual demand, 5 no SINGLE pod makes any line coverable.
+        /// Code 5 is the conservative gap shared with the exact model.</summary>
+        private int _lastLbFail = -1;
+        private double _lastLbValue = 0.0;
         private void EnsureDecisionLog()
         {
             if (_decisionLog != null) return;
@@ -1301,7 +1325,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // No delta column on purpose: HGS-M5 does not use it (see class summary).
             _decisionLog.WriteLine("decision,time,pendingOrders,stationsWithCap,podsInModel,dispatched,children,"
                 + "fastPath,units,decisionSec,lambda,mu,rho,epsilon,closedLines,completedOrders,"
-                + "lambdaIters,lambdaStart,lambdaEnd,objective,dStar,delta,valuedOnlyLines,valuedOnlyOrders");
+                + "lambdaIters,lambdaStart,lambdaEnd,objective,dStar,delta,valuedOnlyLines,valuedOnlyOrders,"
+                + "lbFail,lbValue");
         }
         private void WriteDecisionLog(double time, int pendingOrdersN, int stationsWithCap, int podsInModel,
             M5EpochState st, double decisionSec, double lambda, double mu, double rho, double epsilon,
@@ -1317,13 +1342,16 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 st.ClosedLinesThisEpoch.ToString(), st.CompletedOrdersThisEpoch.ToString(),
                 lambdaIters.ToString(), lambdaStart.ToString(), lambdaEnd.ToString(),
                 objective.ToString(), dStar.ToString(), delta.ToString(),
-                valuedOnlyLines.ToString(), valuedOnlyOrders.ToString() }));
+                valuedOnlyLines.ToString(), valuedOnlyOrders.ToString(),
+                _lastLbFail.ToString(), _lastLbValue.ToString() }));
         }
 
         /// <summary>Entry point called by the engine whenever a station has a free slot.</summary>
         protected override void DecideAboutPendingOrders()
         {
             DateTime A = DateTime.Now;
+            _lastLbFail = -1;
+            _lastLbValue = 0.0;
             Dictionary<ItemDescription, List<Pod>> PiSKU;
             Dictionary<ItemDescription, List<Order>> OiSKU;
             Dictionary<OutputStation, int> Cs;

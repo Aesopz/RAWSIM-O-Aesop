@@ -1863,6 +1863,26 @@ namespace RAWSimO.Core.Configurations
         /// dispatch that makes some order line coverable at a station with a free slot - because a
         /// plan that closes one line has P &gt;= 1, so its travel alone bounds the ratio.</summary>
         public bool UpperBoundJump = false;
+        /// <summary>(UrgentOrderGate) Mirror of M4GConfiguration.UrgentOrderGate.
+        ///
+        /// HADGSManager.GenerateOd collects every pending order whose remaining slack
+        /// (Timestay = due time minus time already waited) is under 30 minutes, and once those
+        /// orders number at least the free slots it replaces the whole candidate set with them.
+        /// No feasibility test is applied - HADGS asks only how urgent an order is, never whether
+        /// it can be served now, and that is what makes the rule safe to port: there is no
+        /// original-versus-residual demand question to translate, so a partly served order still
+        /// counts as urgent.
+        ///
+        /// M1G's variant is NOT the model here. Its cover test requires EVERY pod carrying a SKU
+        /// to hold enough of it and be idle (M1GManager.cs:386, .All not .Any), which cannot hold
+        /// once any such pod is in use, so the gate is effectively dead there; it also passes
+        /// vacuously for a SKU no pod carries. Copying it would have ported a no-op.
+        ///
+        /// Off by default: canon is unchanged until this is measured.</summary>
+        public bool UrgentOrderGate = false;
+        /// <summary>(UrgentOrderGate) Remaining slack below which an order counts as urgent.
+        /// 30 minutes is the value both M1G and HADGS use.</summary>
+        public double UrgentSlackSec = 1800.0;
 
         /// <summary>(GreedyM5) Score a dispatch by its MARGINAL unlock rather than by the whole
         /// harvest of the trial books.
@@ -1950,6 +1970,26 @@ namespace RAWSimO.Core.Configurations
         public bool DegenerateToBindingOnly = false;
         /// <summary>Cap on orders admitted to the valuation layer (0 = no cap). Solve-time convergence knob.</summary>
         public int ValuationOrderLimit = 0;
+        /// <summary>(UrgentOrderGate) HADGS's Od switch, adopted unchanged.
+        ///
+        /// HADGSManager.GenerateOd collects every pending order whose remaining slack
+        /// (Timestay = due time minus time already waited) is under 30 minutes, and once those
+        /// orders number at least the free slots it replaces the whole candidate set with them.
+        /// No feasibility test is applied - HADGS asks only how urgent an order is, never whether
+        /// it can be served now, and that is what makes the rule safe to port: there is no
+        /// original-versus-residual demand question to translate, so a partly served order still
+        /// counts as urgent.
+        ///
+        /// M1G's variant is NOT the model here. Its cover test requires EVERY pod carrying a SKU
+        /// to hold enough of it and be idle (M1GManager.cs:386, .All not .Any), which cannot hold
+        /// once any such pod is in use, so the gate is effectively dead there; it also passes
+        /// vacuously for a SKU no pod carries. Copying it would have ported a no-op.
+        ///
+        /// Off by default: canon is unchanged until this is measured.</summary>
+        public bool UrgentOrderGate = false;
+        /// <summary>(UrgentOrderGate) Remaining slack below which an order counts as urgent.
+        /// 30 minutes is the value both M1G and HADGS use.</summary>
+        public double UrgentSlackSec = 1800.0;
         /// <summary>Caps the valuation credit a single dispatched pod can receive at the station's
         /// total slot capacity times the mean residual units per pending order (V5). false reproduces
         /// the uncapped behaviour that over-dispatched.

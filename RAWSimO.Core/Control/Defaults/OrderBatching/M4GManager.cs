@@ -307,7 +307,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 + "lambda,mu,delta,epsilon,lambdaRef,lambdaDF,dStar,valuedLines,boundLines,valuedOrders,boundOrders,newTrips,boundUnits,"
                 + "objective,solveSec,qmax,rho,unitsFromSunk,unitsFromNew,inboundCoverUnits,"
                 + "splitsDeferred,splitsCommitted,wipOrders,wipUnits,dinkIters,lambdaStart,lambdaEnd,"
-                + "tbar,urgentOrders");
+                + "tbar,urgentOrders,lbFail,lbValue,mipGap,guardLamNext,guardTrialObj");
         }
 
         /// <summary>
@@ -333,6 +333,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             return orders;
         }
 
+        /// <summary>Invariant-culture formatting for the decision log. NaN must not be
+        /// localised - zh-TW renders it "非數值", which breaks every CSV reader.</summary>
+        private static string Inv(double v)
+        { return v.ToString(System.Globalization.CultureInfo.InvariantCulture); }
+
         /// <summary>Writes one decision row. Every numeric field is written unformatted for exact diffing.</summary>
         private void WriteDecision(bool solved, int pendingOrders, int stationsWithCap, int podsPa, int podsPb,
             int botsRa, double lambda, double mu, double delta, double epsilon, double lambdaRef, double lambdaDF, double dStar,
@@ -349,14 +354,16 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 Instance.Controller.CurrentTime.ToString(),
                 (solved ? "1" : "0"),
                 pendingOrders.ToString(), stationsWithCap.ToString(), podsPa.ToString(), podsPb.ToString(),
-                botsRa.ToString(), lambda.ToString(), mu.ToString(), delta.ToString(), epsilon.ToString(),
-                lambdaRef.ToString(), lambdaDF.ToString(), dStar.ToString(),
+                botsRa.ToString(), Inv(lambda), Inv(mu), Inv(delta), Inv(epsilon),
+                Inv(lambdaRef), Inv(lambdaDF), Inv(dStar),
                 valuedLines.ToString(), boundLines.ToString(), valuedOrders.ToString(), boundOrders.ToString(),
-                newTrips.ToString(), boundUnits.ToString(), objective.ToString(), solveSec.ToString(),
-                qmax.ToString(), rho.ToString(), unitsFromSunk.ToString(), unitsFromNew.ToString(),
-                inboundCoverUnits.ToString(), splitsDeferred.ToString(), splitsCommitted.ToString(),
-                wipOrders.ToString(), wipUnits.ToString(), dinkIters.ToString(), lambdaStart.ToString(),
-                lambdaEnd.ToString(), _lastTbar.ToString(), _lastUrgentOrders.ToString() }));
+                newTrips.ToString(), boundUnits.ToString(), Inv(objective), Inv(solveSec),
+                qmax.ToString(), Inv(rho), unitsFromSunk.ToString(), unitsFromNew.ToString(),
+                Inv(inboundCoverUnits), splitsDeferred.ToString(), splitsCommitted.ToString(),
+                wipOrders.ToString(), wipUnits.ToString(), dinkIters.ToString(), Inv(lambdaStart),
+                Inv(lambdaEnd), Inv(_lastTbar), _lastUrgentOrders.ToString(),
+                _lastLbFail.ToString(), Inv(_lastLbValue), Inv(_lastGap),
+                Inv(_lastGuardLamNext), Inv(_lastGuardTrialObj) }));
         }
 
         /// <summary>TEMP DIAGNOSTIC (fill-mode deadlock investigation, remove before merge).</summary>
@@ -509,6 +516,22 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             snap.PiSKU = GeneratePiSKU(snap.AllPods);
             snap.PendingOrders = new HashSet<Order>(candidates.Where(o =>
                 o.RemainingPositions.Any(p => snap.PiSKU.ContainsKey(p.Key))));
+
+            // (UrgentOrderGate) HADGS's Od switch. Once the orders whose remaining slack is
+            // under UrgentSlackSec number at least the free slots, they become the entire
+            // candidate set for this decision. Ported from HADGSManager.GenerateOd rather than
+            // M1GManager's, because HADGS applies no feasibility test - so there is no original-
+            // versus-residual demand question, and a partly served order still counts as urgent.
+            if (_m4gConfig.UrgentOrderGate && snap.PendingOrders.Count > 0)
+            {
+                DateTime nowU = Instance.SettingConfig.StartTime
+                    .AddSeconds(Convert.ToInt32(Instance.Controller.CurrentTime));
+                var od = new HashSet<Order>(snap.PendingOrders.Where(o =>
+                    o.DueTime - (nowU - o.TimePlaced).TotalSeconds < _m4gConfig.UrgentSlackSec));
+                int freeSlots = snap.Cs.Values.Sum();
+                if (od.Count > 0 && od.Count >= freeSlots)
+                    snap.PendingOrders = od;
+            }
 
             // Optional solve-time convergence knob: keep only the most urgent K orders.
             if (_m4gConfig.ValuationOrderLimit > 0 && snap.PendingOrders.Count > _m4gConfig.ValuationOrderLimit)
@@ -686,9 +709,10 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// </summary>
         private double ComputeLambdaUpperBound(M4GSnapshot snap)
         {
-            if (snap.Ra.Count == 0 || snap.Pa.Count == 0) return 0.0;
+            if (snap.Ra.Count == 0) { _lastLbFail = 1; return 0.0; }
+            if (snap.Pa.Count == 0) { _lastLbFail = 2; return 0.0; }
             var stations = snap.Cs.Keys.Where(s => snap.Cs[s] > 0).OrderBy(s => s.ID).ToList();
-            if (stations.Count == 0) return 0.0;
+            if (stations.Count == 0) { _lastLbFail = 3; return 0.0; }
 
             // Stock already committed to each station - the baseline a candidate pod adds to.
             var stationStock = new List<Dictionary<ItemDescription, int>>();
@@ -723,7 +747,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     lst.Add(line.Value);
                 }
             }
-            if (demandBySku.Count == 0) return 0.0;
+            if (demandBySku.Count == 0) { _lastLbFail = 4; return 0.0; }
 
             double best = double.PositiveInfinity;
             foreach (var pod in snap.Pa)
@@ -756,7 +780,10 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     if (closesALine) best = cost;
                 }
             }
-            return double.IsPositiveInfinity(best) ? 0.0 : best;
+            if (double.IsPositiveInfinity(best)) { _lastLbFail = 5; return 0.0; }
+            _lastLbFail = 0;
+            _lastLbValue = best;
+            return best;
         }
 
         /// <summary>
@@ -796,6 +823,25 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         private double _lastTbar = 0.0;
         /// <summary>Pending orders carrying a non-zero urgency boost this decision (diagnostics only).</summary>
         private int _lastUrgentOrders = 0;
+        /// <summary>(Diagnostic only, never read by the algorithm.) Why ComputeLambdaUpperBound
+        /// returned 0 on this decision: -1 not requested, 0 bound found, 1 no idle robot,
+        /// 2 no available pod, 3 no station with capacity, 4 no residual demand,
+        /// 5 no SINGLE pod makes any line coverable. Code 5 is the known conservative gap:
+        /// a line needing more units than station stock plus any one pod can supply is invisible
+        /// to the enumeration, so the epoch stops with the empty plan even though a two-pod plan
+        /// would have been feasible. Recorded so its frequency can be measured before deciding
+        /// whether it is worth closing.</summary>
+        private double _lastGap = double.NaN;
+        private int _lastLbFail = -1;
+        private double _lastLbValue = 0.0;
+        /// <summary>(Diagnostic only, never read by the algorithm.) When the overshoot guard
+        /// fires, the lambda_next that was rejected and the objective the trial solve returned
+        /// there. Discriminates two explanations of the guard: a trial objective of ~0 means
+        /// lambda_next landed ON lambda* and the empty plan merely TIED with the incumbent;
+        /// a strictly positive objective would mean the empty plan strictly dominated, i.e.
+        /// lambda_next undershot lambda*. NaN when the guard did not fire.</summary>
+        private double _lastGuardLamNext = double.NaN;
+        private double _lastGuardTrialObj = double.NaN;
 
         /// <summary>Names of the symbols the model was built from, kept for decoding.</summary>
         private sealed class M4GSymbols
@@ -1643,6 +1689,10 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         {
             public bool HasSolution;
             public double Objective;
+            /// <summary>(Diagnostic only.) Gurobi's relative MIP gap when the solve stopped.
+            /// Meaningful only when a decision time limit is set; 0 on a solve that reached
+            /// proven optimality, NaN when the attribute is unavailable.</summary>
+            public double Gap;
             public double SolveSec;
             public int NewTripCount;
             /// <summary>Binding-layer draws: (sku, order, pod, station) -> units.</summary>
@@ -2463,6 +2513,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
 
             result.HasSolution = true;
             result.Objective = objStar;
+            try { result.Gap = wrapper.GetGap(); } catch { result.Gap = double.NaN; }
             result.Rho = rho;
             result.LambdaUsed = lambda;
             // D* (spec: "realised distance terms"): read back the same T1/T2 travel-cost terms
@@ -2603,6 +2654,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 || !snap.Cs.Values.Any(v => v > 0) || snap.AllPods.Count == 0)
                 return;
             _lastQmax = 0;
+            _lastLbFail = -1;
+            _lastLbValue = 0.0;
+            _lastGap = double.NaN;
+            _lastGuardLamNext = double.NaN;
+            _lastGuardTrialObj = double.NaN;
             _lastInboundCoverUnits = 0.0;
             _lastSplitsDeferred = 0;
             _lastSplitsCommitted = 0;
@@ -2771,10 +2827,33 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     if (vStar <= 0) break;                                    // ratio undefined - keep this solution
                     if (Math.Abs(result.Objective) <= _m4gConfig.DinkelbachTolerance) break;  // converged
                     double lambdaNext = result.DStar / vStar;
+                    // (D* = 0) The plan makes progress at zero new travel - every line came from
+                    // stock already standing at a station. The ratio is 0, which is not a price,
+                    // so there is nothing to iterate on. This used to fall through to a solve at
+                    // lambda = 0, whose only possible optimum is the empty plan, and the guard
+                    // below then caught it - a redundant solve on ~70% of all decisions. MEASURED:
+                    // removing it is bit-identical on every KPI but saves only 0.12% of solver time
+                    // (65.14 s -> 65.06 s, seed 0), because minimising D alone is trivial. The point
+                    // is that the exit now matches the documented flow, not that it is faster.
+                    if (lambdaNext <= 0)
+                    {
+                        _lastGuardLamNext = lambdaNext;
+                        _lastGuardTrialObj = 0.0;
+                        break;
+                    }
                     M4GResult next = SolveM4G(model, snap, lambdaNext, lambda0, mu0, epsilon0, rho0, delta, deltaOrder);
                     totalSolveSec += next.SolveSec;
                     if (!next.HasSolution) break;                             // keep the previous solution
-                    // Guard against MILP-integrality overshoot. Dinkelbach's continuous-relaxation
+                    // Guard against adopting the empty plan at the fixed point. MEASURED
+                    // 2026-09-11 (984 decisions, seed 0): every one of the 95 guard firings had
+                    // a trial objective of exactly 0, i.e. the empty plan only ever TIED with the
+                    // incumbent - it never strictly dominated. lambda_next = D*/P* is a ratio some
+                    // feasible plan ACHIEVES, so it can never fall below lambda*; the sequence
+                    // arrives at the fixed point, it does not overshoot it. What has to be caught
+                    // is the TIE: at lambda* the empty plan scores 0 just like the optimum, and
+                    // adopting it would silently zero out this decision's picks - confirmed in
+                    // testing: an unguarded loop collapsed a whole 2h run to ~0 orders completed.
+                    // (Superseded wording: "MILP-integrality overshoot". Dinkelbach's continuous-relaxation
                     // proof has lambda_k decrease monotonically toward the true minimum ratio
                     // without ever undershooting it, but the achievable ratio here is a step
                     // function of lambda (integer pod/bot/order assignment), so one re-solve can
@@ -2783,10 +2862,15 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     // dispatch. Adopting that trivial solution would silently zero out this
                     // decision's picks - confirmed in testing: an unguarded loop collapsed a whole
                     // 2h run to ~0 orders completed once lambda first overshot on decision 0.
-                    // Evaluate the CANDIDATE's own V* before adopting it; if it is degenerate,
+                    // .) Evaluate the CANDIDATE's own V* before adopting it; if it is degenerate,
                     // stop and keep the last non-degenerate solution instead.
                     double nextVStar = lambdaNext > 0 ? (next.DStar - next.Objective) / lambdaNext : 0.0;
-                    if (nextVStar <= 0) break;
+                    if (nextVStar <= 0)
+                    {
+                        _lastGuardLamNext = lambdaNext;
+                        _lastGuardTrialObj = next.Objective;
+                        break;
+                    }
                     result = next;
                     lambdaK = lambdaNext;
                     dinkIters++;
@@ -2809,6 +2893,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 if (model != null) model.Dispose();
             }
             double lambdaEnd = lambdaK;
+            _lastGap = result.Gap;
 
             // Slot shadow-price probe (gated, measurement only). Deliberately placed after the
             // base model is disposed but BEFORE CommitM4G, so it re-solves against exactly the
