@@ -1,0 +1,259 @@
+<title>M1G 到 M4 消融鏈</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@400;600;700&display=swap">
+
+<style>
+:root{
+  --ink:#1B1F27; --navy:#1F3864; --rust:#C55A11;
+  --page:#FFFFFF; --surface:#F5F7FB; --rule:#DDE3EC; --muted:#667085;
+  --serif:"Noto Serif TC","Source Serif 4",Cambria,"PMingLiU",serif;
+  --sans:"IBM Plex Sans","Noto Sans TC","Microsoft JhengHei",sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ink:#E8EBF1; --navy:#8FB3E0; --rust:#E8975A;
+    --page:#0F1319; --surface:#171C24; --rule:#2A313D; --muted:#98A2B3;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#E8EBF1; --navy:#8FB3E0; --rust:#E8975A;
+  --page:#0F1319; --surface:#171C24; --rule:#2A313D; --muted:#98A2B3;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--page); color:var(--ink);
+  font-family:var(--serif); font-size:17px; line-height:1.85;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1060px; margin:0 auto; padding:56px 28px 96px}
+header{border-bottom:2px solid var(--ink); padding-bottom:20px; margin-bottom:40px}
+h1{font-size:2.2rem; line-height:1.35; margin:0 0 12px; font-weight:700; text-wrap:balance}
+.dek{font-family:var(--sans); font-size:.86rem; color:var(--muted); letter-spacing:.02em;
+     margin:0; line-height:1.7}
+h2{font-size:1.24rem; font-weight:600; margin:56px 0 6px}
+h2 .num{font-family:var(--sans); font-size:.7rem; font-weight:600; color:var(--rust);
+        letter-spacing:.14em; display:block; margin-bottom:6px}
+.lede{color:var(--muted); margin:0 0 22px; max-width:46em}
+p{max-width:48em}
+
+figure{margin:0 0 8px}
+figcaption{font-family:var(--sans); font-size:.82rem; color:var(--muted);
+           margin-top:12px; max-width:54em; line-height:1.8}
+svg{max-width:100%; height:auto; display:block}
+
+.scroll{overflow-x:auto; margin:0 0 6px}
+table{border-collapse:collapse; width:100%; min-width:720px;
+      font-family:var(--sans); font-size:.86rem; font-variant-numeric:tabular-nums}
+caption{text-align:left; font-family:var(--sans); font-size:.8rem; color:var(--muted);
+        padding-bottom:10px; line-height:1.7}
+th,td{padding:9px 10px; text-align:right; border-bottom:1px solid var(--rule)}
+th:first-child,td:first-child{text-align:left; white-space:nowrap}
+thead th{font-weight:600; border-bottom:1.5px solid var(--ink); color:var(--ink)}
+tbody tr:last-child td{border-bottom:1.5px solid var(--ink)}
+.tag{font-weight:600; color:var(--navy)}
+.gain{color:var(--navy); font-weight:500}
+.cost{color:var(--rust); font-weight:600}
+.ns{color:var(--muted)}
+.sig{font-size:.72rem; letter-spacing:.04em}
+tr.total td{background:var(--surface); font-weight:600}
+tr.excl td{color:var(--muted)}
+
+.note{background:var(--surface); border-left:3px solid var(--rust);
+      padding:16px 22px; margin:20px 0; border-radius:0 4px 4px 0}
+.note strong{color:var(--rust)}
+.rules{list-style:none; padding:0; margin:22px 0 0; display:grid; gap:18px}
+.rules li{display:grid; grid-template-columns:auto 1fr; gap:16px; align-items:start}
+.rules .mark{font-family:var(--sans); font-size:.72rem; font-weight:600; color:var(--rust);
+             border:1px solid var(--rust); border-radius:3px; padding:2px 7px; margin-top:8px;
+             white-space:nowrap}
+footer{margin-top:64px; padding-top:20px; border-top:1px solid var(--rule);
+       font-family:var(--sans); font-size:.8rem; color:var(--muted); line-height:1.85}
+</style>
+
+<div class="wrap">
+
+<header>
+  <h1>從 M1G 到 M4，一次只換一個組件</h1>
+  <p class="dek">6 台機器人 &middot; 2 個揀貨站 &middot; 2 小時時窗 &middot; 5 個配對種子 &middot; small_o100_mu100_2h_inv70</p>
+</header>
+
+<p>相鄰兩臂之間只有一項差異，因此每一步的效果可以被單獨讀出。以下所有數值皆為同一組五個種子的平均，所有檢定皆在這五個種子上配對（<em>df</em>&nbsp;=&nbsp;4）。</p>
+
+<h2><span class="num">FIGURE</span>每一步買到什麼、付出什麼</h2>
+<p class="lede">左邊是吞吐，右邊是機器人行程。整條鏈只有一步是支出——而且它只在一個軸上是支出。</p>
+
+<figure>
+<svg viewBox="0 0 900 350" role="img"
+     aria-label="兩座瀑布圖。件數從 S1 的 1294.8 上升到 S4 的 1430.8，其中拆單 +127.4、兩層目標式 −21.6、量測價格 +30.2。機器人行程從 11993 公尺下降到 8317 公尺，三個步驟全部使其減少。">
+  <defs>
+    <style>
+      .ax{stroke:var(--rule); stroke-width:1}
+      .lbl{font-family:var(--sans); font-size:12.5px; fill:var(--muted)}
+      .val{font-family:var(--sans); font-size:12px; font-weight:600; fill:var(--ink)}
+      .ttl{font-family:var(--sans); font-size:13px; font-weight:600; fill:var(--ink)}
+      .up{fill:var(--navy)} .dn{fill:var(--rust)} .base{fill:var(--navy); opacity:.30}
+      .link{stroke:var(--rule); stroke-width:1; stroke-dasharray:3 3}
+    </style>
+  </defs>
+
+  <!-- 件數 -->
+  <text class="ttl" x="40" y="22">件數</text>
+  <line class="ax" x1="40" y1="280" x2="420" y2="280"/>
+
+  <rect class="base" x="45"  y="226.2" width="58" height="53.8"/>
+  <rect class="up"   x="122" y="73.4"  width="58" height="152.8"/>
+  <rect class="dn"   x="199" y="73.4"  width="58" height="25.9"/>
+  <rect class="up"   x="276" y="63.0"  width="58" height="36.3"/>
+  <rect class="base" x="353" y="63.0"  width="58" height="217.0"/>
+
+  <line class="link" x1="103" y1="226.2" x2="122" y2="226.2"/>
+  <line class="link" x1="180" y1="73.4"  x2="199" y2="73.4"/>
+  <line class="link" x1="257" y1="99.3"  x2="276" y2="99.3"/>
+  <line class="link" x1="334" y1="63.0"  x2="353" y2="63.0"/>
+
+  <text class="val" x="74"  y="219" text-anchor="middle">1294.8</text>
+  <text class="val" x="151" y="66"  text-anchor="middle" fill="var(--navy)">+127.4</text>
+  <text class="val" x="228" y="112" text-anchor="middle" fill="var(--rust)">&minus;21.6</text>
+  <text class="val" x="305" y="56"  text-anchor="middle" fill="var(--navy)">+30.2</text>
+  <text class="val" x="382" y="56"  text-anchor="middle">1430.8</text>
+
+  <text class="lbl" x="74"  y="300" text-anchor="middle">S1 移植</text>
+  <text class="lbl" x="151" y="300" text-anchor="middle">＋拆單</text>
+  <text class="lbl" x="228" y="300" text-anchor="middle">＋目標式</text>
+  <text class="lbl" x="305" y="300" text-anchor="middle">＋價格</text>
+  <text class="lbl" x="382" y="300" text-anchor="middle">S4</text>
+  <text class="lbl" x="228" y="322" text-anchor="middle" fill="var(--rust)">全鏈唯一的支出</text>
+
+  <!-- 行程 -->
+  <text class="ttl" x="500" y="22">機器人行程（公尺）</text>
+  <line class="ax" x1="500" y1="280" x2="880" y2="280"/>
+
+  <rect class="base" x="505" y="52.0"  width="58" height="228.0"/>
+  <rect class="up"   x="582" y="52.0"  width="58" height="96.4"/>
+  <rect class="up"   x="659" y="148.4" width="58" height="69.7"/>
+  <rect class="up"   x="736" y="218.1" width="58" height="43.8"/>
+  <rect class="base" x="813" y="261.9" width="58" height="18.1"/>
+
+  <line class="link" x1="563" y1="52.0"  x2="582" y2="52.0"/>
+  <line class="link" x1="640" y1="148.4" x2="659" y2="148.4"/>
+  <line class="link" x1="717" y1="218.1" x2="736" y2="218.1"/>
+  <line class="link" x1="794" y1="261.9" x2="813" y2="261.9"/>
+
+  <text class="val" x="534" y="45"  text-anchor="middle">11993</text>
+  <text class="val" x="611" y="45"  text-anchor="middle" fill="var(--navy)">&minus;1690</text>
+  <text class="val" x="688" y="141" text-anchor="middle" fill="var(--navy)">&minus;1220</text>
+  <text class="val" x="765" y="211" text-anchor="middle" fill="var(--navy)">&minus;766</text>
+  <text class="val" x="842" y="255" text-anchor="middle">8317</text>
+
+  <text class="lbl" x="534" y="300" text-anchor="middle">S1 移植</text>
+  <text class="lbl" x="611" y="300" text-anchor="middle">＋拆單</text>
+  <text class="lbl" x="688" y="300" text-anchor="middle">＋目標式</text>
+  <text class="lbl" x="765" y="300" text-anchor="middle">＋價格</text>
+  <text class="lbl" x="842" y="300" text-anchor="middle">S4</text>
+  <text class="lbl" x="688" y="322" text-anchor="middle" fill="var(--navy)">每一步都是收入</text>
+</svg>
+<figcaption>兩層目標式是唯一使吞吐下降的步驟（&minus;1.52%，<em>t</em>&nbsp;=&nbsp;&minus;10.34）。但它換到了全鏈單步最大的行程減少（&minus;11.84%），而緊接著的量測價格把吞吐加倍還了回來。這兩步是一組配套。</figcaption>
+</figure>
+
+<h2><span class="num">表 1</span>各臂平均值</h2>
+<div class="scroll">
+<table>
+  <caption>五個種子的平均。S0 為外部基準，不納入歸因鏈——理由見閱讀注記。</caption>
+  <thead>
+    <tr><th>臂</th><th>件數</th><th>行數</th><th>pile-on</th><th>站台閒置&nbsp;%</th>
+        <th>行程（m）</th><th>EOR</th><th>到站次數</th></tr>
+  </thead>
+  <tbody>
+    <tr class="excl"><td><span class="tag">S0</span> M1G</td>
+      <td>1238.4</td><td>805.8</td><td>3.255</td><td>14.05</td>
+      <td>11915</td><td>1.6961</td><td>176.6</td></tr>
+    <tr><td><span class="tag">S1</span> 框架移植</td>
+      <td>1294.8</td><td>843.2</td><td>3.483</td><td>10.12</td>
+      <td>11993</td><td>1.6137</td><td>172.2</td></tr>
+    <tr><td><span class="tag">S2</span> ＋訂單拆分</td>
+      <td>1422.2</td><td>946.2</td><td>4.658</td><td>1.29</td>
+      <td>10303</td><td>1.3843</td><td>127.6</td></tr>
+    <tr><td><span class="tag">S3</span> ＋兩層目標式</td>
+      <td>1400.6</td><td>942.0</td><td>4.368</td><td>2.80</td>
+      <td>9083</td><td>1.2788</td><td>132.4</td></tr>
+    <tr class="total"><td><span class="tag">S4</span> ＋量測價格</td>
+      <td>1430.8</td><td>951.4</td><td>5.854</td><td>0.72</td>
+      <td>8317</td><td>1.1089</td><td>102.2</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2><span class="num">表 2</span>相鄰步驟的配對檢定</h2>
+<div class="scroll">
+<table>
+  <caption>相對於前一臂的變化百分比，於五個種子上配對。
+  <span class="sig">* p&lt;.05 &nbsp; ** p&lt;.01 &nbsp; *** p&lt;.001</span>，雙尾，<em>df</em>&nbsp;=&nbsp;4。</caption>
+  <thead>
+    <tr><th>步驟</th><th>件數</th><th>行數</th><th>pile-on</th><th>站台閒置&nbsp;%</th>
+        <th>行程</th><th>EOR</th><th>到站次數</th></tr>
+  </thead>
+  <tbody>
+    <tr class="excl"><td>S0&nbsp;&rarr;&nbsp;S1 &nbsp;框架移植</td>
+      <td>+4.55 <span class="sig">*</span></td><td>+4.64 <span class="sig">*</span></td>
+      <td>+7.00 <span class="sig">*</span></td><td>&minus;27.99 <span class="sig">*</span></td>
+      <td class="ns">+0.66 <span class="sig">n.s.</span></td>
+      <td>&minus;4.86 <span class="sig">**</span></td><td>&minus;2.49 <span class="sig">**</span></td></tr>
+    <tr><td>S1&nbsp;&rarr;&nbsp;S2 &nbsp;訂單拆分</td>
+      <td class="gain">+9.84 <span class="sig">***</span></td>
+      <td class="gain">+12.22 <span class="sig">***</span></td>
+      <td class="gain">+33.74 <span class="sig">***</span></td>
+      <td class="gain">&minus;87.25 <span class="sig">***</span></td>
+      <td class="gain">&minus;14.09 <span class="sig">**</span></td>
+      <td class="gain">&minus;14.22 <span class="sig">***</span></td>
+      <td class="gain">&minus;25.90 <span class="sig">***</span></td></tr>
+    <tr><td>S2&nbsp;&rarr;&nbsp;S3 &nbsp;兩層目標式</td>
+      <td class="cost">&minus;1.52 <span class="sig">***</span></td>
+      <td class="ns">&minus;0.44 <span class="sig">n.s.</span></td>
+      <td class="cost">&minus;6.21 <span class="sig">*</span></td>
+      <td class="cost">+116.76 <span class="sig">***</span></td>
+      <td class="gain">&minus;11.84 <span class="sig">***</span></td>
+      <td class="gain">&minus;7.62 <span class="sig">**</span></td>
+      <td class="ns">+3.76 <span class="sig">n.s.</span></td></tr>
+    <tr><td>S3&nbsp;&rarr;&nbsp;S4 &nbsp;量測價格</td>
+      <td class="gain">+2.16 <span class="sig">**</span></td>
+      <td class="ns">+1.00 <span class="sig">n.s.</span></td>
+      <td class="gain">+34.00 <span class="sig">***</span></td>
+      <td class="gain">&minus;74.29 <span class="sig">**</span></td>
+      <td class="gain">&minus;8.44 <span class="sig">**</span></td>
+      <td class="gain">&minus;13.29 <span class="sig">**</span></td>
+      <td class="gain">&minus;22.81 <span class="sig">***</span></td></tr>
+    <tr class="total"><td>S1&nbsp;&rarr;&nbsp;S4 &nbsp;合計</td>
+      <td class="gain">+10.50 <span class="sig">***</span></td>
+      <td class="gain">+12.83 <span class="sig">***</span></td>
+      <td class="gain">+68.07 <span class="sig">***</span></td>
+      <td class="gain">&minus;92.89 <span class="sig">***</span></td>
+      <td class="gain">&minus;30.66 <span class="sig">***</span></td>
+      <td class="gain">&minus;31.28 <span class="sig">***</span></td>
+      <td class="gain">&minus;40.65 <span class="sig">***</span></td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="note">
+<strong>這條鏈裡最大的效果不是吞吐。</strong>從 S1 到 S4，到站次數下降 40.65%，而件數上升 10.50%。十趟貨架搬運被省掉四趟，而系統多做了一成的工作。
+</div>
+
+<h2><span class="num">閱讀注記</span>這張表不支持的三個宣稱</h2>
+
+<ul class="rules">
+  <li><span class="mark">S0</span>
+  <div><strong>框架移植不是貢獻。</strong>M1G 以前置過濾排除當前庫存無法完整供應的訂單；本框架則以限制式在目標式中拒絕給予獎勵，並以剩餘需求取代原始需求——後者是讓被拆過的訂單能在後續期別回到候選池的必要條件。兩者的候選訂單池因此不可直接比較，歸因自 S1 起算。</div></li>
+
+  <li><span class="mark">價格</span>
+  <div><strong>量測價格並未提升吞吐。</strong>那 +2.16% 主要是把前一步讓出的部分還回來，兩步淨增僅 +0.64%。它真正帶來的是效率：pile-on +34.00%、到站次數 &minus;22.81%。</div></li>
+
+  <li><span class="mark">S2&ndash;S3</span>
+  <div><strong>兩層目標式不可單獨展示。</strong>單看它是 1.52% 的吞吐損失。它是讓價格得以被量測的載體，與緊接的量測價格不可分割——產生結果的是這一組配套，不是其中任何一步。</div></li>
+</ul>
+
+<footer>
+S0&ndash;S3 沿用 2026-09-03 批次，並已在現行版本上以 seed 0 重跑逐位比對確認一致（件數、行數、行程完全相同）；S4 因 &lambda; 分子的定義於 2026-09-07 變更而於 2026-09-09 重跑。站台閒置比例定義為兩個揀貨站閒置時間的平均值除以 7200 秒。
+</footer>
+
+</div>

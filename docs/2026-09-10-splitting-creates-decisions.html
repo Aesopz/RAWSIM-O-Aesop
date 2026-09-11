@@ -1,0 +1,525 @@
+<title>拆單創造了決策</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ink:#16181D; --ink-2:#33383F; --muted:#666D78; --faint:#8A919C;
+  --paper:#FFFFFF; --panel:#F4F5F7; --panel-2:#EAECF0; --rule:#DFE2E8; --rule-2:#C6CBD4;
+  --accent:#34459E; --accent-soft:#EAEDF9;
+  --yes:#1E6B47; --yes-soft:#E7F2EC;
+  --no:#A33A2E; --no-soft:#F9EBE9;
+  --serif:Spectral,Cambria,Georgia,serif;
+  --sans:"IBM Plex Sans","Segoe UI",Arial,sans-serif;
+  --mono:"IBM Plex Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ink:#E6E9EE; --ink-2:#C7CDD6; --muted:#98A1AE; --faint:#78818E;
+    --paper:#101216; --paper-2:#161A20; --panel:#1A1E25; --panel-2:#222831;
+    --rule:#2A303A; --rule-2:#3B434F;
+    --accent:#8C9CE8; --accent-soft:#1B2140;
+    --yes:#5FC091; --yes-soft:#14291F;
+    --no:#E08878; --no-soft:#2B1815;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#E6E9EE; --ink-2:#C7CDD6; --muted:#98A1AE; --faint:#78818E;
+  --paper:#101216; --panel:#1A1E25; --panel-2:#222831;
+  --rule:#2A303A; --rule-2:#3B434F;
+  --accent:#8C9CE8; --accent-soft:#1B2140;
+  --yes:#5FC091; --yes-soft:#14291F;
+  --no:#E08878; --no-soft:#2B1815;
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);
+  font-size:16px;line-height:1.75;-webkit-font-smoothing:antialiased}
+.wrap{max-width:62rem;margin:0 auto;padding:4rem 1.5rem 7rem;
+  display:flex;flex-direction:column;gap:3.25rem}
+h1,h2,h3,h4{font-family:var(--serif);margin:0;line-height:1.25;text-wrap:balance}
+h1{font-size:2.75rem;font-weight:700;letter-spacing:-.015em}
+h2{font-size:1.7rem;font-weight:600}
+h3{font-size:1.15rem;font-weight:600}
+h4{font-size:1rem;font-weight:600}
+p{margin:0}
+code{font-family:var(--mono);font-size:.86em;background:var(--panel);
+  padding:.12em .38em;border-radius:3px}
+.lede{font-size:1.14rem;color:var(--ink-2);max-width:44rem}
+.eyebrow{font-size:.71rem;font-weight:600;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--accent)}
+header{display:flex;flex-direction:column;gap:1rem;
+  border-bottom:2px solid var(--rule-2);padding-bottom:2.25rem}
+.meta{font-family:var(--mono);font-size:.77rem;color:var(--muted)}
+section{display:flex;flex-direction:column;gap:1.2rem}
+.section-head{display:flex;flex-direction:column;gap:.5rem;max-width:46rem}
+.scroll{overflow-x:auto;border:1px solid var(--rule);border-radius:6px}
+table{border-collapse:collapse;width:100%;font-size:.88rem;min-width:32rem}
+th,td{padding:.55rem .8rem;text-align:right;border-bottom:1px solid var(--rule);
+  font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+th{font-family:var(--sans);font-weight:600;font-size:.77rem;color:var(--muted);
+  background:var(--panel);border-bottom:1px solid var(--rule-2)}
+th:first-child,td:first-child{text-align:left;font-family:var(--sans)}
+tbody tr:last-child td{border-bottom:none}
+tr.hi td{background:var(--accent-soft);font-weight:500}
+.up{color:var(--yes);font-weight:500}
+.dn{color:var(--no);font-weight:500}
+.ns{color:var(--faint)}
+.hyp{border:1px solid var(--rule);border-radius:8px;overflow:hidden}
+.hyp-head{display:flex;align-items:baseline;gap:.75rem;padding:1rem 1.25rem;
+  background:var(--panel);border-bottom:1px solid var(--rule)}
+.hyp-num{font-family:var(--mono);font-size:.8rem;font-weight:600;color:var(--muted)}
+.hyp-body{padding:1.25rem;display:flex;flex-direction:column;gap:1rem}
+.hyp-grid{display:grid;grid-template-columns:6.5rem 1fr;gap:.55rem 1rem;font-size:.94rem}
+.hyp-grid dt{font-size:.75rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--muted);padding-top:.28rem}
+.hyp-grid dd{margin:0}
+.verdict{display:inline-flex;align-items:center;gap:.45rem;font-size:.8rem;font-weight:600;
+  padding:.22rem .6rem;border-radius:100px;font-family:var(--sans)}
+.verdict.no{background:var(--no-soft);color:var(--no)}
+.verdict.yes{background:var(--yes-soft);color:var(--yes)}
+.note{background:var(--panel);border:1px solid var(--rule);border-radius:6px;
+  padding:1.15rem 1.3rem;display:flex;flex-direction:column;gap:.65rem;font-size:.95rem}
+.note.key{background:var(--accent-soft);border-color:var(--accent)}
+.note.warn{background:var(--no-soft);border-color:var(--no)}
+.note h3,.note h4{font-size:.98rem}
+figure{margin:0;display:flex;flex-direction:column;gap:.8rem}
+figcaption{font-size:.85rem;color:var(--muted);max-width:46rem}
+svg{max-width:100%;height:auto;display:block}
+ul{margin:0;padding-left:1.2rem;display:flex;flex-direction:column;gap:.45rem}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;align-items:start}
+@media(max-width:48rem){.grid2{grid-template-columns:1fr}.hyp-grid{grid-template-columns:1fr}}
+.pull{font-family:var(--serif);font-size:1.35rem;line-height:1.5;color:var(--ink);
+  border-left:3px solid var(--accent);padding:.3rem 0 .3rem 1.3rem;max-width:44rem;font-weight:500}
+.foot{border-top:1px solid var(--rule);padding-top:1.9rem;font-size:.85rem;
+  color:var(--muted);display:flex;flex-direction:column;gap:.65rem}
+strong{font-weight:600}
+</style>
+
+<div class="wrap">
+
+<header>
+  <span class="eyebrow">機制診斷 · RAWSimO · M4G</span>
+  <h1>拆單創造的不是餘裕，是決策</h1>
+  <p class="lede">一個負結果的追查：定價機制在不拆單的條件下打不贏 M1G。三個聽起來合理的解釋依序被數據推翻，剩下的那一個，把「拆單」與「定價」從兩項可加的貢獻，改寫成一組有先後關係的配套——並且預測出一個交叉點，補跑之後落在 7 到 8 台機器人之間。</p>
+  <p class="meta">small layout · 2 站台 · 6 / 8 / 10 bots · 7200 s · 4–5 seeds · 配對 t 檢定 · 2026-09-10</p>
+</header>
+
+<section>
+  <div class="section-head">
+    <h2>起點：一個守不住的負結果</h2>
+  </div>
+  <p>M4G-NS-B 是把正典拿掉拆單的對照組——同一個管理器、同一套量測定價（λ μ β 全部線上量測）、同樣的兩層目標式，只是原子改回「整張單」。它應該用來回答教授的問題：<strong>把拆單拿掉，你的設計本身還贏 M1G 嗎？</strong></p>
+  <p>6 bots 下的答案是不贏。</p>
+  <div class="scroll"><table>
+    <thead><tr><th>指標</th><th>M1G</th><th>NS-B</th><th>變化</th><th>t</th><th>顯著</th></tr></thead>
+    <tbody>
+      <tr><td>完成訂單</td><td>571.8</td><td>531.0</td><td class="dn">−7.13%</td><td>−4.00</td><td>*</td></tr>
+      <tr><td>處理件數</td><td>1237.0</td><td>1137.5</td><td class="dn">−8.04%</td><td>−4.19</td><td>*</td></tr>
+      <tr><td>pile-on</td><td>3.258</td><td>2.931</td><td class="dn">−10.04%</td><td>−4.20</td><td>*</td></tr>
+      <tr><td>EOR</td><td>1.684</td><td>1.774</td><td class="dn">+5.31%</td><td>3.11</td><td>n.s.</td></tr>
+      <tr><td>距離</td><td>11751.7</td><td>11448.9</td><td class="up">−2.58%</td><td>−4.58</td><td>*</td></tr>
+    </tbody>
+  </table></div>
+  <figcaption>6 bots · 4 seeds · df=3。EOR 為每張完成訂單的機械能，越低越好。距離的小勝來自「做得少所以跑得少」，不是效率。</figcaption>
+</section>
+
+<section>
+  <div class="section-head">
+    <h2>三個被推翻的解釋</h2>
+    <p style="color:var(--ink-2)">每一個都有明確的可觀測預測，也都被自己的預測否證。</p>
+  </div>
+
+  <div class="hyp">
+    <div class="hyp-head">
+      <span class="hyp-num">假說 1</span>
+      <h3>沒有空槽懲罰，所以模型怠工</h3>
+    </div>
+    <div class="hyp-body">
+      <dl class="hyp-grid">
+        <dt>論述</dt>
+        <dd>M1G 有 <code>w3 = 1000</code>（每個空槽罰 1000 公尺）逼它填滿站台；NS-B 只有量測出來的線價 λ，太便宜，所以模型寧可省距離而讓槽位空著。</dd>
+        <dt>預測</dt>
+        <dd>把線價調高，空手的決策應該顯著減少。</dd>
+        <dt>量測</dt>
+        <dd>把 μ 從量測值改為釘死 1000、再改為 5000，其他一切不動。</dd>
+      </dl>
+      <div class="scroll"><table>
+        <thead><tr><th>組別</th><th>空手決策率</th></tr></thead>
+        <tbody>
+          <tr><td>NS-B（μ 量測）</td><td>62.7%</td></tr>
+          <tr><td>NS-B μ = 1000</td><td>63.0%</td></tr>
+          <tr><td>NS-B μ = 5000</td><td>62.6%</td></tr>
+        </tbody>
+      </table></div>
+      <p><span class="verdict no">推翻</span> 價格拉高 <strong>5 倍</strong>，空手率只動了 <strong>0.4 個百分點</strong>。價格不是這裡的決定因素。</p>
+    </div>
+  </div>
+
+  <div class="hyp">
+    <div class="hyp-head">
+      <span class="hyp-num">假說 2</span>
+      <h3>定價追求效率，會拒絕派工</h3>
+    </div>
+    <div class="hyp-body">
+      <dl class="hyp-grid">
+        <dt>論述</dt>
+        <dd>目標式 <code>min D − λP</code> 是一條接受／拒絕規則：距離成本高於線的價值就不做。在機器人稀缺時，每一次拒絕都浪費一段拿不回來的機器人時間，所以定價比 M1G 吃虧。</dd>
+        <dt>預測</dt>
+        <dd>NS-B 在「有車可派」的決策中不派車的比例，應該高於 M1G。</dd>
+        <dt>量測</dt>
+        <dd>逐決策比對，限定有待單、有站台空位、有閒置機器人。</dd>
+      </dl>
+      <div class="scroll"><table>
+        <thead><tr><th>組別</th><th>有車決策</th><th>未派車</th><th>比例</th></tr></thead>
+        <tbody>
+          <tr><td>M1G　6 bots</td><td>792</td><td>191</td><td>24.1%</td></tr>
+          <tr class="hi"><td>NS-B　6 bots</td><td>902</td><td>73</td><td>8.1%</td></tr>
+          <tr><td>M1G　10 bots</td><td>1254</td><td>364</td><td>29.0%</td></tr>
+          <tr class="hi"><td>NS-B　10 bots</td><td>2092</td><td>132</td><td>6.3%</td></tr>
+        </tbody>
+      </table></div>
+      <p><span class="verdict no">推翻</span> 方向完全相反。<strong>定價那一臂積極得多</strong>，兩種機隊規模都是 M1G 的三分之一到四分之一。</p>
+    </div>
+  </div>
+
+  <div class="hyp">
+    <div class="hyp-head">
+      <span class="hyp-num">假說 3</span>
+      <h3>M1G 在等一個能覆蓋很多單的貨架</h3>
+    </div>
+    <div class="hyp-body">
+      <dl class="hyp-grid">
+        <dt>論述</dt>
+        <dd>承上：既然 M1G 反而更常按兵不動，也許是它的絕對式目標（每張單 −40）讓它寧可等一個高覆蓋的貨架，而定價的比值目標樂於接受又短又小的趟。</dd>
+        <dt>預測</dt>
+        <dd>M1G 的「不派車」裡，應該有相當比例是<strong>有單可服務卻選擇不服務</strong>。</dd>
+        <dt>量測</dt>
+        <dd>看 <code>yos</code>（估值層看到的可服務單）與 <code>yaos</code>（實際綁定）。<code>yos &gt; 0</code> 而 <code>yaos = 0</code> 才是選擇。</dd>
+      </dl>
+      <div class="scroll"><table>
+        <thead><tr><th>組別</th><th>未派車</th><th>yos = 0（無事可做）</th><th>有事可做卻不做</th></tr></thead>
+        <tbody>
+          <tr><td>M1G　6 bots</td><td>191</td><td>191　(100.0%)</td><td class="dn">0</td></tr>
+          <tr><td>M1G　10 bots</td><td>364</td><td>364　(100.0%)</td><td class="dn">0</td></tr>
+        </tbody>
+      </table></div>
+      <p><span class="verdict no">推翻</span> <strong>零次。</strong> M1G 從來沒有選擇留空——這其實從目標式就能推出來：留一個空槽要付 1000 公尺，它沒有任何理由等。</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="section-head">
+    <h2>存活下來的解釋</h2>
+  </div>
+  <p>把同一把尺套到不拆單的定價臂上，答案才浮出來。</p>
+
+  <div class="scroll"><table>
+    <thead><tr><th>組別</th><th>有車決策</th><th>未派車</th><th>比例</th><th>無事可做</th><th>有事可做卻不做</th></tr></thead>
+    <tbody>
+      <tr><td>M1G　　　6 bots</td><td>792</td><td>191</td><td>24.1%</td><td>191　(100.0%)</td><td class="dn">0</td></tr>
+      <tr><td>NS-B　　 6 bots</td><td>902</td><td>73</td><td>8.1%</td><td>73　(100.0%)</td><td class="dn">0</td></tr>
+      <tr><td>M1G　　 10 bots</td><td>1254</td><td>364</td><td>29.0%</td><td>364　(100.0%)</td><td class="dn">0</td></tr>
+      <tr><td>NS-B　　10 bots</td><td>2092</td><td>132</td><td>6.3%</td><td>132　(100.0%)</td><td class="dn">0</td></tr>
+      <tr class="hi"><td>拆單正典　6 bots</td><td>3253</td><td>1414</td><td>43.5%</td><td>9　(0.6%)</td><td class="up">1405　(99.4%)</td></tr>
+      <tr class="hi"><td>拆單正典 10 bots</td><td>4293</td><td>1509</td><td>35.2%</td><td>37　(2.5%)</td><td class="up">1472　(97.5%)</td></tr>
+    </tbody>
+  </table></div>
+  <figcaption>判準：M1G 用 <code>yos</code>（估值層可服務的單），M4G 用 <code>valuedLines</code>（估值層可關的行）。這一欄為零代表模型手上沒有任何可做的事，不派車不是選擇。</figcaption>
+
+  <p class="pull">不拆單時，兩個模型都從來沒有選擇過。100% 的「不派車」都是無事可做。只有在拆單之後，模型才第一次真的拒絕。</p>
+</section>
+
+<section>
+<figure>
+<svg viewBox="0 0 940 300" role="img" aria-label="兩種原子粒度下的可行解集合比較：整張單為原子時，每一期通常只有零或一個可行動作，模型沒有選擇；一行為原子時，每一期有大量可行動作，定價門檻負責在其中取捨">
+  <defs>
+    <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+    </marker>
+  </defs>
+  <g font-family="IBM Plex Sans, sans-serif" fill="currentColor">
+
+  <text x="18" y="26" font-size="13" font-weight="600">原子 = 整張單（不拆單）</text>
+  <text x="18" y="46" font-size="11" opacity=".65">一張單要被完整覆蓋才動得了</text>
+
+  <rect x="18" y="62" width="404" height="176" rx="6" fill="none" stroke="currentColor" stroke-width="1" opacity=".35"/>
+  <text x="34" y="86" font-size="10.5" opacity=".6" font-family="IBM Plex Mono, monospace">可行解集合</text>
+
+  <circle cx="70" cy="122" r="9" fill="currentColor" opacity=".85"/>
+  <text x="90" y="127" font-size="11.5">唯一可行的指派</text>
+  <text x="34" y="160" font-size="11.5" opacity=".55">（多數決策期只有這一個，或一個也沒有）</text>
+
+  <line x1="34" y1="184" x2="406" y2="184" stroke="currentColor" stroke-width="1" opacity=".25"/>
+  <text x="34" y="208" font-size="12" font-weight="600">目標式做的事：無</text>
+  <text x="34" y="226" font-size="11" opacity=".65">單元素集合上，任何目標式給出同一個答案</text>
+
+  <text x="518" y="26" font-size="13" font-weight="600" fill="#34459E">原子 = 一行（拆單）</text>
+  <text x="518" y="46" font-size="11" fill="#34459E" opacity=".7">幾乎每一期都有行可關（99.4%）</text>
+
+  <rect x="518" y="62" width="404" height="176" rx="6" fill="#34459E" fill-opacity=".05" stroke="#34459E" stroke-width="1.2"/>
+  <text x="534" y="86" font-size="10.5" fill="#34459E" opacity=".75" font-family="IBM Plex Mono, monospace">可行解集合</text>
+
+  <circle cx="562" cy="112" r="7" fill="#34459E"/><circle cx="596" cy="126" r="7" fill="#34459E"/>
+  <circle cx="630" cy="106" r="7" fill="#34459E"/><circle cx="666" cy="122" r="7" fill="#34459E"/>
+  <circle cx="700" cy="110" r="7" fill="#34459E"/><circle cx="736" cy="128" r="7" fill="#34459E"/>
+  <circle cx="770" cy="114" r="7" fill="#34459E"/><circle cx="806" cy="124" r="7" fill="#34459E"/>
+  <circle cx="843" cy="108" r="7" fill="#34459E"/><circle cx="878" cy="126" r="7" fill="#34459E"/>
+
+  <line x1="534" y1="152" x2="906" y2="152" stroke="#34459E" stroke-width="1.6" stroke-dasharray="6 4"/>
+  <text x="534" y="146" font-size="10.5" fill="#34459E" font-weight="600">定價門檻　D = λP</text>
+
+  <circle cx="578" cy="176" r="7" fill="none" stroke="currentColor" stroke-width="1.3" opacity=".45"/>
+  <circle cx="614" cy="188" r="7" fill="none" stroke="currentColor" stroke-width="1.3" opacity=".45"/>
+  <circle cx="652" cy="174" r="7" fill="none" stroke="currentColor" stroke-width="1.3" opacity=".45"/>
+  <circle cx="690" cy="190" r="7" fill="none" stroke="currentColor" stroke-width="1.3" opacity=".45"/>
+  <circle cx="728" cy="178" r="7" fill="none" stroke="currentColor" stroke-width="1.3" opacity=".45"/>
+  <text x="756" y="186" font-size="11" opacity=".6">門檻之下：拒絕</text>
+
+  <line x1="534" y1="206" x2="906" y2="206" stroke="#34459E" stroke-width="1" opacity=".3"/>
+  <text x="534" y="228" font-size="12" font-weight="600" fill="#34459E">目標式做的事：取捨</text>
+
+  <line x1="424" y1="150" x2="514" y2="150" stroke="currentColor" stroke-width="1.4" marker-end="url(#a1)"/>
+  <text x="469" y="140" font-size="11" text-anchor="middle" font-weight="600">拆單</text>
+
+  <text x="18" y="276" font-size="11.5" opacity=".7">有事可做卻不做：</text>
+  <text x="152" y="276" font-size="11.5" font-family="IBM Plex Mono, monospace" font-weight="600">0 / 760</text>
+  <text x="518" y="276" font-size="11.5" fill="#34459E" opacity=".8">有事可做卻不做：</text>
+  <text x="652" y="276" font-size="11.5" font-family="IBM Plex Mono, monospace" font-weight="600" fill="#34459E">2877 / 2923　(98.4%)</text>
+  </g>
+</svg>
+<figcaption>原子粒度決定了「決策」是否存在。整張單為原子時，可行解集合幾乎總是只有零或一個元素——目標式在單元素集合上不表達任何偏好。一行為原子時，集合被撐開，接受／拒絕才成為需要判斷的事。右下的計數合併兩種機隊規模。</figcaption>
+</figure>
+</section>
+
+<section>
+  <div class="section-head">
+    <h2>為什麼這解釋了那個負結果</h2>
+  </div>
+  <div class="note key">
+    <h3>定價回答的問題，在不拆單的模型裡不存在</h3>
+    <p><code>min D − λP</code> 回答的是「<strong>這一趟值不值得做</strong>」。而在整張單為原子的解空間裡，這個問題從來沒有被問出來：能覆蓋整張單的時候就該做（M1G 的空槽罰則與 M4G 的線價會給出同一個答案），不能覆蓋的時候做不了。<strong>兩個模型 100% 的決策都是被迫的。</strong></p>
+    <p>它們唯一還能分出高下的，是在多個可行指派之間挑哪一個——而那是一個小得多的差異，並且在稀缺régime 下對定價不利：</p>
+  </div>
+  <div class="grid2">
+    <div class="scroll"><table>
+      <thead><tr><th>每趟關掉的行數</th><th>M1G</th><th>NS-B</th></tr></thead>
+      <tbody>
+        <tr><td>6 bots</td><td>0.797</td><td class="dn">0.720</td></tr>
+        <tr><td>10 bots</td><td>0.736</td><td class="dn">0.716</td></tr>
+      </tbody>
+    </table></div>
+    <p style="font-size:.94rem">定價最小化的是<strong>比值</strong>（每關一行跑幾公尺），而比值是尺度無關的：跑 8 公尺關 1 行，與跑 40 公尺關 5 行，一樣好。於是它樂於接受大量又短又划算的小趟。</p>
+  </div>
+  <p>每一趟都要佔用一台機器人一段固定開銷（跑去貨架、舉升、跑去站台）。<strong>機器人稀缺時，開銷本身就是最貴的資源</strong>，「多趟小而美」把它浪費掉了。機器人充裕時開銷不用錢，比值最佳才等於系統最佳。</p>
+</section>
+
+<section>
+  <div class="section-head">
+    <h2>推論的驗證：把餘裕加回去</h2>
+    <p style="color:var(--ink-2)">如果上面的機制成立，那麼<strong>用硬體買到餘裕</strong>應該產生和拆單類似（但較弱）的效果。把機器人從 6 加到 10，預測全部命中。</p>
+  </div>
+
+  <div class="scroll"><table>
+    <thead><tr><th>組別</th><th>有車可派的決策</th><th>站台全滿</th><th>機器人生產性利用率</th></tr></thead>
+    <tbody>
+      <tr><td>6 bots　不拆單</td><td>24.7%</td><td>0.0%</td><td>0.750</td></tr>
+      <tr><td>6 bots　拆單正典</td><td>69.4%</td><td>0.0%</td><td>0.679</td></tr>
+      <tr><td>10 bots 不拆單</td><td>48.5%</td><td>0.0%</td><td>0.651</td></tr>
+      <tr class="hi"><td>10 bots 拆單正典</td><td>93.7%</td><td>0.0%</td><td>0.470</td></tr>
+    </tbody>
+  </table></div>
+  <figcaption>「站台全滿」＝ 沒有任何站台還有訂單槽位。六組全部是 0.0%：<strong>本研究的設定裡站台從未成為瓶頸</strong>，因此不能說拆單把瓶頸轉移到站台。它解除了機器人瓶頸，而沒有製造新的硬瓶頸。</figcaption>
+
+  <h3 style="margin-top:.8rem">NS-B vs M1G：餘裕改變了勝負</h3>
+  <div class="scroll"><table>
+    <thead><tr><th>指標</th><th>6 bots（4 seeds）</th><th></th><th>8 bots（5 seeds）</th><th></th><th>10 bots（5 seeds）</th><th></th></tr></thead>
+    <tbody>
+      <tr><td>完成訂單</td><td class="dn">−7.13%</td><td>*</td><td class="dn">−1.96%</td><td>*</td><td class="ns">−0.43%</td><td>n.s.</td></tr>
+      <tr><td>處理件數</td><td class="dn">−8.04%</td><td>*</td><td class="dn">−2.55%</td><td>*</td><td class="dn">−1.17%</td><td>**</td></tr>
+      <tr><td>關閉行數</td><td class="dn">−7.45%</td><td>*</td><td class="ns">−2.29%</td><td>n.s.</td><td class="dn">−0.59%</td><td>**</td></tr>
+      <tr><td>pile-on</td><td class="dn">−10.04%</td><td>*</td><td class="dn">−6.62%</td><td>**</td><td class="ns">−2.64%</td><td>n.s.</td></tr>
+      <tr class="hi"><td>EOR</td><td class="dn">+5.31%</td><td>n.s.</td><td class="ns">−2.15%</td><td>n.s.</td><td class="up">−5.23%</td><td>**</td></tr>
+      <tr><td>距離</td><td class="up">−2.58%</td><td>*</td><td class="up">−4.44%</td><td>**</td><td class="up">−5.87%</td><td>**</td></tr>
+      <tr><td>週期中位</td><td class="ns">−0.07%</td><td>n.s.</td><td class="ns">−4.34%</td><td>n.s.</td><td class="up">−17.09%</td><td>***</td></tr>
+      <tr><td>決策餘裕</td><td class="ns">+7.44%</td><td>n.s.</td><td class="ns">+18.58%</td><td>n.s.</td><td class="up">+57.97%</td><td>***</td></tr>
+    </tbody>
+  </table></div>
+  <figcaption>八列指標<strong>全部單調</strong>：吞吐的劣勢單調收斂，效率的優勢單調擴大。EOR 是勝負易手的地方（<code>+5.31% → −2.15% → −5.23%</code>），而最後一列說明了為什麼。</figcaption>
+
+  <h3 style="margin-top:.8rem">消融鏈：兩項貢獻的效益反向移動</h3>
+  <div class="grid2">
+    <div class="scroll"><table>
+      <thead><tr><th>拆單效益 S1→S2</th><th>6 bots</th><th>10 bots</th></tr></thead>
+      <tbody>
+        <tr><td>件數</td><td class="up">+9.84%***</td><td class="ns">+1.28%**</td></tr>
+        <tr><td>pile-on</td><td class="up">+33.74%***</td><td class="dn">−5.00%</td></tr>
+        <tr><td>EOR</td><td class="up">−14.22%***</td><td class="dn">+4.30%*</td></tr>
+        <tr><td>完成訂單</td><td class="ns">−0.90%</td><td class="dn">−6.46%***</td></tr>
+      </tbody>
+    </table></div>
+    <div class="scroll"><table>
+      <thead><tr><th>設計效益 S2→S4</th><th>6 bots</th><th>10 bots</th></tr></thead>
+      <tbody>
+        <tr><td>距離</td><td class="up">−19.28%***</td><td class="up">−32.17%***</td></tr>
+        <tr><td>EOR</td><td class="up">−19.90%***</td><td class="up">−34.01%***</td></tr>
+        <tr><td>pile-on</td><td class="up">+25.67%***</td><td class="up">+66.97%***</td></tr>
+        <tr><td>趟次</td><td class="up">−13.43%***</td><td class="up">−28.08%***</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+  <figcaption>兩張表方向相反：機器人變多時，<strong>拆單的效益蒸發，設計的效益翻倍</strong>。五個種子逐一同向。S2→S4 是兩臂都拆單、只差目標式與定價的區間。</figcaption>
+</section>
+
+<section>
+  <div class="section-head">
+    <h2>劑量反應：交叉點落在 7–8 bots</h2>
+    <p style="color:var(--ink-2)">兩點對比永遠可以被質疑成「你挑了兩個對你有利的設定」。補上 8 bots 這個中間點之後，三點單調，而且中間那點恰好落在符號翻轉處。</p>
+  </div>
+
+<figure>
+<svg viewBox="0 0 900 218" role="img" aria-label="三面板小倍數圖：隨機器人數從 6 增至 10，NS-B 相對 M1G 的件數劣勢單調收斂、EOR 由劣轉優並在約 7.4 台處穿越零、決策餘裕優勢單調擴大">
+  <g font-family="IBM Plex Sans, sans-serif" fill="currentColor">
+
+  <!-- ============ panel 1: items ============ -->
+  <g>
+    <text x="40" y="18" font-size="12.5" font-weight="600">處理件數</text>
+    <text x="40" y="33" font-size="10" opacity=".6">NS-B 相對 M1G</text>
+    <line x1="40" y1="56" x2="260" y2="56" stroke="currentColor" stroke-width="1" stroke-dasharray="4 4" opacity=".35"/>
+    <text x="34" y="59" font-size="9.5" opacity=".5" text-anchor="end">0</text>
+    <polyline points="40,144.4 150,84.1 260,68.9" fill="none" stroke-width="2"
+      stroke-linejoin="round" stroke-linecap="round" style="stroke:var(--accent)"/>
+    <circle cx="40" cy="144.4" r="4.5" style="fill:var(--accent)"><title>6 bots　件數 −8.04%　t=−4.19　p&lt;.05　逐 seed 四負</title></circle>
+    <circle cx="150" cy="84.1" r="4.5" style="fill:var(--accent)"><title>8 bots　件數 −2.55%　t=−3.10　p&lt;.05　逐 seed 五負</title></circle>
+    <circle cx="260" cy="68.9" r="4.5" style="fill:var(--accent)"><title>10 bots　件數 −1.17%　t=−6.08　p&lt;.01　逐 seed 五負</title></circle>
+    <text x="40" y="136" font-size="10.5" text-anchor="middle" font-family="IBM Plex Mono, monospace">−8.04*</text>
+    <text x="150" y="76" font-size="10.5" text-anchor="middle" font-family="IBM Plex Mono, monospace">−2.55*</text>
+    <text x="260" y="61" font-size="10.5" text-anchor="middle" font-family="IBM Plex Mono, monospace">−1.17**</text>
+    <line x1="40" y1="160" x2="260" y2="160" stroke="currentColor" stroke-width="1" opacity=".25"/>
+    <text x="40" y="176" font-size="10.5" text-anchor="middle" opacity=".7">6</text>
+    <text x="150" y="176" font-size="10.5" text-anchor="middle" opacity=".7">8</text>
+    <text x="260" y="176" font-size="10.5" text-anchor="middle" opacity=".7">10</text>
+    <text x="150" y="200" font-size="10" text-anchor="middle" opacity=".55">機器人數</text>
+  </g>
+
+  <!-- ============ panel 2: EOR ============ -->
+  <g transform="translate(300,0)">
+    <text x="40" y="18" font-size="12.5" font-weight="600">EOR　每張訂單能耗</text>
+    <text x="40" y="33" font-size="10" opacity=".6">負值＝ NS-B 較省</text>
+    <line x1="40" y1="100" x2="260" y2="100" stroke="currentColor" stroke-width="1" stroke-dasharray="4 4" opacity=".35"/>
+    <text x="34" y="103" font-size="9.5" opacity=".5" text-anchor="end">0</text>
+    <polyline points="40,58.3 150,116.9 260,141.1" fill="none" stroke-width="2"
+      stroke-linejoin="round" stroke-linecap="round" style="stroke:var(--accent)"/>
+    <circle cx="118" cy="100" r="5.5" fill="none" stroke-width="1.8" style="stroke:var(--accent)"/>
+    <text x="118" y="88" font-size="10" text-anchor="middle" style="fill:var(--accent)" font-weight="600">≈7.4</text>
+    <circle cx="40" cy="58.3" r="4.5" style="fill:var(--accent)"><title>6 bots　EOR +5.31%（NS-B 較差）　t=3.11　n.s.　逐 seed 零勝四負</title></circle>
+    <circle cx="150" cy="116.9" r="4.5" style="fill:var(--accent)"><title>8 bots　EOR −2.15%　t=−2.45　n.s.　逐 seed 四勝一負</title></circle>
+    <circle cx="260" cy="141.1" r="4.5" style="fill:var(--accent)"><title>10 bots　EOR −5.23%　t=−5.00　p&lt;.01　逐 seed 五勝零負</title></circle>
+    <text x="40" y="50" font-size="10.5" text-anchor="middle" font-family="IBM Plex Mono, monospace">+5.31</text>
+    <text x="152" y="132" font-size="10.5" text-anchor="middle" font-family="IBM Plex Mono, monospace">−2.15</text>
+    <text x="258" y="156" font-size="10.5" text-anchor="middle" font-family="IBM Plex Mono, monospace">−5.23**</text>
+    <line x1="40" y1="160" x2="260" y2="160" stroke="currentColor" stroke-width="1" opacity=".25"/>
+    <text x="40" y="176" font-size="10.5" text-anchor="middle" opacity=".7">6</text>
+    <text x="150" y="176" font-size="10.5" text-anchor="middle" opacity=".7">8</text>
+    <text x="260" y="176" font-size="10.5" text-anchor="middle" opacity=".7">10</text>
+    <text x="150" y="200" font-size="10" text-anchor="middle" opacity=".55">機器人數</text>
+  </g>
+
+  <!-- ============ panel 3: slack ============ -->
+  <g transform="translate(600,0)">
+    <text x="40" y="18" font-size="12.5" font-weight="600">決策餘裕</text>
+    <text x="40" y="33" font-size="10" opacity=".6">有閒置機器人可派的決策比例</text>
+    <text x="34" y="163" font-size="9.5" opacity=".5" text-anchor="end">0</text>
+    <polyline points="40,142.4 150,123.6 260,56.9" fill="none" stroke-width="2"
+      stroke-linejoin="round" stroke-linecap="round" style="stroke:var(--accent)"/>
+    <circle cx="40" cy="142.4" r="4.5" style="fill:var(--accent)"><title>6 bots　餘裕 M1G 23.1% → NS-B 24.8%　+7.44%　t=1.30　n.s.</title></circle>
+    <circle cx="150" cy="123.6" r="4.5" style="fill:var(--accent)"><title>8 bots　餘裕 M1G 25.6% → NS-B 30.4%　+18.58%　t=2.31　n.s.　逐 seed 五勝</title></circle>
+    <circle cx="260" cy="56.9" r="4.5" style="fill:var(--accent)"><title>10 bots　餘裕 M1G 30.8% → NS-B 48.6%　+57.97%　t=14.50　p&lt;.001　逐 seed 五勝</title></circle>
+    <text x="40" y="134" font-size="10.5" text-anchor="middle" font-family="IBM Plex Mono, monospace">+7.4</text>
+    <text x="150" y="115" font-size="10.5" text-anchor="middle" font-family="IBM Plex Mono, monospace">+18.6</text>
+    <text x="258" y="49" font-size="10.5" text-anchor="middle" font-family="IBM Plex Mono, monospace">+58.0***</text>
+    <line x1="40" y1="160" x2="260" y2="160" stroke="currentColor" stroke-width="1" opacity=".25"/>
+    <text x="40" y="176" font-size="10.5" text-anchor="middle" opacity=".7">6</text>
+    <text x="150" y="176" font-size="10.5" text-anchor="middle" opacity=".7">8</text>
+    <text x="260" y="176" font-size="10.5" text-anchor="middle" opacity=".7">10</text>
+    <text x="150" y="200" font-size="10" text-anchor="middle" opacity=".55">機器人數</text>
+  </g>
+  </g>
+</svg>
+<figcaption>三個測度的量級差距過大（−8% 到 +58%），因此用小倍數而非共用一條軸。單位皆為 NS-B 相對 M1G 的百分比差異。中間面板的空心圈是 EOR 差異的零點，由兩端線性內插得到 <strong>≈7.4 台</strong>。滑鼠停在資料點上可看 t 值與逐 seed 勝負。</figcaption>
+</figure>
+
+  <div class="note key">
+    <h3>三點共線的意義</h3>
+    <p>兩點可以連成任何一條線，三點才開始有資格叫趨勢。八列指標<strong>全部單調</strong>，而且沒有出現門檻式的跳躍——這排除了「6 與 10 之間存在某個開關」這種替代解釋。</p>
+    <p>不過餘裕的成長<strong>不是線性的</strong>：6→8 只增加 11 個百分點，8→10 增加 39 個。EOR 的顯著性也是到 10 bots 才出現。合理的讀法是<strong>餘裕要累積到一定程度，效率優勢才開始快速兌現</strong>，而不是每多一台機器人就等量地換到一點優勢。</p>
+  </div>
+
+  <h3>換算成可以講的口徑</h3>
+  <div class="scroll"><table>
+    <thead><tr><th>機器人 / 站台比</th><th>機隊</th><th>誰較優</th><th>依據</th></tr></thead>
+    <tbody>
+      <tr><td>3.0</td><td>6 bots</td><td>M1G 手釘權重</td><td>件數 −8.04%*、pile-on −10.04%*</td></tr>
+      <tr class="hi"><td>≈3.7</td><td>≈7.4 bots</td><td>打平</td><td>EOR 差異穿越零（內插）</td></tr>
+      <tr><td>4.0</td><td>8 bots</td><td>打平</td><td>EOR −2.15% n.s.，符號已翻轉</td></tr>
+      <tr><td>5.0</td><td>10 bots</td><td>量測定價</td><td>EOR −5.23%**、週期 −17.09%***</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 style="margin-top:.6rem">一個不隨機隊變化的旁證</h3>
+  <div class="scroll"><table>
+    <thead><tr><th>未派車率（有車卻沒派）</th><th>M1G</th><th>NS-B</th><th>差異</th><th>顯著</th></tr></thead>
+    <tbody>
+      <tr><td>6 bots</td><td>23.8%</td><td>8.1%</td><td class="up">−65.95%</td><td>*</td></tr>
+      <tr><td>8 bots</td><td>27.7%</td><td>8.2%</td><td class="up">−70.43%</td><td>*</td></tr>
+      <tr><td>10 bots</td><td>28.9%</td><td>6.3%</td><td class="up">−78.14%</td><td>***</td></tr>
+    </tbody>
+  </table></div>
+  <figcaption>三種規模下，M1G 因為「湊不出一張完整的單」而空手的比例都是 NS-B 的三到四倍，且幾乎不隨機隊變化。這是<strong>整張單原子化的代價</strong>最直接的量化，可以獨立於任何勝負主張使用。它的穩定性也反過來支持前三列的可信度——不是所有指標都在跟著機隊規模跑。</figcaption>
+</section>
+
+<section>
+  <div class="section-head">
+    <h2>這個結果准許主張什麼</h2>
+  </div>
+  <div class="note key">
+    <h4>可以說</h4>
+    <ul>
+      <li><strong>拆單創造了決策空間，定價在空間裡取捨。</strong> 兩者不是可加的貢獻，是有先後關係的配套。</li>
+      <li><strong>不拆單時定價無法表達。</strong> 不是設計失敗，是那個問題沒有被問出來——實測：兩臂 100% 的不派車都是無事可做。</li>
+      <li><strong>定價優化的是單位成本，M1G 的空槽罰則優化的是資源使用率。</strong> 稀缺時使用率就是正確目標，充裕時單位成本才是。因此定價的優勢隨資源充裕度單調上升。</li>
+      <li><strong>三條獨立證據指向同一個變數。</strong> 拆單效益下降、設計效益上升、純定價對比反轉，全部隨決策餘裕移動。</li>
+      <li><strong>關係是連續的，不是開關。</strong> 6 / 8 / 10 bots 三點，八列指標全部單調，交叉點內插在 ≈7.4 台（機器人／站台比 ≈3.7）。</li>
+    </ul>
+  </div>
+  <div class="note warn">
+    <h4>不能說</h4>
+    <ul>
+      <li><strong>不能說拆單把瓶頸移到揀貨站。</strong> 六組量測中站台滿載率全是 0.0%。</li>
+      <li><strong>不能說定價拒絕派工害了自己。</strong> 不拆單時它一次都沒拒絕過。</li>
+      <li><strong>不能說 M1G 在等大單。</strong> 0 / 555 次未派車是選擇；它的目標式付 1000 買不到空槽。</li>
+      <li><strong>不能說定價提升吞吐。</strong> 三種機隊規模下件數都是負的（−8.04% / −2.55% / −1.17%），只是劣勢單調收斂。它換到的是效率與時效。</li>
+      <li><strong>不能說 8 bots 已經贏。</strong> EOR −2.15% 的符號翻轉了，但 t=−2.45 未達顯著（逐 seed 四勝一負）。正確口徑是<strong>打平</strong>。</li>
+      <li><strong>≈7.4 台是線性內插值，不是量測值。</strong> 只有三個資料點，且餘裕的成長本身非線性，交叉點的精確位置不應被過度解讀；可說的是「落在 7 與 8 台之間」。</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="section-head">
+    <h2>已知限制</h2>
+  </div>
+  <ul style="max-width:46rem">
+    <li><strong>單一 layout、單一 instance。</strong> 全部結論都在 small layout、2 個揀貨站上取得。三種機隊規模的 layout 檔已逐行 diff 確認<strong>只差 <code>BotCount</code> 一行</strong>，因此曲線本身是單變數的；但站台數、貨架數、SKU 種類都未變動，外部效度未驗證。</li>
+    <li><strong>站台從未飽和</strong>，因此本設定量不到拆單對揀貨／包裝端的壓力。那需要另設計一組包裝站容量實驗。</li>
+    <li><strong>「無事可做」的判準是估值層計數</strong>（<code>yos</code> / <code>valuedLines</code>）。它排除了「沒有任何貨架涵蓋任何待單」這一層，但估值層本身仍受候選截斷（K-top）影響。</li>
+    <li><strong>NS-B @6bot seed 2 已排除。</strong> 該次模擬跑滿 7200 s，但訂單與補貨進度在 t=4686 s 停止、機器人全數進入 REST，最後 35% 時程無產出。20 次跑批中僅此一例；其餘 19 次訂單進度皆達 7165–7198 s。這是工具或模型的缺陷，尚未診斷，<strong>不作為任何主張的依據</strong>。</li>
+  </ul>
+</section>
+
+<div class="foot">
+  <p>組態：<code>m1g.xconf</code>（S0）· <code>m4g_nsB.xconf</code>（NS-B，λ μ β 全量測、<code>OrderAtomicNoSplit=true</code>）· <code>m4g.xconf</code>（拆單正典）· 消融鏈 <code>m4g_legacy_ns_u</code> / <code>m4g_legacy_u</code> / <code>m4g_m1gfix_B_u</code></p>
+  <p>Layout：<code>small_6bot.xlayo</code> / <code>small_8bot.xlayo</code> / <code>small_10bot.xlayo</code>，三者互相只差 <code>&lt;BotCount&gt;</code> 一行。Setting 一律 <code>small_o100_mu100_2h_inv70.xsett</code>。</p>
+  <p>資料來源：<code>m1g_decision_log.csv</code> 與 <code>m4g_decision_log.csv</code> 的逐決策紀錄，配合 <code>statistics.txt</code> 與 <code>kpi_report.csv</code>。決策篩選條件一律為「有待單、有站台空位、有閒置機器人」。</p>
+  <p>顯著性：雙尾配對 t 檢定。5 seeds（df=4）* |t|≥2.776　** |t|≥4.604　*** |t|≥8.610；4 seeds（df=3）* |t|≥3.182　** |t|≥5.841　*** |t|≥12.924</p>
+</div>
+
+</div>
