@@ -82,6 +82,11 @@ namespace RAWSimO.MultiAgentPathFinding.Elements
         public bool Queueing;
 
         /// <summary>
+        /// Rule-priority phase used by WHCA*-P. Lower values are planned first.
+        /// </summary>
+        public int TaskPriorityRank;
+
+        /// <summary>
         /// Energy-related current state of the robot.
         /// </summary>
         public EnergyState CurrentEnergyState = new EnergyState();

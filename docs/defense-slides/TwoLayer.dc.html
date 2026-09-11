@@ -1,0 +1,102 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
+           background: #F4F2ED; color: #12212E; }
+    a { color: #0E7C86; } a:hover { color: #0A5D64; }
+    .m  { font-family: Cambria, "Times New Roman", serif; font-style: italic; }
+    sub, sup { font-size: 0.66em; }
+    .step { font-family: Cambria, "Times New Roman", serif; font-size: 17px; line-height: 1.9; }
+  </style>
+</helmet>
+<div style="width: 1280px; height: 720px; box-sizing: border-box; padding: 50px 60px 40px;
+            display: flex; flex-direction: column; background: #F4F2ED;">
+
+  <div style="font-family: Consolas, monospace; font-size: 12px; letter-spacing: 0.14em;
+              color: #0E7C86; font-weight: 700;">關鍵觀察 · 由 M1G 通往 M4G 的支點</div>
+  <div style="font-size: 31px; font-weight: 700; margin-top: 7px; letter-spacing: -0.01em;">
+    M1G 內部已經存在「估值 / 綁定」兩層結構
+  </div>
+  <div style="height: 2px; background: #D5D0C6; margin: 16px 0 18px;"></div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px; margin-bottom: 18px;">
+
+    <div style="background: #FFFFFF; border: 1px solid #D5D0C6; border-top: 4px solid #0E7C86; padding: 15px 18px;">
+      <div style="font-size: 15px; font-weight: 700; color: #0E7C86;">
+        估值層 &nbsp;<span class="m" style="font-size:17px;">y<sub>os</sub></span>
+      </div>
+      <div style="font-size: 12.5px; color: #444C54; line-height: 1.7; margin-top: 8px;">
+        受 <b>shi2</b>（一單一站）與 <b>shi5</b>（貨架覆蓋）約束<br>
+        <b style="color:#0E7C86;">不受槽位限制</b> &mdash; 可宣稱超過站台容量的價值<br>
+        在目標式中領取 <span class="m">w</span><sub>2</sub> = &minus;40
+      </div>
+    </div>
+
+    <div style="background: #FFFFFF; border: 1px solid #D5D0C6; border-top: 4px solid #B8861F; padding: 15px 18px;">
+      <div style="font-size: 15px; font-weight: 700; color: #B8861F;">
+        綁定層 &nbsp;<span class="m" style="font-size:17px;">y<sub>aos</sub></span>
+      </div>
+      <div style="font-size: 12.5px; color: #444C54; line-height: 1.7; margin-top: 8px;">
+        受 <b>shi3</b>（&le; 估值）與 <b>shi4</b>（槽位守恆）約束<br>
+        <b style="color:#B8861F;">真正被執行</b> &mdash; 站台的訂單佇列由它建立<br>
+        在目標式中<b>表面上沒有任何係數</b>
+      </div>
+    </div>
+  </div>
+
+  <div style="background: #12212E; padding: 18px 24px; color: #F4F2ED; margin-bottom: 16px;">
+    <div style="font-family: Consolas, monospace; font-size: 11px; letter-spacing: 0.1em;
+                color: #7EB8BD; font-weight: 700; margin-bottom: 8px;">
+      代入 shi4 後，綁定層的有效係數浮現</div>
+    <div class="step" style="color: #E8E4DC;">
+      shi4 為等式 &nbsp;&rArr;&nbsp; <span class="m">u<sub>s</sub></span> =
+      <span class="m">C<sub>s</sub></span> &minus; &Sigma;<sub><span class="m">o</span></sub> <span class="m">y<sub>aos</sub></span>
+      &nbsp;&nbsp;&rArr;&nbsp;&nbsp;
+      <span class="m">w</span><sub>3</sub> &Sigma;<sub><span class="m">s</span></sub> <span class="m">u<sub>s</sub></span> =
+      <span style="color:#9AA3AA;">常數</span> &minus; 1000 &middot;
+      &Sigma;<sub><span class="m">o</span>,<span class="m">s</span></sub>
+      <span style="color:#E8B93F; font-weight:700;"><span class="m">y<sub>aos</sub></span></span>
+    </div>
+    <div style="display: flex; gap: 40px; margin-top: 12px; align-items: baseline;">
+      <div style="font-size: 14px; color: #B9C4CC;">有效係數：
+        <span style="color:#7EB8BD; font-weight:700;">估值 &minus;40</span> &nbsp;/&nbsp;
+        <span style="color:#E8B93F; font-weight:700;">綁定 &minus;1000</span></div>
+      <div style="font-size: 15px; font-weight: 700;">
+        &rArr; 隱含兌現率 &nbsp;<span class="m">&delta;</span> = 40 / 1000 &asymp;
+        <span style="color:#E8B93F;">0.038</span></div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1.15fr 1fr; gap: 26px; flex-grow: 1;">
+    <div style="border-left: 3px solid #B8861F; padding: 4px 0 4px 15px;">
+      <div style="font-size: 14px; font-weight: 700; margin-bottom: 6px;">這個比例從何而來？作者自述</div>
+      <div style="font-size: 12.5px; color: #444C54; line-height: 1.7;">
+        權重係 &ldquo;determined by a series of <b>preliminary experiments</b>&rdquo;；<br>
+        而長期效益的影響 &ldquo;<b>cannot be accurately quantified</b>&rdquo;。
+        <div style="font-size: 11.5px; color: #6B767F; margin-top: 5px;">&mdash; Jiao et al. (2026), §2.3.2 &amp; §4</div>
+      </div>
+    </div>
+    <div style="background: #FFFFFF; border: 1px solid #D5D0C6; padding: 13px 16px;">
+      <div style="font-size: 13.5px; font-weight: 700; margin-bottom: 6px;">本研究的介入點</div>
+      <div style="font-size: 12.5px; color: #444C54; line-height: 1.7;">
+        兩層結構<b>不是新發明</b>，而是 M1G 既有結構的原則化。<br>
+        差別在於：他<b>手工釘死</b>兩層的價格比，
+        <b style="color:#0E7C86;">本研究讓它由系統歷史自我校準</b>。
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1280,"height":720}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>

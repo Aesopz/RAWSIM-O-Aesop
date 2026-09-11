@@ -855,6 +855,11 @@ namespace RAWSimO.Visualization.Rendering
         private TextBlock _blockBlockedLeft;
         private TextBlock _blockOpenRequests;
         private TextBlock _blockInboundPods;
+        private TextBlock _blockStationEST;
+        private TextBlock _blockStationWorkHorizon;
+        private TextBlock _blockStationStarvationGap;
+        private TextBlock _blockStationStarvationAccum;
+        private TextBlock _blockCurrentPodRelease;
         private SimulationVisualOrderManager _orderManager;
 
         public SimulationInfoOutputStation(TreeView infoHost, IOutputStationInfo oStation) : base(infoHost) { _oStation = oStation; }
@@ -870,6 +875,11 @@ namespace RAWSimO.Visualization.Rendering
             _blockBlockedLeft.Text = double.IsNaN(blockedUntil) || double.IsPositiveInfinity(blockedUntil) || blockedUntil < 0 ? "n/a" : TimeSpan.FromSeconds(blockedUntil).ToString(IOConstants.TIMESPAN_FORMAT_HUMAN_READABLE_MINUTES);
             _blockOpenRequests.Text = _oStation.GetInfoOpenRequests().ToString() + " / " + _oStation.GetInfoOpenItems().ToString();
             _blockInboundPods.Text = _oStation.GetInfoInboundPods().ToString();
+            _blockStationEST.Text = FormatDuration(_oStation.GetInfoStationEST());
+            _blockStationWorkHorizon.Text = FormatDuration(_oStation.GetInfoStationWorkHorizon());
+            _blockStationStarvationGap.Text = FormatDuration(_oStation.GetInfoStationStarvationGap());
+            _blockStationStarvationAccum.Text = FormatDuration(_oStation.GetInfoStationStarvationAccumulated());
+            _blockCurrentPodRelease.Text = FormatDuration(_oStation.GetInfoCurrentPodReleaseLeft());
             // Update content info
             _orderManager.Update(_oStation.GetInfoOpenOrders(), _oStation.GetInfoCompletedOrders());
         }
@@ -969,6 +979,56 @@ namespace RAWSimO.Visualization.Rendering
                 };
                 inboundPodsPanel.Children.Add(_blockInboundPods);
                 _root.Items.Add(inboundPodsPanel);
+                // Add station EST
+                WrapPanel stationEstPanel = new WrapPanel { Orientation = Orientation.Horizontal };
+                stationEstPanel.Children.Add(new TextBlock { Text = "EST: ", TextAlignment = TextAlignment.Right, MinWidth = _infoPanelLeftColumnWidth });
+                _blockStationEST = new TextBlock
+                {
+                    Text = FormatDuration(_oStation.GetInfoStationEST()),
+                    MinWidth = _infoPanelRightColumnWidth,
+                };
+                stationEstPanel.Children.Add(_blockStationEST);
+                _root.Items.Add(stationEstPanel);
+                // Add projected work horizon
+                WrapPanel workHorizonPanel = new WrapPanel { Orientation = Orientation.Horizontal };
+                workHorizonPanel.Children.Add(new TextBlock { Text = "Work horizon: ", TextAlignment = TextAlignment.Right, MinWidth = _infoPanelLeftColumnWidth });
+                _blockStationWorkHorizon = new TextBlock
+                {
+                    Text = FormatDuration(_oStation.GetInfoStationWorkHorizon()),
+                    MinWidth = _infoPanelRightColumnWidth,
+                };
+                workHorizonPanel.Children.Add(_blockStationWorkHorizon);
+                _root.Items.Add(workHorizonPanel);
+                // Add projected starvation gap
+                WrapPanel starvationGapPanel = new WrapPanel { Orientation = Orientation.Horizontal };
+                starvationGapPanel.Children.Add(new TextBlock { Text = "Starve gap: ", TextAlignment = TextAlignment.Right, MinWidth = _infoPanelLeftColumnWidth });
+                _blockStationStarvationGap = new TextBlock
+                {
+                    Text = FormatDuration(_oStation.GetInfoStationStarvationGap()),
+                    MinWidth = _infoPanelRightColumnWidth,
+                };
+                starvationGapPanel.Children.Add(_blockStationStarvationGap);
+                _root.Items.Add(starvationGapPanel);
+                // Add accumulated (measured) starvation time
+                WrapPanel starvationAccumPanel = new WrapPanel { Orientation = Orientation.Horizontal };
+                starvationAccumPanel.Children.Add(new TextBlock { Text = "Starve total: ", TextAlignment = TextAlignment.Right, MinWidth = _infoPanelLeftColumnWidth });
+                _blockStationStarvationAccum = new TextBlock
+                {
+                    Text = FormatDuration(_oStation.GetInfoStationStarvationAccumulated()),
+                    MinWidth = _infoPanelRightColumnWidth,
+                };
+                starvationAccumPanel.Children.Add(_blockStationStarvationAccum);
+                _root.Items.Add(starvationAccumPanel);
+                // Add current pod release time
+                WrapPanel podReleasePanel = new WrapPanel { Orientation = Orientation.Horizontal };
+                podReleasePanel.Children.Add(new TextBlock { Text = "Pod release: ", TextAlignment = TextAlignment.Right, MinWidth = _infoPanelLeftColumnWidth });
+                _blockCurrentPodRelease = new TextBlock
+                {
+                    Text = FormatDuration(_oStation.GetInfoCurrentPodReleaseLeft()),
+                    MinWidth = _infoPanelRightColumnWidth,
+                };
+                podReleasePanel.Children.Add(_blockCurrentPodRelease);
+                _root.Items.Add(podReleasePanel);
                 // Init order list root nodes
                 TreeViewItem openOrderListItem = new TreeViewItem { IsExpanded = true };
                 TreeViewItem completedOrderListItem = new TreeViewItem { IsExpanded = true };
@@ -981,6 +1041,13 @@ namespace RAWSimO.Visualization.Rendering
             // Expand root node
             _infoHost.Items.Add(_root);
             _root.IsExpanded = true;
+        }
+
+        private static string FormatDuration(double seconds)
+        {
+            return double.IsNaN(seconds) || double.IsPositiveInfinity(seconds) || seconds < 0
+                ? "n/a"
+                : TimeSpan.FromSeconds(seconds).ToString(IOConstants.TIMESPAN_FORMAT_HUMAN_READABLE_MINUTES);
         }
     }
 

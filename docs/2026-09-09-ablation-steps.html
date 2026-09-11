@@ -1,0 +1,427 @@
+<title>從 M1G 到 M4G</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ink:#121D24; --ink-2:#2C3B43; --muted:#5B6B72;
+  --paper:#FFFFFF; --panel:#F2F5F6; --panel-2:#E8EEEF;
+  --rule:#DCE3E5; --rule-2:#C3CFD2;
+  --accent:#0D6E70; --cost:#A4432B; --cost-soft:#F8EBE6;
+  --serif:"Source Serif 4",Cambria,Georgia,serif;
+  --sans:"IBM Plex Sans","Segoe UI",Arial,sans-serif;
+  --mono:"IBM Plex Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ink:#E4EBED; --ink-2:#C2CFD3; --muted:#8FA2A8;
+    --paper:#0F181D; --panel:#18242A; --panel-2:#1F2E35;
+    --rule:#28383F; --rule-2:#3A4E56;
+    --accent:#5FBFB8; --cost:#E08A6B; --cost-soft:#33201A;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#E4EBED; --ink-2:#C2CFD3; --muted:#8FA2A8;
+  --paper:#0F181D; --panel:#18242A; --panel-2:#1F2E35;
+  --rule:#28383F; --rule-2:#3A4E56;
+  --accent:#5FBFB8; --cost:#E08A6B; --cost-soft:#33201A;
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);
+  font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+.wrap{max-width:60rem;margin:0 auto;padding:4rem 1.5rem 6rem;
+  display:flex;flex-direction:column;gap:2.75rem}
+h1,h2,h3{font-family:var(--serif);text-wrap:balance;margin:0;line-height:1.25}
+h1{font-size:2.55rem;font-weight:700;letter-spacing:-.01em}
+h2{font-size:1.55rem;font-weight:600}
+h3{font-size:1.08rem;font-weight:600}
+p{margin:0}
+code{font-family:var(--mono);font-size:.87em;background:var(--panel);
+  padding:.1em .35em;border-radius:3px}
+.lede{font-size:1.1rem;color:var(--ink-2);max-width:42rem}
+.eyebrow{font-size:.72rem;font-weight:600;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--accent)}
+header{display:flex;flex-direction:column;gap:.85rem;
+  border-bottom:1px solid var(--rule);padding-bottom:2rem}
+.meta{font-family:var(--mono);font-size:.78rem;color:var(--muted)}
+section{display:flex;flex-direction:column;gap:1.1rem}
+.note{background:var(--panel);border:1px solid var(--rule);border-radius:6px;
+  padding:1.1rem 1.25rem;display:flex;flex-direction:column;gap:.6rem;font-size:.94rem}
+.note.warn{background:var(--cost-soft);border-color:var(--cost)}
+.note h3{font-size:.95rem}
+figure{margin:0;display:flex;flex-direction:column;gap:.7rem}
+figcaption{font-size:.85rem;color:var(--muted);max-width:44rem}
+svg{max-width:100%;height:auto;display:block}
+.scroll{overflow-x:auto;border:1px solid var(--rule);border-radius:6px}
+table{border-collapse:collapse;width:100%;font-size:.88rem;min-width:34rem}
+th,td{padding:.5rem .75rem;text-align:right;border-bottom:1px solid var(--rule);
+  font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+th{font-family:var(--sans);font-weight:600;font-size:.78rem;color:var(--muted);
+  background:var(--panel);border-bottom:1px solid var(--rule-2)}
+th:first-child,td:first-child{text-align:left;font-family:var(--sans)}
+tbody tr:last-child td{border-bottom:none}
+.pos{color:var(--accent);font-weight:500}
+.neg{color:var(--cost);font-weight:500}
+.ns{color:var(--muted)}
+.step{border:1px solid var(--rule);border-radius:8px;overflow:hidden;
+  display:flex;flex-direction:column}
+.step-head{background:var(--panel);padding:1.15rem 1.35rem;
+  border-bottom:1px solid var(--rule);display:flex;flex-direction:column;gap:.3rem}
+.step-tag{font-family:var(--mono);font-size:.78rem;color:var(--accent);font-weight:600}
+.step-body{padding:1.35rem;display:flex;flex-direction:column;gap:1.1rem}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;align-items:start}
+@media(max-width:46rem){.grid2{grid-template-columns:1fr}}
+.diff{background:var(--panel-2);border-radius:5px;padding:.85rem 1rem;
+  font-family:var(--mono);font-size:.78rem;line-height:1.7;overflow-x:auto;
+  white-space:pre;color:var(--ink-2)}
+.add{color:var(--accent);font-weight:500}
+.del{color:var(--cost);font-weight:500}
+.label{font-size:.73rem;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:.45rem}
+ul{margin:0;padding-left:1.15rem;display:flex;flex-direction:column;gap:.4rem}
+.foot{border-top:1px solid var(--rule);padding-top:1.75rem;font-size:.86rem;
+  color:var(--muted);display:flex;flex-direction:column;gap:.6rem}
+strong{font-weight:600}
+</style>
+
+<div class="wrap">
+
+<header>
+  <span class="eyebrow">線性消融 · 5 seeds · 配對 t 檢定</span>
+  <h1>從 M1G 到 M4G，一次只換一個零件</h1>
+  <p class="lede">五個階段，相鄰兩階段的組態檔只差一項。每一步換掉什麼、影響了什麼，以及哪幾步的效果其實是負的。</p>
+  <p class="meta">small_6bot · small_o100_mu100_2h_inv70 · seeds 0–4 · df=4 雙尾 · 2026-09-09</p>
+</header>
+
+<section>
+  <div class="note warn">
+    <h3>讀這份資料之前必須知道的兩件事</h3>
+    <p><strong>一、全鏈的急單閘門都是關的。</strong> <code>UrgentOrderGate</code> 於 2026-09-09 進入 M4G 正典，而本批次五個階段都在那之前跑完。五臂條件一致，鏈內部的歸因完全成立；但 <strong>S4 已不等於今日的正典</strong>，引用時要註明。</p>
+    <p><strong>二、S0 不納入歸因。</strong> M1G 用前置過濾挑候選貨架，M4G 把同一件事寫成限制式 V4g 交給求解器，兩者的候選池不可比。S0 是<strong>外部基準</strong>，不是鏈的第一環。真正的歸因從 S1 開始。</p>
+  </div>
+</section>
+
+<section>
+<figure>
+<svg viewBox="0 0 940 232" role="img" aria-label="五階段消融鏈：S0 為外部基準，S1 移植求解器外殼，S2 開放拆單，S3 換上兩層目標式，S4 價格改為線上量測；下方標出拆單效益與設計效益兩個歸因區間">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+    </marker>
+    <marker id="arA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#0D6E70"/>
+    </marker>
+  </defs>
+  <g font-family="IBM Plex Mono, monospace" font-size="13" fill="currentColor">
+
+  <text x="180" y="34" text-anchor="middle" font-size="10.5" opacity=".6">換管理器</text>
+  <text x="180" y="48" text-anchor="middle" font-size="10.5" opacity=".6">（不可比）</text>
+  <text x="376" y="42" text-anchor="middle" font-size="11.5" fill="#0D6E70" font-weight="600">拆單</text>
+  <text x="572" y="42" text-anchor="middle" font-size="11.5" fill="#0D6E70" font-weight="600">目標式</text>
+  <text x="768" y="42" text-anchor="middle" font-size="11.5" fill="#0D6E70" font-weight="600">定價</text>
+
+  <rect x="8" y="62" width="150" height="60" rx="5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="5 4" opacity=".65"/>
+  <text x="83" y="86" text-anchor="middle" font-weight="600" opacity=".75">S0 · M1G</text>
+  <text x="83" y="105" text-anchor="middle" font-size="11" opacity=".6">外部基準</text>
+
+  <rect x="204" y="62" width="150" height="60" rx="5" fill="none" stroke="currentColor" stroke-width="1.2"/>
+  <text x="279" y="86" text-anchor="middle" font-weight="600">S1</text>
+  <text x="279" y="105" text-anchor="middle" font-size="11" opacity=".7">M4G 殼 · 不拆單</text>
+
+  <rect x="400" y="62" width="150" height="60" rx="5" fill="none" stroke="currentColor" stroke-width="1.2"/>
+  <text x="475" y="86" text-anchor="middle" font-weight="600">S2</text>
+  <text x="475" y="105" text-anchor="middle" font-size="11" opacity=".7">開放拆單</text>
+
+  <rect x="596" y="62" width="150" height="60" rx="5" fill="none" stroke="currentColor" stroke-width="1.2"/>
+  <text x="671" y="86" text-anchor="middle" font-weight="600">S3</text>
+  <text x="671" y="105" text-anchor="middle" font-size="11" opacity=".7">兩層目標式</text>
+
+  <rect x="792" y="62" width="140" height="60" rx="5" fill="#0D6E70" fill-opacity=".1" stroke="#0D6E70" stroke-width="1.6"/>
+  <text x="862" y="86" text-anchor="middle" font-weight="600" fill="#0D6E70">S4 · M4G</text>
+  <text x="862" y="105" text-anchor="middle" font-size="11" fill="#0D6E70" opacity=".85">量測價格</text>
+
+  <line x1="160" y1="92" x2="200" y2="92" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 3" opacity=".65" marker-end="url(#ar)"/>
+  <line x1="356" y1="92" x2="396" y2="92" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar)"/>
+  <line x1="552" y1="92" x2="592" y2="92" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar)"/>
+  <line x1="748" y1="92" x2="788" y2="92" stroke="#0D6E70" stroke-width="1.6" marker-end="url(#arA)"/>
+
+  <line x1="204" y1="152" x2="354" y2="152" stroke="currentColor" stroke-width="1.4" opacity=".5"/>
+  <line x1="204" y1="145" x2="204" y2="159" stroke="currentColor" stroke-width="1.4" opacity=".5"/>
+  <line x1="354" y1="145" x2="354" y2="159" stroke="currentColor" stroke-width="1.4" opacity=".5"/>
+  <text x="279" y="176" text-anchor="middle" font-size="12" font-weight="600" opacity=".75">拆單效益</text>
+  <text x="279" y="195" text-anchor="middle" font-size="11" opacity=".6">件數 +9.84%</text>
+  <text x="279" y="212" text-anchor="middle" font-size="11" opacity=".6">pile-on +33.74%</text>
+
+  <line x1="400" y1="152" x2="932" y2="152" stroke="#0D6E70" stroke-width="1.4"/>
+  <line x1="400" y1="145" x2="400" y2="159" stroke="#0D6E70" stroke-width="1.4"/>
+  <line x1="932" y1="145" x2="932" y2="159" stroke="#0D6E70" stroke-width="1.4"/>
+  <text x="666" y="176" text-anchor="middle" font-size="12" fill="#0D6E70" font-weight="600">設計效益（兩臂皆拆單）</text>
+  <text x="666" y="195" text-anchor="middle" font-size="11" fill="#0D6E70" opacity=".85">距離 −19.28%　EOR −19.90%　pile-on +25.67%</text>
+  <text x="666" y="212" text-anchor="middle" font-size="11" fill="#0D6E70" opacity=".7">件數僅 +0.60% ⟹ 是效率不是吞吐</text>
+  </g>
+</svg>
+<figcaption>四個箭頭是四次單變數替換。下方兩條括號是兩個可獨立主張的歸因區間：拆單效益（S1→S2）與設計效益（S2→S4，兩臂都拆單，只差目標式與定價）。</figcaption>
+</figure>
+</section>
+
+<section>
+  <h2>五階段的絕對值</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>階段</th><th>訂單</th><th>件數</th><th>行數</th><th>距離 m</th><th>趟次</th><th>pile-on</th><th>EOR</th><th>週期中位 s</th><th>逾期均 s</th></tr></thead>
+    <tbody>
+      <tr><td>S0 M1G</td><td>574.8</td><td>1238.4</td><td>805.8</td><td>11914.9</td><td>1011.4</td><td>3.25</td><td>1.70</td><td>332.9</td><td>1306.7</td></tr>
+      <tr><td>S1 移植</td><td>599.8</td><td>1294.8</td><td>843.2</td><td>11993.5</td><td>1003.4</td><td>3.48</td><td>1.61</td><td>337.6</td><td>870.1</td></tr>
+      <tr><td>S2 拆單</td><td>594.4</td><td>1422.2</td><td>946.2</td><td>10303.4</td><td>858.0</td><td>4.66</td><td>1.38</td><td>732.4</td><td>1349.8</td></tr>
+      <tr><td>S3 目標式</td><td>577.6</td><td>1400.6</td><td>942.0</td><td>9083.4</td><td>852.0</td><td>4.37</td><td>1.28</td><td>675.6</td><td>1296.8</td></tr>
+      <tr><td>S4 定價</td><td>598.0</td><td>1430.8</td><td>951.4</td><td>8316.8</td><td>742.8</td><td>5.85</td><td>1.11</td><td>686.0</td><td>1335.8</td></tr>
+    </tbody>
+  </table></div>
+  <figcaption>五個 seed 的平均。EOR 為每張完成訂單的機械能（kJ）。</figcaption>
+</section>
+
+<section>
+  <h2>逐步拆解</h2>
+
+  <div class="step">
+    <div class="step-head">
+      <span class="step-tag">S0 → S1</span>
+      <h3>換掉求解器外殼：M1GManager 改成 M4GManager</h3>
+    </div>
+    <div class="step-body">
+      <div class="grid2">
+        <div>
+          <div class="label">組態差異</div>
+          <div class="diff"><span class="del">- xsi:type="M1GConfiguration"</span>
+<span class="add">+ xsi:type="M4GConfiguration"</span>
+<span class="add">+ OrderAtomicNoSplit    true</span>
+<span class="add">+ LegacyObjective       true</span>
+<span class="add">+ LegacyOrderReward      -40</span>
+<span class="add">+ LegacyIdleSlotWeight  1000</span>
+<span class="add">+ LegacyRewardValuation true</span></div>
+        </div>
+        <div>
+          <div class="label">意圖</div>
+          <ul>
+            <li>目標式<strong>照抄 M1G</strong>：<code>-40</code> 與 <code>1000</code> 就是 Jiao 的 α₁ 與 α₃。</li>
+            <li><code>OrderAtomicNoSplit</code> 讓原子維持整張單，行為上不拆單。</li>
+            <li>理想上這一步應該無差異——換的只是求解器外殼。</li>
+          </ul>
+        </div>
+      </div>
+      <div class="scroll"><table>
+        <thead><tr><th>指標</th><th>S0</th><th>S1</th><th>變化</th><th>t</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>件數</td><td>1238.4</td><td>1294.8</td><td class="pos">+4.55%</td><td>3.78</td><td>*</td></tr>
+          <tr><td>行數</td><td>805.8</td><td>843.2</td><td class="pos">+4.64%</td><td>2.97</td><td>*</td></tr>
+          <tr><td>pile-on</td><td>3.25</td><td>3.48</td><td class="pos">+7.00%</td><td>3.95</td><td>*</td></tr>
+          <tr><td>EOR</td><td>1.70</td><td>1.61</td><td class="pos">−4.86%</td><td>−6.65</td><td>**</td></tr>
+          <tr><td>逾期均</td><td>1306.7</td><td>870.1</td><td class="pos">−33.41%</td><td>−3.43</td><td>*</td></tr>
+          <tr><td>距離</td><td>11914.9</td><td>11993.5</td><td class="ns">+0.66%</td><td>0.67</td><td>n.s.</td></tr>
+          <tr><td>訂單</td><td>574.8</td><td>599.8</td><td class="ns">+4.35%</td><td>2.73</td><td>n.s.</td></tr>
+          <tr><td>週期中位</td><td>332.9</td><td>337.6</td><td class="ns">+1.42%</td><td>0.52</td><td>n.s.</td></tr>
+        </tbody>
+      </table></div>
+      <div class="note">
+        <h3>這一步不是零，所以它不能算進歸因</h3>
+        <p>移植本身就帶來 <strong>件數 +4.55%、EOR −4.86%</strong>，且顯著。原因是候選貨架的產生方式不同：M1G 在建模前用程式碼<strong>前置過濾</strong>候選，M4G 把同一件事寫成限制式 V4g 交給求解器。兩者的候選池本來就不是同一個集合。</p>
+        <p>因此正確做法是<strong>把 S1 當作鏈的起點</strong>，S0 只作為外部參照。任何「M4G 比 M1G 好 X%」都必須用 S0→S4 的整段報，不能拆開分配給中間某一步。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-head">
+      <span class="step-tag">S1 → S2 · 貢獻一</span>
+      <h3>開放拆單：移除 OrderAtomicNoSplit</h3>
+    </div>
+    <div class="step-body">
+      <div class="grid2">
+        <div>
+          <div class="label">組態差異</div>
+          <div class="diff"><span class="del">- OrderAtomicNoSplit  true</span></div>
+          <p style="margin-top:.75rem;font-size:.9rem;color:var(--muted)">整份組態只少了這一行。目標式、權重、求解器設定全部不動。</p>
+        </div>
+        <div>
+          <div class="label">意圖</div>
+          <ul>
+            <li>原子從整張單降到一行（<code>LineAtomicSplitting</code> 已開）。</li>
+            <li>同一張單的不同行可以落在不同站台、不同決策期。</li>
+            <li><strong>目標式完全沒變</strong>，仍是 M1G 的權重塔。</li>
+          </ul>
+        </div>
+      </div>
+      <div class="scroll"><table>
+        <thead><tr><th>指標</th><th>S1</th><th>S2</th><th>變化</th><th>t</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>pile-on</td><td>3.48</td><td>4.66</td><td class="pos">+33.74%</td><td>47.65</td><td>***</td></tr>
+          <tr><td>行數</td><td>843.2</td><td>946.2</td><td class="pos">+12.22%</td><td>14.70</td><td>***</td></tr>
+          <tr><td>件數</td><td>1294.8</td><td>1422.2</td><td class="pos">+9.84%</td><td>12.30</td><td>***</td></tr>
+          <tr><td>趟次</td><td>1003.4</td><td>858.0</td><td class="pos">−14.49%</td><td>−12.12</td><td>***</td></tr>
+          <tr><td>EOR</td><td>1.61</td><td>1.38</td><td class="pos">−14.22%</td><td>−10.28</td><td>***</td></tr>
+          <tr><td>距離</td><td>11993.5</td><td>10303.4</td><td class="pos">−14.09%</td><td>−7.72</td><td>**</td></tr>
+          <tr><td><strong>週期中位</strong></td><td>337.6</td><td>732.4</td><td class="neg">+116.96%</td><td>10.63</td><td>***</td></tr>
+          <tr><td>訂單</td><td>599.8</td><td>594.4</td><td class="ns">−0.90%</td><td>−0.95</td><td>n.s.</td></tr>
+          <tr><td>逾期均</td><td>870.1</td><td>1349.8</td><td class="ns">+55.13%</td><td>2.24</td><td>n.s.</td></tr>
+        </tbody>
+      </table></div>
+      <div class="note">
+        <h3>全鏈效果最大的一步，代價也最明確</h3>
+        <p>一個布林值換來 <strong>pile-on +33.74%（t=47.65）</strong>，是整份資料裡最強的效應。件數 +9.84%，趟次 −14.49%：<strong>更少的趟，搬回更多東西。</strong></p>
+        <p>但訂單數 <strong>n.s.</strong>，週期中位<strong>翻了一倍以上</strong>。這兩件事是同一個現象：拆單製造在製品，父單要等所有 child 完成才算數。件數已經進來了，訂單還沒結案。<strong>這是 RQ2「拆單的代價是什麼」目前唯一的實測答案。</strong></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-head">
+      <span class="step-tag">S2 → S3</span>
+      <h3>換上兩層目標式，但價格仍然手釘</h3>
+    </div>
+    <div class="step-body">
+      <div class="grid2">
+        <div>
+          <div class="label">組態差異</div>
+          <div class="diff"><span class="del">- LegacyObjective        true</span>
+<span class="del">- LegacyOrderReward       -40</span>
+<span class="del">- LegacyIdleSlotWeight   1000</span>
+<span class="del">- LegacyRewardValuation  true</span>
+<span class="add">+ LegacyObjective       false</span>
+<span class="add">+ LambdaFixed       335.1840</span>
+<span class="add">+ MuFixed              520.0</span>
+<span class="add">+ DeltaFixed          0.0385</span></div>
+        </div>
+        <div>
+          <div class="label">意圖</div>
+          <ul>
+            <li>目標式改成 <code>min D − V</code>、<code>V = λP</code>，估值層與綁定層分離。</li>
+            <li>價格<strong>仍是常數</strong>，只是換了一組數字——刻意如此，才能把「換結構」與「換定價」分成兩步。</li>
+          </ul>
+        </div>
+      </div>
+      <div class="scroll"><table>
+        <thead><tr><th>指標</th><th>S2</th><th>S3</th><th>變化</th><th>t</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>距離</td><td>10303.4</td><td>9083.4</td><td class="pos">−11.84%</td><td>−10.95</td><td>***</td></tr>
+          <tr><td>EOR</td><td>1.38</td><td>1.28</td><td class="pos">−7.62%</td><td>−4.69</td><td>**</td></tr>
+          <tr><td><strong>件數</strong></td><td>1422.2</td><td>1400.6</td><td class="neg">−1.52%</td><td>−10.34</td><td>***</td></tr>
+          <tr><td><strong>訂單</strong></td><td>594.4</td><td>577.6</td><td class="neg">−2.83%</td><td>−4.95</td><td>**</td></tr>
+          <tr><td><strong>pile-on</strong></td><td>4.66</td><td>4.37</td><td class="neg">−6.21%</td><td>−2.98</td><td>*</td></tr>
+          <tr><td>行數</td><td>946.2</td><td>942.0</td><td class="ns">−0.44%</td><td>−1.20</td><td>n.s.</td></tr>
+          <tr><td>趟次</td><td>858.0</td><td>852.0</td><td class="ns">−0.70%</td><td>−0.51</td><td>n.s.</td></tr>
+          <tr><td>週期中位</td><td>732.4</td><td>675.6</td><td class="ns">−7.76%</td><td>−1.48</td><td>n.s.</td></tr>
+        </tbody>
+      </table></div>
+      <div class="note warn">
+        <h3>這一步在吞吐上是負的，而且極顯著</h3>
+        <p>件數 −1.52%（t=−10.34）、訂單 −2.83%、pile-on −6.21%。<strong>兩層目標式單獨拿出來，不是一個加分項。</strong></p>
+        <p>它換到的是距離 −11.84%：釘死的價格讓模型變得保守，跑得少也搬得少。真正的意義要到下一步才顯現——<strong>兩層結構是「讓價格可以被量測」的載體</strong>。沒有估值層與綁定層的分離，就沒有 β（兌現率）可以量，λ 也沒有分母。它與定價是不可分割的配套，不應該分開報功勞。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-head">
+      <span class="step-tag">S3 → S4 · 貢獻二</span>
+      <h3>價格從手釘改為線上量測</h3>
+    </div>
+    <div class="step-body">
+      <div class="grid2">
+        <div>
+          <div class="label">組態差異</div>
+          <div class="diff"><span class="del">- LambdaFixed       335.1840</span>
+<span class="del">- MuFixed              520.0</span>
+<span class="del">- DeltaFixed          0.0385</span>
+<span class="add">+ LambdaFixed              0</span>
+<span class="add">+ DeltaFixed               0</span>
+<span class="add">+ PickDistancePricing   true</span></div>
+        </div>
+        <div>
+          <div class="label">意圖</div>
+          <ul>
+            <li>三個價格全部改成從歷史累計量測：<code>λ = T/L</code>、<code>μ = λ(L/N)</code>、<code>β = E/Ê</code>。</li>
+            <li>目標式自此<strong>沒有任何被選定的常數</strong>。</li>
+            <li>Dinkelbach 迴圈在每期把 λ 從歷史平均收緊到當期最優。</li>
+          </ul>
+        </div>
+      </div>
+      <div class="scroll"><table>
+        <thead><tr><th>指標</th><th>S3</th><th>S4</th><th>變化</th><th>t</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>pile-on</td><td>4.37</td><td>5.85</td><td class="pos">+34.00%</td><td>10.97</td><td>***</td></tr>
+          <tr><td>EOR</td><td>1.28</td><td>1.11</td><td class="pos">−13.29%</td><td>−6.55</td><td>**</td></tr>
+          <tr><td>趟次</td><td>852.0</td><td>742.8</td><td class="pos">−12.82%</td><td>−6.75</td><td>**</td></tr>
+          <tr><td>距離</td><td>9083.4</td><td>8316.8</td><td class="pos">−8.44%</td><td>−5.66</td><td>**</td></tr>
+          <tr><td>訂單</td><td>577.6</td><td>598.0</td><td class="pos">+3.53%</td><td>6.11</td><td>**</td></tr>
+          <tr><td>件數</td><td>1400.6</td><td>1430.8</td><td class="pos">+2.16%</td><td>7.69</td><td>**</td></tr>
+          <tr><td>行數</td><td>942.0</td><td>951.4</td><td class="ns">+1.00%</td><td>2.15</td><td>n.s.</td></tr>
+          <tr><td>週期中位</td><td>675.6</td><td>686.0</td><td class="ns">+1.54%</td><td>0.44</td><td>n.s.</td></tr>
+        </tbody>
+      </table></div>
+      <div class="note">
+        <h3>它把上一步的損失補回來，而且超額</h3>
+        <p>S3 丟掉的 pile-on 與吞吐在這裡全數回收：pile-on <strong>+34.00%</strong>、件數 +2.16%、訂單 +3.53%，距離還再降 8.44%。</p>
+        <p><code>PickDistancePricing</code> 雖然也在這一行差異裡，但它在 S3 是<strong>可證明失效</strong>的：<code>M4GPricing.cs:153</code> 的 <code>if (_config.LambdaFixed &gt; 0) return _config.LambdaFixed;</code> 在讀取距離參數之前就返回了，<code>MuFixed</code> 與 <code>DeltaFixed</code> 同理。價格被釘死時沒有 running price 可算，換分母是空操作。因此這一步實質上仍是單變數。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>兩個可以獨立主張的區間</h2>
+  <div class="grid2">
+    <div class="note">
+      <h3>設計效益 · S2 → S4</h3>
+      <p style="font-size:.9rem;color:var(--muted)">兩臂都拆單、同框架、同管理器，只差目標式與定價。這是回答「你怎麼知道你的設計比 M1G 好，跟拆單分開來看」的那一組。</p>
+      <div class="scroll"><table>
+        <thead><tr><th>指標</th><th>變化</th><th>t</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>距離</td><td class="pos">−19.28%</td><td>−64.57</td><td>***</td></tr>
+          <tr><td>EOR</td><td class="pos">−19.90%</td><td>−20.52</td><td>***</td></tr>
+          <tr><td>pile-on</td><td class="pos">+25.67%</td><td>13.60</td><td>***</td></tr>
+          <tr><td>趟次</td><td class="pos">−13.43%</td><td>−19.49</td><td>***</td></tr>
+          <tr><td>件數</td><td class="pos">+0.60%</td><td>4.56</td><td>*</td></tr>
+          <tr><td>訂單</td><td class="ns">+0.61%</td><td>0.79</td><td>n.s.</td></tr>
+          <tr><td>週期中位</td><td class="ns">−6.34%</td><td>−1.76</td><td>n.s.</td></tr>
+        </tbody>
+      </table></div>
+      <p style="font-size:.9rem"><strong>同樣的產出，少跑兩成距離。</strong> 口徑必須是效率而非吞吐——件數只 +0.60%。</p>
+    </div>
+    <div class="note">
+      <h3>總計 · S0 → S4</h3>
+      <p style="font-size:.9rem;color:var(--muted)">相對外部基準 M1G 的整體差距。因為 S0→S1 不可比，這一段<strong>只能整段報，不能拆開分配</strong>。</p>
+      <div class="scroll"><table>
+        <thead><tr><th>指標</th><th>變化</th><th>t</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>EOR</td><td class="pos">−34.62%</td><td>−34.78</td><td>***</td></tr>
+          <tr><td>距離</td><td class="pos">−30.20%</td><td>−22.08</td><td>***</td></tr>
+          <tr><td>趟次</td><td class="pos">−26.56%</td><td>−30.08</td><td>***</td></tr>
+          <tr><td>pile-on</td><td class="pos">+79.83%</td><td>24.71</td><td>***</td></tr>
+          <tr><td>行數</td><td class="pos">+18.07%</td><td>18.29</td><td>***</td></tr>
+          <tr><td>件數</td><td class="pos">+15.54%</td><td>26.17</td><td>***</td></tr>
+          <tr><td>訂單</td><td class="pos">+4.04%</td><td>3.72</td><td>*</td></tr>
+          <tr><td><strong>週期中位</strong></td><td class="neg">+106.08%</td><td>15.80</td><td>***</td></tr>
+          <tr><td>逾期均</td><td class="ns">+2.23%</td><td>0.12</td><td>n.s.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>不能宣稱的事</h2>
+  <div class="note warn">
+    <ul>
+      <li><strong>不能把 S0→S1 的差異算成任何一項貢獻。</strong> 候選池不同，那是實作差異不是設計差異。</li>
+      <li><strong>不能說兩層目標式本身提升吞吐。</strong> 它單獨測是件數 −1.52% 且 t=−10.34。它是定價的載體，兩者必須合併宣稱。</li>
+      <li><strong>不能說拆單提升訂單吞吐。</strong> S1→S2 訂單 n.s.，增益全在件數與 pile-on。訂單數會被在製品系統性低估。</li>
+      <li><strong>不能忽略週期時間。</strong> 全鏈 +106.08%，是拆單最主要的代價，必須與逾期並列呈現。</li>
+      <li><strong>S4 不等於今日正典。</strong> 急單閘門於 2026-09-09 進入 M4G 與 M5，本批次在那之前完成。</li>
+    </ul>
+  </div>
+</section>
+
+<div class="foot">
+  <p>組態檔：<code>m1g.xconf</code> · <code>m4g_legacy_ns.xconf</code> · <code>m4g_legacy.xconf</code> · <code>m4g_m1gfix_B.xconf</code> · <code>m4g.xconf</code></p>
+  <p>輸出：<code>out/ab_S0..S3_s0..4</code>（2026-09-03）與 <code>out/ab2_S4_s0..4</code>。兩批次在重疊的階段與種子上逐項相同，已驗證。</p>
+  <p>顯著性：df=4 雙尾配對 t 檢定。* p&lt;.05（|t|≥2.776）　** p&lt;.01（|t|≥4.604）　*** p&lt;.001（|t|≥8.610）</p>
+</div>
+
+</div>

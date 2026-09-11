@@ -56,6 +56,11 @@ namespace RAWSimO.Core
         /// </summary>
         public ControlConfiguration ControllerConfig { get; set; }
         /// <summary>
+        /// Global downstream packing/consolidation buffer (M2e-IC). Null unless an
+        /// IC-family order manager instantiates it - all other managers are unaffected.
+        /// </summary>
+        public Elements.PackingBuffer PackingBuffer { get; set; }
+        /// <summary>
         /// All SKUs available in this instance.
         /// </summary>
         public List<ItemDescription> ItemDescriptions = new List<ItemDescription>();

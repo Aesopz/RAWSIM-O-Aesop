@@ -1024,8 +1024,10 @@ namespace RAWSimO.Core.Control
                 Pod bestPod = null;
                 _bestPodIStationCandidateSelector.Recycle();
                 foreach (var pod in Instance.ResourceManager.UnusedPods
+                    // Exclude pods currently in transit (Waypoint == null while carried by a bot) -
+                    // dispatching one here would later crash path-planning with a null destination waypoint.
                     // Get best pod while ensuring that any work can be done with it
-                    .Where(p => AnyRelevantRequests(p, iStation) && !Instance.ResourceManager.BottoPod.ContainsValue(p)))
+                    .Where(p => p.Waypoint != null && AnyRelevantRequests(p, iStation) && !Instance.ResourceManager.BottoPod.ContainsValue(p)))
                 {
                     // Update current candidate to assess
                     _currentBot = bot;
@@ -1498,6 +1500,9 @@ namespace RAWSimO.Core.Control
                 // Determine best pod
                 Pod bestPod = null;
                 foreach (var pod in Instance.ResourceManager.UnusedPods
+                     // Exclude pods currently in transit (Waypoint == null while carried by a bot) -
+                     // dispatching one here would later crash path-planning with a null destination waypoint.
+                     .Where(p => p.Waypoint != null)
                      // Get best pod while ensuring that any work can be done with it
                      .Where(p => AnyRelevantRequests(p, oStation, config.FilterForConsideration)))
                 {

@@ -551,6 +551,16 @@ namespace RAWSimO.Core.Configurations
         public PodSelectionExtractRequestFilteringMode FilterForReservation = PodSelectionExtractRequestFilteringMode.AssignedAndCompleteQueued;
 
         /// <summary>
+        /// Enables station-bounded joint task-allocation / pod-selection for output extraction.
+        /// When disabled, the default bot-to-station then pod-selection flow is preserved.
+        /// </summary>
+        public bool StationBoundedJointTAPlusPS = false;
+        /// <summary>
+        /// Maximum number of relevant pods considered by station-bounded joint task-allocation / pod-selection.
+        /// </summary>
+        public int StationBoundedJointCandidatePodLimit = 32;
+
+        /// <summary>
         /// Rule settings for selecting an input station for a bot carrying a pod (main rule).
         /// </summary>
         public PCScorerIStationForBotWithPod InputExtendedSearchScorer = new PCScorerIStationForBotWithPodWorkAmount();
@@ -608,7 +618,7 @@ namespace RAWSimO.Core.Configurations
         public override string GetMethodName()
         {
             if (!string.IsNullOrWhiteSpace(Name)) return Name;
-            string name = "";
+            string name = StationBoundedJointTAPlusPS ? "j" : "";
             switch (InputPodScorer.Type())
             {
                 case PrefPodForIStationBot.Random: name += "r"; break;

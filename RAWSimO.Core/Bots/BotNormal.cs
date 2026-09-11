@@ -15,6 +15,7 @@ using System.Diagnostics;
 using System.Text;
 using RAWSimO.Core.IO;
 using RAWSimO.Core.Metrics;
+using RAWSimO.Core.Statistics;
 using RAWSimO.Toolbox;
 using RAWSimO.Core.Bots;
 
@@ -103,7 +104,13 @@ namespace RAWSimO.Core.Bots
         /// <summary>
         /// Clears the complete state queue.
         /// </summary>
-        private void StateQueueClear() { _stateQueue.Clear(); _currentInfoStateName = ""; }
+        private void StateQueueClear()
+        {
+            _stateQueue.Clear();
+            _pendingTripsLoaded.Clear();
+            _pendingEtaSurrogateLegTraces.Clear();
+            _currentInfoStateName = "";
+        }
         /// <summary>
         /// The number of states currently in the queue.
         /// </summary>
@@ -154,6 +161,11 @@ namespace RAWSimO.Core.Bots
         /// activated (multiple _appendMoveStates may run in same tick before any movement).
         /// </summary>
         private Queue<bool> _pendingTripsLoaded = new Queue<bool>();
+        /// <summary>
+        /// Optional ETA-surrogate diagnostics aligned with _pendingTripsLoaded.
+        /// </summary>
+        private Queue<EtaSurrogateActualLegTrace> _pendingEtaSurrogateLegTraces = new Queue<EtaSurrogateActualLegTrace>();
+        private EtaSurrogateActualLegTrace _activeEtaSurrogateLegTrace = null;
 
         /// <summary>Per-trip recorded metrics (flushed at CloseCurrentTrip).</summary>
         public struct TripRecord
@@ -163,6 +175,59 @@ namespace RAWSimO.Core.Bots
             public double EnergyJ;       // mechanical (E1..E5) consumed during trip
             public double WaitTimeSec;
             public int TurnCount;
+        }
+
+        private class EtaSurrogateActualLegTrace
+        {
+            public string Kind;
+            public int VisitId;
+            public int LegIndex;
+            public string SourceScope;
+            public int BotId;
+            public int StationQueueWaypointId;
+            public int FromId;
+            public int ToId;
+            public int PodId;
+            public int StationId;
+            public bool Loaded;
+            public double OrientationBucket;
+            public double FromX;
+            public double FromY;
+            public double ToX;
+            public double ToY;
+            public double AbsDx;
+            public double AbsDy;
+            public double Euclid;
+            public double Manhattan;
+            public bool SameTier;
+            public bool FromStorage;
+            public bool ToStorage;
+            public bool FromQueue;
+            public bool ToQueue;
+            public int FromDegree;
+            public int ToDegree;
+            public bool PathFound;
+            public int PathHops;
+            public double PathDistance;
+            public int PathTurns;
+            public int PathSegments;
+            public double EtaSec;
+            // ── A2: decision-time load-state features (captured at trip build) ──
+            public double TripStartTime;
+            public int LoadedBotCount;
+            public int StationInboundCount;
+            public int LocalBotCountSrc;
+            public int LocalBotCountDest;
+            // ── A2b: station-centric congestion features (pod→station) ──
+            public int CodestBotCount;
+            public int StationFaceBotCount;
+        }
+
+        private struct EtaSurrogatePathFeatures
+        {
+            public double Distance;
+            public int Turns;
+            public int Segments;
         }
         /// <summary>Per-trip records for loaded trips.</summary>
         public List<TripRecord> PerTripRecordsLoaded = new List<TripRecord>();
@@ -191,6 +256,11 @@ namespace RAWSimO.Core.Bots
                     };
                     if (_activeTripLoaded) { PerTripWaitRatioLoaded.Add(waitRatio); PerTripRecordsLoaded.Add(rec); }
                     else                   { PerTripWaitRatioEmpty.Add(waitRatio);  PerTripRecordsEmpty.Add(rec);  }
+                    if (_activeEtaSurrogateLegTrace != null)
+                    {
+                        AppendEtaSurrogateActualLeg(_activeEtaSurrogateLegTrace, dur, _currentTripWaitSec, _currentTripTurnCount, 0, 0);
+                        _activeEtaSurrogateLegTrace = null;
+                    }
                 }
                 _tripOpen = false;
             }
@@ -210,8 +280,189 @@ namespace RAWSimO.Core.Bots
                 _tripStartDistanceM = StatDistanceTraveledM;
                 _currentTripTurnCount = 0;
                 _tripOpen = true;
+                _activeEtaSurrogateLegTrace = _pendingEtaSurrogateLegTraces.Count > 0
+                    ? _pendingEtaSurrogateLegTraces.Dequeue()
+                    : null;
             }
         }
+
+        private EtaSurrogateActualLegTrace BuildEtaSurrogateActualLegTrace(
+            string kind, int legIndex, Waypoint from, Waypoint to, Pod pod, OutputStation station,
+            bool loaded, double initialOrientation, Waypoint stationQueueWaypoint)
+        {
+            if (from == null || to == null)
+                return null;
+            // Skip analysis-only eta-surrogate leg tracing (per-trip A* + O(N) fleet scans) when heavy logging is off.
+            if (Instance != null && Instance.SettingConfig != null && Instance.SettingConfig.DisableHeavyLogging)
+                return null;
+
+            List<Waypoint> path = Instance.MetaInfoManager.TimeEfficientPathManager
+                .GetShortestPathNodes(from, to, Instance, loaded);
+            bool pathFound = path != null && path.Count >= 2;
+            EtaSurrogatePathFeatures pf = pathFound
+                ? BuildEtaSurrogatePathFeatures(path, Instance.StraightOrientationTolerance)
+                : new EtaSurrogatePathFeatures();
+            double eta = pathFound
+                ? Control.JIT.IdealTravelTime.Compute(path, Physics, Instance.StraightOrientationTolerance, initialOrientation)
+                : double.PositiveInfinity;
+
+            double dx = Math.Abs(from.X - to.X);
+            double dy = Math.Abs(from.Y - to.Y);
+            double euclid = Math.Sqrt(dx * dx + dy * dy);
+            double manhattan = dx + dy;
+            int visitId = CurrentTask != null ? CurrentTask.GetHashCode() : 0;
+
+            // ── A2: decision-time load-state features ──
+            double tripStartTime = Instance != null && Instance.Controller != null ? Instance.Controller.CurrentTime : 0.0;
+            int loadedBots = 0;
+            if (Instance != null && Instance.Bots != null)
+                foreach (var b in Instance.Bots)
+                    if (b != null && b.Pod != null) loadedBots++;
+            int stationInbound = station != null && station.InboundPods != null ? station.InboundPods.Count() : -1;
+            int localSrc = CountBotsNear(from.X, from.Y, from.Tier, EtaLoadLocalRadius);
+            int localDest = CountBotsNear(to.X, to.Y, to.Tier, EtaLoadLocalRadius);
+            // A2b: station-centric features (only meaningful when targeting a station)
+            int codest = 0, stationFace = -1;
+            if (station != null)
+            {
+                if (Instance != null && Instance.Bots != null)
+                    foreach (var b in Instance.Bots)
+                        if (b != null && b != this && (b.CurrentTask as ExtractTask)?.OutputStation == station) codest++;
+                if (station.Waypoint != null)
+                    stationFace = CountBotsNear(station.Waypoint.X, station.Waypoint.Y, station.Waypoint.Tier, EtaLoadStationFaceRadius);
+            }
+
+            return new EtaSurrogateActualLegTrace
+            {
+                Kind = kind,
+                VisitId = visitId,
+                LegIndex = legIndex,
+                SourceScope = "actual_sim",
+                BotId = ID,
+                StationQueueWaypointId = stationQueueWaypoint != null ? stationQueueWaypoint.ID : -1,
+                FromId = from.ID,
+                ToId = to.ID,
+                PodId = pod != null ? pod.ID : -1,
+                StationId = station != null ? station.ID : -1,
+                Loaded = loaded,
+                OrientationBucket = double.IsNaN(initialOrientation) ? -1.0 : initialOrientation,
+                FromX = from.X,
+                FromY = from.Y,
+                ToX = to.X,
+                ToY = to.Y,
+                AbsDx = dx,
+                AbsDy = dy,
+                Euclid = euclid,
+                Manhattan = manhattan,
+                SameTier = from.Tier == to.Tier,
+                FromStorage = from.PodStorageLocation,
+                ToStorage = to.PodStorageLocation,
+                FromQueue = from.IsQueueWaypoint,
+                ToQueue = to.IsQueueWaypoint,
+                FromDegree = from.Paths.Count(),
+                ToDegree = to.Paths.Count(),
+                PathFound = pathFound,
+                PathHops = pathFound ? path.Count - 1 : 0,
+                PathDistance = pf.Distance,
+                PathTurns = pf.Turns,
+                PathSegments = pf.Segments,
+                EtaSec = eta,
+                TripStartTime = tripStartTime,
+                LoadedBotCount = loadedBots,
+                StationInboundCount = stationInbound,
+                LocalBotCountSrc = localSrc,
+                LocalBotCountDest = localDest,
+                CodestBotCount = codest,
+                StationFaceBotCount = stationFace
+            };
+        }
+
+        /// <summary>A2: radius [m] for local bot-density features around src/dest waypoints.</summary>
+        private const double EtaLoadLocalRadius = 4.0;
+        /// <summary>A2b: radius [m] around the station face for queue-occupancy proxy.</summary>
+        private const double EtaLoadStationFaceRadius = 6.0;
+        /// <summary>A2: count other bots on the same tier within <paramref name="radius"/> of (x,y).
+        /// O(N) over the fleet (N small); used only by the eta-surrogate leg logger.</summary>
+        private int CountBotsNear(double x, double y, object tier, double radius)
+        {
+            if (Instance == null || Instance.Bots == null) return 0;
+            double r2 = radius * radius;
+            int c = 0;
+            foreach (var b in Instance.Bots)
+            {
+                if (b == null || b == this) continue;
+                if (tier != null && !ReferenceEquals(b.Tier, tier)) continue;
+                double bdx = b.X - x, bdy = b.Y - y;
+                if (bdx * bdx + bdy * bdy <= r2) c++;
+            }
+            return c;
+        }
+
+        private static EtaSurrogatePathFeatures BuildEtaSurrogatePathFeatures(IReadOnlyList<Waypoint> path, double straightOrientationTolerance)
+        {
+            double distance = 0.0;
+            int turns = 0;
+            int segments = path.Count >= 2 ? 1 : 0;
+            double prevOri = 0.0;
+            bool hasPrev = false;
+
+            for (int i = 0; i < path.Count - 1; i++)
+            {
+                Waypoint a = path[i];
+                Waypoint b = path[i + 1];
+                distance += a.GetDistance(b);
+                double ori = Circle.GetOrientation(a.X, a.Y, b.X, b.Y);
+                if (hasPrev)
+                {
+                    double diff = Math.Abs(Circle.GetOrientationDifference(prevOri, ori));
+                    if (diff >= straightOrientationTolerance)
+                    {
+                        turns++;
+                        segments++;
+                    }
+                }
+                prevOri = ori;
+                hasPrev = true;
+            }
+
+            return new EtaSurrogatePathFeatures
+            {
+                Distance = distance,
+                Turns = turns,
+                Segments = segments
+            };
+        }
+
+        private void AppendEtaSurrogateActualLeg(EtaSurrogateActualLegTrace trace, double actualSec,
+            double waitSec, int turnCount, int stopGoCount, int queueStopGoCount)
+        {
+            if (trace == null || Instance == null)
+                return;
+
+            Instance.StatEtaSurrogateActualLegRows.Add(string.Join(",",
+                trace.Kind,
+                I(trace.VisitId), I(trace.LegIndex), trace.SourceScope, I(trace.BotId), I(trace.StationQueueWaypointId),
+                I(trace.FromId), I(trace.ToId), I(trace.PodId), I(trace.StationId), B(trace.Loaded), D(trace.OrientationBucket),
+                D(trace.FromX), D(trace.FromY), D(trace.ToX), D(trace.ToY),
+                D(trace.AbsDx), D(trace.AbsDy), D(trace.Euclid), D(trace.Manhattan),
+                B(trace.SameTier), B(trace.FromStorage), B(trace.ToStorage), B(trace.FromQueue), B(trace.ToQueue),
+                I(trace.FromDegree), I(trace.ToDegree),
+                B(trace.PathFound), I(trace.PathHops), D(trace.PathDistance), I(trace.PathTurns), I(trace.PathSegments),
+                D(trace.EtaSec), D(actualSec), D(waitSec), I(turnCount), I(stopGoCount), I(queueStopGoCount),
+                D(trace.TripStartTime), I(trace.LoadedBotCount), I(trace.StationInboundCount), I(trace.LocalBotCountSrc), I(trace.LocalBotCountDest),
+                I(trace.CodestBotCount), I(trace.StationFaceBotCount)));
+        }
+
+        private static string D(double value)
+        {
+            if (double.IsPositiveInfinity(value)) return "inf";
+            if (double.IsNegativeInfinity(value)) return "-inf";
+            if (double.IsNaN(value)) return "nan";
+            return value.ToString("G17", System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        private static string I(int value) { return value.ToString(System.Globalization.CultureInfo.InvariantCulture); }
+        private static string B(bool value) { return value ? "1" : "0"; }
 
         /// <summary>
         /// rotate until
@@ -351,10 +602,10 @@ namespace RAWSimO.Core.Bots
         public double StatWaitTimeLoadedSec;
         /// <summary>Total wait time while empty [s].</summary>
         public double StatWaitTimeEmptySec;
-        /// <summary>Wait energy while loaded [J] = P_SUPPORT × StatWaitTimeLoadedSec (congestion cost only).</summary>
-        public double StatWaitEnergyLoadedJ => Metrics.EnergyConsumption.P_SUPPORT * StatWaitTimeLoadedSec;
-        /// <summary>Wait energy while empty [J] = P_SUPPORT × StatWaitTimeEmptySec (congestion cost only).</summary>
-        public double StatWaitEnergyEmptyJ  => Metrics.EnergyConsumption.P_SUPPORT * StatWaitTimeEmptySec;
+        /// <summary>Wait energy while loaded [J] = SUPPORT_POWER_LOADED × StatWaitTimeLoadedSec (congestion cost only).</summary>
+        public double StatWaitEnergyLoadedJ => Metrics.EnergyConsumption.SUPPORT_POWER_LOADED * StatWaitTimeLoadedSec;
+        /// <summary>Wait energy while empty [J] = SUPPORT_POWER_EMPTY × StatWaitTimeEmptySec (congestion cost only).</summary>
+        public double StatWaitEnergyEmptyJ  => Metrics.EnergyConsumption.SUPPORT_POWER_EMPTY * StatWaitTimeEmptySec;
         /// <summary>Input-side station processing arrivals.</summary>
         public int StatInputStationArrivals;
         /// <summary>Output-side station processing arrivals.</summary>
@@ -378,7 +629,8 @@ namespace RAWSimO.Core.Bots
         /// <summary>
         /// Background "support" energy [J] — the per-second overhead the robot draws
         /// whenever a task is active, regardless of whether it is moving or stationary.
-        /// Formula: P_SUPPORT × task-active time (standby/None/Rest excluded).
+        /// Formula: SupportPower(Pod) × wall-clock time, accrued every tick for every bot
+        /// (no task gate; idle/None/Rest included). Uses configured support power.
         /// This is the intuitive "E_support" in the energy literature: the cost of
         /// keeping the robot operational during mission time, electronics/sensors/etc.
         /// Planner-agnostic — identical accumulation rules for CBS / ECBS / WHCA*.
@@ -398,6 +650,80 @@ namespace RAWSimO.Core.Bots
         public double StatEWaitLoadedJ;
         /// <summary>Congestion-wait energy while not carrying a pod (empty) [J].</summary>
         public double StatEWaitEmptyJ;
+        /// <summary>
+        /// Premature-arrival queueing time [s] — accumulated while the bot is inside a
+        /// station queue zone but NOT yet in active GetItems/PutItems service. Captures
+        /// the gap "bot arrived at queue → bot starts processing", i.e. wasted wait
+        /// caused by mismatched dispatch timing vs station processing rhythm.
+        /// Used to evaluate starvation-aware OB+PS optimizations.
+        /// </summary>
+        public double StatQueueingAtStationTimeSec;
+        /// <summary>
+        /// Premature-arrival queueing energy [J] = SupportPower(Pod) × StatQueueingAtStationTimeSec.
+        /// Quantifies support-power waste from arriving at the station before it can serve.
+        /// </summary>
+        public double StatEQueueingAtStationJ;
+
+        // Planned-wait stop-and-go counters
+        /// <summary>
+        /// Number of WHCA*/reservation-table planned waits on an otherwise straight pass-through
+        /// waypoint. Excludes turn waypoints, pickup/setdown stops, slow-start, and failed
+        /// RegisterNextWaypoint retries.
+        /// </summary>
+        public int StatStopAndGoCount;
+        /// <summary>
+        /// Extra stop-and-go energy [J] for open-road planned waits: E2 from the segment into the
+        /// wait waypoint plus E1 from the segment leaving it. Strict subset of E1+E2 totals; adds
+        /// nothing to total energy because it is a re-classification.
+        /// </summary>
+        public double StatStopAndGoEnergyJ;
+        /// <summary>
+        /// Number of station-queue creep stop-and-go events caused by QueueManager advancing
+        /// a stopped bot from one queue waypoint to another.
+        /// </summary>
+        public int StatQueueStopAndGoCount;
+        /// <summary>
+        /// Extra stop-and-go energy [J] for queue-manager creep: E2 into the stopped queue
+        /// waypoint plus E1 from the segment leaving it.
+        /// </summary>
+        public double StatQueueStopAndGoEnergyJ;
+        private Waypoint _lastCommittedSegmentStartWaypoint;
+        private Waypoint _lastCommittedSegmentEndWaypoint;
+        private double _lastCommittedSegmentE2DecelJ;
+        private bool _pendingPlannedWaitStopGo;
+        private Waypoint _pendingPlannedWaitWaypoint;
+        private double _pendingPlannedWaitDecelEnergyJ;
+        // ───────────────────────────────────────────────────────────────────
+
+        // ── PP-aware Slow-Start counters (Phase 1) ─────────────────────────
+        /// <summary>Accumulated time bot was holding at pod cell under slow-start policy [s].</summary>
+        public double StatSlowStartHoldTimeSec;
+        /// <summary>Support-energy spent during slow-start holds [J] = SupportPower(Pod) × StatSlowStartHoldTimeSec.</summary>
+        public double StatSlowStartHoldEnergyJ;
+        /// <summary>Number of slow-start decisions taken (one per pod pickup when feature enabled).</summary>
+        public int StatSlowStartDecisionCount;
+        /// <summary>Number of slow-start decisions that resulted in immediate release (delay = 0).</summary>
+        public int StatSlowStartImmediateReleaseCount;
+        /// <summary>Number of times the reservation-aware ETA probe failed (returned NaN).</summary>
+        public int StatSlowStartSearchFailures;
+        /// <summary>Number of in-flight tasks lacking ExpectedArrivalAtStation cache during T_starve computation.</summary>
+        public int StatSlowStartExpectedArrivalMissingCount;
+        /// <summary>True iff the bot is currently in a BotSlowStartHold state; gates wait-time accumulation.</summary>
+        internal bool _isSlowStartHolding = false;
+        /// <summary>Sim-time the current hold started (for FIFO ordering across same-station holders).
+        /// NaN when not holding. Earlier value = higher priority.</summary>
+        internal double _slowStartHoldStartTime = double.NaN;
+        /// <summary>Absolute time at which the central scheduler permits this holder to release.
+        /// NaN until the scheduler has run at least once for this bot's station this hold.</summary>
+        internal double _slowStartReleaseDeadline = double.NaN;
+        /// <summary>True iff this bot is the scheduler's currently-chosen pod (diagnostic).</summary>
+        internal bool _slowStartIsChosen = false;
+        /// <summary>Scheduler-provided ETA (pod→station ideal) cached for the release-time arrival estimate.</summary>
+        internal double _slowStartEta = double.NaN;
+        /// <summary>Scheduler-provided T_starve snapshot for telemetry.</summary>
+        internal double _slowStartTStarve = double.NaN;
+        // ───────────────────────────────────────────────────────────────────
+
         /// <summary>Idle time: seconds with no task assigned (BotTaskType.None).</summary>
         public double StatTimeIdleSec => StatTotalTaskTimes.TryGetValue(BotTaskType.None, out var t) ? t : 0.0;
         // ── Pref calibration: event-level 8-accumulator model ─────────────────────
@@ -445,6 +771,18 @@ namespace RAWSimO.Core.Bots
             StatEWaitJ = 0.0;
             StatEWaitLoadedJ = 0.0;
             StatEWaitEmptyJ = 0.0;
+            StatQueueingAtStationTimeSec = 0.0;
+            StatEQueueingAtStationJ = 0.0;
+            StatStopAndGoCount = 0;
+            StatStopAndGoEnergyJ = 0.0;
+            StatQueueStopAndGoCount = 0;
+            StatQueueStopAndGoEnergyJ = 0.0;
+            _lastCommittedSegmentStartWaypoint = null;
+            _lastCommittedSegmentEndWaypoint = null;
+            _lastCommittedSegmentE2DecelJ = 0.0;
+            _pendingPlannedWaitStopGo = false;
+            _pendingPlannedWaitWaypoint = null;
+            _pendingPlannedWaitDecelEnergyJ = 0.0;
             StatTurningCount = 0;
             StatOrdersCompleted = 0;
             StatDistanceTraveledM = 0.0;
@@ -625,15 +963,22 @@ namespace RAWSimO.Core.Bots
                     RequestReoptimization = true;
 
                     InsertTask storeTask = t as InsertTask;
+                    bool slowStartInputEnabled = Instance.SettingConfig.SlowStartInputEnabled;
                     if (storeTask.ReservedPod != Pod)
                     {
                         var podWaypoint = storeTask.ReservedPod.Waypoint;
                         _appendMoveStates(CurrentWaypoint, podWaypoint, tripLoaded: false);
+                        // Pre-lift hold at pod cell before fetching the pod to the input station.
+                        if (slowStartInputEnabled)
+                            StateQueueEnqueue(new BotSlowStartHoldInput(storeTask));
                         StateQueueEnqueue(new BotPickupPod(storeTask.ReservedPod));
                         _appendMoveStates(podWaypoint, storeTask.InputStation.Waypoint, tripLoaded: true);
                     }
                     else
                     {
+                        // Bot already carrying the reserved pod — post-lift hold.
+                        if (slowStartInputEnabled)
+                            StateQueueEnqueue(new BotSlowStartHoldInput(storeTask));
                         _appendMoveStates(CurrentWaypoint, storeTask.InputStation.Waypoint, tripLoaded: true);
                     }
                     StateQueueEnqueue(new BotGetItems(storeTask));
@@ -645,15 +990,30 @@ namespace RAWSimO.Core.Bots
                     RequestReoptimization = true;
 
                     ExtractTask extractTask = t as ExtractTask;
+                    bool slowStartEnabled = Instance.SettingConfig.SlowStartEnabled;
                     if (extractTask.ReservedPod != Pod)
                     {
                         var podWaypoint = extractTask.ReservedPod.Waypoint;
-                        _appendMoveStates(CurrentWaypoint, podWaypoint, tripLoaded: false);
+                        var b2pTrace = BuildEtaSurrogateActualLegTrace(
+                            "bot_to_pod", 1, CurrentWaypoint, podWaypoint, extractTask.ReservedPod,
+                            extractTask.OutputStation, loaded: false, initialOrientation: Orientation,
+                            stationQueueWaypoint: Control.JIT.JITArrivalETA.ResolveQueueRearWaypoint(extractTask.OutputStation));
+                        _appendMoveStates(CurrentWaypoint, podWaypoint, tripLoaded: false, etaTrace: b2pTrace);
+                        // Pre-lift hold: bot reaches pod cell, then HOLDS empty (orange) before
+                        // lifting. Release timing accounts for PodTransferTime so that
+                        // (hold + lift + travel) ≈ T_starve. Pre-lift hold also saves the
+                        // configured loaded/empty support delta during the hold window.
+                        if (slowStartEnabled)
+                            StateQueueEnqueue(new BotSlowStartHold(extractTask));
                         StateQueueEnqueue(new BotPickupPod(extractTask.ReservedPod));
                         _appendMoveStates(podWaypoint, extractTask.OutputStation.Waypoint, tripLoaded: true);
                     }
                     else
                     {
+                        // Bot already carrying the reserved pod — hold post-lift (only path
+                        // available; lift already happened in a prior task).
+                        if (slowStartEnabled)
+                            StateQueueEnqueue(new BotSlowStartHold(extractTask));
                         _appendMoveStates(CurrentWaypoint, extractTask.OutputStation.Waypoint, tripLoaded: true);
                     }
                     StateQueueEnqueue(new BotPutItems(extractTask));
@@ -663,7 +1023,7 @@ namespace RAWSimO.Core.Bots
                     var restTask = t as RestTask;
                     // Only append move task to get to resting location, if we are not at it yet
                     if ((restTask.RestingLocation != null) && (CurrentWaypoint != restTask.RestingLocation || Moving))
-                        _appendMoveStates(CurrentWaypoint, restTask.RestingLocation);
+                        _appendMoveStates(CurrentWaypoint, restTask.RestingLocation, tripLoaded: false);
                     StateQueueEnqueue(new BotRest(restTask.RestingLocation, BotRest.DEFAULT_REST_TIME)); // TODO set paramterized wait time and adhere to it
                     break;
                 default:
@@ -680,7 +1040,7 @@ namespace RAWSimO.Core.Bots
         /// </summary>
         /// <param name="waypointFrom">The from waypoint.</param>
         /// <param name="waypointTo">The destination waypoint.</param>
-        private void _appendMoveStates(Waypoint waypointFrom, Waypoint waypointTo, bool? tripLoaded = null)
+        private void _appendMoveStates(Waypoint waypointFrom, Waypoint waypointTo, bool? tripLoaded = null, EtaSurrogateActualLegTrace etaTrace = null)
         {
             // ── Per-trip tracking: each solver-dispatched path (currentWaypoint → destinationWaypoint)
             // counts as one trip. Loaded/empty passed by caller (task dispatch knows the semantic —
@@ -695,6 +1055,7 @@ namespace RAWSimO.Core.Bots
                 if (tripLoaded.Value) StatTripCountLoaded++;
                 else                  StatTripCountEmpty++;
                 _pendingTripsLoaded.Enqueue(tripLoaded.Value);
+                _pendingEtaSurrogateLegTraces.Enqueue(etaTrace);
             }
 
             double distance;
@@ -743,6 +1104,139 @@ namespace RAWSimO.Core.Bots
                 StateQueuePeek().Act(this, lastTime, currentTime);
         }
 
+        private void MarkPlannedWaitStopGoIfForced(double waitTime)
+        {
+            _pendingPlannedWaitStopGo = false;
+            _pendingPlannedWaitWaypoint = null;
+            _pendingPlannedWaitDecelEnergyJ = 0.0;
+
+            if (waitTime <= 0.0 || Path == null || CurrentWaypoint == null)
+                return;
+            if (_lastCommittedSegmentStartWaypoint == null || _lastCommittedSegmentEndWaypoint != CurrentWaypoint)
+                return;
+
+            var nextStopAction = Path.Actions.Skip(1).FirstOrDefault(a => a.StopAtNode);
+            if (nextStopAction == null)
+                return;
+
+            var nextStopWaypoint = Instance.Controller.PathManager.GetWaypointByNodeId(nextStopAction.Node);
+            if (nextStopWaypoint == null || nextStopWaypoint == CurrentWaypoint || _lastCommittedSegmentStartWaypoint == CurrentWaypoint)
+                return;
+
+            double inboundOrientation = Circle.GetOrientation(
+                _lastCommittedSegmentStartWaypoint.X, _lastCommittedSegmentStartWaypoint.Y,
+                CurrentWaypoint.X, CurrentWaypoint.Y);
+            double outboundOrientation = Circle.GetOrientation(
+                CurrentWaypoint.X, CurrentWaypoint.Y,
+                nextStopWaypoint.X, nextStopWaypoint.Y);
+
+            if (Math.Abs(Circle.GetOrientationDifference(inboundOrientation, outboundOrientation)) >= Instance.StraightOrientationTolerance)
+                return;
+
+            _pendingPlannedWaitStopGo = true;
+            _pendingPlannedWaitWaypoint = CurrentWaypoint;
+            _pendingPlannedWaitDecelEnergyJ = _lastCommittedSegmentE2DecelJ;
+        }
+
+        private void CommitPendingPlannedWaitStopGo(double resumeAccelEnergyJ)
+        {
+            if (!_pendingPlannedWaitStopGo || _pendingPlannedWaitWaypoint != CurrentWaypoint)
+                return;
+
+            double stopGoEnergy = _pendingPlannedWaitDecelEnergyJ + resumeAccelEnergyJ;
+            StatStopAndGoCount++;
+            StatStopAndGoEnergyJ += stopGoEnergy;
+            if (_lastTripJITDestination != null)
+                _lastTripJITStopGoCount++;
+            RecordStopGoEvent(
+                "whca_planned_wait",
+                _lastCommittedSegmentStartWaypoint,
+                CurrentWaypoint,
+                NextWaypoint,
+                stopGoEnergy,
+                _pendingPlannedWaitDecelEnergyJ,
+                resumeAccelEnergyJ);
+
+            _pendingPlannedWaitStopGo = false;
+            _pendingPlannedWaitWaypoint = null;
+            _pendingPlannedWaitDecelEnergyJ = 0.0;
+        }
+
+        private bool IsQueueManagerCreepSegment(Waypoint from, Waypoint to)
+        {
+            return IsQueueing &&
+                from != null &&
+                to != null &&
+                from.QueueManager != null &&
+                from.QueueManager == to.QueueManager;
+        }
+
+        private void CommitQueueManagerStopGo(double resumeAccelEnergyJ)
+        {
+            double stopGoEnergy = _lastCommittedSegmentE2DecelJ + resumeAccelEnergyJ;
+            StatQueueStopAndGoCount++;
+            StatQueueStopAndGoEnergyJ += stopGoEnergy;
+            if (_lastTripJITDestination != null)
+                _lastTripJITQueueStopGoCount++;
+            RecordStopGoEvent(
+                "queue_manager_creep",
+                _lastCommittedSegmentStartWaypoint,
+                CurrentWaypoint,
+                NextWaypoint,
+                stopGoEnergy,
+                _lastCommittedSegmentE2DecelJ,
+                resumeAccelEnergyJ);
+        }
+
+        private int GetStopGoNodeId(Waypoint waypoint)
+        {
+            if (waypoint == null || Instance?.Controller?.PathManager == null)
+                return -1;
+            try { return Instance.Controller.PathManager.GetNodeIdByWaypoint(waypoint); }
+            catch { return -1; }
+        }
+
+        private void RecordStopGoEvent(string type, Waypoint from, Waypoint stop, Waypoint to, double energyJ, double decelJ, double accelJ)
+        {
+            if (Instance == null || stop == null)
+                return;
+
+            var ci = System.Globalization.CultureInfo.InvariantCulture;
+            int queueTerminalNode = stop.QueueManager != null ? GetStopGoNodeId(stop.QueueManager.QueueWaypoint) : -1;
+            int destinationNode = GetStopGoNodeId(DestinationWaypoint);
+            Instance.StatStopGoEventRows.Add(string.Join(";", new[]
+            {
+                Instance.Controller.CurrentTime.ToString(ci),
+                type,
+                ID.ToString(ci),
+                GetStopGoNodeId(from).ToString(ci),
+                GetStopGoNodeId(stop).ToString(ci),
+                GetStopGoNodeId(to).ToString(ci),
+                stop.X.ToString(ci),
+                stop.Y.ToString(ci),
+                (stop.Tier != null ? stop.Tier.ID : -1).ToString(ci),
+                (energyJ / 1000.0).ToString(ci),
+                (decelJ / 1000.0).ToString(ci),
+                (accelJ / 1000.0).ToString(ci),
+                queueTerminalNode.ToString(ci),
+                destinationNode.ToString(ci),
+                (Pod != null ? "true" : "false")
+            }));
+
+            if (type == "whca_planned_wait"
+                && !(Instance.SettingConfig != null && Instance.SettingConfig.DisableHeavyLogging))
+            {
+                Instance.StatConflictWaitHeatPoints.Add(new LocationDatapoint()
+                {
+                    TimeStamp = Instance.Controller.CurrentTime,
+                    Tier = stop.Tier != null ? stop.Tier.ID : -1,
+                    X = stop.X,
+                    Y = stop.Y,
+                    BotTask = CurrentTask != null ? CurrentTask.Type : BotTaskType.None,
+                });
+            }
+        }
+
         /// <summary>
         /// Sets the next way point.
         /// </summary>
@@ -769,6 +1263,27 @@ namespace RAWSimO.Core.Bots
             var rotateDuration = Physics.getTimeNeededToTurn(_startOrientation, _endOrientation);
             var waitUntil = Math.Max(_waitUntil, currentTime);
 
+            // Guard against NaN/Infinity leaking into the reservation table (DisjointIntervalTree.Add
+            // throws "Invalid interval: <start> - NaN"). The reservation interval's end is derived from
+            // startDrivingAt = waitUntil + rotateDuration, so a NaN in either poisons it. This block
+            // pinpoints the offending input (so the true upstream source can be traced) and sanitizes
+            // it to a finite value so the simulation keeps running instead of aborting mid-run.
+            if (double.IsNaN(waitUntil) || double.IsInfinity(waitUntil) ||
+                double.IsNaN(rotateDuration) || double.IsInfinity(rotateDuration))
+            {
+                Instance.LogSevere(string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                    "Bot{0}: non-finite move timing at t={1} — _waitUntil={2}, waitUntil={3}, rotateDuration={4}, " +
+                    "startOri={5}, endOri={6}, pos=({7},{8}), targetWp=({9},{10}), " +
+                    "Physics[a={11},d={12},vMax={13},turn={14}]",
+                    ID, currentTime, _waitUntil, waitUntil, rotateDuration,
+                    _startOrientation, _endOrientation, X, Y, waypoint.X, waypoint.Y,
+                    Physics.Acceleration, Physics.Deceleration, Physics.MaxSpeed, Physics.TurnSpeed));
+                if (double.IsNaN(waitUntil) || double.IsInfinity(waitUntil))
+                    waitUntil = currentTime;
+                if (double.IsNaN(rotateDuration) || double.IsInfinity(rotateDuration))
+                    rotateDuration = 0.0;
+            }
+
             if (Instance.Controller.PathManager.RegisterNextWaypoint(this, currentTime, waitUntil, rotateDuration, CurrentWaypoint, waypoint))
             {
                 //set way point
@@ -787,11 +1302,6 @@ namespace RAWSimO.Core.Bots
                 double segmentDistance = CurrentWaypoint.GetDistance(NextWaypoint);
                 _driveDuration = Physics.getTimeNeededToMove(0, segmentDistance);
 
-                // ── Rest-task gate: no productive metrics recorded during return-to-park ──
-                bool isRestTask = (CurrentTask != null && CurrentTask.Type == BotTaskType.Rest);
-                if (isRestTask)
-                    return true;
-
                 // ── Energy Hook: E1 + E2 + E3 (segment drive) + E4 (rotation) ──
                 double mTotal = EnergyConsumption.GetTotalMass(Pod);
                 double e1, e2, e3;
@@ -802,6 +1312,17 @@ namespace RAWSimO.Core.Bots
                 StatEnergyE1AccelJ += e1;
                 StatEnergyE2DecelJ += e2;
                 StatEnergyE3CruiseJ += e3;
+
+                // WHCA* planned-wait stop-and-go: this resume leg contributes its E1.
+                // Queue-manager creep stop-and-go is tracked separately below.
+                bool queueManagerCreepSegment = _lastCommittedSegmentEndWaypoint == CurrentWaypoint &&
+                    IsQueueManagerCreepSegment(CurrentWaypoint, NextWaypoint);
+                CommitPendingPlannedWaitStopGo(e1);
+                if (queueManagerCreepSegment)
+                    CommitQueueManagerStopGo(e1);
+                _lastCommittedSegmentStartWaypoint = CurrentWaypoint;
+                _lastCommittedSegmentEndWaypoint = NextWaypoint;
+                _lastCommittedSegmentE2DecelJ = e2;
 
                 // E4: rotation energy (θ derived from rotateDuration and TurnSpeed)
                 // mTotal used here so loaded robots correctly pay heavier rotational inertia.
@@ -968,6 +1489,37 @@ namespace RAWSimO.Core.Bots
         /// Stores the last trip start time.
         /// </summary>
         private double _queueTripStartTime = double.NaN;
+        /// <summary>Expected (ideal kinematic) duration [s] of the currently open OutputStation trip,
+        /// computed by JIT IdealTravelTime at trip start. NaN when no trip open / trip not toward OS.
+        /// Used to validate ETA model against measured arrival time.</summary>
+        internal double _lastTripExpectedDurationSec = double.NaN;
+        internal int _lastTripPathNodeCount = 0;
+        internal double _lastTripPathLength = 0.0;
+        internal int _lastTripSourceId = -1;
+        internal int _lastTripDestId = -1;
+        internal double _lastTripStartTimeForJIT = double.NaN;
+        internal int _lastTripJITTripId = -1;
+        private int _jitTripSequence = 0;
+        private int _lastTripJITStopGoCount = 0;
+        private int _lastTripJITQueueStopGoCount = 0;
+        private double _lastTripJITWaitSec = 0.0;
+        private string _lastTripJITTaskId = "";
+        internal Waypoints.Waypoint _lastTripJITDestination = null;
+        private EtaSurrogateActualLegTrace _lastTripJITEtaSurrogateTrace = null;
+        /// <summary>Sequence of waypoints actually visited during the current JIT-tracked trip, in order.
+        /// Used to validate IdealTravelTime formula against the path the bot truly walked
+        /// (independent of A* path-choice variance).</summary>
+        internal List<Waypoints.Waypoint> _lastTripActualPath = null;
+        internal List<double> _lastTripActualArrivals = null;
+        internal double _lastTripInitialOrientation = double.NaN;
+        /// <summary>Time [s] when the bot+pod entered the OS queue zone (start of queue wait).</summary>
+        internal double _potQueueArrivalTime = double.NaN;
+        /// <summary>Input-station analog of _potQueueArrivalTime: queue-zone arrival time for a
+        /// store/InsertTask pod, consumed in BotGetItems to measure input-station per-pod queue
+        /// wait (previously unmeasured — only output BotPutItems recorded queue wait).</summary>
+        internal double _potInputQueueArrivalTime = double.NaN;
+        /// <summary>Time [s] when BotPutItems first initialized (station begins picking from this pod).</summary>
+        internal double _potPickingStartTime = double.NaN;
         /// <summary>
         /// Contains all output station queueing areas.
         /// </summary>
@@ -1019,7 +1571,7 @@ namespace RAWSimO.Core.Bots
             _prevStationProcessingType = stationProcessingType;
         }
 
-        private bool IsInStationQueueZone(OutputStation station)
+        private SimpleRectangle GetStationQueueZone(OutputStation station)
         {
             if (_queueZonesOStations == null)
                 _queueZonesOStations = new VolatileIDDictionary<OutputStation, SimpleRectangle>(Instance.OutputStations.Select(s =>
@@ -1030,7 +1582,111 @@ namespace RAWSimO.Core.Bots
                     double highY = s.Queues != null && s.Queues.Any() && s.Queues.First().Value.Any() ? s.Queues.Max(q => q.Value.Max(w => w.Y)) : s.Y + 0.5;
                     return new VolatileKeyValuePair<OutputStation, SimpleRectangle>(s, new SimpleRectangle(s.Tier, lowX, lowY, highX - lowX, highY - lowY));
                 }).ToList());
-            return _queueZonesOStations[station].IsContained(Tier, X, Y);
+            return _queueZonesOStations[station];
+        }
+
+        private bool IsInStationQueueZone(OutputStation station)
+        {
+            return GetStationQueueZone(station).IsContained(Tier, X, Y);
+        }
+
+        private Waypoint ResolveFirstQueueWaypointOnPath(OutputStation station, List<Waypoint> path)
+        {
+            if (station == null || path == null || path.Count == 0)
+                return null;
+            SimpleRectangle zone = GetStationQueueZone(station);
+            foreach (var waypoint in path)
+            {
+                if (waypoint != null && zone.IsContained(waypoint.Tier, waypoint.X, waypoint.Y))
+                    return waypoint;
+            }
+            return null;
+        }
+
+        private bool TryGetQueueZoneEntryTime(OutputStation station, double xOld, double yOld, double xNew, double yNew, double segmentStartTime, double segmentEndTime, out double entryTime)
+        {
+            entryTime = double.NaN;
+            SimpleRectangle zone = GetStationQueueZone(station);
+            if (zone.Tier != Tier || segmentEndTime < segmentStartTime)
+                return false;
+
+            if (zone.IsContained(Tier, xOld, yOld))
+            {
+                entryTime = segmentStartTime;
+                return true;
+            }
+
+            double dx = xNew - xOld;
+            double dy = yNew - yOld;
+            double tEnter = 0.0;
+            double tExit = 1.0;
+            if (!ClipSegmentToRange(xOld, dx, zone.XLower, zone.XUpper, ref tEnter, ref tExit))
+                return false;
+            if (!ClipSegmentToRange(yOld, dy, zone.YLower, zone.YUpper, ref tEnter, ref tExit))
+                return false;
+            if (tExit < 0.0 || tEnter > 1.0)
+                return false;
+
+            double t = Math.Max(0.0, Math.Min(1.0, tEnter));
+            entryTime = segmentStartTime + (segmentEndTime - segmentStartTime) * t;
+            return true;
+        }
+
+        private static bool ClipSegmentToRange(double origin, double delta, double min, double max, ref double tEnter, ref double tExit)
+        {
+            const double eps = 1e-9;
+            if (Math.Abs(delta) < eps)
+                return min <= origin && origin <= max;
+
+            double t1 = (min - origin) / delta;
+            double t2 = (max - origin) / delta;
+            if (t1 > t2)
+            {
+                double tmp = t1;
+                t1 = t2;
+                t2 = tmp;
+            }
+            if (t1 > tEnter) tEnter = t1;
+            if (t2 < tExit) tExit = t2;
+            return tEnter <= tExit;
+        }
+
+        private void RecordJITEtaArrival(double arrivalTime)
+        {
+            if (_lastTripJITDestination != null && !double.IsNaN(_lastTripExpectedDurationSec) && !double.IsNaN(_lastTripStartTimeForJIT))
+            {
+                double actualDur = Math.Max(0.0, arrivalTime - _lastTripStartTimeForJIT);
+                Instance.StatJITEtaExpectedSamples.Add(_lastTripExpectedDurationSec);
+                Instance.StatJITEtaActualSamples.Add(actualDur);
+                Instance.StatJITEtaPathNodeCounts.Add(_lastTripPathNodeCount);
+                Instance.StatJITEtaPathLengths.Add(_lastTripPathLength);
+                Instance.StatJITEtaSourceIds.Add(_lastTripSourceId);
+                Instance.StatJITEtaDestIds.Add(_lastTripDestId);
+                Instance.StatJITEtaBotIds.Add(ID);
+                Instance.StatJITEtaTaskIds.Add(_lastTripJITTaskId ?? "");
+                Instance.StatJITEtaTripIds.Add(_lastTripJITTripId);
+                Instance.StatJITEtaStopGoCounts.Add(_lastTripJITStopGoCount);
+                Instance.StatJITEtaQueueStopGoCounts.Add(_lastTripJITQueueStopGoCount);
+                Instance.StatJITEtaWaitSecs.Add(_lastTripJITWaitSec);
+                if (_lastTripJITEtaSurrogateTrace != null)
+                {
+                    double realActualDur = _queueTripStartTime > 0.0
+                        ? Math.Max(0.0, arrivalTime - _queueTripStartTime)
+                        : actualDur;
+                    AppendEtaSurrogateActualLeg(_lastTripJITEtaSurrogateTrace, realActualDur,
+                        _lastTripJITWaitSec, _currentTripTurnCount, _lastTripJITStopGoCount, _lastTripJITQueueStopGoCount);
+                }
+            }
+            _lastTripExpectedDurationSec = double.NaN;
+            _lastTripJITDestination = null;
+            _lastTripJITEtaSurrogateTrace = null;
+            _lastTripActualPath = null;
+            _lastTripActualArrivals = null;
+            _lastTripJITTripId = -1;
+            _lastTripJITStopGoCount = 0;
+            _lastTripJITQueueStopGoCount = 0;
+            _lastTripJITWaitSec = 0.0;
+            _lastTripJITTaskId = "";
         }
         /// <summary>
         /// Checks whether the bot is currently within the stations queueing area.
@@ -1174,7 +1830,7 @@ namespace RAWSimO.Core.Bots
                 // --> Then move (if we have a target)
                 if (NextWaypoint != null)
                 {
-                    _updateMove(currentTime);
+                    _updateMove(lastTime, currentTime);
                 }
 
                 //_updatePassedWaypoints();
@@ -1216,7 +1872,7 @@ namespace RAWSimO.Core.Bots
         /// move the bot towards the next way point
         /// </summary>
         /// <param name="currentTime">time stamp: now</param>
-        private void _updateMove(double currentTime)
+        private void _updateMove(double lastTime, double currentTime)
         {
             //get distance traveled
             double distanceTraveled;
@@ -1232,8 +1888,12 @@ namespace RAWSimO.Core.Bots
             var travelPercentage = distanceTraveled / NextWaypoint.GetDistance(CurrentWaypoint);
 
             //initiate new positions and reset it during this method
+            var xOld = X;
+            var yOld = Y;
             var xNew = CurrentWaypoint.X * (1 - travelPercentage) + NextWaypoint.X * travelPercentage;
             var yNew = CurrentWaypoint.Y * (1 - travelPercentage) + NextWaypoint.Y * travelPercentage;
+            double movementStartTime = Math.Max(lastTime, _waitUntil + _rotateDuration);
+            double movementEndTime = Math.Min(currentTime, _waitUntil + _rotateDuration + _driveDuration);
 
             if (currentTime >= _waitUntil + _rotateDuration + _driveDuration)
             {
@@ -1245,10 +1905,20 @@ namespace RAWSimO.Core.Bots
                 NextWaypoint = null;
                 // Tick-coherence guard: signal that this bot just completed a segment.
                 _arrivedAtWaypointThisTick = true;
+                // ── JIT validation: trip ends when bot reaches the recorded JIT destination.
+                // Expected is the prediction made at trip start (A* path + IdealTravelTime),
+                // NOT recomputed on actual path. This validates the predictor end-to-end.
+                if (_lastTripJITDestination != null && CurrentWaypoint == _lastTripJITDestination
+                    && (DestinationWaypoint == null || DestinationWaypoint.OutputStation == null)
+                    && !double.IsNaN(_lastTripExpectedDurationSec))
+                {
+                    RecordJITEtaArrival(currentTime);
+                }
             }
 
             // Try to make move. If can't ask move due to a collision, then stop
-            if (!Instance.Compound.BotCurrentTier[this].MoveBotOverride(this, xNew, yNew))
+            bool moveSucceeded = Instance.Compound.BotCurrentTier[this].MoveBotOverride(this, xNew, yNew);
+            if (!moveSucceeded)
             {
                 // Suppress per-move log in AgentAStar mode: bots intentionally overlap and
                 // failed moves happen constantly — logging every attempt floods the UI and
@@ -1264,16 +1934,36 @@ namespace RAWSimO.Core.Bots
             {
                 // Check whether the destination is an output-station and we reached it
                 if (DestinationWaypoint.OutputStation != null)
-                    if (IsInStationQueueZone(DestinationWaypoint.OutputStation))
+                {
+                    double queueArrivalTime = double.NaN;
+                    bool enteredQueueZone = moveSucceeded &&
+                        TryGetQueueZoneEntryTime(DestinationWaypoint.OutputStation, xOld, yOld, xNew, yNew, movementStartTime, movementEndTime, out queueArrivalTime);
+                    if (!enteredQueueZone && IsInStationQueueZone(DestinationWaypoint.OutputStation))
                     {
-                        Instance.NotifyTripCompleted(this, Statistics.StationTripDatapoint.StationTripType.O, Instance.Controller.CurrentTime - _queueTripStartTime);
+                        queueArrivalTime = Instance.Controller.CurrentTime;
+                        enteredQueueZone = true;
+                    }
+                    if (enteredQueueZone)
+                    {
+                        double actualDur = queueArrivalTime - _queueTripStartTime;
+                        Instance.NotifySlowStartStationQueueArrival(CurrentTask as ExtractTask, this, queueArrivalTime);
+                        Instance.NotifyTripCompleted(this, Statistics.StationTripDatapoint.StationTripType.O, actualDur);
+                        // Per-pod queue-wait clock starts now (bot+pod entered queue zone).
+                        if (double.IsNaN(_potQueueArrivalTime))
+                            _potQueueArrivalTime = queueArrivalTime;
+                        RecordJITEtaArrival(queueArrivalTime);
                         _queueTripStartTime = double.NaN;
                     }
+                }
                 // Check whether the destination is an input-station and we reached it
                 if (DestinationWaypoint.InputStation != null)
                     if (IsInStationQueueZone(DestinationWaypoint.InputStation))
                     {
-                        Instance.NotifyTripCompleted(this, Statistics.StationTripDatapoint.StationTripType.I, Instance.Controller.CurrentTime - _queueTripStartTime);
+                        double inQueueArrival = Instance.Controller.CurrentTime;
+                        Instance.NotifyTripCompleted(this, Statistics.StationTripDatapoint.StationTripType.I, inQueueArrival - _queueTripStartTime);
+                        // Per-pod input-station queue-wait clock starts now (pod entered queue zone).
+                        if (double.IsNaN(_potInputQueueArrivalTime))
+                            _potInputQueueArrivalTime = inQueueArrival;
                         _queueTripStartTime = double.NaN;
                     }
             }
@@ -1301,6 +1991,10 @@ namespace RAWSimO.Core.Bots
             bool inPickupOrSetdown = StateQueueCount > 0 &&
                 (StateQueuePeek().Type == BotStateType.PickupPod || StateQueuePeek().Type == BotStateType.SetdownPod ||
                  StateQueuePeek().Type == BotStateType.GetItems  || StateQueuePeek().Type == BotStateType.PutItems);
+            // Slow-start hold is a deliberate, controlled stationary period — NOT congestion wait.
+            // Exclude it from wait/energy accumulation so KPI baseline/treatment comparison stays clean.
+            // Its own dedicated counters (StatSlowStartHoldTimeSec / StatSlowStartHoldEnergyJ) capture it.
+            bool inSlowStartHold = _isSlowStartHolding;
             // Also exclude any time the bot is physically inside a station queue zone (queueing at station)
             bool inStationQueue = false;
             foreach (var s in Instance.OutputStations) { if (IsInStationQueueZone(s)) { inStationQueue = true; break; } }
@@ -1310,39 +2004,68 @@ namespace RAWSimO.Core.Bots
 
             // Rest-task gate: return-to-park is a non-productive trip — no energy / wait / station metrics
             bool isRestTask = (CurrentTask != null && CurrentTask.Type == BotTaskType.Rest);
-            // Active-task gate: bot must have a real task assigned to record support energy and wait.
-            // No-task (None) = standby → P_SUPPORT = 0 (not accumulating background power).
+            // Active-task gate: bot must have a real non-rest task assigned to record productive wait.
+            // Support power is now always-on and configured by payload state;
+            // it is NOT gated by task state. hasActiveTask/hasSupportTask still gate the
+            // wait/queueing SUBSETS below, not the support total.
             bool hasActiveTask = CurrentTask != null &&
                                  CurrentTask.Type != BotTaskType.None &&
                                  !isRestTask;
+            bool hasSupportTask = CurrentTask != null &&
+                                  CurrentTask.Type != BotTaskType.None;
 
             // Wait = congestion/CBS-hold: stationary with an active task, no mechanical action.
-            // Excludes: rotation (_isRotatingThisTick), lift/setdown (inPickupOrSetdown), no-task standby.
-            if (hasActiveTask && !Moving && !_isRotatingThisTick && !inPickupOrSetdown)
+            // Excludes: rotation (_isRotatingThisTick), lift/setdown (inPickupOrSetdown), no-task standby,
+            // and deliberate slow-start hold (inSlowStartHold) — slow-start has its own counters.
+            bool inCongestionWait = hasActiveTask && !Moving && !_isRotatingThisTick && !inPickupOrSetdown && !inSlowStartHold;
+            if (inCongestionWait)
             {
                 StatWaitTimeSec += delta;
                 // Accumulate per-trip wait time (congestion/CBS wait only, no mechanical action)
                 if (_tripOpen)
                     _currentTripWaitSec += delta;
+                if (_lastTripJITDestination != null)
+                    _lastTripJITWaitSec += delta;
                 // Layer 5: wait-time split by payload state
                 if (Pod != null) StatWaitTimeLoadedSec += delta;
                 else             StatWaitTimeEmptySec  += delta;
             }
 
-            // E_support = P_SUPPORT × active-task time (background overhead;
-            //             includes moving, rotating, waiting; excludes standby/rest).
-            if (hasActiveTask)
-                StatESupportJ += EnergyConsumption.P_SUPPORT * delta;
 
-            // E_wait = P_SUPPORT × congestion-wait subset (task active AND stationary
-            //          AND no mechanical action). Subset of E_support.
-            if (hasActiveTask && !Moving && !_isRotatingThisTick && !inPickupOrSetdown)
+            // Slow-start dedicated time/energy ledger (separated from congestion wait).
+            if (hasActiveTask && inSlowStartHold)
             {
-                StatEWaitJ += EnergyConsumption.P_SUPPORT * delta;
+                StatSlowStartHoldTimeSec   += delta;
+                StatSlowStartHoldEnergyJ   += EnergyConsumption.SupportPower(Pod) * delta;
+            }
+
+            // E_support = SupportPower(Pod) × wall-clock time — always-on background power,
+            //             configured by payload state. No task gate: idle/None/Rest
+            //             all accrue. Wait/queueing/slow-start are strict subsets accumulated below.
+            StatESupportJ += EnergyConsumption.SupportPower(Pod) * delta;
+
+            // E_wait = SupportPower(Pod) × congestion-wait subset (task active AND stationary
+            //          AND no mechanical action). Strict subset of E_support; loaded/empty split
+            //          uses the matching rate so StatEWaitJ == StatEWaitLoadedJ + StatEWaitEmptyJ.
+            if (hasActiveTask && !Moving && !_isRotatingThisTick && !inPickupOrSetdown && !inSlowStartHold)
+            {
+                StatEWaitJ += EnergyConsumption.SupportPower(Pod) * delta;
                 if (Pod != null)
-                    StatEWaitLoadedJ += EnergyConsumption.P_SUPPORT * delta;
+                    StatEWaitLoadedJ += EnergyConsumption.SUPPORT_POWER_LOADED * delta;
                 else
-                    StatEWaitEmptyJ += EnergyConsumption.P_SUPPORT * delta;
+                    StatEWaitEmptyJ += EnergyConsumption.SUPPORT_POWER_EMPTY * delta;
+            }
+
+            // Premature-arrival queueing energy [J] — bot is physically inside a station
+            // queue zone but has NOT yet entered GetItems/PutItems service. This captures
+            // the "arrived too early, waiting for station processing rhythm" waste that
+            // starvation-aware OB+PS optimizations aim to reduce. Strict subset of E_support.
+            bool inActiveStationService = StateQueueCount > 0 &&
+                (StateQueuePeek().Type == BotStateType.GetItems || StateQueuePeek().Type == BotStateType.PutItems);
+            if (hasSupportTask && inStationQueue && !inActiveStationService)
+            {
+                StatQueueingAtStationTimeSec += delta;
+                StatEQueueingAtStationJ      += EnergyConsumption.SupportPower(Pod) * delta;
             }
 
             // Station arrival (edge-triggered): start of GetItems/PutItems station processing.
@@ -1362,7 +2085,12 @@ namespace RAWSimO.Core.Bots
                 this.Pod.Moving = this.Moving;
 
             // Count distanceTraveled
-            this.StatDistanceTraveled += Math.Sqrt((X - xOld) * (X - xOld) + (Y - yOld) * (Y - yOld));
+            double stepDistance = Math.Sqrt((X - xOld) * (X - xOld) + (Y - yOld) * (Y - yOld));
+            this.StatDistanceTraveled += stepDistance;
+            // Same step, attributed to picking only. Read off CurrentTask before the lines below
+            // overwrite StatLastTask, so this is the task the step was actually driven under.
+            if (CurrentTask != null && CurrentTask.Type == Control.BotTaskType.Extract)
+                this.StatDistanceTraveledExtract += stepDistance;
 
             // Compute time in previous task
             this.StatTotalTaskTimes[StatLastTask] += delta;
@@ -1537,11 +2265,79 @@ namespace RAWSimO.Core.Bots
                     if (DestinationWaypoint.OutputStation != null)
                     {
                         if (!bot.IsInStationQueueZone(DestinationWaypoint.OutputStation))
+                        {
                             // Start the trip now
                             bot._queueTripStartTime = bot.Instance.Controller.CurrentTime;
+                            bot.Instance.NotifySlowStartStationTripStart(bot.CurrentTask as ExtractTask, bot, bot._queueTripStartTime);
+                            // ── JIT validation hook: compute expected ideal travel duration
+                            //    from current pos to the rearmost queue waypoint. End-condition
+                            //    is the same _updateStationArrival check that closes the trip below.
+                            // Use the ACTUAL BotMove destination (station.Waypoint) as the reference point
+                            // for both expected and actual measurements. This eliminates the bbox-vs-waypoint
+                            // ambiguity introduced by IsInStationQueueZone (which can trigger before reaching
+                            // queue.Last() and depends on the approach angle).
+                            var os = DestinationWaypoint.OutputStation;
+                            var stationDest = os.Waypoint;
+                            // Use TIME-optimal A* (turn-aware) — matches WHCA*n's path choice in no-conflict case.
+                            var path = bot.Instance.MetaInfoManager.TimeEfficientPathManager
+                                .GetShortestPathNodes(bot.CurrentWaypoint, stationDest, bot.Instance, emulatePodCarrying: true);
+                            var dest = bot.ResolveFirstQueueWaypointOnPath(os, path) ??
+                                Control.JIT.JITArrivalETA.ResolveQueueRearWaypoint(os);
+                            int checkpointIndex = path != null ? path.IndexOf(dest) : -1;
+                            if (checkpointIndex > 0)
+                            {
+                                bot._lastTripExpectedDurationSec = Control.JIT.IdealTravelTime.ComputeToCheckpoint(
+                                    path, checkpointIndex, bot.Physics, bot.Instance.StraightOrientationTolerance,
+                                    initialOrientation: bot.Orientation);
+                            }
+                            else
+                            {
+                                path = bot.Instance.MetaInfoManager.TimeEfficientPathManager
+                                    .GetShortestPathNodes(bot.CurrentWaypoint, dest, bot.Instance, emulatePodCarrying: true);
+                                checkpointIndex = path != null ? path.Count - 1 : -1;
+                                bot._lastTripExpectedDurationSec = Control.JIT.IdealTravelTime.Compute(
+                                    path, bot.Physics, bot.Instance.StraightOrientationTolerance,
+                                    initialOrientation: bot.Orientation);
+                            }
+                            // Trip start time is recorded at BotMove init. The bot then waits for the
+                            // path planner (WHCA*n) to produce a plan; this latency = PathPlanningConfig.Clocking
+                            // (one planner cycle). Until then bot doesn't move. Account for this by
+                            // shifting the JIT start reference forward by Clocking. This isolates the pure
+                            // kinematic time so per-segment formula matches actual within numerical precision.
+                            bot._lastTripStartTimeForJIT = bot.Instance.Controller.CurrentTime
+                                + bot.Instance.ControllerConfig.PathPlanningConfig.Clocking;
+                            bot._lastTripJITDestination = dest;
+                            bot._lastTripJITTripId = ++bot._jitTripSequence;
+                            bot._lastTripJITStopGoCount = 0;
+                            bot._lastTripJITQueueStopGoCount = 0;
+                            bot._lastTripJITWaitSec = 0.0;
+                            bot._lastTripJITTaskId = bot.CurrentTask != null
+                                ? bot.CurrentTask.GetHashCode().ToString(IOConstants.FORMATTER)
+                                : "";
+                            bot._lastTripInitialOrientation = bot.Orientation;
+                            bot._lastTripJITEtaSurrogateTrace = bot.BuildEtaSurrogateActualLegTrace(
+                                "pod_to_station_queue", 2, bot.CurrentWaypoint, dest, bot.Pod, os,
+                                loaded: true, initialOrientation: bot.Orientation, stationQueueWaypoint: dest);
+                            // Start fresh actual-path trace; seed with current waypoint as start.
+                            bot._lastTripActualPath = new List<Waypoints.Waypoint> { bot.CurrentWaypoint };
+                            bot._lastTripActualArrivals = new List<double> { bot.Instance.Controller.CurrentTime };
+                            // Diagnostic
+                            bot._lastTripPathNodeCount = checkpointIndex >= 0 ? checkpointIndex + 1 : (path?.Count ?? 0);
+                            double pathLen = 0.0;
+                            if (path != null)
+                                for (int pi = 0; pi < Math.Min(path.Count - 1, checkpointIndex); pi++)
+                                    pathLen += path[pi].GetDistance(path[pi + 1]);
+                            bot._lastTripPathLength = pathLen;
+                            bot._lastTripSourceId = bot.CurrentWaypoint?.ID ?? -1;
+                            bot._lastTripDestId = dest?.ID ?? -1;
+                        }
                         else
+                        {
                             // Already at the location - no trip to do
                             bot._queueTripStartTime = double.NaN;
+                            bot._lastTripExpectedDurationSec = double.NaN;
+                            bot._lastTripJITEtaSurrogateTrace = null;
+                        }
                     }
                     else if (DestinationWaypoint.InputStation != null)
                     {
@@ -1669,7 +2465,10 @@ namespace RAWSimO.Core.Bots
 
                     // Set wait until time
                     if (bot.Path.NextAction.StopAtNode && bot.Path.NextAction.WaitTimeAfterStop > 0)
+                    {
                         bot._waitUntil = currentTime + bot.Path.NextAction.WaitTimeAfterStop;
+                        bot.MarkPlannedWaitStopGoIfForced(bot.Path.NextAction.WaitTimeAfterStop);
+                    }
 
                     //pop the node
                     bot.Path.RemoveFirstAction();
@@ -1900,6 +2699,12 @@ namespace RAWSimO.Core.Bots
                     self.StatTotalStateCounts[Type]++;
                     _initialized = true;
                     bot.CloseCurrentTrip(currentTime);
+                    // Per-pod input-station queue wait: from queue-zone arrival to storing start.
+                    if (!double.IsNaN(bot._potInputQueueArrivalTime))
+                    {
+                        bot.Instance.StatInputPodQueueWaitSamples.Add(currentTime - bot._potInputQueueArrivalTime);
+                        bot._potInputQueueArrivalTime = double.NaN;
+                    }
                 }
 
                 //#RealWorldIntegration.start
@@ -2014,6 +2819,15 @@ namespace RAWSimO.Core.Bots
                     self.StatTotalStateCounts[Type]++;
                     _initialized = true;
                     bot.CloseCurrentTrip(currentTime);
+                    bot.Instance.NotifySlowStartActualArrival(_extractTask, bot, currentTime);
+                    // Per-pod: picking begins NOW. Compute queue-wait (queue-zone arrival → picking start).
+                    if (!double.IsNaN(bot._potQueueArrivalTime))
+                    {
+                        double queueWait = currentTime - bot._potQueueArrivalTime;
+                        bot.Instance.StatPodQueueWaitSamples.Add(queueWait);
+                        bot._potQueueArrivalTime = double.NaN;
+                    }
+                    bot._potPickingStartTime = currentTime;
                 }
 
                 //#RealWorldIntegration.start
@@ -2066,7 +2880,15 @@ namespace RAWSimO.Core.Bots
                             }
                             else
                             {
-                                // We are done here
+                                // We are done here — record picking time for this pod visit.
+                                if (!double.IsNaN(bot._potPickingStartTime))
+                                {
+                                    bot.Instance.NotifySlowStartProcessingFinished(_extractTask, bot, currentTime);
+                                    bot.Instance.StatPodPickingTimeSamples.Add(currentTime - bot._potPickingStartTime);
+                                    bot._potPickingStartTime = double.NaN;
+                                }
+                                // Pure-observation: snapshot backfill potential at the pod-release moment.
+                                Control.BackfillProbe.OnExtractRelease(bot, _extractTask, currentTime);
                                 bot.DequeueState(lastTime, currentTime);
                                 return;
                             }
@@ -2084,7 +2906,15 @@ namespace RAWSimO.Core.Bots
                             }
                             else
                             {
-                                // We are done here
+                                // We are done here — record picking time for this pod visit.
+                                if (!double.IsNaN(bot._potPickingStartTime))
+                                {
+                                    bot.Instance.NotifySlowStartProcessingFinished(_extractTask, bot, currentTime);
+                                    bot.Instance.StatPodPickingTimeSamples.Add(currentTime - bot._potPickingStartTime);
+                                    bot._potPickingStartTime = double.NaN;
+                                }
+                                // Pure-observation: snapshot backfill potential at the pod-release moment.
+                                Control.BackfillProbe.OnExtractRelease(bot, _extractTask, currentTime);
                                 bot.DequeueState(lastTime, currentTime);
                                 return;
                             }
@@ -2168,6 +2998,329 @@ namespace RAWSimO.Core.Bots
             /// </summary>
             public BotStateType Type { get { return BotStateType.UseElevator; } }
         }
+        #endregion
+
+        #region SlowStartHold state
+
+        /// <summary>
+        /// PP-aware slow-start hold: keep bot stationary at the pod cell after lift
+        /// for a duration computed by SlowStartController, before starting the
+        /// pod→station traversal. The decision is made once on first entry to this
+        /// state; the bot does not re-evaluate during the hold.
+        /// </summary>
+        internal class BotSlowStartHold : IBotState
+        {
+            // Per-tick release tolerance: if probe ETA + currentTime is within this
+            // seconds of the remaining station-busy window, release early.
+            private const double RELEASE_TOLERANCE_SEC = 1.0;
+            // Wake-up interval during hold (event-driven scheduler) — bounds probe cost
+            // (~1 A* per interval per hold) and clearance-detection latency.
+            private const double PROBE_INTERVAL = 1.0;
+
+            private ExtractTask _task;
+            private bool _initialized = false;
+            private bool _holdFinished = false;
+            private double _holdStartTime = 0.0;       // when hold began
+            private Waypoint _claimedStorage = null;   // pod cell re-claimed during hold (null if no claim)
+            private SlowStartDecisionTrace _trace = null;
+            private struct FutureEtaProbe
+            {
+                public double BestEta;
+                public double BestDelay;
+                public bool HasFeasibleFuture;
+            }
+            public BotSlowStartHold(ExtractTask task) { _task = task; }
+            public Waypoint DestinationWaypoint { get { return _task != null && _task.ReservedPod != null ? _task.ReservedPod.Waypoint : null; } }
+
+            public void Act(Bot self, double lastTime, double currentTime)
+            {
+                var bot = self as BotNormal;
+                bot._lastExteriorState = Type;
+
+                // ── First-tick setup ──
+                if (!_initialized)
+                {
+                    self.StatTotalStateCounts[Type]++;
+                    _initialized = true;
+                    _holdStartTime = currentTime;
+
+                    // Mark holding state IMMEDIATELY so other bots' ComputeStarvation
+                    // calls in this same tick can sequence us via FIFO (_slowStartHoldStartTime).
+                    bot._isSlowStartHolding = true;
+                    bot._slowStartHoldStartTime = currentTime;
+
+                    // Re-claim the pod storage location so no other task targets this cell
+                    // for pod placement during hold (rev6 fix — cures loaded-wait inflation).
+                    // Only meaningful for post-lift hold (pod has left the cell). For pre-lift
+                    // hold the pod is still physically there; claim is a no-op or harmless.
+                    var podWp = (bot.CurrentWaypoint != null && bot.CurrentWaypoint.PodStorageLocation
+                                 ? bot.CurrentWaypoint : null);
+                    if (podWp != null)
+                    {
+                        try
+                        {
+                            bot.Instance.ResourceManager.ClaimStorageLocation(podWp);
+                            _claimedStorage = podWp;
+                        }
+                        catch (System.InvalidOperationException) { _claimedStorage = null; }
+                    }
+                }
+
+                // ── Read centralized scheduler decision ──
+                // StationReleaseScheduler (run each tick in PathManager.Update) writes
+                // bot._slowStartReleaseDeadline. We hold until that deadline, then release.
+                // First tick before the scheduler has run: deadline is NaN → keep probing.
+                if (!_holdFinished)
+                {
+                    if (_trace == null)
+                    {
+                        bot.StatSlowStartDecisionCount++;
+                        _trace = bot.Instance.NotifySlowStartDecision(
+                            bot, _task, BuildDiag(bot), currentTime,
+                            double.IsNaN(bot._slowStartReleaseDeadline) ? currentTime : bot._slowStartReleaseDeadline);
+                    }
+
+                    double deadline = bot._slowStartReleaseDeadline;
+                    bool release = !double.IsNaN(deadline) && currentTime >= deadline;
+
+                    if (release)
+                    {
+                        if (_task != null && !double.IsNaN(bot._slowStartEta) && !double.IsInfinity(bot._slowStartEta))
+                        {
+                            double liftTime = (bot.Pod == null) ? bot.PodTransferTime : 0.0;
+                            _task.ExpectedArrivalAtStation = currentTime + liftTime + bot._slowStartEta;
+                        }
+                        bool everHeld = (currentTime - _holdStartTime) > 0.0;
+                        if (!everHeld) bot.StatSlowStartImmediateReleaseCount++;
+                        bot.Instance.NotifySlowStartRelease(
+                            _trace, currentTime,
+                            everHeld ? "hard_deadline" : "immediate_release",
+                            bot._slowStartEta, bot._slowStartTStarve);
+                        _holdFinished = true;
+                    }
+                    else
+                    {
+                        bot.BlockedUntil = double.IsNaN(deadline) ? currentTime + PROBE_INTERVAL : deadline;
+                        bot.WaitUntil(currentTime + PROBE_INTERVAL);
+                    }
+                }
+
+                if (_holdFinished)
+                {
+                    bot._isSlowStartHolding = false;
+                    bot._slowStartHoldStartTime = double.NaN;
+                    bot._slowStartReleaseDeadline = double.NaN;
+                    bot._slowStartIsChosen = false;
+                    bot._slowStartEta = double.NaN;
+                    bot._slowStartTStarve = double.NaN;
+                    bot.RequestReoptimization = true;
+                    // Unblock so subsequent BotMove states can act.
+                    bot.BlockedUntil = -1.0;
+                    bot.WaitUntil(-1.0);
+
+                    // Release the storage location we re-claimed at hold start. Bot is about
+                    // to start moving toward the station — the cell becomes available for
+                    // other tasks again.
+                    if (_claimedStorage != null)
+                    {
+                        try { bot.Instance.ResourceManager.ReleaseStorageLocation(_claimedStorage); }
+                        catch (System.InvalidOperationException) { /* already released somehow */ }
+                        _claimedStorage = null;
+                    }
+
+                    bot.DequeueState(lastTime, currentTime);
+                }
+            }
+            private SlowStartController.HoldDiagnostics BuildDiag(BotNormal bot)
+            {
+                return new SlowStartController.HoldDiagnostics
+                {
+                    Eta = bot._slowStartEta,
+                    TStarve = bot._slowStartTStarve,
+                    ReleaseBudget = bot._slowStartTStarve,
+                    Delay = double.IsNaN(bot._slowStartReleaseDeadline) ? 0.0
+                            : Math.Max(0.0, bot._slowStartReleaseDeadline - bot.Instance.Controller.CurrentTime),
+                    EtaProbeFailed = double.IsNaN(bot._slowStartEta),
+                    ImmediateRelease = bot._slowStartIsChosen && bot._slowStartReleaseDeadline <= bot.Instance.Controller.CurrentTime
+                };
+            }
+            public override string ToString() { return "SlowStartHold"; }
+            public BotStateType Type { get { return BotStateType.SlowStartHold; } }
+
+            private double EstimateEtaForReleaseTrace(BotNormal bot, double currentTime)
+            {
+                var stationWp = _task != null && _task.OutputStation != null
+                                ? _task.OutputStation.Waypoint : null;
+                var pm = bot.Instance.Controller?.PathManager;
+                if (pm == null || stationWp == null)
+                    return double.NaN;
+                return pm.EstimateReservationAwareEta(
+                    bot, bot.CurrentWaypoint, stationWp,
+                    currentTime, bot.GetTargetOrientation());
+            }
+
+            private bool ShouldReleaseNow(BotNormal bot, PathManager pm, Waypoint stationWp, double currentTime, double eta, double remainingTStarve, out FutureEtaProbe futureProbe)
+            {
+                futureProbe = new FutureEtaProbe { BestEta = double.NaN, BestDelay = double.NaN, HasFeasibleFuture = false };
+
+                if (!UsesEtaImprovementPolicy(bot.Instance.SettingConfig.SlowStartReleasePolicy))
+                    return eta <= remainingTStarve + RELEASE_TOLERANCE_SEC;
+
+                double safetyBuffer = Math.Max(0.0, bot.Instance.SettingConfig.SlowStartEtaSafetyBuffer);
+                double safeRemaining = remainingTStarve - safetyBuffer;
+                if (eta > safeRemaining + RELEASE_TOLERANCE_SEC)
+                    return true;
+
+                int lookahead = Math.Max(0, bot.Instance.SettingConfig.SlowStartEtaImprovementLookaheadSec);
+                if (lookahead <= 0)
+                    return true;
+
+                futureProbe = FindBestFeasibleFutureEta(bot, pm, stationWp, currentTime, remainingTStarve, safetyBuffer, lookahead);
+                if (!futureProbe.HasFeasibleFuture)
+                    return true;
+
+                double margin = Math.Max(0.0, bot.Instance.SettingConfig.SlowStartEtaImprovementReleaseMargin);
+                return eta <= futureProbe.BestEta + margin;
+            }
+
+            private FutureEtaProbe FindBestFeasibleFutureEta(BotNormal bot, PathManager pm, Waypoint stationWp, double currentTime, double remainingTStarve, double safetyBuffer, int lookahead)
+            {
+                FutureEtaProbe result = new FutureEtaProbe { BestEta = double.NaN, BestDelay = double.NaN, HasFeasibleFuture = false };
+                for (int delay = 1; delay <= lookahead; delay++)
+                {
+                    double safeRemainingAfterDelay = remainingTStarve - delay - safetyBuffer;
+                    if (safeRemainingAfterDelay + RELEASE_TOLERANCE_SEC <= 0.0)
+                        break;
+
+                    double futureEta = pm.EstimateReservationAwareEta(
+                        bot, bot.CurrentWaypoint, stationWp,
+                        currentTime + delay, bot.GetTargetOrientation());
+
+                    if (double.IsNaN(futureEta) || double.IsInfinity(futureEta))
+                        continue;
+                    if (futureEta > safeRemainingAfterDelay + RELEASE_TOLERANCE_SEC)
+                        continue;
+
+                    if (!result.HasFeasibleFuture || futureEta < result.BestEta)
+                    {
+                        result.HasFeasibleFuture = true;
+                        result.BestEta = futureEta;
+                        result.BestDelay = delay;
+                    }
+                }
+                return result;
+            }
+
+            private bool UsesEtaImprovementPolicy(SlowStartReleasePolicy policy)
+            {
+                return policy == SlowStartReleasePolicy.ReservationEtaImprovement ||
+                       policy == SlowStartReleasePolicy.QueueBudgetEtaImprovement;
+            }
+        }
+
+        /// <summary>
+        /// Input-station (replenishment) slow-start hold. Mirrors BotSlowStartHold but for
+        /// store/InsertTask, stripped of output-only telemetry. Keeps the bot stationary at the
+        /// pod cell, reading the release deadline written each tick by InputStationReleaseScheduler,
+        /// then releases. See docs/superpowers/plans/2026-05-30-input-station-slow-start.md.
+        /// </summary>
+        internal class BotSlowStartHoldInput : IBotState
+        {
+            private const double PROBE_INTERVAL = 1.0;
+            private readonly InsertTask _task;
+            private bool _initialized = false;
+            private bool _holdFinished = false;
+            private double _holdStartTime = 0.0;
+            private Waypoint _claimedStorage = null;
+
+            public BotSlowStartHoldInput(InsertTask task) { _task = task; }
+            public Waypoint DestinationWaypoint
+            {
+                get { return _task != null && _task.ReservedPod != null ? _task.ReservedPod.Waypoint : null; }
+            }
+
+            public void Act(Bot self, double lastTime, double currentTime)
+            {
+                var bot = self as BotNormal;
+                bot._lastExteriorState = Type;
+
+                // First-tick setup: mark holding so the scheduler picks us up; re-claim pod cell.
+                if (!_initialized)
+                {
+                    self.StatTotalStateCounts[Type]++;
+                    _initialized = true;
+                    _holdStartTime = currentTime;
+                    bot._isSlowStartHolding = true;
+                    bot._slowStartHoldStartTime = currentTime;
+
+                    var podWp = (bot.CurrentWaypoint != null && bot.CurrentWaypoint.PodStorageLocation)
+                                ? bot.CurrentWaypoint : null;
+                    if (podWp != null)
+                    {
+                        try { bot.Instance.ResourceManager.ClaimStorageLocation(podWp); _claimedStorage = podWp; }
+                        catch (System.InvalidOperationException) { _claimedStorage = null; }
+                    }
+                }
+
+                // Read scheduler-written deadline; hold until then.
+                if (!_holdFinished)
+                {
+                    double deadline = bot._slowStartReleaseDeadline;
+                    bool release = !double.IsNaN(deadline) && currentTime >= deadline;
+                    if (release)
+                    {
+                        _holdFinished = true;
+                        // Release-event trace (gated): time, station, bot, pods inbound to station,
+                        // holder's est/eta at release. Lets us detect synchronized releases at the
+                        // same input station (two holders released within seconds of each other).
+                        var inst = bot.Instance;
+                        if (inst.SettingConfig != null && inst.SettingConfig.BackfillProbeEnabled
+                            && _task != null && _task.InputStation != null)
+                        {
+                            inst.StatInputReleaseRows.Add(string.Join(";", new[]
+                            {
+                                currentTime.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                                _task.InputStation.ID.ToString(),
+                                bot.ID.ToString(),
+                                _task.InputStation.GetInfoOpenBundles().ToString(),
+                                (_task.Requests != null ? _task.Requests.Count : 0).ToString()
+                            }));
+                        }
+                    }
+                    else
+                    {
+                        bot.BlockedUntil = double.IsNaN(deadline) ? currentTime + PROBE_INTERVAL : deadline;
+                        bot.WaitUntil(currentTime + PROBE_INTERVAL);
+                    }
+                }
+
+                if (_holdFinished)
+                {
+                    bot._isSlowStartHolding = false;
+                    bot._slowStartHoldStartTime = double.NaN;
+                    bot._slowStartReleaseDeadline = double.NaN;
+                    bot._slowStartIsChosen = false;
+                    bot._slowStartEta = double.NaN;
+                    bot._slowStartTStarve = double.NaN;
+                    bot.RequestReoptimization = true;
+                    bot.BlockedUntil = -1.0;
+                    bot.WaitUntil(-1.0);
+
+                    if (_claimedStorage != null)
+                    {
+                        try { bot.Instance.ResourceManager.ReleaseStorageLocation(_claimedStorage); }
+                        catch (System.InvalidOperationException) { /* already released */ }
+                        _claimedStorage = null;
+                    }
+
+                    bot.DequeueState(lastTime, currentTime);
+                }
+            }
+
+            public override string ToString() { return "SlowStartHoldInput"; }
+            public BotStateType Type { get { return BotStateType.SlowStartHold; } }
+        }
+
         #endregion
 
         #region Rest state

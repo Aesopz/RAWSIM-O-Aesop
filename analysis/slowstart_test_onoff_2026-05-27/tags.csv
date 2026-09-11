@@ -1,0 +1,3 @@
+Tag;Instance;Setting;Config;Seed;Timestamp
+test_off_seed0_after_estfix;Material\Instances\CoreBenchmark\test.xlayo;Material\Instances\CoreBenchmark\test_off.xsett;Material\Instances\CoreBenchmark\test.xconf;0;20260527-170614
+test_on_seed0_after_estfix;Material\Instances\CoreBenchmark\test.xlayo;Material\Instances\CoreBenchmark\test.xsett;Material\Instances\CoreBenchmark\test.xconf;0;20260527-170705

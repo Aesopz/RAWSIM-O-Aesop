@@ -1,0 +1,5 @@
+Tag;Instance;Setting;Config;Seed;Timestamp
+sequ-whcan;Material\Instances\CoreBenchmark\1-6-12-60-0.89-large.xlayo;Material\Instances\CoreBenchmark\large_7200_300.xsett;Material\Instances\CoreBenchmark\sequ_whcan.xconf;0;20260520-111112
+sequ-whcan-p;Material\Instances\CoreBenchmark\1-6-12-60-0.89-large.xlayo;Material\Instances\CoreBenchmark\large_7200_300.xsett;Material\Instances\CoreBenchmark\sequ_whcan_priority.xconf;0;20260520-112037
+sequ-whcav;Material\Instances\CoreBenchmark\1-6-12-60-0.89-large.xlayo;Material\Instances\CoreBenchmark\large_7200_300.xsett;Material\Instances\CoreBenchmark\sequ_whcav.xconf;0;20260520-112939
+sequ-whcav-p;Material\Instances\CoreBenchmark\1-6-12-60-0.89-large.xlayo;Material\Instances\CoreBenchmark\large_7200_300.xsett;Material\Instances\CoreBenchmark\sequ_whcav_priority.xconf;0;20260520-114507

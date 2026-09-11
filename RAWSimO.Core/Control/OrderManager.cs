@@ -49,6 +49,13 @@ namespace RAWSimO.Core.Control
         /// </summary>
         protected HashSet<Order> _pendingOrders = new HashSet<Order>();
         /// <summary>
+        /// Read-only live view of the current backlog (orders not yet assigned to any station).
+        /// Exposed for the pure-observation backfill-potential probe (BackfillProbeEnabled).
+        /// The simulation is single-threaded during Update, so the probe enumerates it in-tick
+        /// without copying. Do NOT mutate.
+        /// </summary>
+        public IReadOnlyCollection<Order> BacklogSnapshot { get { return _pendingOrders; } }
+        /// <summary>
         ///已分配给工作站的Pods
         /// </summary>
         protected Dictionary<OutputStation, HashSet<Pod>> _inboundPodsPerStation = new Dictionary<OutputStation, HashSet<Pod>>();
@@ -228,9 +235,18 @@ namespace RAWSimO.Core.Control
 
         #endregion Signals
         /// <summary>
-        /// 开始执行分配决策的工作站空闲容量的阈值
+        /// 开始执行分配决策的工作站空闲容量的阈值。Read from SettingConfig.OrderBatchingTriggerThreshold
+        /// (default 1) so it can be swept per-run without recompiling.
         /// </summary>
-        private int _ThresholdValue = 1;
+        private int _ThresholdValue
+        {
+            get
+            {
+                return (Instance != null && Instance.SettingConfig != null && Instance.SettingConfig.OrderBatchingTriggerThreshold > 0)
+                    ? Instance.SettingConfig.OrderBatchingTriggerThreshold
+                    : 1;
+            }
+        }
 
         #region Methods (abstract)
 
@@ -278,20 +294,34 @@ namespace RAWSimO.Core.Control
                 SituationInvestigated = false;
                 idoforder++;
             }
-            if (Instance.ControllerConfig.OrderBatchingConfig is HADGSConfiguration)
+            if (Instance.ControllerConfig.OrderBatchingConfig is HADGSConfiguration hadgsConfig)
             {
-                GenerateCs();
-                //Decide about remaining orders
-                if (!SituationInvestigated || Cs.Any(v => v.Value > _ThresholdValue - 1))
+                if (hadgsConfig.UseM1GTriggerGate)
                 {
-                    //Measure time for decision
-                    DateTime before = DateTime.Now;
-                    if (Cs.Any(v => v.Value > _ThresholdValue - 1))
-                        DecideAboutPendingOrders();// Do the actual work
-                                                   //Calculate decision time
-                    Instance.Observer.TimeOrderBatching((DateTime.Now - before).TotalSeconds);
-                    //Remember that we had a look at the situation
-                    SituationInvestigated = true;
+                    if (!SituationInvestigated)
+                    {
+                        GenerateCs();
+                        if (Cs.Any(v => v.Value > _ThresholdValue - 1))
+                        {
+                            DateTime before = DateTime.Now;
+                            DecideAboutPendingOrders();
+                            Instance.Observer.TimeOrderBatching((DateTime.Now - before).TotalSeconds);
+                        }
+                        SituationInvestigated = true;
+                    }
+                }
+                else
+                {
+                    GenerateCs();
+                    // Legacy HADGS trigger: keep re-evaluating while station capacity exists.
+                    if (!SituationInvestigated || Cs.Any(v => v.Value > _ThresholdValue - 1))
+                    {
+                        DateTime before = DateTime.Now;
+                        if (Cs.Any(v => v.Value > _ThresholdValue - 1))
+                            DecideAboutPendingOrders();
+                        Instance.Observer.TimeOrderBatching((DateTime.Now - before).TotalSeconds);
+                        SituationInvestigated = true;
+                    }
                 }
             }
             else

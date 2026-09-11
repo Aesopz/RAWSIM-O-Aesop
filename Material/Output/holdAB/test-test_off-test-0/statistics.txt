@@ -1,0 +1,643 @@
+>>> Bots
+Bot0:
+DistanceTraveled: 1355
+DistanceEstimated: 1133
+NumberOfPickups: 33
+NumberOfSetdowns: 32
+NumCollisions: 0
+TotalTimeMoving: 1466.79119770956
+None: 0.42
+ParkPod: 466.196500662606
+RepositionPod: 0
+Insert: 194.819350653014
+Extract: 5132.15815294344
+Rest: 1294.65968985409
+PickupPod: 74.0407287525311
+SetdownPod: 71.7490620858633
+GetItems: 60.2242568616221
+PutItems: 2434.30298693937
+Rest: 1161.214870244
+Move: 3286.72178922977
+Evade: 0
+UseElevator: 0
+SlowStartHold: 0
+PickupPod_Count: 33
+SetdownPod_Count: 32
+GetItems_Count: 4
+PutItems_Count: 29
+Rest_Count: 225
+Move_Count: 118
+Evade_Count: 0
+UseElevator_Count: 0
+SlowStartHold_Count: 0
+StatSlowStartHoldTimeSec: 0
+StatSlowStartHoldEnergyJ: 0
+StatSlowStartDecisionCount: 0
+StatSlowStartImmediateReleaseCount: 0
+StatSlowStartSearchFailures: 0
+StatSlowStartExpectedArrivalMissingCount: 0
+Bot1:
+DistanceTraveled: 1807.92585138589
+DistanceEstimated: 1612
+NumberOfPickups: 46
+NumberOfSetdowns: 45
+NumCollisions: 0
+TotalTimeMoving: 1912.16010255243
+None: 0.42
+ParkPod: 679.509597914236
+RepositionPod: 0
+Insert: 1245.44056808985
+Extract: 3378.88517319697
+Rest: 1758.31991340153
+PickupPod: 103.176118304037
+SetdownPod: 100.884437251524
+GetItems: 391.643520916159
+PutItems: 1306.76829017581
+Rest: 1631.90665762222
+Move: 3528.19622833284
+Evade: 0
+UseElevator: 0
+SlowStartHold: 0
+PickupPod_Count: 46
+SetdownPod_Count: 45
+GetItems_Count: 24
+PutItems_Count: 21
+Rest_Count: 316
+Move_Count: 156
+Evade_Count: 0
+UseElevator_Count: 0
+SlowStartHold_Count: 0
+StatSlowStartHoldTimeSec: 0
+StatSlowStartHoldEnergyJ: 0
+StatSlowStartDecisionCount: 0
+StatSlowStartImmediateReleaseCount: 0
+StatSlowStartSearchFailures: 0
+StatSlowStartExpectedArrivalMissingCount: 0
+Bot2:
+DistanceTraveled: 1608
+DistanceEstimated: 1429
+NumberOfPickups: 41
+NumberOfSetdowns: 40
+NumCollisions: 0
+TotalTimeMoving: 1721.36347028223
+None: 0.42
+ParkPod: 614.05091633536
+RepositionPod: 0
+Insert: 1042.19872288484
+Extract: 3565.35582973686
+Rest: 1828.01468957066
+PickupPod: 91.5147258186798
+SetdownPod: 89.6343000191404
+GetItems: 321.299639220183
+PutItems: 1490.42711404495
+Rest: 1722.26054836268
+Move: 3334.9038310621
+Evade: 0
+UseElevator: 0
+SlowStartHold: 0
+PickupPod_Count: 41
+SetdownPod_Count: 40
+GetItems_Count: 20
+PutItems_Count: 20
+Rest_Count: 335
+Move_Count: 138
+Evade_Count: 0
+UseElevator_Count: 0
+SlowStartHold_Count: 0
+StatSlowStartHoldTimeSec: 0
+StatSlowStartHoldEnergyJ: 0
+StatSlowStartDecisionCount: 0
+StatSlowStartImmediateReleaseCount: 0
+StatSlowStartSearchFailures: 0
+StatSlowStartExpectedArrivalMissingCount: 0
+Bot3:
+DistanceTraveled: 1278
+DistanceEstimated: 1088
+NumberOfPickups: 33
+NumberOfSetdowns: 32
+NumCollisions: 0
+TotalTimeMoving: 1395.05389661743
+None: 0.42
+ParkPod: 475.444939502537
+RepositionPod: 0
+Insert: 457.49972848937
+Extract: 3623.16691926919
+Rest: 2460.87303038031
+PickupPod: 74.0352840449089
+SetdownPod: 71.7461254969646
+GetItems: 130.577777777778
+PutItems: 1283.16007221264
+Rest: 2340.83799441571
+Move: 3117.04736369341
+Evade: 0
+UseElevator: 0
+SlowStartHold: 0
+PickupPod_Count: 33
+SetdownPod_Count: 32
+GetItems_Count: 9
+PutItems_Count: 23
+Rest_Count: 459
+Move_Count: 115
+Evade_Count: 0
+UseElevator_Count: 0
+SlowStartHold_Count: 0
+StatSlowStartHoldTimeSec: 0
+StatSlowStartHoldEnergyJ: 0
+StatSlowStartDecisionCount: 0
+StatSlowStartImmediateReleaseCount: 0
+StatSlowStartSearchFailures: 0
+StatSlowStartExpectedArrivalMissingCount: 0
+>>> Pods
+Pod0(0.31%0.31%):
+SimpleItemDescription76 SimpleItemDescription61 
+StatItemsHandledAtOutputStations: 9
+StatBundlesHandledAtInputStations: 0
+Pod1(0.29%0.29%):
+SimpleItemDescription6 SimpleItemDescription10 
+StatItemsHandledAtOutputStations: 29
+StatBundlesHandledAtInputStations: 2
+Pod2(0.81%0.81%):
+SimpleItemDescription69 SimpleItemDescription67 SimpleItemDescription45 
+StatItemsHandledAtOutputStations: 5
+StatBundlesHandledAtInputStations: 1
+Pod3(0.60%0.60%):
+SimpleItemDescription54 SimpleItemDescription1 SimpleItemDescription5 
+StatItemsHandledAtOutputStations: 20
+StatBundlesHandledAtInputStations: 2
+Pod4(0.69%0.69%):
+SimpleItemDescription76 SimpleItemDescription75 SimpleItemDescription95 
+StatItemsHandledAtOutputStations: 0
+StatBundlesHandledAtInputStations: 0
+Pod5(0.55%0.55%):
+SimpleItemDescription40 SimpleItemDescription92 SimpleItemDescription11 
+StatItemsHandledAtOutputStations: 18
+StatBundlesHandledAtInputStations: 1
+Pod6(0.67%0.67%):
+SimpleItemDescription61 
+StatItemsHandledAtOutputStations: 0
+StatBundlesHandledAtInputStations: 0
+Pod7(0.73%0.73%):
+SimpleItemDescription98 SimpleItemDescription75 SimpleItemDescription93 SimpleItemDescription10 
+StatItemsHandledAtOutputStations: 15
+StatBundlesHandledAtInputStations: 3
+Pod8(0.72%0.72%):
+SimpleItemDescription93 SimpleItemDescription38 
+StatItemsHandledAtOutputStations: 0
+StatBundlesHandledAtInputStations: 1
+Pod9(0.66%0.66%):
+SimpleItemDescription14 SimpleItemDescription69 SimpleItemDescription32 SimpleItemDescription74 SimpleItemDescription43 
+StatItemsHandledAtOutputStations: 25
+StatBundlesHandledAtInputStations: 5
+Pod10(0.33%0.33%):
+SimpleItemDescription92 SimpleItemDescription80 SimpleItemDescription43 
+StatItemsHandledAtOutputStations: 15
+StatBundlesHandledAtInputStations: 2
+Pod11(0.60%0.60%):
+SimpleItemDescription10 SimpleItemDescription74 SimpleItemDescription92 
+StatItemsHandledAtOutputStations: 11
+StatBundlesHandledAtInputStations: 0
+Pod12(0.85%0.85%):
+SimpleItemDescription2 
+StatItemsHandledAtOutputStations: 0
+StatBundlesHandledAtInputStations: 0
+Pod13(0.81%0.81%):
+SimpleItemDescription68 SimpleItemDescription85 SimpleItemDescription38 
+StatItemsHandledAtOutputStations: 13
+StatBundlesHandledAtInputStations: 3
+Pod14(0.44%0.44%):
+SimpleItemDescription51 SimpleItemDescription98 SimpleItemDescription76 
+StatItemsHandledAtOutputStations: 13
+StatBundlesHandledAtInputStations: 1
+Pod15(0.64%0.64%):
+SimpleItemDescription36 SimpleItemDescription40 SimpleItemDescription54 SimpleItemDescription25 
+StatItemsHandledAtOutputStations: 21
+StatBundlesHandledAtInputStations: 3
+Pod16(0.80%0.80%):
+SimpleItemDescription40 SimpleItemDescription9 
+StatItemsHandledAtOutputStations: 2
+StatBundlesHandledAtInputStations: 0
+Pod17(0.41%0.41%):
+SimpleItemDescription36 SimpleItemDescription51 SimpleItemDescription54 
+StatItemsHandledAtOutputStations: 5
+StatBundlesHandledAtInputStations: 1
+Pod18(0.61%0.61%):
+SimpleItemDescription32 SimpleItemDescription75 SimpleItemDescription48 SimpleItemDescription76 
+StatItemsHandledAtOutputStations: 31
+StatBundlesHandledAtInputStations: 7
+Pod19(0.74%0.74%):
+SimpleItemDescription59 SimpleItemDescription45 SimpleItemDescription8 
+StatItemsHandledAtOutputStations: 9
+StatBundlesHandledAtInputStations: 1
+Pod20(0.67%0.67%):
+SimpleItemDescription90 SimpleItemDescription32 
+StatItemsHandledAtOutputStations: 5
+StatBundlesHandledAtInputStations: 1
+Pod21(0.51%0.51%):
+SimpleItemDescription80 SimpleItemDescription45 
+StatItemsHandledAtOutputStations: 35
+StatBundlesHandledAtInputStations: 3
+Pod22(0.41%0.41%):
+SimpleItemDescription26 SimpleItemDescription5 SimpleItemDescription98 
+StatItemsHandledAtOutputStations: 18
+StatBundlesHandledAtInputStations: 2
+Pod23(0.47%0.47%):
+SimpleItemDescription31 SimpleItemDescription46 
+StatItemsHandledAtOutputStations: 8
+StatBundlesHandledAtInputStations: 0
+Pod24(0.86%0.86%):
+SimpleItemDescription90 SimpleItemDescription18 SimpleItemDescription1 
+StatItemsHandledAtOutputStations: 16
+StatBundlesHandledAtInputStations: 2
+Pod25(0.78%0.78%):
+SimpleItemDescription10 SimpleItemDescription85 SimpleItemDescription36 SimpleItemDescription5 
+StatItemsHandledAtOutputStations: 39
+StatBundlesHandledAtInputStations: 4
+Pod26(0.97%0.97%):
+SimpleItemDescription67 SimpleItemDescription9 
+StatItemsHandledAtOutputStations: 0
+StatBundlesHandledAtInputStations: 1
+Pod27(0.67%0.67%):
+SimpleItemDescription61 
+StatItemsHandledAtOutputStations: 12
+StatBundlesHandledAtInputStations: 1
+Pod28(0.65%0.65%):
+SimpleItemDescription32 SimpleItemDescription38 
+StatItemsHandledAtOutputStations: 5
+StatBundlesHandledAtInputStations: 0
+Pod29(0.71%0.71%):
+SimpleItemDescription31 
+StatItemsHandledAtOutputStations: 0
+StatBundlesHandledAtInputStations: 0
+Pod30(0.44%0.44%):
+SimpleItemDescription33 SimpleItemDescription76 SimpleItemDescription38 
+StatItemsHandledAtOutputStations: 19
+StatBundlesHandledAtInputStations: 1
+Pod31(0.61%0.61%):
+SimpleItemDescription36 SimpleItemDescription13 SimpleItemDescription95 
+StatItemsHandledAtOutputStations: 7
+StatBundlesHandledAtInputStations: 1
+Pod32(0.77%0.77%):
+SimpleItemDescription31 SimpleItemDescription45 
+StatItemsHandledAtOutputStations: 15
+StatBundlesHandledAtInputStations: 1
+Pod33(0.79%0.79%):
+SimpleItemDescription14 SimpleItemDescription90 
+StatItemsHandledAtOutputStations: 4
+StatBundlesHandledAtInputStations: 0
+Pod34(0.94%0.94%):
+SimpleItemDescription60 SimpleItemDescription43 SimpleItemDescription12 SimpleItemDescription75 SimpleItemDescription13 
+StatItemsHandledAtOutputStations: 9
+StatBundlesHandledAtInputStations: 3
+Pod35(0.74%0.74%):
+SimpleItemDescription61 
+StatItemsHandledAtOutputStations: 9
+StatBundlesHandledAtInputStations: 1
+Pod36(0.71%0.71%):
+SimpleItemDescription31 
+StatItemsHandledAtOutputStations: 8
+StatBundlesHandledAtInputStations: 1
+Pod37(0.90%0.90%):
+SimpleItemDescription93 SimpleItemDescription85 SimpleItemDescription13 SimpleItemDescription5 
+StatItemsHandledAtOutputStations: 10
+StatBundlesHandledAtInputStations: 2
+Pod38(0.57%0.57%):
+SimpleItemDescription45 SimpleItemDescription98 SimpleItemDescription81 SimpleItemDescription75 
+StatItemsHandledAtOutputStations: 9
+StatBundlesHandledAtInputStations: 2
+Pod39(0.62%0.62%):
+SimpleItemDescription98 
+StatItemsHandledAtOutputStations: 0
+StatBundlesHandledAtInputStations: 0
+Pod40(0.60%0.60%):
+SimpleItemDescription96 SimpleItemDescription54 
+StatItemsHandledAtOutputStations: 5
+StatBundlesHandledAtInputStations: 0
+Pod41(0.80%0.80%):
+SimpleItemDescription69 SimpleItemDescription63 SimpleItemDescription46 
+StatItemsHandledAtOutputStations: 4
+StatBundlesHandledAtInputStations: 1
+Pod42(0.29%0.29%):
+SimpleItemDescription85 SimpleItemDescription46 
+StatItemsHandledAtOutputStations: 10
+StatBundlesHandledAtInputStations: 0
+Pod43(0.93%0.93%):
+SimpleItemDescription76 SimpleItemDescription5 SimpleItemDescription85 
+StatItemsHandledAtOutputStations: 0
+StatBundlesHandledAtInputStations: 0
+Pod44(0.84%0.84%):
+SimpleItemDescription39 
+StatItemsHandledAtOutputStations: 12
+StatBundlesHandledAtInputStations: 1
+Pod45(0.90%0.90%):
+SimpleItemDescription43 SimpleItemDescription79 
+StatItemsHandledAtOutputStations: 1
+StatBundlesHandledAtInputStations: 0
+Pod46(1.00%1.00%):
+SimpleItemDescription10 SimpleItemDescription85 SimpleItemDescription38 
+StatItemsHandledAtOutputStations: 20
+StatBundlesHandledAtInputStations: 2
+Pod47(0.75%0.75%):
+SimpleItemDescription15 SimpleItemDescription22 SimpleItemDescription52 
+StatItemsHandledAtOutputStations: 5
+StatBundlesHandledAtInputStations: 0
+Pod48(0.77%0.77%):
+SimpleItemDescription11 
+StatItemsHandledAtOutputStations: 0
+StatBundlesHandledAtInputStations: 0
+Pod49(0.52%0.52%):
+SimpleItemDescription10 SimpleItemDescription64 
+StatItemsHandledAtOutputStations: 8
+StatBundlesHandledAtInputStations: 0
+Pod50(0.73%0.73%):
+SimpleItemDescription61 SimpleItemDescription81 SimpleItemDescription45 
+StatItemsHandledAtOutputStations: 28
+StatBundlesHandledAtInputStations: 4
+Pod51(0.60%0.60%):
+SimpleItemDescription5 SimpleItemDescription76 SimpleItemDescription82 
+StatItemsHandledAtOutputStations: 29
+StatBundlesHandledAtInputStations: 5
+Pod52(0.82%0.82%):
+SimpleItemDescription59 SimpleItemDescription5 SimpleItemDescription50 SimpleItemDescription69 
+StatItemsHandledAtOutputStations: 25
+StatBundlesHandledAtInputStations: 5
+Pod53(0.99%0.99%):
+SimpleItemDescription95 SimpleItemDescription38 
+StatItemsHandledAtOutputStations: 0
+StatBundlesHandledAtInputStations: 0
+Pod54(0.47%0.47%):
+SimpleItemDescription59 SimpleItemDescription50 
+StatItemsHandledAtOutputStations: 10
+StatBundlesHandledAtInputStations: 3
+Pod55(0.95%0.95%):
+SimpleItemDescription44 SimpleItemDescription61 
+StatItemsHandledAtOutputStations: 11
+StatBundlesHandledAtInputStations: 1
+Pod56(0.90%0.90%):
+SimpleItemDescription74 SimpleItemDescription22 SimpleItemDescription51 SimpleItemDescription26 
+StatItemsHandledAtOutputStations: 9
+StatBundlesHandledAtInputStations: 2
+Pod57(0.57%0.57%):
+SimpleItemDescription26 SimpleItemDescription89 SimpleItemDescription75 
+StatItemsHandledAtOutputStations: 4
+StatBundlesHandledAtInputStations: 1
+Pod58(0.72%0.72%):
+SimpleItemDescription37 SimpleItemDescription51 SimpleItemDescription22 
+StatItemsHandledAtOutputStations: 30
+StatBundlesHandledAtInputStations: 4
+Pod59(0.75%0.75%):
+SimpleItemDescription2 SimpleItemDescription13 SimpleItemDescription5 
+StatItemsHandledAtOutputStations: 11
+StatBundlesHandledAtInputStations: 2
+>>> InputStations
+InputStation0:
+IdleTime: 6317.44610844041
+UpTime: 7200
+DownTime: 1668.58990620858
+NumBundlesPut: 90
+NumInjectedBundlesPut: 0
+BundlePileOn: 1.60714285714286
+PodsHandled: 56
+PodHandlingTimeAvg: 16.1150436413946
+PodHandlingTimeVar: 57.8778600986202
+PodHandlingTimeMin: 10.0444444444444
+PodHandlingTimeMax: 30.4488888888886
+>>> OutputStations
+OutputStation0:
+IdleTime: 431.823543628516
+UpTime: 7200
+DownTime: 0
+NumItemsPicked: 691
+NumInjectedItemsPicked: 498
+NumOrdersFinished: 330
+ItemPileOn: 7.51086956521739
+OrderPileOn: 3.58695652173913
+PodsHandled: 92
+PodHandlingTimeAvg: 77.5892255935931
+PodHandlingTimeVar: 2577.43159880272
+PodHandlingTimeMin: 10.3388166762375
+PodHandlingTimeMax: 245.027145487334
+>>> Timings
+StatTimingPathPlanningAverage: 0.00101093526315789
+StatTimingPathPlanningOverall: 0.5762331
+StatTimingPathPlanningCount: 570
+StatTimingTaskAllocationAverage: 5.97875992669517E-05
+StatTimingTaskAllocationOverall: 0.0978723
+StatTimingTaskAllocationCount: 1637
+StatTimingItemStorageAverage: 1.18873198847262E-05
+StatTimingItemStorageOverall: 0.0082498
+StatTimingItemStorageCount: 694
+StatTimingPodStorageAverage: 0.000242101342281879
+StatTimingPodStorageOverall: 0.0360731
+StatTimingPodStorageCount: 149
+StatTimingReplenishmentBatchingAverage: 0.000174825688073394
+StatTimingReplenishmentBatchingOverall: 0.019056
+StatTimingReplenishmentBatchingCount: 109
+StatTimingOrderBatchingAverage: 0.00200287521633017
+StatTimingOrderBatchingOverall: 54.1617516000003
+StatTimingOrderBatchingCount: 27042
+>>> SlowStartProbeDiagnostics
+s_ProbeAttempts: 0
+s_ProbeEarlyExit: 0
+s_ProbeFromEqualsTo: 0
+s_ProbeSelfListNull: 0
+s_ProbeSelfListEmpty: 0
+s_ProbeSelfLastEndNotInf: 0
+s_ProbeSelfLastNodeMismatch: 0
+s_ProbeSelfRemovedOk: 0
+s_ProbeSearchSuccess: 0
+s_ProbeSearchFalse: 0
+s_ProbeGoalInvalid: 0
+s_ProbeArrivalInf: 0
+s_ProbeException: 0
+s_ProbeStartWaitOk: 0
+s_ProbeStartWaitBlocked: 0
+s_ProbeAnyMoveGenerated: 0
+s_ProbeOnlyWaits: 0
+s_ProbeGoalIsDest: 0
+s_ProbeGoalIsWindowExpiry: 0
+s_ProbeMaxNodeTimeSumMs: 0
+s_ProbeMaxNodeTimeSamples: 0
+>>> Overall
+StatOverallBundlesPlaced: 68
+StatOverallItemsOrdered: 774
+StatOverallOrdersPlaced: 334
+StatOverallBundlesRejected: 0
+StatOverallOrdersRejected: 0
+StatOverallBundlesHandled: 90
+StatOverallItemsHandled: 691
+StatOverallLinesHandled: 440
+StatOverallOrdersHandled: 330
+StatThroughputOrdersPerHour: 165
+StatOrderDistanceM: 18.330078337533
+StatInputStationArrivals: 57
+StatOutputStationArrivals: 93
+StatStationArrivalsTotal: 150
+StatSystemOrderPileOn: 3.54838709677419
+StatOverallCollisions: 0
+StatOverallDistanceTraveled: 6048.92585138589
+StatOverallDistanceEstimated: 5262
+StatOverallAssignedTasks: 1637
+StatMaxMemoryUsed: 107.83203125
+StatRealTimeUsed: 58.778175
+StatAverageTurnoverTime: 2247.7926996644
+StatMedianTurnoverTime: 1482.67917745605
+StatLowerQuartileTurnoverTime: 606.908802290392
+StatUpperQuartileTurnoverTime: 3280.53314575051
+StatAverageThroughputTime: 96.1909537718994
+StatMedianThroughputTime: 81.7944444444418
+StatLowerQuartileThroughputTime: 70.6866666666666
+StatUpperQuartileThroughputTime: 111.462409805045
+>>> KPI Summary
+KPI_TP: 165
+KPI_PO: 3.54838709677419
+KPI_RD: 6048.92585138589
+KPI_OD: 18.330078337533
+KPI_EOR: 2.33017732958185
+>>> Energy (Rizqi model)
+StatEnergyTotalKJ: 768.958518762011
+StatEnergyE1AccelKJ: 246.672356841481
+StatEnergyE2DecelKJ: 29.8661597969506
+StatEnergyE3CruiseKJ: 236.553053994604
+StatEnergyE4RotationKJ: 192.304382606125
+StatEnergyE5LiftLowerKJ: 63.5625655228495
+StatEnergyPerOrderKJ: 2.33017732958185
+StatEnergyPerMeterJoule: 127.121593447183
+StatEnergySupportKJ: 1141.65881982904
+StatEnergyTotalWithSupportKJ: 1910.61733859105
+StatEnergyPerOrderWithSupportKJ: 5.78974951088197
+StatDistanceTraveledRizqiM: 6049
+>>> Motion Behavior
+StatTurningCount: 1506
+StatLoadedDistanceM: 4596
+StatLoadedTurningCount: 1120
+StatEmptyTurningCount: 386
+StatWaitTimeSec: 231.070040770381
+StatPathPlanningTimeouts: 0
+StatMoveEnergyEmptyKJ: 98.14125
+StatMoveTimeEmptySec: 1564.68109644184
+StatTurnEnergyEmptyKJ: 37.9358942854213
+StatTurnTimeEmptySec: 221.512048741823
+StatMoveEnergyLoadedKJ: 414.950320633036
+StatMoveTimeLoadedSec: 5000.80793573862
+StatTurnEnergyLoadedKJ: 154.368488320704
+StatTurnTimeLoadedSec: 712.370278703566
+StatPrefEmptyW: 76.1827715285682
+StatPrefLoadedW: 99.6501050001511
+StatPickupCount: 153
+StatSetdownCount: 149
+PerTripWaitRatioEmptyCount: 196
+PerTripWaitRatioLoadedCount: 255
+StatTripCountLoaded: 302
+StatTripCountEmpty: 225
+>>> Per-Robot Trip Counts
+  Bot0: pickupCount=33, tripCountEmpty=53, setdownCount=32, tripCountLoaded=65, ordersCompleted=28
+  Bot1: pickupCount=46, tripCountEmpty=65, setdownCount=45, tripCountLoaded=91, ordersCompleted=21
+  Bot2: pickupCount=41, tripCountEmpty=57, setdownCount=40, tripCountLoaded=81, ordersCompleted=20
+  Bot3: pickupCount=33, tripCountEmpty=50, setdownCount=32, tripCountLoaded=65, ordersCompleted=23
+StatTripWaitRatioLoadedMean: 0.00999833241631904
+StatTripWaitRatioLoadedMedian: 0.00520054605731346
+StatTripWaitRatioLoadedP95: 0.0163024689277403
+StatTripWaitRatioEmptyMean: 0.0154720898682153
+StatTripWaitRatioEmptyMedian: 0.00494911348068628
+StatTripWaitRatioEmptyP95: 0.039799052805752
+>>> Support & Utilization
+StatESupportKJ: 1141.65881982904
+StatESupportPerOrderKJ: 3.45957218130012
+StatEWaitKJ: 9.88100319757725
+StatEWaitLoadedKJ: 8.76600397028271
+StatEWaitEmptyKJ: 1.11499922729454
+StatEWaitPerOrderKJ: 0.0299424339320523
+StatQueueingAtStationTimeSec: 7008.05300980282
+StatEQueueingAtStationKJ: 350.402650490109
+StatEQueueingAtStationPerOrderKJ: 1.06182621360639
+StatEQueueingShareOfSupport: 0.306924139159702
+StatStopAndGoCount: 61
+StatStopAndGoEnergyKJ: 9.21320115523085
+StatStopAndGoCountPerOrder: 0.184848484848485
+StatStopAndGoEnergyPerOrderKJ: 0.0279187913794874
+StatQueueStopAndGoCount: 5
+StatQueueStopAndGoEnergyKJ: 0.521772062185347
+StatQueueStopAndGoCountPerOrder: 0.0151515151515152
+StatQueueStopAndGoEnergyPerOrderKJ: 0.00158112746116772
+StatJITEtaSampleCount: 93
+StatJITEtaExpectedMeanSec: 20.4280842192182
+StatJITEtaActualMeanSec: 87.0410659601994
+StatJITEtaMeanAbsErrSec: 66.6691684933762
+StatJITEtaMeanRelErrPct: 382.38431333603
+StatJITEtaMaxRelErrPct: 2107.01675977658
+StatJITEtaAggregateBiasPct: 326.085309939703
+StatStationStarvationTimeSec: 431.823543628516
+StatStationStarvationPctOfSimXStations: 5.99754921706272
+StatPodVisitCount: 92
+StatPodQueueWaitMeanSec: 67.761073197076
+StatPodQueueWaitMaxSec: 247.470555555554
+StatPodQueueWaitP50Sec: 52.288239541921
+StatPodQueueWaitP95Sec: 166.051666666668
+StatPodPickingTimeMeanSec: 70.4167224279647
+StatPodPickingTimeMaxSec: 237.955187582826
+StatPodPickingTimeP50Sec: 65.0630159944913
+StatPodPickingTimeP95Sec: 156.997041832313
+StatPodVisitOrdersServed_count: 92
+StatPodVisitOrdersServed_mean: 4.52173913043478
+StatPodVisitOrdersServed_p25: 3
+StatPodVisitOrdersServed_p50: 4
+StatPodVisitOrdersServed_p75: 6
+StatPodVisitOrdersServed_p95: 10.45
+StatPodVisitOrdersServed_max: 15
+StatDecisionTriggerQueueDepth_count: 27042
+StatDecisionTriggerQueueDepth_mean: 2.22202499815102
+StatDecisionTriggerQueueDepth_p25: 1
+StatDecisionTriggerQueueDepth_p50: 2
+StatDecisionTriggerQueueDepth_p75: 3
+StatDecisionTriggerQueueDepth_p95: 4
+StatDecisionTriggerQueueDepth_max: 4
+StatDecisionAvailableStationSlots_count: 27042
+StatDecisionAvailableStationSlots_mean: 1.58989719695289
+StatDecisionAvailableStationSlots_p25: 1
+StatDecisionAvailableStationSlots_p50: 1
+StatDecisionAvailableStationSlots_p75: 2
+StatDecisionAvailableStationSlots_p95: 4
+StatDecisionAvailableStationSlots_max: 6
+StatDecisionUnusedPods_count: 27042
+StatDecisionUnusedPods_mean: 57.0483692034613
+StatDecisionUnusedPods_p25: 56
+StatDecisionUnusedPods_p50: 57
+StatDecisionUnusedPods_p75: 58
+StatDecisionUnusedPods_p95: 59
+StatDecisionUnusedPods_max: 60
+StatDecisionPendingOrders_count: 27042
+StatDecisionPendingOrders_mean: 200
+StatDecisionPendingOrders_p25: 200
+StatDecisionPendingOrders_p50: 200
+StatDecisionPendingOrders_p75: 200
+StatDecisionPendingOrders_p95: 200
+StatDecisionPendingOrders_max: 200
+StatDecisionCandidateCombos_count: 27042
+StatDecisionCandidateCombos_mean: 18074.1365283633
+StatDecisionCandidateCombos_p25: 11400
+StatDecisionCandidateCombos_p50: 11600
+StatDecisionCandidateCombos_p75: 22400
+StatDecisionCandidateCombos_p95: 44800
+StatDecisionCandidateCombos_max: 72000
+StatDecisionBotsInRest_count: 27042
+StatDecisionBotsInRest_mean: 1.03635086162266
+StatDecisionBotsInRest_p25: 0
+StatDecisionBotsInRest_p50: 1
+StatDecisionBotsInRest_p75: 2
+StatDecisionBotsInRest_p95: 3
+StatDecisionBotsInRest_max: 3
+StatDecisionBotsIdleOrRest_count: 27042
+StatDecisionBotsIdleOrRest_mean: 1.03664669772946
+StatDecisionBotsIdleOrRest_p25: 0
+StatDecisionBotsIdleOrRest_p50: 1
+StatDecisionBotsIdleOrRest_p75: 2
+StatDecisionBotsIdleOrRest_p95: 3
+StatDecisionBotsIdleOrRest_max: 4
+StatTimeIdleSec: 1.68
+StatTimeRestSec: 7341.8673232066
+StatRobotUtilization: 0.999941666666667
+StatRobotUtilizationProductive: 0.745015717944215
+StatRobotUtilizationEffective: 0.493657278688202
+StatEWaitToMechRatio: 0.0128498520485672
+StatESupportToMechRatio: 1.48468193273554
+

@@ -1,0 +1,30 @@
+%
+% This file is encoded in utf-8
+% v1.7
+%
+
+%%% Please copy the following TeX as the header code of each appendix (appendix 1, appendix 2, etc.):
+
+%%% Header code begins >>>
+
+\newpage
+\chapter*{Appendix 1：MATLAB Source Code List} 							% Please change the values inside the curly brackets (the appendix number and the title)
+\addcontentsline{toc}{chapter}{Appendix 1：MATLAB Source Code List} 	% It is recommended to set the same title as above
+\renewcommand{\thechapter}{1} 											% if it is appendix 2, then it should be written as {2}
+
+\setcounter{equation}{0} 
+\setcounter{figure}{0} 
+\setcounter{footnote}{0} 
+\setcounter{section}{0} 
+\setcounter{subsection}{0}
+\setcounter{subsubsection}{0}
+\setcounter{table}{0} 
+
+%%% <<< Header code ends
+
+% Appendix content is started from here
+
+\lstinputlisting{example/example_prog_list.m}
+
+%%% For generating appendix 2, 3, and so on, please continue by incrementing the order number in the TeX above
+% Every appendix will automatically start as a new page

@@ -14,6 +14,12 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
+// Expose internal members (e.g. SlowStartController.PipelineNextFreeTime) to the
+// Playground self-test harness so pure helpers can be unit-tested without making
+// them part of the public API surface.
+[assembly: InternalsVisibleTo("RAWSimO.Playground")]
+[assembly: InternalsVisibleTo("RAWSimO.Tests")]
+
 // Setting ComVisible to false makes the types in this assembly not visible 
 // to COM components.  If you need to access a type in this assembly from 
 // COM, set the ComVisible attribute to true on that type.

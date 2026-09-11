@@ -1,4 +1,5 @@
 ﻿using RAWSimO.Core.Configurations;
+using RAWSimO.Core.Control;
 using RAWSimO.Core.Elements;
 using RAWSimO.Core.IO;
 using RAWSimO.Core.Items;
@@ -89,8 +90,52 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// 决策变量的命名
         /// </summary>
         private Dictionary<int, List<Symbol>> _IsvariableNames = new Dictionary<int, List<Symbol>>();
+        private readonly Dictionary<int, Dictionary<int, double>> _podStationDistanceCache =
+            new Dictionary<int, Dictionary<int, double>>();
 
-        private RAWSimO.Core.Waypoints.Waypoint GetBotReferenceWaypoint(Bot bot)
+        // ── Per-decision (per-solve) summary logger ──
+        private System.IO.StreamWriter _decisionLog;
+        private int _decisionIndex = 0;
+        /// <summary>Lazily opens (once) a CSV in the statistics directory and appends one row per M1G solve
+        /// summarizing the model size and the selected decision-variable counts. Diagnostic only.</summary>
+        private void WriteDecisionLog(bool solved, double time, int pendingOrders, int stationsWithCap, int podsInModel,
+            int nRa, int nR, int nPb, int nPa,
+            int nXps, int nYos, int nYaos, int nYrp, double sumUs, int nDops, double objective, double optSec)
+        {
+            if (_decisionLog == null)
+            {
+                string dir = Instance != null && Instance.SettingConfig != null ? Instance.SettingConfig.StatisticsDirectory : null;
+                if (string.IsNullOrEmpty(dir))
+                    dir = ".";
+                if (!System.IO.Directory.Exists(dir))
+                    System.IO.Directory.CreateDirectory(dir);
+                _decisionLog = new System.IO.StreamWriter(System.IO.Path.Combine(dir, "m1g_decision_log.csv"), false) { AutoFlush = true };
+                _decisionLog.WriteLine("decision,time,solved,pendingOrders,stationsWithCap,podsInModel,Ra,R,Pb,Pa,xps,yos,yaos,yrp,sumUs,dops,objective,solveSec");
+            }
+            _decisionLog.WriteLine(string.Join(",", new string[] {
+                _decisionIndex.ToString(),
+                time.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                solved ? "1" : "0",
+                pendingOrders.ToString(),
+                stationsWithCap.ToString(),
+                podsInModel.ToString(),
+                nRa.ToString(),
+                nR.ToString(),
+                nPb.ToString(),
+                nPa.ToString(),
+                nXps.ToString(),
+                nYos.ToString(),
+                nYaos.ToString(),
+                nYrp.ToString(),
+                sumUs.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                nDops.ToString(),
+                objective.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                optSec.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            }));
+            _decisionIndex++;
+        }
+
+        protected virtual RAWSimO.Core.Waypoints.Waypoint GetBotReferenceWaypoint(Bot bot)
         {
             if (bot == null)
                 return null;
@@ -101,7 +146,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             return null;
         }
 
-        private RAWSimO.Core.Waypoints.Waypoint GetPodReferenceWaypoint(Pod pod)
+        protected RAWSimO.Core.Waypoints.Waypoint GetPodReferenceWaypoint(Pod pod)
         {
             if (pod == null)
                 return null;
@@ -114,16 +159,13 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             return null;
         }
 
-        private double EstimateBotPodDistance(Bot bot, Pod pod)
+        protected double EstimateBotPodDistance(Bot bot, Pod pod)
         {
             if (bot == null || pod == null)
                 return double.PositiveInfinity;
 
             var botWaypoint = GetBotReferenceWaypoint(bot);
             var podWaypoint = GetPodReferenceWaypoint(pod);
-            if (botWaypoint != null && podWaypoint != null)
-                return Distances.CalculateShortestPath(botWaypoint, podWaypoint, Instance);
-
             double botX = botWaypoint != null ? botWaypoint.X : bot.X;
             double botY = botWaypoint != null ? botWaypoint.Y : bot.Y;
             double podX = podWaypoint != null ? podWaypoint.X : pod.X;
@@ -131,24 +173,108 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             return Math.Abs(botX - podX) + Math.Abs(botY - podY);
         }
 
-        private double EstimatePodStationDistance(Pod pod, OutputStation station)
+        protected double EstimatePodStationDistance(Pod pod, OutputStation station)
         {
             if (pod == null || station == null || station.Waypoint == null)
                 return double.PositiveInfinity;
 
             var podWaypoint = GetPodReferenceWaypoint(pod);
-            if (podWaypoint != null &&
-                DistanceSet.ContainsKey(station.Waypoint.ID) &&
-                DistanceSet[station.Waypoint.ID].ContainsKey(podWaypoint.ID))
-                return DistanceSet[station.Waypoint.ID][podWaypoint.ID];
-
             if (podWaypoint != null)
-                return Distances.CalculateShortestPathPodSafe1(podWaypoint, station.Waypoint, Instance);
+            {
+                if (!_podStationDistanceCache.TryGetValue(station.Waypoint.ID, out Dictionary<int, double> stationDistances))
+                {
+                    stationDistances = new Dictionary<int, double>();
+                    _podStationDistanceCache.Add(station.Waypoint.ID, stationDistances);
+                }
 
-            double podX = podWaypoint != null ? podWaypoint.X : pod.X;
-            double podY = podWaypoint != null ? podWaypoint.Y : pod.Y;
-            return Math.Abs(podX - station.Waypoint.X) + Math.Abs(podY - station.Waypoint.Y);
+                if (!stationDistances.TryGetValue(podWaypoint.ID, out double distance))
+                {
+                    distance = Distances.CalculateShortestPathPodSafe(
+                        podWaypoint, station.Waypoint, Instance);
+                    stationDistances.Add(podWaypoint.ID, distance);
+                }
+
+                return distance;
+            }
+
+            return Math.Abs(pod.X - station.Waypoint.X) +
+                Math.Abs(pod.Y - station.Waypoint.Y);
         }
+
+        // ── Station-starve-aware cost (gated by SettingConfig.StarveAwareCostEnabled) ──
+        private bool _saEnabled;
+        private double _saNominalSpeed;
+        private double _saFixedParam;
+        private System.Collections.Generic.Dictionary<int, double> _saEstByStation = new System.Collections.Generic.Dictionary<int, double>();   // station.ID -> EST [s]
+        private System.Collections.Generic.Dictionary<int, double> _saRepBotPodTime = new System.Collections.Generic.Dictionary<int, double>();  // pod.ID -> min bot->pod time [s]
+
+        /// <summary>Precompute per-epoch starve-aware inputs: nominal speed, station EST,
+        /// and the representative (min available-bot) bot->pod travel time per pod.
+        /// No-op (and leaves cost wrappers in distance mode) when the feature is disabled.</summary>
+        private void PrepareStarveAware(System.Collections.Generic.IEnumerable<Pod> pods,
+            System.Collections.Generic.Dictionary<OutputStation, int> Cs,
+            System.Collections.Generic.HashSet<Bot> Ra)
+        {
+            _saEnabled = Instance != null && Instance.SettingConfig != null && Instance.SettingConfig.StarveAwareCostEnabled;
+            if (!_saEnabled)
+                return;
+            _saFixedParam = Instance.SettingConfig.StarveAwareFixedParam;
+            double cfgSpeed = Instance.SettingConfig.StarveAwareNominalSpeed;
+            _saNominalSpeed = cfgSpeed > 0.0
+                ? cfgSpeed
+                : (Instance.Bots != null && Instance.Bots.Count > 0
+                    ? System.Math.Max(0.1, Instance.Bots.Max(b => b.MaxVelocity))
+                    : 1.0);
+            double now = Instance.Controller != null ? Instance.Controller.CurrentTime : 0.0;
+            _saEstByStation = new System.Collections.Generic.Dictionary<int, double>();
+            foreach (var s in Cs.Keys)
+                _saEstByStation[s.ID] = StarveAwareCost.Est(s, now);
+            _saRepBotPodTime = new System.Collections.Generic.Dictionary<int, double>();
+            foreach (var p in pods)
+            {
+                double best = double.PositiveInfinity;
+                foreach (var r in Ra)
+                    best = System.Math.Min(best, StarveAwareCost.TravelTime(EstimateBotPodDistance(r, p), _saNominalSpeed));
+                _saRepBotPodTime[p.ID] = best;
+            }
+        }
+
+        /// <summary>bot->pod objective coefficient: travel time when starve-aware, else distance.</summary>
+        private double M1GBotPodCost(Bot robot, Pod pod)
+        {
+            double d = EstimateBotPodDistance(robot, pod);
+            return _saEnabled ? StarveAwareCost.TravelTime(d, _saNominalSpeed) : d;
+        }
+
+        /// <summary>pod->station objective coefficient: travel time + starvation delay penalty
+        /// when starve-aware, else distance.</summary>
+        private double M1GPodStationCost(Pod pod, OutputStation station)
+        {
+            double d = EstimatePodStationDistance(pod, station);
+            if (!_saEnabled)
+                return d;
+            double podStationTime = StarveAwareCost.TravelTime(d, _saNominalSpeed);
+            double repBotPod = (_saRepBotPodTime.TryGetValue(pod.ID, out var t) && !double.IsPositiveInfinity(t)) ? t : 0.0;
+            double taCost = podStationTime + repBotPod;
+            double est = _saEstByStation.TryGetValue(station.ID, out var e) ? e : double.PositiveInfinity;
+            double penalty = StarveAwareCost.DelayPenalty(taCost, est, _saFixedParam);
+            return podStationTime + penalty;
+        }
+
+        /// <summary>Hook: extra per-(pod,station) cost added to the pod-&gt;station objective term.
+        /// Base M1G adds nothing; SA-M1G overrides to add a starvation-delay penalty.</summary>
+        protected virtual double PodStationExtraCost(Pod pod, OutputStation station) { return 0.0; }
+
+        /// <summary>Hook: per-solve precompute for cost extras (EST, representative bot-&gt;pod time).
+        /// Base M1G is a no-op.</summary>
+        protected virtual void PrepareDecisionExtras(System.Collections.Generic.IEnumerable<Pod> pods,
+            System.Collections.Generic.Dictionary<OutputStation, int> Cs, System.Collections.Generic.HashSet<Bot> Ra) { }
+
+        /// <summary>
+        /// Indicates whether a currently unavailable bot should still be included as a near-future available bot.
+        /// Base M1G keeps the original behavior and never includes such bots.
+        /// </summary>
+        protected virtual bool CanUseReturnPendingBot(Bot bot) { return false; }
         /// <summary>
         /// Checks whether an item matching the description is contained in this pod. 
         /// </summary>
@@ -344,6 +470,14 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             //List<Symbol> deVarNameziops = new List<Symbol>();
             List<Symbol> deVarNamedops = new List<Symbol>();
             HashSet<Pod> podset = new HashSet<Pod>();
+            // (Perf, 2026-07-22) Pure performance fix, semantics unchanged, byte-identical
+            // output verified: the original duplicate check re-scanned the whole (growing)
+            // deVarNamedops list via LINQ .Where(...).Count()==0 for every (sku,pod,station,
+            // order) tuple - O(n^2) in the total tuple count, which scales badly with more
+            // stations/orders. A HashSet keyed on the identical (order,pod,station) identity
+            // makes the check O(1) while producing the EXACT same sequence of adds (same
+            // triples, same insertion order, same waypointID/name construction per triple).
+            HashSet<(int orderId, int podId, int stationId)> dopsSeen = new HashSet<(int, int, int)>();
             foreach (var sku in OiSKU.Where(v => PiSKU.ContainsKey(v.Key)))
             {
                 List<Pod> listofpod = PiSKU[sku.Key];
@@ -363,7 +497,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                             //    name = "ziops" + "_" + sku.Key.ID.ToString() + "_" +
                             //    order.ID.ToString() + "_" + pod.ID.ToString() + "_" + outputstation.ID.ToString()
                             //});
-                            if (deVarNamedops.Where(v => v.order.ID == order.ID && v.pod.ID == pod.ID && v.outputstation.ID == outputstation.ID).Count() == 0)
+                            if (dopsSeen.Add((order.ID, pod.ID, outputstation.ID)))
                             {
                                 int waypointID;
                                 if (pod.Waypoint != null)
@@ -497,6 +631,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     R.Add(bot);
                     Ra.Add(bot);
                 }
+                else if (CanUseReturnPendingBot(bot))
+                {
+                    R.Add(bot);
+                    Ra.Add(bot);
+                }
             }
             //if (R.Count() == 0) 
             //    Thread.Sleep(1);
@@ -559,13 +698,17 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             VariableCollection<string> variablesBinary = new VariableCollection<string>(wrapper, VariableType.Binary, 0, 1, (string s) => { return s; });
             VariableCollection<string> variablesInteger2 = new VariableCollection<string>(wrapper, VariableType.Integer, 0, 5, (string s) => { return s; });
             VariableCollection<string> variablesInteger3 = new VariableCollection<string>(wrapper, VariableType.Integer, 0, 6, (string s) => { return s; });
+            // Precompute per-epoch starve-aware cost inputs; no-op when StarveAwareCostEnabled=false.
+            PrepareStarveAware(Pods, Cs, Ra);
+            // Precompute SA-M1G decision extras (EST + free-flow arrival); no-op in base M1G.
+            PrepareDecisionExtras(Pods, Cs, Ra);
             if (Ra.Count() > 0)
-                wrapper.SetObjective((LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * EstimatePodStationDistance(v.pod, v.outputstation)), wrapper)
+                wrapper.SetObjective((LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * (M1GPodStationCost(v.pod, v.outputstation) + PodStationExtraCost(v.pod, v.outputstation))), wrapper)
                     + LinearExpression.Sum(deVarNameyrp.Where(u => Ra.Contains(u.robot) && Instance.ResourceManager.UnusedPods.Contains(u.pod) && u.pod.Waypoint != null).Select(v => variablesBinary[v.name] *
-                    EstimateBotPodDistance(v.robot, v.pod)), wrapper)) * w1 + LinearExpression.Sum(deVarNameyos.Select(v => variablesBinary[v.name])) * w2
+                    M1GBotPodCost(v.robot, v.pod)), wrapper)) * w1 + LinearExpression.Sum(deVarNameyos.Select(v => variablesBinary[v.name])) * w2
                     + LinearExpression.Sum(deVarNameus.Select(v => variablesInteger3[v.name])) * w3, OptimizationSense.Minimize);
             else
-                wrapper.SetObjective(LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * EstimatePodStationDistance(v.pod, v.outputstation)), wrapper) * w1
+                wrapper.SetObjective(LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * (M1GPodStationCost(v.pod, v.outputstation) + PodStationExtraCost(v.pod, v.outputstation))), wrapper) * w1
                     + LinearExpression.Sum(deVarNameyos.Select(v => variablesBinary[v.name])) * w2
                     + LinearExpression.Sum(deVarNameus.Select(v => variablesInteger3[v.name])) * w3, OptimizationSense.Minimize);
             foreach (var order in pendingOrders)//每个订单最多只能分配给一个工作站
@@ -627,7 +770,9 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                         <= LinearExpression.Sum(deVarNamedops.Where(v => v.pod.ID == pod.ID && v.outputstation.ID == station.ID).Select(v => variablesBinary[v.name])), "shi13");
             }
             wrapper.Update();
+            DateTime _optStart = DateTime.Now;
             wrapper.Optimize();
+            double _optSec = (DateTime.Now - _optStart).TotalSeconds;
             if (wrapper.HasSolution())
             {
                 Dictionary<OutputStation, List<Order>> _availableStationorder = new Dictionary<OutputStation, List<Order>>();
@@ -814,9 +959,21 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     }
                 }
                 Instance.Observer.TimeOrderBatchingbyziops((DateTime.Now - A).TotalSeconds);
+                // Per-decision summary: committed selected-variable counts (post-cleanup) + objective.
+                double sumUs = 0.0;
+                foreach (var s in deVarNameus)
+                    sumUs += Math.Round(variablesInteger3[s.name].GetValue());
+                WriteDecisionLog(true, Instance.Controller.CurrentTime, pendingOrders.Count, Cs.Count, Pods.Count(),
+                    Ra.Count, R.Count, Pb.Count, Pa.Count,
+                    IsdeVarNamexps.Count, IsdeVarNameyos.Count, IsdeVarNameyaos.Count, IsdeVarNameyrp.Count, sumUs,
+                    IsdeVarNamedops.Count, wrapper.GetObjectiveValue(), _optSec);
             }
-            //else
-            //    Thread.Sleep(1);
+            else
+            {
+                WriteDecisionLog(false, Instance.Controller.CurrentTime, pendingOrders.Count, Cs.Count, Pods.Count(),
+                    Ra.Count, R.Count, Pb.Count, Pa.Count,
+                    0, 0, 0, 0, 0.0, 0, double.NaN, _optSec);
+            }
             return NewZiops;
         }
         /// <summary>
@@ -914,6 +1071,62 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         }
 
         #endregion
+    }
+
+    /// <summary>
+    /// M1G copy variant that treats bots near completion of a park-pod task as available for the next M1G decision.
+    /// </summary>
+    public class M1GReturnPendingManager : M1GManager
+    {
+        private readonly M1GReturnPendingConfiguration _returnPendingConfig;
+
+        public M1GReturnPendingManager(Instance instance) : base(instance)
+        {
+            _returnPendingConfig = instance.ControllerConfig.OrderBatchingConfig as M1GReturnPendingConfiguration;
+        }
+
+        protected override RAWSimO.Core.Waypoints.Waypoint GetBotReferenceWaypoint(Bot bot)
+        {
+            if (IsReturnPendingBot(bot, out ParkPodTask parkTask))
+                return parkTask.StorageLocation;
+            return base.GetBotReferenceWaypoint(bot);
+        }
+
+        protected override bool CanUseReturnPendingBot(Bot bot)
+        {
+            if (!IsReturnPendingBot(bot, out ParkPodTask parkTask))
+                return false;
+            if (Instance.ResourceManager.BottoPod.ContainsKey(bot))
+                return false;
+            return IsNearReturnLocation(bot, parkTask.StorageLocation);
+        }
+
+        private bool IsReturnPendingBot(Bot bot, out ParkPodTask parkTask)
+        {
+            parkTask = bot?.CurrentTask as ParkPodTask;
+            return parkTask != null &&
+                bot.Pod != null &&
+                parkTask.Pod == bot.Pod &&
+                parkTask.StorageLocation != null;
+        }
+
+        private bool IsNearReturnLocation(Bot bot, RAWSimO.Core.Waypoints.Waypoint storageLocation)
+        {
+            if (storageLocation == null)
+                return false;
+            if (bot.CurrentWaypoint == storageLocation)
+                return true;
+            if (bot.GetInfoDestinationWaypoint() == storageLocation)
+                return true;
+
+            var botWaypoint = base.GetBotReferenceWaypoint(bot);
+            if (botWaypoint == null)
+                return false;
+            double threshold = _returnPendingConfig != null ? _returnPendingConfig.ReturnPendingDistanceThreshold : 1.0;
+            if (threshold < 0)
+                return false;
+            return Distances.CalculateShortestPath(botWaypoint, storageLocation, Instance) <= threshold;
+        }
     }
 
 }

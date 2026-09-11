@@ -1,0 +1,17 @@
+Is64BitProcess: True
+Setting up model and optimizing it with Gurobi
+Solution:
+Obj: 196.868686868687
+xps_30_0: 1
+xps_34_0: 1
+yos_748_0: 1
+yos_764_0: 1
+yios_5_748_0: 1
+yios_10_748_0: 1
+yios_10_764_0: 1
+yaos_748_0: 1
+ziops_5_748_30_0: 3
+ziops_10_748_30_0: 2
+ziops_10_764_30_0: 2
+the number of pod-station visits per order(PSE) =2
+pile-on(Picks/PSE) =1.5

@@ -1025,6 +1025,9 @@ namespace RAWSimO.VisualToolbox
         {
             Size size = base.ArrangeOverride(this.DesiredSize);
 
+            if (content == null)
+                return size;
+
             if (content.DesiredSize != unScaledExtent)
             {
                 //

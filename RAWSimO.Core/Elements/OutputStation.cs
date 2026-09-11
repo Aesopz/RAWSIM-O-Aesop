@@ -240,12 +240,24 @@ namespace RAWSimO.Core.Elements
                         foreach (var order in _assignedOrders)
                             if (order.Serve(item))
                             {
+                                // KPI: record this pod-visit served this order
+                                if (bot.CurrentTask is Control.ExtractTask _et0)
+                                    _et0.ServedOrdersThisVisit.Add(order);
                                 // Physically remove the item
                                 pod.Remove(item, request);
                                 // Block the station for the transfer
                                 BlockedUntil = currentTime + ItemTransferTime;
                                 // Make the bot wait until completion
                                 bot.WaitUntil(currentTime + ItemPickTime);
+                                // Track when the currently processed pod can leave the station.
+                                UpdateCurrentProcessingPodRelease(bot, currentTime);
+                                // (M2e-IC / D16) one pick left on this task -> wake the order
+                                // manager so a re-solve can extend the pod while the on-the-fly
+                                // window (Requests.Any) is still open. Null-safe: only IC-family
+                                // managers create the buffer; all other configs bit-identical.
+                                if (Instance.PackingBuffer != null && bot.CurrentTask is Control.ExtractTask _icNr0
+                                    && _icNr0.Requests != null && _icNr0.Requests.Count == 1)
+                                    Instance.Controller.OrderManager.SignalOrderFinished(null, this);
                                 // Count the number of picked items
                                 StatNumItemsPicked++;
                                 // Keep track of injected item picks
@@ -254,7 +266,7 @@ namespace RAWSimO.Core.Elements
                                 // Keep track of current number of items to pick
                                 StatCurrentlyOpenItems--;
                                 // Count pods served if this is a beginning transaction
-                                if (_newPodTransaction) { _newPodTransaction = false; }
+                                if (_newPodTransaction) { RecordPodHandoffGap(currentTime); _newPodTransaction = false; }
                                 // Notify instance about the pick
                                 Instance.NotifyItemHandled(pod, bot, this, request.Item);
                                 Instance.NotifyPodHandled(pod, null, this);
@@ -275,12 +287,21 @@ namespace RAWSimO.Core.Elements
                         // If it's at this station and the item can be added, then add it
                         if (_assignedOrders.Contains(request.Order) && request.Order.Serve(item))
                         {
+                            // KPI: record this pod-visit served this order
+                            if (bot.CurrentTask is Control.ExtractTask _et1)
+                                _et1.ServedOrdersThisVisit.Add(request.Order);
                             // Physically remove the item
                             pod.Remove(item, request);
                             // Block the station for the transfer
                             BlockedUntil = currentTime + ItemTransferTime;
                             // Make the bot wait until completion
                             bot.WaitUntil(currentTime + ItemPickTime);
+                            // Track when the currently processed pod can leave the station.
+                            UpdateCurrentProcessingPodRelease(bot, currentTime);
+                            // (M2e-IC / D16) see the twin branch above.
+                            if (Instance.PackingBuffer != null && bot.CurrentTask is Control.ExtractTask _icNr1
+                                && _icNr1.Requests != null && _icNr1.Requests.Count == 1)
+                                Instance.Controller.OrderManager.SignalOrderFinished(null, this);
                             // Count the number of picked items
                             StatNumItemsPicked++;
                             // Keep track of injected item picks
@@ -289,7 +310,7 @@ namespace RAWSimO.Core.Elements
                             // Keep track of current number of items to pick
                             StatCurrentlyOpenItems--;
                             // Count pods served if this is a beginning transaction
-                            if (_newPodTransaction) { _newPodTransaction = false; }
+                            if (_newPodTransaction) { RecordPodHandoffGap(currentTime); _newPodTransaction = false; }
                             // Notify instance about the pick
                             Instance.NotifyItemHandled(pod, bot, this, request.Item);
                             Instance.NotifyPodHandled(pod, null, this);
@@ -327,10 +348,36 @@ namespace RAWSimO.Core.Elements
                 {
                     finishedOrder = order;
                     StatNumOrdersFinished++;
+                    finishedOrder.TimeStampCompleted = currentTime;
                     // Notify the item manager about this
                     Instance.ItemManager.CompleteOrder(finishedOrder);
-                    // Notify completed order
-                    Instance.NotifyOrderCompleted(finishedOrder, this);
+                    if (finishedOrder.Parent != null)
+                    {
+                        // Split child: only bookkeeping towards the parent; parent-level KPI fires
+                        // once ALL children are done (consolidation), attributed to this station.
+                        Order parent = finishedOrder.Parent;
+                        if (parent.NotifyChildCompleted(finishedOrder))
+                        {
+                            parent.TimeStampCompleted = currentTime;
+                            Instance.ItemManager.CompleteOrder(parent);
+                            Instance.NotifyOrderCompleted(parent, this);
+                            // (M2e-IC) consolidation releases the parent's packing box.
+                            // Null-safe no-op for every manager that does not create the buffer.
+                            if (Instance.PackingBuffer != null)
+                                Instance.PackingBuffer.ReleaseParent(parent.ID);
+                        }
+                        else
+                        {
+                            // Non-final child: no parent-level KPI event fires, but the freed station
+                            // slot must still wake the order manager (baseline parity).
+                            Instance.Controller.OrderManager.SignalOrderFinished(finishedOrder, this);
+                        }
+                    }
+                    else
+                    {
+                        // Notify completed order
+                        Instance.NotifyOrderCompleted(finishedOrder, this);
+                    }
                     // Break early and block action
                     BlockedUntil = currentTime + OrderCompletionTime;
                     break;
@@ -398,20 +445,94 @@ namespace RAWSimO.Core.Elements
         /// All extract tasks that are currently carried out by robots for this station.
         /// </summary>
         private HashSet<ExtractTask> _activeExtractTasks = new HashSet<ExtractTask>();
+        private object _activeExtractTasksSyncRoot = new object();
         /// <summary>
         /// Register an extract task with this station.
         /// </summary>
         /// <param name="task">The task that shall be done at this station.</param>
-        internal void RegisterExtractTask(ExtractTask task) { _activeExtractTasks.Add(task); }
+        internal void RegisterExtractTask(ExtractTask task) { lock (_activeExtractTasksSyncRoot) { _activeExtractTasks.Add(task); } }
         /// <summary>
         /// Unregister an extract task with this station.
         /// </summary>
         /// <param name="task">The task that was done or cancelled for this station.</param>
-        internal void UnregisterExtractTask(ExtractTask task) { _activeExtractTasks.Remove(task); }
+        internal void UnregisterExtractTask(ExtractTask task) { lock (_activeExtractTasksSyncRoot) { _activeExtractTasks.Remove(task); } }
+        /// <summary>
+        /// Read-only enumeration of all extract tasks currently registered for this station
+        /// (covers both "bot moving toward pod" and "bot carrying pod toward station").
+        /// Used by SlowStartController to compute T_starve.
+        /// </summary>
+        public IEnumerable<Control.ExtractTask> GetActiveExtractTasks() { lock (_activeExtractTasksSyncRoot) { return _activeExtractTasks.ToList(); } }
+
+        /// <summary>
+        /// Number of item-pick requests already queued at this station (bot+pod present, awaiting service).
+        /// Used by SlowStartController to compute T_starve.
+        /// </summary>
+        public int PendingItemRequestCount { get { return _requestsExtract.Count; } }
+
+        private double _currentProcessingPodReleaseUntil = double.NaN;
+
+        private void UpdateCurrentProcessingPodRelease(Bot bot, double currentTime)
+        {
+            var extractTask = bot != null ? bot.CurrentTask as ExtractTask : null;
+            int remainingItems = extractTask != null && extractTask.Requests != null
+                ? Math.Max(1, extractTask.Requests.Count)
+                : 1;
+            _currentProcessingPodReleaseUntil = currentTime + (remainingItems - 1) * ItemTransferTime + ItemPickTime;
+        }
+
+        /// <summary>
+        /// Returns the station's blocked-until time as an absolute simulation timestamp.
+        /// Returns NaN when not currently blocked. Used by SlowStartController to compute
+        /// "station busy until" inside T_starve.
+        /// </summary>
+        public double GetBlockedUntilTime() { return BlockedUntil; }
+
+        private double GetIdleDuration(double lastTime, double currentTime)
+        {
+            if (currentTime <= lastTime)
+                return 0.0;
+            if (currentTime <= BlockedUntil)
+                return 0.0;
+            return currentTime - Math.Max(lastTime, BlockedUntil);
+        }
+
+        private bool HasReadyOrQueuedExtractPod()
+        {
+            if (_requestsExtract.Count > 0)
+                return true;
+
+            foreach (var task in GetActiveExtractTasks())
+            {
+                if (task == null || task.OutputStation != this || task.ReservedPod == null || task.Requests == null || !task.Requests.Any())
+                    continue;
+
+                var bot = task.Bot as RAWSimO.Core.Bots.BotNormal;
+                if (bot == null || bot.Pod != task.ReservedPod)
+                    continue;
+
+                if (bot.IsQueueing || bot.CurrentWaypoint == Waypoint || GetDistance(bot.Pod) < GetInfoRadius())
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Indicates whether the order backlog still holds pending (not-yet-assigned) orders that could be
+        /// fed to this station. Used to tell "supply lag" (Type A — work exists, pod not here yet) apart
+        /// from "no-order waste" (Type B — nothing to do at all) when the station is idle.
+        /// </summary>
+        private bool HasServeablePendingDemand()
+        {
+            var orderManager = Instance != null && Instance.Controller != null ? Instance.Controller.OrderManager : null;
+            return orderManager != null
+                && orderManager.BacklogSnapshot != null
+                && orderManager.BacklogSnapshot.Count > 0;
+        }
+
         /// <summary>
         /// All extract tasks that are registered for being done at this station.
         /// </summary>
-        IEnumerable<ExtractTask> ActiveTasks { get { return _activeExtractTasks; } }
+        IEnumerable<ExtractTask> ActiveTasks { get { return GetActiveExtractTasks(); } }
 
         /// <summary>
         /// Register a newly approached bot before picking begins for statistical purposes.
@@ -437,6 +558,22 @@ namespace RAWSimO.Core.Elements
             }
             // Log the arrival time of the pod
             _statLastTimeNewPod = Instance.Controller.CurrentTime;
+        }
+
+        /// <summary>
+        /// Diagnostic: record the inter-pod handoff gap [s] at this station — the time from the previous
+        /// pod's last transfer finishing (_statLastTimeTransactionFinished, still the prior value when
+        /// this is called, before the new pick overwrites it) until the new pod's first pick begins
+        /// (currentTime). Called once per pod transition, at the first pick of a new pod. Skips the
+        /// station's very first pod (no prior transaction). Negative values are clamped to 0.
+        /// </summary>
+        private void RecordPodHandoffGap(double currentTime)
+        {
+            if (double.IsNaN(_statLastTimeTransactionFinished))
+                return;
+            double gap = currentTime - _statLastTimeTransactionFinished;
+            if (gap < 0.0) gap = 0.0;
+            Instance.StatPodHandoffGapSamples.Add(gap);
         }
 
         #endregion
@@ -527,6 +664,17 @@ namespace RAWSimO.Core.Elements
         /// The time this station was shutdown.
         /// </summary>
         public double StatDownTime;
+        /// <summary>Type A starvation — "supply lag" (optimizable). Cumulative time [s] the station was
+        /// idle (no pod currently picking, i.e. stationFreeAt &lt;= now) while the system still had work that
+        /// could feed it: a pod was inbound, an order was already committed to this station, or the order
+        /// backlog still held pending orders. The pod simply has not arrived yet — the timing/method flaw
+        /// the starve-aware feature targets.</summary>
+        public double StatStarvationTimeSec;
+        /// <summary>Type B starvation — "no-order waste". Cumulative time [s] the station was idle (no pod
+        /// picking) while there was genuinely nothing to do: no inbound pod, no committed order, and an
+        /// empty backlog. Pure station-resource idleness that no allocation decision could have avoided,
+        /// distinct from supply lag.</summary>
+        public double StatStationNoOrderIdleTimeSec;
         /// <summary>
         /// The timepoint at which the station completed its last order and may have moved to a rest state.
         /// </summary>
@@ -574,6 +722,8 @@ namespace RAWSimO.Core.Elements
             StatActiveTime = 0.0;
             _lastActiveMeasurement = Instance.Controller.CurrentTime;
             StatDownTime = 0.0;
+            StatStarvationTimeSec = 0.0;
+            StatStationNoOrderIdleTimeSec = 0.0;
         }
 
         #endregion
@@ -631,8 +781,25 @@ namespace RAWSimO.Core.Elements
             // Indicate change at instance
             Instance.Changed = true;
 
+            double idleDuration = GetIdleDuration(lastTime, currentTime);
+
             // Log idle time
-            StatIdleTime += currentTime - lastTime;
+            StatIdleTime += idleDuration;
+            // Split the station's non-picking idle time (idleDuration > 0 == no pod currently picking,
+            // equivalently the projection's stationFreeAt <= now) into two mutually-exclusive starvation
+            // types, both counted only after the first completed output (warm-up excluded):
+            //   Type A "supply lag" (optimizable): something could still feed the station — a pod is
+            //     inbound, an order is committed here, or the backlog still holds pending orders — but no
+            //     pod has arrived yet. Mirrors the forward-looking "Starve gap" the panel shows.
+            //   Type B "no-order waste": genuinely nothing to do (no inbound pod, no committed order, empty
+            //     backlog). No allocation decision could have avoided this idleness.
+            if (idleDuration > 0.0 && StatNumOrdersFinished > 0)
+            {
+                if (GetInfoInboundPods() > 0 || CapacityInUse > 0 || HasServeablePendingDemand())
+                    StatStarvationTimeSec += idleDuration;            // Type A: supply lag (pod not here yet)
+                else
+                    StatStationNoOrderIdleTimeSec += idleDuration;    // Type B: nothing to do at all
+            }
 
             // Log down time
             if (currentTime - _statDepletionTime > Instance.SettingConfig.StationShutdownThresholdTime)
@@ -738,6 +905,54 @@ namespace RAWSimO.Core.Elements
         /// </summary>
         /// <returns>The number of pods currently incoming to this station.</returns>
         public int GetInfoInboundPods() { return _inboundPods.Count; }
+        /// <summary>
+        /// Gets the projected time until this station first becomes idle/starved.
+        /// </summary>
+        /// <returns>The projected time-to-starvation in seconds.</returns>
+        public double GetInfoStationEST()
+        {
+            return SlowStartController.ComputeStationWorkProjection(this, GetInfoCurrentTime()).FirstStarveSec;
+        }
+        /// <summary>
+        /// Gets the projected time until all currently committed station work clears.
+        /// </summary>
+        /// <returns>The projected work horizon in seconds.</returns>
+        public double GetInfoStationWorkHorizon()
+        {
+            return SlowStartController.ComputeStationWorkProjection(this, GetInfoCurrentTime()).WorkHorizonSec;
+        }
+        /// <summary>
+        /// Gets the total projected idle gap inside the current station work pipeline.
+        /// </summary>
+        /// <returns>The projected starvation gap in seconds.</returns>
+        public double GetInfoStationStarvationGap()
+        {
+            return SlowStartController.ComputeStationWorkProjection(this, GetInfoCurrentTime()).StarvationGapSec;
+        }
+        /// <summary>
+        /// Gets the cumulative measured starvation time at this station so far.
+        /// </summary>
+        /// <returns>The accumulated starvation time in seconds.</returns>
+        public double GetInfoStationStarvationAccumulated()
+        {
+            return StatStarvationTimeSec;
+        }
+        /// <summary>
+        /// Gets the projected remaining time until the currently processed pod can leave the station.
+        /// </summary>
+        /// <returns>The remaining pod-release time in seconds, or NaN if no pod is currently being processed.</returns>
+        public double GetInfoCurrentPodReleaseLeft()
+        {
+            double currentTime = GetInfoCurrentTime();
+            if (double.IsNaN(_currentProcessingPodReleaseUntil) || currentTime >= _currentProcessingPodReleaseUntil)
+                return double.NaN;
+            return _currentProcessingPodReleaseUntil - currentTime;
+        }
+
+        private double GetInfoCurrentTime()
+        {
+            return Instance != null && Instance.Controller != null ? Instance.Controller.CurrentTime : 0.0;
+        }
 
         #endregion
 

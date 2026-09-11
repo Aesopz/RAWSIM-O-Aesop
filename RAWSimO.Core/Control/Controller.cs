@@ -31,11 +31,13 @@ namespace RAWSimO.Core.Control
                 case PathPlanningMethodType.Simple: PathManager = null; break;
                 case PathPlanningMethodType.Dummy: PathManager = new DummyPathManager(instance); break;
                 case PathPlanningMethodType.WHCAvStar: PathManager = new WHCAvStarPathManager(instance); break;
+                case PathPlanningMethodType.WHCAvStarPriority: PathManager = new WHCAvStarPathManager(instance); break;
                 case PathPlanningMethodType.FAR: PathManager = new FARPathManager(instance); break;
                 case PathPlanningMethodType.BCP: PathManager = new BCPPathManager(instance); break;
                 case PathPlanningMethodType.CBS: PathManager = new CBSPathManager(instance); break;
                 case PathPlanningMethodType.OD_ID: PathManager = new ODIDPathManager(instance); break;
                 case PathPlanningMethodType.WHCAnStar: PathManager = new WHCAnStarPathManager(instance); break;
+                case PathPlanningMethodType.WHCAnStarPriority: PathManager = new WHCAnStarPathManager(instance); break;
                 case PathPlanningMethodType.PAS: PathManager = new PASPathManager(instance); break;
                 default: throw new ArgumentException("Unknown path planning engine: " + instance.ControllerConfig.PathPlanningConfig.GetMethodType());
             }
@@ -106,11 +108,27 @@ namespace RAWSimO.Core.Control
                 case OrderBatchingMethodType.Foresight: OrderManager = new ForesightOrderManager(instance); break;
                 case OrderBatchingMethodType.PodMatching: OrderManager = new PodMatchingOrderManager(instance); break;
                 case OrderBatchingMethodType.GM1: OrderManager = new M1GManager(instance);break;
+                case OrderBatchingMethodType.GM1ReturnPending: OrderManager = new M1GReturnPendingManager(instance); break;
                 case OrderBatchingMethodType.GM2: OrderManager = new M2GManager(instance); break;
                 case OrderBatchingMethodType.HAS: OrderManager = new HASManager(instance); break;
                 case OrderBatchingMethodType.HADGS: OrderManager = new HADGSManager(instance); break;
+                case OrderBatchingMethodType.SAHADGS: OrderManager = new SAHADGSManager(instance); break;
+                case OrderBatchingMethodType.SAM1G: OrderManager = new SAM1GManager(instance); break;
+                case OrderBatchingMethodType.ALNS_OB: OrderManager = new ALNSManager(instance); break;
                 case OrderBatchingMethodType.LinesInCommon: OrderManager = new LinesInCommonOrderManager(instance); break;
                 case OrderBatchingMethodType.Queue: OrderManager = new QueueOrderManager(instance); break;
+                case OrderBatchingMethodType.SplitHeuristic: OrderManager = new SplitOrderManager(instance); break;
+                case OrderBatchingMethodType.SplitM1G: OrderManager = new SplitM1GManager(instance); break;
+                case OrderBatchingMethodType.SplitM1GExact: OrderManager = new SplitM1GExactManager(instance); break;
+                case OrderBatchingMethodType.PVGS: OrderManager = new PVGSManager(instance); break;
+                case OrderBatchingMethodType.GreedyM3G: OrderManager = new GreedyM3GManager(instance); break;
+                case OrderBatchingMethodType.SplitM1GLB: OrderManager = new SplitM1GLBManager(instance); break;
+                case OrderBatchingMethodType.SplitM2eIC: OrderManager = new SplitM2eICManager(instance); break;
+                case OrderBatchingMethodType.M4G: OrderManager = new M4GManager(instance); break;
+                case OrderBatchingMethodType.GreedyM4G: OrderManager = new GreedyM4GManager(instance); break;
+                case OrderBatchingMethodType.GreedyM5: OrderManager = new GreedyM5Manager(instance); break;
+                case OrderBatchingMethodType.M4GNS: OrderManager = new M4GNSManager(instance); break;
+                case OrderBatchingMethodType.GreedyM5NS: OrderManager = new GreedyM5NSManager(instance); break;
                 default: throw new ArgumentException("Unknown order manager: " + instance.ControllerConfig.OrderBatchingConfig.GetMethodType());
             }
             // Init replenishment batching manger

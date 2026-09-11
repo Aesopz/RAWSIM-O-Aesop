@@ -822,8 +822,8 @@ namespace RAWSimO.Core.Statistics
                 if (_logDistanceTraveled.Count >= Instance.STAT_MAX_DATA_POINTS)
                     FlushTraveledDistance();
             }
-            // Monitor positions
-            if (currentTime >= _nextSnapshotLocationPolling)
+            // Monitor positions (heatmap) — skipped entirely on long runs via DisableHeavyLogging.
+            if (!_instance.SettingConfig.DisableHeavyLogging && currentTime >= _nextSnapshotLocationPolling)
             {
                 // Calculate next snapshot
                 _nextSnapshotLocationPolling += _instance.SettingConfig.IntenseLocationPolling ? STEP_LENGTH_POSITION_POLL_INTENSE : STEP_LENGTH_POSITION_POLL;

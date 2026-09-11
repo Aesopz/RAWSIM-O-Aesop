@@ -1,0 +1,116 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
+           background: #F4F2ED; color: #12212E; }
+    a { color: #0E7C86; } a:hover { color: #0A5D64; }
+    .m  { font-family: Cambria, "Times New Roman", serif; font-style: italic; }
+    .mn { font-family: Cambria, "Times New Roman", serif; font-style: normal; }
+    sub, sup { font-size: 0.66em; }
+  </style>
+</helmet>
+<div style="width: 1280px; height: 720px; box-sizing: border-box; padding: 50px 60px 40px;
+            display: flex; flex-direction: column; background: #F4F2ED;">
+
+  <div style="font-family: Consolas, monospace; font-size: 12px; letter-spacing: 0.14em;
+              color: #0E7C86; font-weight: 700;">前提模型 · M1G (Jiao et al., 2026)</div>
+  <div style="font-size: 31px; font-weight: 700; margin-top: 7px; letter-spacing: -0.01em;">
+    符號、參數與決策變數
+  </div>
+  <div style="height: 2px; background: #D5D0C6; margin: 16px 0 18px;"></div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 34px; flex-grow: 1;">
+
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+
+      <div>
+        <div style="font-family: Consolas, monospace; font-size: 11px; color: #B8861F;
+                    font-weight: 700; letter-spacing: 0.1em; margin-bottom: 7px;">集合 SETS</div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <tr><td style="width: 62px; padding: 4px 0; vertical-align: top;"><span class="m">O</span></td>
+              <td style="padding: 4px 0; color: #444C54; line-height: 1.45;">本次決策的待指派訂單集合（已預先濾除系統庫存不足以完整滿足的訂單）</td></tr>
+          <tr><td style="padding: 4px 0; vertical-align: top;"><span class="m">S</span></td>
+              <td style="padding: 4px 0; color: #444C54; line-height: 1.45;">尚有空槽的揀貨站集合</td></tr>
+          <tr><td style="padding: 4px 0; vertical-align: top;"><span class="m">I</span></td>
+              <td style="padding: 4px 0; color: #444C54; line-height: 1.45;">SKU（品項）集合</td></tr>
+          <tr><td style="padding: 4px 0; vertical-align: top;">
+                <span class="m">P</span> = <span class="m">P<sub>a</sub></span> &cup; <span class="m">P<sub>b</sub></span></td>
+              <td style="padding: 4px 0; color: #444C54; line-height: 1.45;">
+                貨架集合；<span class="m">P<sub>a</sub></span> 為儲區閒置、<span class="m">P<sub>b</sub></span> 為已承諾（在途或在站）</td></tr>
+          <tr><td style="padding: 4px 0; vertical-align: top;"><span class="m">R</span></td>
+              <td style="padding: 4px 0; color: #444C54; line-height: 1.45;">可派遣機器人集合</td></tr>
+        </table>
+      </div>
+
+      <div>
+        <div style="font-family: Consolas, monospace; font-size: 11px; color: #B8861F;
+                    font-weight: 700; letter-spacing: 0.1em; margin-bottom: 7px;">參數 PARAMETERS</div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <tr><td style="width: 62px; padding: 4px 0; vertical-align: top;"><span class="m">d<sub>oi</sub></span></td>
+              <td style="padding: 4px 0; color: #444C54; line-height: 1.45;">訂單 <span class="m">o</span> 對 SKU <span class="m">i</span> 的需求件數</td></tr>
+          <tr><td style="padding: 4px 0; vertical-align: top;"><span class="m">k<sub>pi</sub></span></td>
+              <td style="padding: 4px 0; color: #444C54; line-height: 1.45;">貨架 <span class="m">p</span> 持有 SKU <span class="m">i</span> 的可用庫存</td></tr>
+          <tr><td style="padding: 4px 0; vertical-align: top;"><span class="m">C<sub>s</sub></span></td>
+              <td style="padding: 4px 0; color: #444C54; line-height: 1.45;">站台 <span class="m">s</span> 當前可用槽位數（<b>訂單級</b>容量，非件級）</td></tr>
+          <tr><td style="padding: 4px 0; vertical-align: top;"><span class="m">c<sup>ps</sup></span>, <span class="m">c<sup>rp</sup></span></td>
+              <td style="padding: 4px 0; color: #444C54; line-height: 1.45;">貨架&rarr;站台、機器人&rarr;貨架的行走距離（公尺）</td></tr>
+        </table>
+      </div>
+
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+
+      <div style="background: #FFFFFF; border: 1px solid #D5D0C6; padding: 16px 18px;">
+        <div style="font-family: Consolas, monospace; font-size: 11px; color: #B8861F;
+                    font-weight: 700; letter-spacing: 0.1em; margin-bottom: 9px;">決策變數 DECISION VARIABLES</div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <tr><td style="width: 78px; padding: 5px 0; vertical-align: top;"><span class="m">x<sub>ps</sub></span> &isin; {0,1}</td>
+              <td style="padding: 5px 0 5px 10px; color: #444C54; line-height: 1.45;">貨架 <span class="m">p</span> 指派至站台 <span class="m">s</span></td></tr>
+          <tr><td style="padding: 5px 0; vertical-align: top; color: #0E7C86; font-weight: 700;">
+                <span class="m">y<sub>os</sub></span> &isin; {0,1}</td>
+              <td style="padding: 5px 0 5px 10px; color: #12212E; line-height: 1.45; font-weight: 700;">
+                訂單 <span class="m">o</span> <span style="color:#0E7C86;">估值指派</span>至站台 <span class="m">s</span></td></tr>
+          <tr><td style="padding: 5px 0; vertical-align: top; color: #B8861F; font-weight: 700;">
+                <span class="m">y<sub>aos</sub></span> &isin; {0,1}</td>
+              <td style="padding: 5px 0 5px 10px; color: #12212E; line-height: 1.45; font-weight: 700;">
+                訂單 <span class="m">o</span> <span style="color:#B8861F;">實際綁定</span>至站台 <span class="m">s</span>（佔用槽位）</td></tr>
+          <tr><td style="padding: 5px 0; vertical-align: top;"><span class="m">y<sub>rp</sub></span> &isin; {0,1}</td>
+              <td style="padding: 5px 0 5px 10px; color: #444C54; line-height: 1.45;">機器人 <span class="m">r</span> 搬運貨架 <span class="m">p</span>（TA 在模型內）</td></tr>
+          <tr><td style="padding: 5px 0; vertical-align: top;"><span class="m">u<sub>s</sub></span> &isin; &#8484;<sub>&ge;0</sub></td>
+              <td style="padding: 5px 0 5px 10px; color: #444C54; line-height: 1.45;">站台 <span class="m">s</span> 未被利用的槽位數</td></tr>
+          <tr><td style="padding: 5px 0; vertical-align: top;"><span class="m">d<sub>ops</sub></span> &isin; {0,1}</td>
+              <td style="padding: 5px 0 5px 10px; color: #444C54; line-height: 1.45;">貨架 <span class="m">p</span> 於站台 <span class="m">s</span> 服務訂單 <span class="m">o</span></td></tr>
+        </table>
+      </div>
+
+      <div style="border-left: 3px solid #A33B2A; padding: 10px 0 10px 14px;">
+        <div style="font-size: 13px; font-weight: 700; margin-bottom: 5px;">模型中<span style="color:#A33B2A;">不存在</span>的兩件事</div>
+        <div style="font-size: 12.5px; color: #6B767F; line-height: 1.6;">
+          <b>① 完成變數。</b>訂單一旦被指派，覆蓋限制式即保證其可被完整滿足，故「完成」無須另設變數。<br>
+          <b>② 貨架&rarr;訂單行的歸屬。</b>該指派在 MILP <b>之外</b>以貪婪後處理決定，不進入最佳化。
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid #D5D0C6;
+              font-size: 11.5px; color: #6B767F; font-family: Consolas, monospace;">
+    符號沿用原文；本節整理自 Jiao et al. (2026), Omega 138:103374 &mdash; 非本研究貢獻
+  </div>
+
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1280,"height":720}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>

@@ -187,6 +187,20 @@ namespace RAWSimO.Core.Control
         /// </summary>
         public List<ExtractRequest> Requests { get; private set; }
         /// <summary>
+        /// Predicted absolute simulation time at which the bot will physically arrive at the
+        /// output station with this pod. Written once by SlowStartController.ComputeHold()
+        /// at the slow-start decision moment (= bot already at pod cell). Used by other bots'
+        /// T_starve calculation to know when this in-flight pod is expected to start serving.
+        /// NaN = not yet written (slow-start decision has not happened, or feature disabled).
+        /// </summary>
+        public double ExpectedArrivalAtStation { get; set; } = double.NaN;
+        /// <summary>
+        /// Distinct orders this pod-visit has actually served items to. Populated by
+        /// OutputStation.TakeItemFromPod on each successful pick. Used to record the
+        /// "orders served per pod-visit" KPI at Finish().
+        /// </summary>
+        internal HashSet<Items.Order> ServedOrdersThisVisit = new HashSet<Items.Order>();
+        /// <summary>
         /// The pod to use for this task.
         /// </summary>
         public Pod ReservedPod { get; private set; }
@@ -207,7 +221,13 @@ namespace RAWSimO.Core.Control
             Instance.ResourceManager.RemoveExtractRequest(request);
             if (!ReservedPod.IsContained(request.Item))
                 throw new InvalidOperationException("Cannot add a request for an item that is not available!");
-            if (Instance.ControllerConfig.OrderBatchingConfig is PodMatchingOrderBatchingConfiguration)
+            // SplitHeuristicConfiguration uses the same generic scorer-driven pod/request matching as
+            // PodMatching (see BalancedBotManager), so it needs the identical reserved-counter sync:
+            // without RegisterItem here the pod's available count never decrements on reservation while
+            // Cancel()'s unconditional UnregisterItem still increments it, and the drifting counter
+            // eventually offers requests for items that are physically exhausted.
+            if (Instance.ControllerConfig.OrderBatchingConfig is PodMatchingOrderBatchingConfiguration
+                || Instance.ControllerConfig.OrderBatchingConfig is SplitHeuristicConfiguration)
                 ReservedPod.RegisterItem(request.Item, request);
             Requests.Add(request);
             request.StatInjected = true;
@@ -224,7 +244,7 @@ namespace RAWSimO.Core.Control
             //}
             OutputStation.RegisterInboundPod(ReservedPod);
             if (Instance.ControllerConfig.OrderBatchingConfig is PodMatchingOrderBatchingConfiguration || Instance.ControllerConfig.OrderBatchingConfig is M2GConfiguration
-                || Instance.ControllerConfig.OrderBatchingConfig is M1GConfiguration)
+                || Instance.ControllerConfig.OrderBatchingConfig is M1GConfiguration || Instance.ControllerConfig.OrderBatchingConfig is SplitHeuristicConfiguration)
             {
                 Instance.ResourceManager.ClaimPod(ReservedPod, Bot, BotTaskType.Extract);
             }
@@ -233,7 +253,9 @@ namespace RAWSimO.Core.Control
             for (int i = 0; i < Requests.Count; i++)
             {
                 Instance.ResourceManager.RemoveExtractRequest(Requests[i]);
-                if (Instance.ControllerConfig.OrderBatchingConfig is PodMatchingOrderBatchingConfiguration)
+                // SplitHeuristicConfiguration mirrors the PodMatching reserved-counter sync (see AddRequest).
+                if (Instance.ControllerConfig.OrderBatchingConfig is PodMatchingOrderBatchingConfiguration
+                    || Instance.ControllerConfig.OrderBatchingConfig is SplitHeuristicConfiguration)
                     ReservedPod.RegisterItem(Requests[i].Item, Requests[i]);
             }
         }
@@ -261,6 +283,15 @@ namespace RAWSimO.Core.Control
                 throw new InvalidOperationException("An unfinished request cannot be marked as finished!");
             OutputStation.UnregisterInboundPod(ReservedPod);
             OutputStation.UnregisterExtractTask(this);
+            // Record orders-per-pod-visit KPI sample (diagnostic for value-vs-distance tradeoff)
+            if (ServedOrdersThisVisit.Count > 0)
+            {
+                Instance.StatPodVisitOrdersServedSamples.Add(ServedOrdersThisVisit.Count);
+                // Paired sample: how full the station was. A pod can only serve orders that are
+                // standing in a slot, so this is the ceiling on what the visit could achieve.
+                Instance.StatPodVisitSlotsOccupiedSamples.Add(OutputStation.CapacityInUse);
+                Instance.StatPodVisitSlotCapacitySamples.Add(OutputStation.Capacity);
+            }
         }
     }
     /// <summary>

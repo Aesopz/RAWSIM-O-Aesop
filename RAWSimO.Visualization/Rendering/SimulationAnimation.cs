@@ -44,11 +44,14 @@ namespace RAWSimO.Visualization.Rendering
             }
             // Return color
             BotColorMode colorMode = _botColorModeGetter();
+            Brush stateBrush;
+            if (!VisualizationConstants.StateBrushes.TryGetValue(state ?? "", out stateBrush))
+                stateBrush = VisualizationConstants.StateBrushHidden;
             switch (colorMode)
             {
-                case BotColorMode.DefaultBotDefaultState: return VisualizationConstants.StateBrushes[state];
+                case BotColorMode.DefaultBotDefaultState: return stateBrush;
                 case BotColorMode.RainbowBotSingleState: return state == "Move" ? _rainbowBotColors[bot] : VisualizationConstants.StateBrushHidden;
-                case BotColorMode.RainbowBotDefaultState: return state == "Move" ? _rainbowBotColors[bot] : VisualizationConstants.StateBrushes[state];
+                case BotColorMode.RainbowBotDefaultState: return state == "Move" ? _rainbowBotColors[bot] : stateBrush;
                 default: throw new ArgumentException("Unknown bot coloring mode: " + colorMode.ToString());
             }
         }

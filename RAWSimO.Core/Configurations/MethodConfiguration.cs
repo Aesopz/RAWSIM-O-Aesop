@@ -39,9 +39,19 @@ namespace RAWSimO.Core.Configurations
         WHCAvStar,
 
         /// <summary>
+        /// Silver 06 - Cooperative pathfinding with rule-based priority.
+        /// </summary>
+        WHCAvStarPriority,
+
+        /// <summary>
         /// Silver 06 - Cooperative pathfinding
         /// </summary>
         WHCAnStar,
+
+        /// <summary>
+        /// Silver 06 - Cooperative pathfinding with rule-based priority.
+        /// </summary>
+        WHCAnStarPriority,
 
         /* Heavy Approach with many drawbacks for continues time slots 
          * Missing: Distinguish between pod holding and non-pod holding bots
@@ -278,6 +288,10 @@ namespace RAWSimO.Core.Configurations
         /// </summary>
         GM1,
         /// <summary>
+        /// Use M1G and include bots that are nearly done returning a pod.
+        /// </summary>
+        GM1ReturnPending,
+        /// <summary>
         /// Use mathematical programming method to solve POA
         /// </summary>
         GM2,
@@ -290,6 +304,18 @@ namespace RAWSimO.Core.Configurations
         /// </summary>
         HADGS,
         /// <summary>
+        /// Starvation-aware HADGS: EST-driven water-filling POA/PPS/TA (no Gurobi in the hot path).
+        /// </summary>
+        SAHADGS,
+        /// <summary>
+        /// Starvation-aware M1G: M1G plus a pod-delay penalty (free-flow arrival vs station EST).
+        /// </summary>
+        SAM1G,
+        /// <summary>
+        /// ALNS: destroy/repair + simulated-annealing metaheuristic optimizing M1G's objective, warm-started from HADGS.
+        /// </summary>
+        ALNS_OB,
+        /// <summary>
         /// An approach selecting an order that is most similar to the ones already assigned to a station.
         /// </summary>
         LinesInCommon,
@@ -301,6 +327,58 @@ namespace RAWSimO.Core.Configurations
         /// An approach exploiting information about the backlog to increase similarities of orders at the stations.
         /// </summary>
         Foresight,
+        /// <summary>
+        /// Greedy order-splitting heuristic manager (enabler for the order-splitting thesis line).
+        /// Originals (M1G / HADGS) stay untouched as the no-splitting ablation baseline.
+        /// </summary>
+        SplitHeuristic,
+        /// <summary>
+        /// The MILP-based order-splitting manager (M1G with shi2 relaxed to unit-level q[o,i,s]).
+        /// </summary>
+        SplitM1G,
+        /// <summary>
+        /// SplitM1G with pod-level attribution decided inside the MILP (q[i,o,p,s], 4D), instead
+        /// of the post-solve greedy Ziops pass. Reward is per-order-completion, not per-unit.
+        /// </summary>
+        SplitM1GExact,
+        /// <summary>
+        /// Pod-Value Greedy Splitting: the fast heuristic counterpart of SplitM1GExact
+        /// (as HADGS is to M1G). Pod-centric greedy with exact ledger claims, no Gurobi.
+        /// </summary>
+        PVGS,
+        GreedyM3G,
+        /// <summary>
+        /// Late-binding SplitM1GExact (M2e-LB): same MILP, AllocateOrder deferred to pod-claim
+        /// time via a deferred-binding ledger; PlannedWipCap replaces physical Cs semantics.
+        /// </summary>
+        SplitM1GLB,
+        /// <summary>
+        /// M2e-IC (Inbound-Committed Split, v4): SplitM1GExact plus the P1/SG gates
+        /// (splits draw from committed pods; new partials bridge a dying processing pod
+        /// only), multi-part penalty, lead-gated pipeline floor, coverage/scarcity
+        /// tie-breaks and an optional per-split-parent packing budget.
+        /// </summary>
+        SplitM2eIC,
+        M4G,
+        /// <summary>
+        /// HGS-M4: greedy heuristic counterpart of M4G, as HADGS is to M1G. Copies GreedyM3G's
+        /// validated pod-centric greedy engine and replaces the dispatch score with M4G's
+        /// self-calibrated price list (lambda/mu/delta/rho), with no supply cap, pipeline
+        /// floor, lead-time gate, or hand-tuned weight.
+        /// </summary>
+        GreedyM4G,
+        /// <summary>
+        /// HGS-M5: the marginal-line greedy. Constructs a solution inside M4G's own solution
+        /// space one move at a time - take a line to its full residual, or dispatch a pod -
+        /// always accepting the move with the most negative marginal objective. Unlike
+        /// GreedyM4G it can commit PARTIAL coverage, so cross-period splitting is available to
+        /// it, and every solution it builds is feasible for the M4G MILP.
+        /// </summary>
+        GreedyM5,
+        /// <summary>M4G-NS: whole-order atom, self-calibrated pricing. The no-split control arm.</summary>
+        M4GNS,
+        /// <summary>M5-NS: whole-order greedy, the no-split counterpart of HGS-M5.</summary>
+        GreedyM5NS,
     }
     /// <summary>
     /// All types of implemented replenishment batching strategies.
@@ -505,7 +583,9 @@ namespace RAWSimO.Core.Configurations
     [XmlInclude(typeof(SimplePathPlanningConfiguration))]
     [XmlInclude(typeof(DummyPathPlanningConfiguration))]
     [XmlInclude(typeof(WHCAvStarPathPlanningConfiguration))]
+    [XmlInclude(typeof(WHCAvStarPriorityPathPlanningConfiguration))]
     [XmlInclude(typeof(WHCAnStarPathPlanningConfiguration))]
+    [XmlInclude(typeof(WHCAnStarPriorityPathPlanningConfiguration))]
     [XmlInclude(typeof(FARPathPlanningConfiguration))]
     [XmlInclude(typeof(ODIDPathPlanningConfiguration))]
     [XmlInclude(typeof(BCPPathPlanningConfiguration))]
@@ -719,11 +799,28 @@ namespace RAWSimO.Core.Configurations
     [XmlInclude(typeof(ForesightOrderBatchingConfiguration))]
     [XmlInclude(typeof(PodMatchingOrderBatchingConfiguration))]
     [XmlInclude(typeof(M1GConfiguration))]
+    [XmlInclude(typeof(SAM1GConfiguration))]
+    [XmlInclude(typeof(M1GReturnPendingConfiguration))]
     [XmlInclude(typeof(M2GConfiguration))]
     [XmlInclude(typeof(HASConfiguration))]
     [XmlInclude(typeof(HADGSConfiguration))]
+    [XmlInclude(typeof(HADGSReturnPendingConfiguration))]
+    [XmlInclude(typeof(SAHADGSConfiguration))]
+    [XmlInclude(typeof(ALNSConfiguration))]
     [XmlInclude(typeof(LinesInCommonOrderBatchingConfiguration))]
     [XmlInclude(typeof(QueueOrderBatchingConfiguration))]
+    [XmlInclude(typeof(SplitHeuristicConfiguration))]
+    [XmlInclude(typeof(SplitM1GConfiguration))]
+    [XmlInclude(typeof(SplitM1GExactConfiguration))]
+    [XmlInclude(typeof(SplitM1GLBConfiguration))]
+    [XmlInclude(typeof(PVGSConfiguration))]
+    [XmlInclude(typeof(GreedyM3GConfiguration))]
+    [XmlInclude(typeof(SplitM2eICConfiguration))]
+    [XmlInclude(typeof(M4GConfiguration))]
+    [XmlInclude(typeof(GreedyM4GConfiguration))]
+    [XmlInclude(typeof(GreedyM5Configuration))]
+    [XmlInclude(typeof(M4GNSConfiguration))]
+    [XmlInclude(typeof(GreedyM5NSConfiguration))]
     public abstract class OrderBatchingConfiguration : ControllerConfigurationBase
     {
         /// <summary>

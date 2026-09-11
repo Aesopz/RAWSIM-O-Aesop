@@ -1320,6 +1320,11 @@ namespace RAWSimO.Core.Management
                 _openOrders.Add(order);
             }
         }
+
+        /// <summary>(Fill fairness) O(1) check whether an order is still in the available-order
+        /// backlog (used to release a split parent from Fill exactly once).</summary>
+        public bool IsOrderAvailable(Order order) { lock (_syncRoot) { return _availableOrders.Contains(order); } }
+
         /// <summary>
         /// delete a order .
         /// </summary>

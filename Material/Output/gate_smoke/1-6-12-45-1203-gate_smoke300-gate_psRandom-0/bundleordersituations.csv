@@ -1,0 +1,7 @@
+#TimeStamp;BacklogBundleCount;BacklogOrderCount;BundleThroughputAgeAvg;OrderThroughputAgeAvg;BundleTurnoverAgeAvg;OrderTurnoverAgeAvg;BundleFrequencyAvg;OrderFrequencyAvg
+0;200;200;0;0;0;0;0;0.34
+59.87;200;200;59.83;59.15;59.87;59.87;0.32;0.34
+119.76;200;200;83.51;109.43;119.76;119.03;0.35;0.34
+179.99;200;200;120.87;155.09;179.99;177.75;0.37;0.35
+239.76;200;200;117.93;197.94;239.74;233.69;0.39;0.33
+299.96;200;200;124.2;236.13;299.94;289.22;0.37;0.35

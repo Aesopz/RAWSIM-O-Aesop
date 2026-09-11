@@ -912,7 +912,10 @@ namespace RAWSimO.Core.Bots
                 this.Pod.Moving = this.Moving;
 
             // Count distanceTraveled
-            this.StatDistanceTraveled += Math.Sqrt((X - xOld) * (X - xOld) + (Y - yOld) * (Y - yOld));
+            double stepDistanceHazard = Math.Sqrt((X - xOld) * (X - xOld) + (Y - yOld) * (Y - yOld));
+            this.StatDistanceTraveled += stepDistanceHazard;
+            if (CurrentTask != null && CurrentTask.Type == Control.BotTaskType.Extract)
+                this.StatDistanceTraveledExtract += stepDistanceHazard;
 
             // Compute time in previous task
             this.StatTotalTaskTimes[StatLastTask] += timeDelta;

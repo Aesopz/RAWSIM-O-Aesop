@@ -8,7 +8,7 @@ namespace RAWSimO.SolverWrappers
     /// <summary>
     /// Gurobi-backed linear model wrapper used by RAWSim-O.
     /// </summary>
-    public class LinearModel
+    public class LinearModel : IDisposable
     {
         public SolverType Type { get; private set; }
 
@@ -24,6 +24,15 @@ namespace RAWSimO.SolverWrappers
 
         private void LogLine(string msg) { if (_logger != null) _logger(msg + Environment.NewLine); }
 
+        /// <summary>
+        /// The Gurobi environment backing GurobiModel. Created fresh (not shared/static) by this
+        /// constructor - see the "new GRBEnv()" call below - so this instance owns it and must
+        /// dispose it alongside the model; nothing else in the codebase holds a reference to it.
+        /// </summary>
+        private GRBEnv _gurobiEnvironment;
+
+        private bool _disposed = false;
+
         public LinearModel(SolverType type, Action<string> logger, int threadCount = 0)
         {
             if (type != SolverType.Gurobi)
@@ -32,14 +41,36 @@ namespace RAWSimO.SolverWrappers
             Type = type;
             _logger = logger;
 
-            GRBEnv gurobiEnvironment = new GRBEnv();
-            GurobiModel = new GRBModel(gurobiEnvironment);
+            _gurobiEnvironment = new GRBEnv();
+            GurobiModel = new GRBModel(_gurobiEnvironment);
             GurobiModel.GetEnv().Set(GRB.IntParam.OutputFlag, 0);
             if (threadCount > 0)
                 GurobiModel.GetEnv().Set(GRB.IntParam.Threads, threadCount);
 
             _gurobiStatusCallback = new GurobiStatusCallback(this) { Logger = logger };
             GurobiModel.SetCallback(_gurobiStatusCallback);
+        }
+
+        /// <summary>
+        /// Releases the native Gurobi model and the environment this instance created for it.
+        /// Safe to call more than once. Callers must have already read back every value they
+        /// need from solved variables/constraints (Variable.GetValue(), GetDuals(), etc. all
+        /// query the live Gurobi model) before calling this - values are not cached.
+        /// </summary>
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            if (GurobiModel != null)
+            {
+                GurobiModel.Dispose();
+                GurobiModel = null;
+            }
+            if (_gurobiEnvironment != null)
+            {
+                _gurobiEnvironment.Dispose();
+                _gurobiEnvironment = null;
+            }
         }
 
         internal void RegisterVariable(Variable variable)
@@ -58,6 +89,55 @@ namespace RAWSimO.SolverWrappers
             Update();
             GurobiModel.Optimize();
             _isBusy = false;
+        }
+
+        /// <summary>
+        /// Sets the relative MIP optimality gap. Gurobi's default is 1e-4, which returns a
+        /// near-optimal solution: adequate for a controller, but not enough to call the result an
+        /// optimum. Pass 0 when the model is meant to be a reference/upper bound whose distance
+        /// from a heuristic is going to be reported. Not set globally - M1G and the other legacy
+        /// managers share this class and must keep their published behaviour.
+        /// </summary>
+        public void SetMipGap(double gap)
+        {
+            GurobiModel.GetEnv().Set(GRB.DoubleParam.MIPGap, gap);
+        }
+
+        /// <summary>
+        /// Caps the wall-clock time of each Optimize() call, in seconds. On expiry the solver
+        /// returns its best incumbent instead of proving optimality; callers must therefore accept
+        /// a possibly sub-optimal - but always feasible - solution. Used to give every online
+        /// decision the same budget regardless of how hard its model happens to be.
+        /// </summary>
+        public void SetTimeLimit(double seconds)
+        {
+            GurobiModel.GetEnv().Set(GRB.DoubleParam.TimeLimit, seconds);
+        }
+
+        /// <summary>
+        /// Deterministic analogue of <see cref="SetTimeLimit"/>: caps the solver's work units
+        /// rather than its wall-clock seconds. Preferred for experiments, because a wall-clock cap
+        /// makes results depend on machine load - the same config would not reproduce - whereas a
+        /// work cap truncates the search at exactly the same point on every run. Roughly, one work
+        /// unit is about a second on a reference core, but the mapping is machine-independent by
+        /// construction.
+        /// </summary>
+        public void SetWorkLimit(double workUnits)
+        {
+            GurobiModel.GetEnv().Set(GRB.DoubleParam.WorkLimit, workUnits);
+        }
+
+        /// <summary>
+        /// Discards any solution information from a previous Optimize() while leaving the model
+        /// itself - variables, constraints and their order - untouched. Needed when the same model
+        /// is re-solved under a different objective and the second solve must not warm-start from
+        /// the first: warm starting is free to return a different member of an equally optimal
+        /// set, which silently changes the decision. After Reset the solve begins from the same
+        /// state a freshly constructed, never-optimised model would.
+        /// </summary>
+        public void Reset()
+        {
+            GurobiModel.Reset();
         }
 
         public void Abort()
@@ -102,6 +182,33 @@ namespace RAWSimO.SolverWrappers
         public void AddConstr(LinearExpression expression, string name)
         {
             GurobiModel.AddConstr(expression.Expression, name);
+        }
+
+        private List<KeyValuePair<string, GRBConstr>> _trackedConstrs = new List<KeyValuePair<string, GRBConstr>>();
+
+        /// <summary>
+        /// Adds a constraint and retains its Gurobi handle so its dual price can be read back
+        /// after solving. Identical to AddConstr in every other respect; the plain AddConstr
+        /// path is left untouched so existing models are unaffected.
+        /// </summary>
+        public void AddConstrTracked(LinearExpression expression, string name)
+        {
+            _trackedConstrs.Add(new KeyValuePair<string, GRBConstr>(
+                name, GurobiModel.AddConstr(expression.Expression, name)));
+        }
+
+        /// <summary>
+        /// Dual price (shadow price) of every constraint added through AddConstrTracked, keyed
+        /// by the name it was added under. Only meaningful for a continuous model that solved to
+        /// optimality - Gurobi does not define Pi for a MIP, so this throws there rather than
+        /// returning a silently meaningless number.
+        /// </summary>
+        public IEnumerable<KeyValuePair<string, double>> GetDuals()
+        {
+            if (GurobiModel.Get(GRB.IntAttr.IsMIP) != 0)
+                throw new InvalidOperationException("Dual prices are undefined for a MIP; relax all variables to Continuous before calling GetDuals.");
+            foreach (var tracked in _trackedConstrs)
+                yield return new KeyValuePair<string, double>(tracked.Key, tracked.Value.Get(GRB.DoubleAttr.Pi));
         }
 
         public void SetParam(string paramName, string paramValue)

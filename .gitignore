@@ -1,4 +1,4 @@
-﻿# Build outputs
+# Build outputs
 bin/
 obj/
 *.user
@@ -30,4 +30,44 @@ scripts/__pycache__/
 
 # OS
 Thumbs.db
-desktop.ini.worktrees/
+desktop.ini
+
+# Git worktrees
+.worktrees/
+
+# Simulation output (reproducible by re-running; never committed)
+out/
+
+# One-off exploration batch scripts (kept locally, not versioned)
+scripts/run_*.cmd
+
+# LaTeX build artefacts
+docs/thesis/main/build/
+docs/thesis/**/*.aux
+docs/thesis/**/*.log
+docs/thesis/**/*.out
+docs/thesis/**/*.toc
+docs/thesis/**/*.lof
+docs/thesis/**/*.lot
+docs/thesis/**/*.bbl
+docs/thesis/**/*.blg
+docs/thesis/**/*.xdv
+docs/thesis/**/*.synctex.gz
+
+# 參考文獻 PDF（著作權；索引見 docs/thesis/refer/index.md）
+docs/thesis/refer/*.pdf
+
+# 論文範本的隨附字型（10MB；Windows 已內建標楷體 DFKai-SB）
+docs/thesis/**/*.ttf
+# 原始範本壓縮包解開的資料夾（保留在本機供對照，不進版控）
+docs/thesis/ntust-thesis-master/
+# 學長的 Word 檔（7MB，僅供內容搬移參考）
+docs/thesis/*.docx
+
+# LaTeX -output-directory（全部是衍生物，含 pdf；原始碼在 main/）
+docs/thesis/main/$out/
+docs/thesis/**/*.loa
+
+# pptx 解包工作目錄（unzip 產物，含 5MB 內嵌字型；原始 .pptx 才是來源）
+slide/*/u/
+slide/work/unpacked/

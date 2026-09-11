@@ -1,0 +1,722 @@
+<title>M4G 逐步演算：從初始化到穩態</title>
+<style>
+:root{
+  --paper:#E9EAE3;--surface:#F4F5EF;--surface-2:#DFE1D8;
+  --ink:#1E231C;--ink-mute:#5D655A;--ink-faint:#868D80;
+  --rule:#C7CCC0;--rule-soft:#D8DCD1;
+  --bind:#B8440D;--bind-soft:#F0D9CB;
+  --value:#2C6A72;--value-soft:#CFE0E1;--warn:#8A6A12;--warn-soft:#EFE4C4;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#141711;--surface:#1D211A;--surface-2:#262B22;
+    --ink:#E3E7DC;--ink-mute:#9AA391;--ink-faint:#77806F;
+    --rule:#333A2E;--rule-soft:#272D22;
+    --bind:#EE7B3E;--bind-soft:#3A2417;
+    --value:#5EAAB2;--value-soft:#16302F;--warn:#C8A64A;--warn-soft:#2E2812;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#141711;--surface:#1D211A;--surface-2:#262B22;
+  --ink:#E3E7DC;--ink-mute:#9AA391;--ink-faint:#77806F;
+  --rule:#333A2E;--rule-soft:#272D22;
+  --bind:#EE7B3E;--bind-soft:#3A2417;
+  --value:#5EAAB2;--value-soft:#16302F;--warn:#C8A64A;--warn-soft:#2E2812;
+}
+:root[data-theme="light"]{
+  --paper:#E9EAE3;--surface:#F4F5EF;--surface-2:#DFE1D8;
+  --ink:#1E231C;--ink-mute:#5D655A;--ink-faint:#868D80;
+  --rule:#C7CCC0;--rule-soft:#D8DCD1;
+  --bind:#B8440D;--bind-soft:#F0D9CB;
+  --value:#2C6A72;--value-soft:#CFE0E1;--warn:#8A6A12;--warn-soft:#EFE4C4;
+}
+:root{
+  --mono:"Consolas","Cascadia Mono","DejaVu Sans Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --body:"Segoe UI",-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,"Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif;
+  --math:"Cambria Math",Cambria,"Times New Roman",Georgia,serif;
+  --measure:70ch;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);
+  font-size:16.5px;line-height:1.85;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px 120px;}
+
+.masthead{border-bottom:1px solid var(--rule);padding:72px 0 40px;margin-bottom:56px;}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:0.22em;text-transform:uppercase;
+  color:var(--ink-faint);margin:0 0 22px;}
+.masthead h1{font-family:var(--mono);font-size:clamp(28px,4.8vw,46px);font-weight:700;
+  letter-spacing:-0.015em;line-height:1.15;margin:0 0 20px;text-wrap:balance;}
+.masthead h1 .dim{color:var(--ink-mute);font-weight:400;}
+.standfirst{max-width:var(--measure);font-size:18px;line-height:1.8;color:var(--ink-mute);margin:0;}
+.meta{display:flex;flex-wrap:wrap;gap:10px 28px;margin-top:32px;font-family:var(--mono);
+  font-size:12px;color:var(--ink-faint);letter-spacing:0.04em;}
+
+section{display:grid;grid-template-columns:104px minmax(0,1fr);gap:0 32px;padding-bottom:60px;}
+.gutter{font-family:var(--mono);font-size:11.5px;letter-spacing:0.1em;color:var(--ink-faint);
+  padding-top:9px;text-align:right;line-height:1.6;}
+.gutter .big{display:block;font-size:19px;font-weight:700;letter-spacing:-0.01em;color:var(--ink);}
+.col{min-width:0;}
+.col.narrow{max-width:var(--measure);}
+section h2{font-family:var(--mono);font-size:22px;font-weight:700;letter-spacing:-0.01em;
+  line-height:1.4;margin:0 0 8px;padding-top:4px;text-wrap:balance;}
+.dek{color:var(--ink-mute);font-size:15px;margin:0 0 24px;padding-bottom:14px;
+  border-bottom:1px solid var(--rule-soft);max-width:var(--measure);}
+.col p{margin:0 0 18px;max-width:var(--measure);}
+.col ul,.col ol{margin:0 0 20px;padding-left:22px;max-width:var(--measure);}
+.col li{margin-bottom:9px;}
+h3{font-family:var(--mono);font-size:15px;font-weight:700;margin:32px 0 8px;}
+@media (max-width:760px){
+  section{grid-template-columns:1fr;gap:0;}
+  .gutter{text-align:left;padding-top:0;margin-bottom:8px;}
+  .gutter .big{display:inline;font-size:16px;margin-right:10px;}
+  body{font-size:16px;}
+}
+
+code{font-family:var(--mono);font-size:0.89em;background:var(--surface-2);padding:1px 5px;border-radius:2px;}
+.m{font-family:var(--math);font-style:italic;font-size:1.05em;white-space:nowrap;}
+.m sub{font-style:normal;font-size:0.68em;vertical-align:-0.3em;}
+.m sup{font-style:normal;font-size:0.68em;vertical-align:0.45em;}
+.m .up{font-style:normal;}
+.v{color:var(--value);font-weight:600;}
+.b{color:var(--bind);font-weight:600;}
+strong{font-weight:700;}
+
+/* snapshot / price / result panels inside a decision card */
+.card{border:1px solid var(--rule);background:var(--surface);margin:0 0 26px;overflow:hidden;}
+.card > .chead{
+  display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 18px;
+  background:var(--surface-2);padding:12px 18px;border-bottom:1px solid var(--rule);
+  font-family:var(--mono);font-size:12.5px;letter-spacing:0.04em;
+}
+.card > .chead .no{font-size:15px;font-weight:700;letter-spacing:0;}
+.card > .chead .t{color:var(--ink-faint);}
+.card.warm{border-left:3px solid var(--warn);}
+.card.calib{border-left:3px solid var(--value);}
+.card.steady{border-left:3px solid var(--bind);}
+
+.rowset{display:grid;grid-template-columns:82px minmax(0,1fr);gap:0;border-bottom:1px solid var(--rule-soft);}
+.rowset:last-child{border-bottom:none;}
+.rowset > .rlab{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;
+  color:var(--ink-faint);padding:14px 0 14px 18px;line-height:1.4;
+}
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding:12px 18px 12px 6px;}
+.chip{
+  font-family:var(--mono);font-size:12.5px;border:1px solid var(--rule);
+  padding:3px 9px;background:var(--paper);white-space:nowrap;
+}
+.chip b{font-weight:700;}
+.chip.hi{border-color:var(--bind);color:var(--bind);}
+.chip.hv{border-color:var(--value);color:var(--value);}
+.chip.hw{border-color:var(--warn);color:var(--warn);}
+@media (max-width:560px){
+  .rowset{grid-template-columns:1fr;}
+  .rowset > .rlab{padding:12px 18px 0;}
+  .chips{padding:8px 18px 14px;}
+}
+
+.calc{
+  font-family:var(--mono);font-size:13.5px;line-height:2;white-space:pre;
+  background:var(--paper);border:1px solid var(--rule);border-left:3px solid var(--ink-faint);
+  padding:16px 18px;margin:0 0 24px;overflow-x:auto;
+}
+.calc .c{color:var(--ink-faint);}
+.calc .ok{color:var(--value);font-weight:700;}
+.calc .hot{color:var(--bind);font-weight:700;}
+
+.tablewrap{overflow-x:auto;margin:0 0 26px;border:1px solid var(--rule);}
+table{border-collapse:collapse;width:100%;min-width:540px;background:var(--surface);font-size:13.5px;}
+th,td{text-align:left;padding:9px 13px;border-bottom:1px solid var(--rule-soft);vertical-align:top;line-height:1.6;}
+th{font-family:var(--mono);font-size:10.5px;letter-spacing:0.12em;text-transform:uppercase;
+  color:var(--ink-faint);font-weight:400;background:var(--surface-2);white-space:nowrap;}
+tbody tr:last-child td{border-bottom:none;}
+td.n{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+td.k{font-family:var(--mono);font-weight:700;white-space:nowrap;}
+tr.mark td{background:var(--warn-soft);}
+
+.note{border-top:2px solid var(--ink);padding:16px 0 4px;margin:0 0 26px;max-width:var(--measure);}
+.note .ntitle{font-family:var(--mono);font-size:11px;letter-spacing:0.16em;text-transform:uppercase;
+  color:var(--ink-faint);margin-bottom:8px;}
+.note p{margin:0 0 10px;font-size:15px;}
+.note p:last-child{margin-bottom:0;}
+.note.warn{border-top-color:var(--warn);}
+.note.warn .ntitle{color:var(--warn);}
+
+/* phase bar */
+.phases{display:grid;grid-template-columns:44px 1fr 6fr;gap:1px;background:var(--rule);
+  border:1px solid var(--rule);margin:0 0 10px;}
+.ph{background:var(--surface);padding:12px 12px;}
+.ph .pn{font-family:var(--mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;
+  color:var(--ink-faint);margin-bottom:5px;}
+.ph .pv{font-family:var(--mono);font-size:13px;font-weight:700;line-height:1.45;}
+.ph.w{background:var(--warn-soft);}
+.ph.c{background:var(--value-soft);}
+.ph.s{background:var(--bind-soft);}
+.phscale{font-family:var(--mono);font-size:11px;color:var(--ink-faint);
+  display:flex;justify-content:space-between;margin-bottom:28px;}
+@media (max-width:640px){.phases{grid-template-columns:1fr;}}
+
+footer{border-top:1px solid var(--rule);padding-top:28px;font-family:var(--mono);
+  font-size:12px;color:var(--ink-faint);line-height:2;}
+a{color:var(--bind);text-decoration:underline;text-underline-offset:2px;}
+a:focus-visible,:focus-visible{outline:2px solid var(--bind);outline-offset:2px;}
+@media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important;}}
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <p class="eyebrow">RAWSimO · M4G · 逐步演算</p>
+  <h1>帶你算一次 M4G<span class="dim"><br>從第 0 次決策到穩態</span></h1>
+  <p class="standfirst">
+    以下每一個數字都取自同一場真實模擬的決策日誌
+    （<code>out/nsb_m4g_s0</code>，small / 10 bots / 2h / Fill / seed 0，共 <strong>916 次決策</strong>）。
+    沒有任何一個數字是杜撰或示意的——凡是能對得起來的算式，我都把驗算寫出來讓你核。
+  </p>
+  <div class="meta">
+    <span>m4g.xconf · seed 0 · small / 6 bot / 2h</span>
+    <span>WarmupLines=50 · LambdaFallback=10 · DeltaFallback=0.05</span>
+    <span>此次執行結果：603 訂單 / 765 趟 / 8693 m</span>
+  </div>
+  <div class="note" style="margin-top:34px;max-width:none">
+    <div class="ntitle">這份走查用的是哪一版</div>
+    <p>
+      本文所有數字取自 <strong>2026-08-06</strong> 的一次實際執行，當時 <span class="m">&#948;</span> 是
+      <strong>全域平坦</strong>的單一值、Dinkelbach 是<strong>單向</strong>搜尋。
+      <strong>2026-08-07 起的正典多了三項</strong>：分層 <span class="m">&#948;</span>、雙向 <span class="m">&#955;</span> 搜尋、
+      貪婪對照組的忠實計分（見〈M4G 拆單模型與定價設計〉&#167;7、&#167;10、&#167;11）。
+      同設定同種子在現行正典下是 <strong>610 訂單</strong>。
+    </p>
+    <p>
+      <strong>公式、流程與機制完全沒變，走查逐格仍然成立。</strong>
+      唯一要換算的是 <span class="m">&#948;</span> 的具體數值：本文用的全場累積
+      <span class="m">&#948; = 936/5420 = 0.1727</span> 是分層前的<em>單一</em>值；
+      分層後它依在途貨架數分桶，<span class="m">|P<sup>b</sup>|=1</span> 時為
+      <strong>0.2117</strong>、<span class="m">|P<sup>b</sup>|=2</span> 時為 <strong>0.1376</strong>，
+      0.1727 是這些桶的加權平均。把本文任何一格的
+      <span class="m">&#948;</span> 換成該格對應的桶值，其餘算式照舊。
+    </p>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════ -->
+<section>
+  <div class="gutter"><span class="big">§0</span>全景</div>
+  <div class="col">
+    <h2>整場跑起來長什麼樣</h2>
+    <p class="dek">916 次決策分成三個明顯不同的階段。先看骨架，再逐格拆。</p>
+
+    <div class="phases">
+      <div class="ph w">
+        <div class="pn">階段一</div>
+        <div class="pv">決策 0–39<br>暖機</div>
+      </div>
+      <div class="ph c">
+        <div class="pn">階段二</div>
+        <div class="pv">決策 40–41<br>交棒</div>
+      </div>
+      <div class="ph s">
+        <div class="pn">階段三</div>
+        <div class="pv">決策 42–915　穩態</div>
+      </div>
+    </div>
+    <div class="phscale"><span>t = 0 s</span><span>t ≈ 315 s</span><span>t = 7200 s</span></div>
+
+    <p>
+      三個階段的分界不是時間，是<strong>累積關閉的訂單行數</strong>。
+      設定 <code>WarmupLines=50</code>：在系統關滿 50 條線之前，統計太薄不能拿來定價，
+      所以價格全部用 fallback 常數；關滿的那一刻，價格切換成實測值。
+    </p>
+    <p>
+      這場模擬在 <strong>決策 40</strong>（t ≈ 315.5 s，也就是 2 小時裡的前 4.4%）跨過那條線。
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════ -->
+<section>
+  <div class="gutter"><span class="big">§1</span>決策 0</div>
+  <div class="col">
+    <h2>世界剛開機</h2>
+    <p class="dek">t = 0。100 張訂單躺著，兩個站台都空，87 台貨架在儲區，6 台車待命，還沒有任何歷史統計。</p>
+
+    <div class="card warm">
+      <div class="chead"><span class="no">決策 0</span><span class="t">t = 0.000 s</span><span class="t">暖機</span></div>
+      <div class="rowset">
+        <div class="rlab">快照</div>
+        <div class="chips">
+          <span class="chip">待處理訂單 <b>100</b></span>
+          <span class="chip">有空槽的站 <b>2</b></span>
+          <span class="chip">儲區貨架 <span class="m">P<sup class="up">a</sup></span> <b>87</b></span>
+          <span class="chip">已承諾 <span class="m">P<sup class="up">b</sup></span> <b>0</b></span>
+          <span class="chip">可用車 <b>6</b></span>
+        </div>
+      </div>
+      <div class="rowset">
+        <div class="rlab">價格</div>
+        <div class="chips">
+          <span class="chip hw">λ <b>10</b> m/線</span>
+          <span class="chip hw">μ <b>10</b> m/單</span>
+          <span class="chip hw">δ <b>0.05</b></span>
+          <span class="chip hw">ε <b>0.01</b></span>
+          <span class="chip hw">ρ₀ <b>15</b> m/件</span>
+        </div>
+      </div>
+      <div class="rowset">
+        <div class="rlab">結果</div>
+        <div class="chips">
+          <span class="chip hv">估值關線 <b>10</b></span>
+          <span class="chip hi">綁定關線 <b>5</b></span>
+          <span class="chip hv">估值完單 <b>5</b></span>
+          <span class="chip hi">綁定完單 <b>5</b></span>
+          <span class="chip hi">派車 <b>1</b></span>
+          <span class="chip hi">取貨 <b>6</b> 件（全部來自新派貨架）</span>
+        </div>
+      </div>
+    </div>
+
+    <p>
+      這一刻沒有任何實測統計，所以五個價格全部是 fallback。注意 <span class="m">ρ<sub>0</sub></span>
+      不是一個獨立常數——它是<strong>相對 λ 的比值錨點</strong>：
+    </p>
+
+<div class="calc">ρ₀ = LambdaScale × LambdaFallback × (RhoFallback / 10)
+   = 1 × 10 × (15 / 10)
+   = <span class="ok">15</span>   <span class="c">← 也就是 ρ/λ = 1.5，由 instance 的「每條線幾件」決定</span></div>
+
+    <div class="note warn">
+      <div class="ntitle">為什麼 ρ 不能是絕對常數</div>
+      <p>
+        λ 是「公尺／線」、ρ 是「公尺／件」，兩者的比值由這個 instance 的「每條線平均幾件」固定住，
+        <strong>不是第二個自由度</strong>。曾經 <code>RhoFallback</code> 是絕對值 15：把
+        <code>LambdaFallback</code> 從 10 調成 5，ρ/λ 就從 1.5 跳到 3.0，於是每一個取貨動作都算成正值、
+        沒有任何動作會被接受，<strong>整場模擬產出零張訂單</strong>。改成比值錨點之後這個不變量才被守住。
+      </p>
+    </div>
+
+    <h3>Dinkelbach 在第一次決策就啟動了</h3>
+    <p>
+      目標式是 <span class="m">min Z = D − λ·V</span>。求解器先用 λ₀ = 10 解一次，
+      算出這個解實際達成的比值，再把 λ 更新過去重解。這一格跑了 <strong>2 次</strong>迭代：
+    </p>
+
+<div class="calc">λ<sub>start</sub> = 10.0000          <span class="c">起點（fallback）</span>
+λ<sub>end</sub>   = <span class="hot">1.9355</span>          <span class="c">2 次迭代後收斂</span>
+
+<span class="c">迭代時整個價格向量等比縮放，V 的組成比例才不會被動到：</span>
+ρ<sub>used</sub> = ρ₀ × (λ<sub>end</sub> / λ<sub>start</sub>)
+      = 15 × (1.9355 / 10)
+      = <span class="ok">2.9033</span>   <span class="c">← 與日誌 rho 欄 2.90329039578189 逐位吻合 ✓</span></div>
+
+    <p>
+      這是一個可以自己核的驗算：日誌裡的 <code>rho</code> 欄記的是<strong>實際用在目標式裡</strong>的 ρ，
+      而不是校準統計量 ρ₀。兩者差一個 λ 的縮放比。
+    </p>
+
+    <div class="note">
+      <div class="ntitle">這一格做了什麼</div>
+      <p>
+        估值層算出這批候選能關 <span class="v">10 條線</span>、完成 <span class="v">5 張單</span>；
+        綁定層實際吃下 <span class="b">5 條線</span>、<span class="b">5 張單</span>、
+        派 <span class="b">1 台車</span>、取 <span class="b">6 件</span>。
+        6 件全部來自那台新派的貨架（<code>unitsFromNew=6</code>）——很合理，
+        因為此刻 <span class="m">P<sup class="up">b</sup></span> 是空的，沒有任何沉沒貨架可以蹭。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════ -->
+<section>
+  <div class="gutter"><span class="big">§2</span>決策 0–39</div>
+  <div class="col">
+    <h2>暖機期：價格凍結，統計默默累積</h2>
+    <p class="dek">40 次決策、315 秒。λ、δ 一動也不動，但底下的計數器一直在跑。</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>決策</th><th>t (s)</th><th>λ</th><th>μ</th><th>δ</th><th>ρ 實用</th><th>估值線</th><th>綁定線</th><th>取貨(沉沒/新)</th></tr></thead>
+        <tbody>
+          <tr><td class="k">0</td><td class="n">0.0</td><td class="n">10</td><td class="n">10.00</td><td class="n">0.05</td><td class="n">2.90</td><td class="n">10</td><td class="n">5</td><td class="n">0 / 6</td></tr>
+          <tr><td class="k">1</td><td class="n">0.04</td><td class="n">10</td><td class="n">12.00</td><td class="n">0.05</td><td class="n">8.51</td><td class="n">5</td><td class="n">1</td><td class="n">3 / 0</td></tr>
+          <tr><td class="k">2</td><td class="n">0.09</td><td class="n">10</td><td class="n">11.11</td><td class="n">0.05</td><td class="n">7.35</td><td class="n">8</td><td class="n">4</td><td class="n">0 / 4</td></tr>
+          <tr><td class="k">9</td><td class="n">54.6</td><td class="n">10</td><td class="n">13.85</td><td class="n">0.05</td><td class="n">15.00</td><td class="n">16</td><td class="n">1</td><td class="n">0 / 1</td></tr>
+          <tr><td class="k">19</td><td class="n">152.8</td><td class="n">10</td><td class="n">12.17</td><td class="n">0.05</td><td class="n">15.00</td><td class="n">9</td><td class="n">1</td><td class="n">1 / 0</td></tr>
+          <tr><td class="k">29</td><td class="n">225.0</td><td class="n">10</td><td class="n">15.60</td><td class="n">0.05</td><td class="n">15.00</td><td class="n">5</td><td class="n">1</td><td class="n">1 / 0</td></tr>
+          <tr><td class="k">39</td><td class="n">313.6</td><td class="n">10</td><td class="n">15.31</td><td class="n">0.05</td><td class="n">15.00</td><td class="n">15</td><td class="n">1</td><td class="n">1 / 0</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      <strong>λ 和 δ 從頭到尾是 10 和 0.05</strong>——它們被 fallback 釘死。
+      但 <span class="m">μ</span> 會動（10 → 12 → 13.85 → 15.31），因為
+      <span class="m">μ = λ × (關閉線數 ÷ 完成訂單數)</span>，而後面那個比值是實測的，
+      即使在暖機期也照算。
+    </p>
+    <p>
+      <span class="m">ρ<sub>used</sub></span> 前幾格在跳（2.90 → 8.51 → 7.35），
+      之後穩在 15.00——因為 Dinkelbach 從第 9 格起就 0 次迭代了
+      （<span class="m">λ<sub>end</sub> = λ<sub>start</sub></span>，縮放比 = 1）。
+    </p>
+
+    <div class="note">
+      <div class="ntitle">暖機期在累積什麼</div>
+      <p>
+        四個計數器：累積行駛距離 <span class="m">L</span>、累積關閉線數 <span class="m">N<sub>ℓ</sub></span>、
+        累積完成訂單數 <span class="m">N<sub>o</sub></span>、累積揀取件數 <span class="m">N<sub>u</sub></span>，
+        外加 δ 專用的一對：累積<strong>綁定</strong>線數 <span class="m">B</span> 與累積<strong>估值</strong>線數 <span class="m">V</span>。
+      </p>
+      <p>
+        走到決策 39 結束時：<span class="m">B</span> = 49、<span class="m">V</span> = 328。
+        這兩個數字下一格就要派上用場。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════ -->
+<section>
+  <div class="gutter"><span class="big">§3</span>決策 40</div>
+  <div class="col">
+    <h2>交棒的那一刻</h2>
+    <p class="dek">累積關閉線數在這一格達到 50，暖機結束。價格第一次由系統自己的歷史算出來。</p>
+
+    <div class="card calib">
+      <div class="chead"><span class="no">決策 40</span><span class="t">t = 315.511 s</span><span class="t">暖機 → 校準</span></div>
+      <div class="rowset">
+        <div class="rlab">快照</div>
+        <div class="chips">
+          <span class="chip">待處理 <b>113</b></span>
+          <span class="chip">有空槽的站 <b>1</b></span>
+          <span class="chip"><span class="m">P<sup class="up">a</sup></span> <b>90</b></span>
+          <span class="chip"><span class="m">P<sup class="up">b</sup></span> <b>1</b></span>
+          <span class="chip">可用車 <b>3</b></span>
+          <span class="chip">在製母單 <b>14</b></span>
+        </div>
+      </div>
+      <div class="rowset">
+        <div class="rlab">新價格</div>
+        <div class="chips">
+          <span class="chip hv">λ <b>12.1404</b></span>
+          <span class="chip hv">μ <b>18.9694</b></span>
+          <span class="chip hv">δ <b>0.14939</b></span>
+          <span class="chip hv">ε <b>0.012140</b></span>
+        </div>
+      </div>
+      <div class="rowset">
+        <div class="rlab">結果</div>
+        <div class="chips">
+          <span class="chip hv">估值線 <b>1</b></span>
+          <span class="chip hi">綁定線 <b>1</b></span>
+          <span class="chip hi">取貨 <b>1</b> 件（沉沒貨架）</span>
+          <span class="chip">派車 <b>0</b></span>
+        </div>
+      </div>
+    </div>
+
+    <h3>三個價格的算式，逐一驗算</h3>
+
+<div class="calc"><span class="c">── δ：估值兌現率 ─────────────────────────────</span>
+δ = 累積綁定線數 ÷ 累積估值線數
+  = 49 / 328
+  = <span class="ok">0.149390243902439</span>
+    <span class="c">日誌 delta 欄：0.149390243902439  ← 逐位吻合 ✓</span>
+
+<span class="c">── λ：一條線值幾公尺 ────────────────────────</span>
+λ = 累積行駛距離 ÷ 累積關閉線數
+  = L / 50 = 12.1404111882716
+  ⟹ L = 12.1404111882716 × 50 = <span class="ok">607.02 m</span>
+    <span class="c">開場 315 秒、10 台車，總共跑了約 607 公尺。合理。</span>
+
+<span class="c">── μ：一張訂單值幾公尺 ──────────────────────</span>
+μ = λ × (關閉線數 ÷ 完成訂單數)
+  = 12.1404111882716 × (50 / N<sub>o</sub>) = 18.9693924816743
+  ⟹ 50 / N<sub>o</sub> = 1.5625
+  ⟹ N<sub>o</sub> = <span class="ok">32 張</span>   <span class="c">← 此刻已完成 32 張訂單，平均每單 1.5625 條線</span></div>
+
+    <div class="note warn">
+      <div class="ntitle">一個容易看錯的細節</div>
+      <p>
+        <span class="m">λ</span> 的分母 <strong>包含</strong>這一格自己關掉的線（50 含本格），
+        但 <span class="m">δ</span> 的分子分母 <strong>不含</strong>本格（49/328 是走到決策 39 為止）。
+      </p>
+      <p>
+        原因是記帳時機：<code>RegisterClosedLines</code> 在 <code>CommitM4G</code> 裡呼叫（寫日誌之前），
+        而 <code>RegisterDecision</code>（餵 δ 的那對計數器）在 <code>WriteDecision</code> <strong>之後</strong>。
+        看日誌對數字時要記得這個半格的錯位。
+      </p>
+    </div>
+
+    <div class="note">
+      <div class="ntitle">但這一格的決策還是用舊價格做的</div>
+      <p>
+        日誌的 <code>lambdaStart</code> 和 <code>lambdaEnd</code> 這格都還是 <strong>10</strong>。
+        因為 λ₀ 是在 <code>CommitM4G</code> <strong>之前</strong>讀的，那時累積線數還是 49，仍在暖機。
+        上面那三個漂亮的新數字是<strong>寫日誌時重新查詢</strong>的結果——它們要到<strong>下一格</strong>才真正驅動決策。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════ -->
+<section>
+  <div class="gutter"><span class="big">§4</span>決策 41</div>
+  <div class="col">
+    <h2>第一次由自己算出來的價格做決定</h2>
+    <p class="dek">λ₀ 從 10 變成 12.59，Dinkelbach 立刻把它拉到 4.14。</p>
+
+    <div class="card calib">
+      <div class="chead"><span class="no">決策 41</span><span class="t">t = 323.644 s</span><span class="t">校準價格首次驅動</span></div>
+      <div class="rowset">
+        <div class="rlab">快照</div>
+        <div class="chips">
+          <span class="chip">待處理 <b>114</b></span>
+          <span class="chip">有空槽的站 <b>1</b></span>
+          <span class="chip"><span class="m">P<sup class="up">a</sup></span> <b>90</b></span>
+          <span class="chip"><span class="m">P<sup class="up">b</sup></span> <b>1</b></span>
+          <span class="chip">可用車 <b>3</b></span>
+        </div>
+      </div>
+      <div class="rowset">
+        <div class="rlab">Dinkelbach</div>
+        <div class="chips">
+          <span class="chip">λ<sub>start</sub> <b>12.5887</b></span>
+          <span class="chip hi">λ<sub>end</sub> <b>4.1378</b></span>
+          <span class="chip">迭代 <b>1</b> 次</span>
+          <span class="chip hi">ρ<sub>used</sub> <b>3.4482</b></span>
+        </div>
+      </div>
+      <div class="rowset">
+        <div class="rlab">結果</div>
+        <div class="chips">
+          <span class="chip hv">估值線 <b>14</b></span>
+          <span class="chip hi">綁定線 <b>1</b></span>
+          <span class="chip hv">估值完單 <b>5</b></span>
+          <span class="chip hi">綁定完單 <b>1</b></span>
+          <span class="chip hi">取貨 <b>1</b> 件（沉沒）</span>
+          <span class="chip">在途覆蓋 <b>15</b> 件</span>
+        </div>
+      </div>
+    </div>
+
+    <p>
+      這一格第一次出現 M4G 的<strong>典型形狀</strong>：估值層看到 14 條線的價值，
+      綁定層只吃下 1 條。比例 1/14 ≈ 0.071，跟當時的 δ = 0.152 同一個量級。
+    </p>
+
+<div class="calc"><span class="c">Dinkelbach 把 λ 從 12.59 拉到 4.14，整包價格跟著縮：</span>
+縮放比 = λ<sub>end</sub> / λ<sub>start</sub> = 4.1378 / 12.5887 = 0.32869
+
+ρ<sub>used</sub> = ρ₀ × 0.32869 = <span class="ok">3.4482</span>
+μ<sub>used</sub> = μ₀ × 0.32869
+ε<sub>used</sub> = ε₀ × 0.32869
+
+<span class="c">因為 μ/λ、ρ/λ、ε/λ 全部保持不變，V 這個線性形式的</span>
+<span class="c">「組成」沒被動到——λ 只是在搜尋「一單位價值換幾公尺」的匯率。</span></div>
+
+    <div class="note">
+      <div class="ntitle">「在途覆蓋 15 件」是什麼</div>
+      <p>
+        這是 <strong>V2a（增量估值）</strong>扣掉的量。此刻有 1 台已承諾的貨架
+        （<span class="m">P<sup class="up">b</sup></span> = 1）正在路上，它身上帶的商品能覆蓋 15 件需求。
+        這 15 件會從「新貨架可以競標的需求」裡<strong>先扣掉</strong>。
+      </p>
+      <p>
+        沒有這一步的話，估值層每次決策都會拿原始 backlog 去給新貨架打分——
+        即使已經有貨架為了同一批需求在路上——於是同樣的線被反覆估值，
+        每次都重新替「再叫一台車」找到理由。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════ -->
+<section>
+  <div class="gutter"><span class="big">§5</span>穩態</div>
+  <div class="col">
+    <h2>決策 600 之後：系統的節奏</h2>
+    <p class="dek">316 次決策的統計。這就是 M4G 穩定運轉時的樣子。</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>每次決策</th><th>平均</th><th>中位數</th><th>最大</th><th>316 次總和</th></tr></thead>
+        <tbody>
+          <tr><td class="k">估值關線</td><td class="n">5.78</td><td class="n">6</td><td class="n">16</td><td class="n">1827</td></tr>
+          <tr class="mark"><td class="k">綁定關線</td><td class="n">1.01</td><td class="n">1</td><td class="n">2</td><td class="n">319</td></tr>
+          <tr><td class="k">估值完單</td><td class="n">2.48</td><td class="n">2</td><td class="n">9</td><td class="n">785</td></tr>
+          <tr><td class="k">綁定完單</td><td class="n">0.66</td><td class="n">1</td><td class="n">1</td><td class="n">209</td></tr>
+          <tr><td class="k">取貨件數</td><td class="n">1.59</td><td class="n">1</td><td class="n">7</td><td class="n">501</td></tr>
+          <tr class="mark"><td class="k">— 來自沉沒貨架</td><td class="n">1.47</td><td class="n">1</td><td class="n">7</td><td class="n">465</td></tr>
+          <tr><td class="k">— 來自新派貨架</td><td class="n">0.11</td><td class="n">0</td><td class="n">2</td><td class="n">36</td></tr>
+          <tr><td class="k">派車</td><td class="n">0.10</td><td class="n">0</td><td class="n">1</td><td class="n">33</td></tr>
+          <tr><td class="k">Dinkelbach 迭代</td><td class="n">1.22</td><td class="n">1</td><td class="n">2</td><td class="n">387</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>三個數字說明了整個模型在做什麼</h3>
+
+<div class="calc"><span class="c">① 估值遠多於綁定 ── δ 的來源</span>
+   1827 條估值線 → 319 條綁定線
+   實現率 = 319 / 1827 = <span class="ok">0.175</span>
+   <span class="c">與全場累積 δ = 936/5420 = 0.1727 一致 ✓</span>
+
+<span class="c">② 取貨幾乎全來自沉沒貨架 ── pod-tier 定價在運作</span>
+   465 件（沉沒） vs 36 件（新派）
+   = <span class="ok">92.8%</span> 的取貨不需要付出任何新的行程
+   <span class="c">Pp 每件 −ρ 的獎勵，讓模型把已到站的貨架榨乾再放走</span>
+
+<span class="c">③ 十次決策才派一台車 ── 供給節奏</span>
+   33 次派車 / 316 次決策 = <span class="ok">0.10</span> 台/次
+   <span class="c">而每次派車平均服務 501/33 ≈ 15.2 件取貨</span></div>
+
+    <div class="note">
+      <div class="ntitle">為什麼「綁定關線 = 1」不是壞事</div>
+      <p>
+        乍看之下每次決策只關 1 條線很少。但這正是「兩層分離」的設計目的：
+        <strong>模型不需要一次把價值全部兌現</strong>。
+      </p>
+      <p>
+        一台被叫來的貨架，第一次決策可能只綁到 1 條線。但它接下來會停在站上，
+        變成 <span class="m">P<sup class="up">p</sup></span>（正在被揀）——行程沉沒、取貨倒貼 −ρ。
+        於是後續每一次決策它都是最划算的來源，直到被榨乾。
+        那 92.8% 的沉沒取貨就是這個過程的總和。
+      </p>
+    </div>
+
+    <h3>一次帶派車的穩態決策</h3>
+
+    <div class="card steady">
+      <div class="chead"><span class="no">決策 646</span><span class="t">穩態</span><span class="t">有新派車</span></div>
+      <div class="rowset">
+        <div class="rlab">快照</div>
+        <div class="chips">
+          <span class="chip">待處理 <b>161</b></span>
+          <span class="chip"><span class="m">P<sup class="up">a</sup></span> <b>84</b></span>
+          <span class="chip"><span class="m">P<sup class="up">b</sup></span> <b>1</b></span>
+          <span class="chip">可用車 <b>3</b></span>
+        </div>
+      </div>
+      <div class="rowset">
+        <div class="rlab">價格</div>
+        <div class="chips">
+          <span class="chip">λ<sub>start</sub> <b>9.0905</b></span>
+          <span class="chip hi">λ<sub>end</sub> <b>5.3557</b></span>
+          <span class="chip">迭代 <b>1</b></span>
+          <span class="chip hi">ρ<sub>used</sub> <b>3.5366</b></span>
+        </div>
+      </div>
+      <div class="rowset">
+        <div class="rlab">結果</div>
+        <div class="chips">
+          <span class="chip hv">估值線 <b>12</b></span>
+          <span class="chip hi">綁定線 <b>1</b></span>
+          <span class="chip hv">估值完單 <b>9</b></span>
+          <span class="chip hi">派車 <b>1</b></span>
+          <span class="chip hi">取貨 <b>1</b> 件（新派貨架）</span>
+        </div>
+      </div>
+    </div>
+
+    <p>
+      這一格值得玩味：模型派了一台<strong>新</strong>車，付了整段行程的距離（T1+T2），
+      也付了 ρ = 3.54（T6a，從新派貨架取貨），結果只綁了 <strong>1 條線</strong>。
+      看起來很虧——但估值層看到的是 <strong>12 條線、9 張單</strong>的潛在價值。
+    </p>
+    <p>
+      模型願意付這筆錢，是因為它相信（依歷史實現率 δ = 0.173 打折後）那 12 條線裡
+      會有一部分在後續決策兌現。而下一次決策開始，這台貨架就變成沉沒的，取貨免費甚至倒貼。
+      <strong>這就是估值層存在的全部理由。</strong>
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════ -->
+<section>
+  <div class="gutter"><span class="big">§6</span>長期</div>
+  <div class="col">
+    <h2>價格的長期軌跡</h2>
+    <p class="dek">把 916 次決策切成十段，看每個價格怎麼沉降。</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>決策區間</th><th>δ</th><th>λ</th><th>該段瞬時 綁定/估值</th></tr></thead>
+        <tbody>
+          <tr><td class="k">0–91</td><td class="n">0.101</td><td class="n">10.60</td><td class="n">0.147</td></tr>
+          <tr><td class="k">91–183</td><td class="n">0.158</td><td class="n">8.20</td><td class="n">0.169</td></tr>
+          <tr><td class="k">183–274</td><td class="n">0.157</td><td class="n">8.01</td><td class="n">0.164</td></tr>
+          <tr><td class="k">274–366</td><td class="n">0.161</td><td class="n">7.75</td><td class="n">0.172</td></tr>
+          <tr><td class="k">366–458</td><td class="n">0.166</td><td class="n">8.46</td><td class="n">0.195</td></tr>
+          <tr><td class="k">458–549</td><td class="n">0.168</td><td class="n">8.50</td><td class="n">0.177</td></tr>
+          <tr><td class="k">549–641</td><td class="n">0.171</td><td class="n">8.92</td><td class="n">0.199</td></tr>
+          <tr><td class="k">641–732</td><td class="n">0.173</td><td class="n">8.90</td><td class="n">0.167</td></tr>
+          <tr><td class="k">732–824</td><td class="n">0.173</td><td class="n">8.83</td><td class="n">0.200</td></tr>
+          <tr><td class="k">824–916</td><td class="n">0.174</td><td class="n">9.09</td><td class="n">0.156</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+<div class="calc"><span class="c">暖機後（後 80%）的 δ 統計：</span>
+平均 <span class="ok">0.168</span>   標準差 0.0058   範圍 0.155 – 0.175   <span class="ok">CV = 3.4%</span></div>
+
+    <p>
+      δ 在約第 90 次決策就進入穩態，之後 825 次決策只在 ±6% 內移動。
+      而且最右欄——每一段<strong>自己算</strong>的瞬時比值（0.15–0.20）——跟累積 δ（0.16–0.17）貼合，
+      代表這個累積估計<strong>沒有偏離瞬時真值</strong>，不是一個越跑越失真的歷史平均。
+    </p>
+    <p>
+      λ 從暖機的 10 掉到 7.75，再緩緩回升到 9.09。這個 U 形是真實的：
+      開場車隊空跑多、每條線很貴；系統暖起來之後效率提升；到後期 backlog 變厚、
+      競爭變激烈，每條線的邊際成本又回升。
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════ -->
+<section>
+  <div class="gutter"><span class="big">§7</span>總帳</div>
+  <div class="col">
+    <h2>這場跑完的結果</h2>
+    <p class="dek">916 次決策、7200 秒之後。</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>項目</th><th>數值</th><th>說明</th></tr></thead>
+        <tbody>
+          <tr><td class="k">投入訂單</td><td class="n">677</td><td>Fill 模式依庫存水位生成</td></tr>
+          <tr><td class="k">完成訂單</td><td class="n">603</td><td></td></tr>
+          <tr><td class="k">期末積壓</td><td class="n">74</td><td>2h 時窗的在製品尾巴，非產能問題</td></tr>
+          <tr><td class="k">貨架趟次</td><td class="n">765</td><td></td></tr>
+          <tr><td class="k">總距離</td><td class="n">8693 m</td><td></td></tr>
+          <tr><td class="k">pile-on</td><td class="n">6.153</td><td>每次到站服務的訂單數</td></tr>
+          <tr><td class="k">kJ / 訂單</td><td class="n">1.1439</td><td></td></tr>
+          <tr class="mark"><td class="k">累積估值線</td><td class="n">5420</td><td></td></tr>
+          <tr class="mark"><td class="k">累積綁定線</td><td class="n">936</td><td>δ = 936/5420 = <strong>0.1727</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      <div class="ntitle">最後一件事：這個 δ 是好的嗎</div>
+      <p>
+        把 δ 釘死做開環掃描的結果：<strong>0.30 是 1.1347 kJ／單、0.40 是 1.1542、
+        0.50 直接崩到只完成 12 張單、0.70 完全歸零</strong>。
+      </p>
+      <p>
+        自我校準跑到的 0.168 拿到 <strong>1.1439</strong>，而且比把它釘死在 0.168
+        （1.1659）<strong>還好</strong>——因為它在暖機期會自己調整。
+        懸崖在 0.40–0.50 之間，這場跑到的位置有 <strong>2.4 倍安全邊際，而且落在安全側</strong>。
+      </p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  資料來源：out/nsb_m4g_s0/…/m4g_decision_log.csv（916 列）· kpi_report.csv · statistics.txt<br>
+  設定：small_10bot.xlayo · small_o100_mu100_2h_inv70.xsett · m4g.xconf · seed 0<br>
+  模型解說（含標準數學式）：docs/2026-08-06-m4g-model-explained.html<br>
+  δ 掃描與 Dinkelbach 缺陷：docs/2026-08-07-delta-dose-response-and-dinkelbach.md
+</footer>
+
+</div>

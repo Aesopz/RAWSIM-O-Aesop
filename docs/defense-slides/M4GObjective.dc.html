@@ -1,0 +1,145 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
+           background: #F4F2ED; color: #12212E; }
+    a { color: #0E7C86; } a:hover { color: #0A5D64; }
+    .m  { font-family: Cambria, "Times New Roman", serif; font-style: italic; }
+    sub, sup { font-size: 0.66em; }
+    .cw { font-size: 11.5px; color: #6B767F; line-height: 1.5; }
+  </style>
+</helmet>
+<div style="width: 1280px; height: 720px; box-sizing: border-box; padding: 50px 60px 40px;
+            display: flex; flex-direction: column; background: #F4F2ED;">
+
+  <div style="font-family: Consolas, monospace; font-size: 12px; letter-spacing: 0.14em;
+              color: #0E7C86; font-weight: 700;">增量 ② · 目標式</div>
+  <div style="font-size: 31px; font-weight: 700; margin-top: 7px; letter-spacing: -0.01em;">
+    由「手調線性加權」改為「自我校準分式」
+  </div>
+  <div style="height: 2px; background: #D5D0C6; margin: 16px 0 16px;"></div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px; margin-bottom: 16px;">
+    <div style="background: #FFFFFF; border: 1px solid #D5D0C6; padding: 14px 18px;">
+      <div style="font-family: Consolas, monospace; font-size: 11px; color:#6B767F;
+                  font-weight:700; letter-spacing:0.1em;">M1G</div>
+      <div style="font-family: Cambria, 'Times New Roman', serif; font-size: 17px; margin: 8px 0 7px;">
+        min &nbsp;<span class="m">D</span> +
+        <span class="m">w</span><sub>2</sub>&Sigma;<span class="m">y<sub>os</sub></span> +
+        <span class="m">w</span><sub>3</sub>&Sigma;<span class="m">u<sub>s</sub></span>
+      </div>
+      <div class="cw">距離與價值以<b>外生常數</b>加權相加。權重無量綱，比例由前置實驗試出。</div>
+    </div>
+    <div style="background: #FFFFFF; border: 1px solid #D5D0C6; border-left: 4px solid #0E7C86; padding: 14px 18px;">
+      <div style="font-family: Consolas, monospace; font-size: 11px; color:#0E7C86;
+                  font-weight:700; letter-spacing:0.1em;">M4G</div>
+      <div style="font-family: Cambria, 'Times New Roman', serif; font-size: 17px; margin: 8px 0 7px; color:#0E7C86;">
+        min &nbsp;<span class="m">D</span> / <span class="m">V</span>
+        &nbsp;&nbsp;<span style="color:#6B767F; font-size:13px;">Dinkelbach &rArr;</span>&nbsp;&nbsp;
+        min &nbsp;<span class="m">D</span> &minus; <span class="m">&lambda;</span><span class="m">V</span>
+      </div>
+      <div class="cw"><b>每單位價值的行走距離</b>。價格全部以<b>公尺</b>計價，由系統歷史量測校準。</div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1.08fr 1fr; gap: 26px; flex-grow: 1;">
+
+    <div>
+      <div style="font-family: Consolas, monospace; font-size: 11px; color: #B8861F;
+                  font-weight: 700; letter-spacing: 0.1em; margin-bottom: 8px;">目標式各項 T1&ndash;T6</div>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr style="border-bottom: 1px solid #E6E2DA;">
+          <td style="width: 54px; padding: 6px 0; vertical-align: top; font-family: Consolas, monospace;
+                     font-size: 11px; color:#6B767F;">T1 / T2</td>
+          <td class="cw" style="padding: 6px 0 6px 8px;">
+            <b style="color:#12212E;">行走距離 <span class="m">D</span></b> &mdash;
+            僅<b>新派出</b>的貨架 (<span class="m">P<sub>a</sub></span>) 支付路程；
+            已在途/在站者 (<span class="m">P<sub>b</sub></span>) 視為<b>沉沒成本</b></td></tr>
+        <tr style="border-bottom: 1px solid #E6E2DA;">
+          <td style="padding: 6px 0; vertical-align: top; font-family: Consolas, monospace;
+                     font-size: 11px; color:#6B767F;">T3</td>
+          <td class="cw" style="padding: 6px 0 6px 8px;">
+            <b style="color:#12212E;">行關閉 <span class="m">&lambda;</span></b> &mdash;
+            綁定者領全價，僅估值而未綁定者領 <span class="m">&delta;</span> 倍</td></tr>
+        <tr style="border-bottom: 1px solid #E6E2DA;">
+          <td style="padding: 6px 0; vertical-align: top; font-family: Consolas, monospace;
+                     font-size: 11px; color:#6B767F;">T4</td>
+          <td class="cw" style="padding: 6px 0 6px 8px;">
+            <b style="color:#12212E;">訂單完成 <span class="m">&mu;</span></b> &mdash; 同樣的兩層拆分</td></tr>
+        <tr style="border-bottom: 1px solid #E6E2DA;">
+          <td style="padding: 6px 0; vertical-align: top; font-family: Consolas, monospace;
+                     font-size: 11px; color:#6B767F;">T5</td>
+          <td class="cw" style="padding: 6px 0 6px 8px;">
+            <b style="color:#12212E;">即時性 <span class="m">&epsilon;</span></b> &mdash;
+            價值相同時，偏好<b>現在就執行</b>的解</td></tr>
+        <tr>
+          <td style="padding: 6px 0; vertical-align: top; font-family: Consolas, monospace;
+                     font-size: 11px; color:#6B767F;">T6</td>
+          <td class="cw" style="padding: 6px 0 6px 8px;">
+            <b style="color:#12212E;">貨架層級 <span class="m">&rho;</span></b> &mdash;
+            僅作用於綁定層；反映「向已在站的貨架取件更便宜」。
+            <b style="color:#0E7C86;">此項在訂單原子下不存在</b></td></tr>
+      </table>
+
+      <div style="border-left: 3px solid #0E7C86; padding: 8px 0 8px 13px; margin-top: 13px;">
+        <div class="cw" style="color:#12212E;">
+          <b>拆單不只是放寬限制式。</b><span class="m">&rho;</span> 與 <span class="m">&lambda;</span>
+          在整單原子下<b>沒有對應物</b>&mdash; 降低決策原子同時<b>打開了一個新的定價維度</b>。
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div style="font-family: Consolas, monospace; font-size: 11px; color: #B8861F;
+                  font-weight: 700; letter-spacing: 0.1em; margin-bottom: 8px;">價目表：全部由量測而得</div>
+      <table style="width: 100%; border-collapse: collapse; font-size: 12.5px;">
+        <tr style="border-bottom: 1px solid #E6E2DA;">
+          <td style="width: 34px; padding: 7px 0; vertical-align: top;">
+            <span class="m" style="font-size:16px;">&lambda;</span></td>
+          <td class="cw" style="padding: 7px 0 7px 6px;">關閉一條訂單行的價值（公尺）</td></tr>
+        <tr style="border-bottom: 1px solid #E6E2DA;">
+          <td style="padding: 7px 0; vertical-align: top;">
+            <span class="m" style="font-size:16px;">&mu;</span></td>
+          <td class="cw" style="padding: 7px 0 7px 6px;">完成一張訂單的價值 ＝ 累積距離 &divide; 累積完成訂單數</td></tr>
+        <tr style="border-bottom: 1px solid #E6E2DA; background:#EAF4F4;">
+          <td style="padding: 7px 0; vertical-align: top;">
+            <span class="m" style="font-size:16px; color:#0E7C86;">&delta;</span></td>
+          <td class="cw" style="padding: 7px 4px 7px 6px; color:#12212E;">
+            <b>兌現率</b> ＝ 累積綁定完成數 &divide; 累積估值完成數。<br>
+            <b style="color:#0E7C86;">取代 M1G 手工釘死的 1000 : 40。</b></td></tr>
+        <tr style="border-bottom: 1px solid #E6E2DA;">
+          <td style="padding: 7px 0; vertical-align: top;">
+            <span class="m" style="font-size:16px;">&rho;</span>, <span class="m" style="font-size:16px;">&epsilon;</span></td>
+          <td class="cw" style="padding: 7px 0 7px 6px;">貨架層級價差與即時性折價，同樣以公尺為單位</td></tr>
+        <tr>
+          <td style="padding: 7px 0; vertical-align: top;">
+            <span class="m" style="font-size:16px;">&lambda;</span><sub style="font-size:11px;">Dink</sub></td>
+          <td class="cw" style="padding: 7px 0 7px 6px;">分式規劃的線性化參數，逐次決策迭代更新</td></tr>
+      </table>
+
+      <div style="background: #12212E; padding: 13px 16px; margin-top: 14px;">
+        <div style="font-family: Consolas, monospace; font-size: 10.5px; letter-spacing: 0.1em;
+                    color: #7EB8BD; font-weight: 700; margin-bottom: 6px;">此設計的可辯護之處</div>
+        <div style="font-size: 12px; color: #B9C4CC; line-height: 1.65;">
+          所有價格共用<b style="color:#F4F2ED;">同一個物理單位（公尺）</b>，
+          且皆為系統自身歷史的統計量 &mdash;
+          <b style="color:#F4F2ED;">沒有任何一個數字是調出來的</b>。
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1280,"height":720}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>

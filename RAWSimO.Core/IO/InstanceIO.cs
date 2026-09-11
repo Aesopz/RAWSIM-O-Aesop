@@ -129,6 +129,11 @@ namespace RAWSimO.Core.IO
             }
             // If a visualization is already present set it to true
             instance.SettingConfig.VisualizationAttached = overrideVisualizationAttached;
+            RAWSimO.Core.Metrics.EnergyConsumption.ConfigureFromSetting(instance.SettingConfig);
+            logAction?.Invoke(
+                "Energy config: RobotMassKg=" + RAWSimO.Core.Metrics.EnergyConsumption.ROBOT_MASS.ToString(IOConstants.FORMATTER) +
+                ", SupportPowerEmptyW=" + RAWSimO.Core.Metrics.EnergyConsumption.SUPPORT_POWER_EMPTY.ToString(IOConstants.FORMATTER) +
+                ", SupportPowerLoadedW=" + RAWSimO.Core.Metrics.EnergyConsumption.SUPPORT_POWER_LOADED.ToString(IOConstants.FORMATTER));
 
             // --> Parse the instance from a file, if no layout was given but a specific instance
             if (!layoutConfigurationGiven)
