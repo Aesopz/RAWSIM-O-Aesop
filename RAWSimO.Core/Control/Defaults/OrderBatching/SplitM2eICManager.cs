@@ -40,6 +40,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             if (instance.PackingBuffer == null)
                 instance.PackingBuffer = new PackingBuffer(_icConfig != null
                     ? M2eICMath.TotalPackingCapacity(_icConfig.PackingStationCount, _icConfig.PackingBufferCapacity) : 0);
+                instance.PackingBuffer.WakeOnLastPick = true;
             _logger = new SplitConsolidationLogger(instance);
             instance.OrderCompleted += _logger.LogParentCompleted;
         }

@@ -97,6 +97,28 @@ namespace RAWSimO.Core.Elements
         public int CapacityInUse { get { return _assignedOrders.Count; } }
 
         /// <summary>
+        /// (SlotOccupancy) When each currently-assigned order took its slot. Keyed on the object
+        /// that actually holds the slot, which for a split order is the CHILD, not the parent -
+        /// the parent never occupies a picking-station slot, it only waits downstream for
+        /// consolidation. Measurement only; nothing reads it back into a decision.
+        /// </summary>
+        private readonly Dictionary<Order, double> _slotTakenAt = new Dictionary<Order, double>();
+        /// <summary>(SlotOccupancy) Orders whose first pick has already been timed.</summary>
+        private readonly HashSet<Order> _firstPickSeen = new HashSet<Order>();
+
+        /// <summary>
+        /// (SlotOccupancy) Times the wait for supply: from taking the slot to the first item of
+        /// this order actually being picked. Idempotent per order.
+        /// </summary>
+        private void NoteFirstPick(Order order, double currentTime)
+        {
+            if (order == null || !_firstPickSeen.Add(order)) return;
+            double takenAt;
+            if (_slotTakenAt.TryGetValue(order, out takenAt))
+                Instance._statSlotFirstPickWaits.Add(currentTime - takenAt);
+        }
+
+        /// <summary>
         /// The amount of capacity reserved by a controller.
         /// </summary>
         internal int CapacityReserved { get { return _registeredOrders.Count; } }
@@ -178,6 +200,8 @@ namespace RAWSimO.Core.Elements
             {
                 // Assign the order
                 _assignedOrders.Add(order);
+                // (SlotOccupancy) Stamp the moment this order started blocking a slot.
+                _slotTakenAt[order] = Instance.Controller != null ? Instance.Controller.CurrentTime : 0.0;
                 // Remove the bundle from the reservation list
                 _registeredOrders.Remove(order);
                 // Notify the instance about the order
@@ -243,6 +267,7 @@ namespace RAWSimO.Core.Elements
                                 // KPI: record this pod-visit served this order
                                 if (bot.CurrentTask is Control.ExtractTask _et0)
                                     _et0.ServedOrdersThisVisit.Add(order);
+                                NoteFirstPick(order, currentTime);
                                 // Physically remove the item
                                 pod.Remove(item, request);
                                 // Block the station for the transfer
@@ -253,9 +278,11 @@ namespace RAWSimO.Core.Elements
                                 UpdateCurrentProcessingPodRelease(bot, currentTime);
                                 // (M2e-IC / D16) one pick left on this task -> wake the order
                                 // manager so a re-solve can extend the pod while the on-the-fly
-                                // window (Requests.Any) is still open. Null-safe: only IC-family
-                                // managers create the buffer; all other configs bit-identical.
-                                if (Instance.PackingBuffer != null && bot.CurrentTask is Control.ExtractTask _icNr0
+                                // window (Requests.Any) is still open. Gated on the buffer's own
+                                // WakeOnLastPick flag, NOT on the buffer existing: other managers
+                                // now create buffers purely to count boxes, and must stay inert here.
+                                if (Instance.PackingBuffer != null && Instance.PackingBuffer.WakeOnLastPick
+                                    && bot.CurrentTask is Control.ExtractTask _icNr0
                                     && _icNr0.Requests != null && _icNr0.Requests.Count == 1)
                                     Instance.Controller.OrderManager.SignalOrderFinished(null, this);
                                 // Count the number of picked items
@@ -290,6 +317,7 @@ namespace RAWSimO.Core.Elements
                             // KPI: record this pod-visit served this order
                             if (bot.CurrentTask is Control.ExtractTask _et1)
                                 _et1.ServedOrdersThisVisit.Add(request.Order);
+                            NoteFirstPick(request.Order, currentTime);
                             // Physically remove the item
                             pod.Remove(item, request);
                             // Block the station for the transfer
@@ -299,7 +327,8 @@ namespace RAWSimO.Core.Elements
                             // Track when the currently processed pod can leave the station.
                             UpdateCurrentProcessingPodRelease(bot, currentTime);
                             // (M2e-IC / D16) see the twin branch above.
-                            if (Instance.PackingBuffer != null && bot.CurrentTask is Control.ExtractTask _icNr1
+                            if (Instance.PackingBuffer != null && Instance.PackingBuffer.WakeOnLastPick
+                                    && bot.CurrentTask is Control.ExtractTask _icNr1
                                 && _icNr1.Requests != null && _icNr1.Requests.Count == 1)
                                 Instance.Controller.OrderManager.SignalOrderFinished(null, this);
                             // Count the number of picked items
@@ -386,6 +415,17 @@ namespace RAWSimO.Core.Elements
             if (!_assignedOrders.Any())
                 _statDepletionTime = currentTime;
             // Remove the finished order from the todo-list
+            // (SlotOccupancy) The slot is freed here, so this is where its holding time ends.
+            if (finishedOrder != null)
+            {
+                double takenAt;
+                if (_slotTakenAt.TryGetValue(finishedOrder, out takenAt))
+                {
+                    Instance._statSlotOccupancyTimes.Add(currentTime - takenAt);
+                    _slotTakenAt.Remove(finishedOrder);
+                    _firstPickSeen.Remove(finishedOrder);
+                }
+            }
             _assignedOrders.Remove(finishedOrder);
             if (Instance.SettingConfig.VisualizationAttached && finishedOrder != null)
             {

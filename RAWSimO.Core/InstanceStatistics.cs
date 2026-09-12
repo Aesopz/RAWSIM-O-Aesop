@@ -373,6 +373,27 @@ namespace RAWSimO.Core
         /// </summary>
         internal List<double> _statOrderTurnoverTimes = new List<double>();
         /// <summary>
+        /// (SlotOccupancy) How long each picking-station order slot stayed occupied: from the
+        /// moment an order was assigned to the station until that same order finished and the
+        /// slot was freed. One entry per slot release.
+        ///
+        /// Deliberately NOT the same quantity as the turnover time above. Turnover is measured
+        /// on the PARENT and ends at consolidation, so for a split order it includes waiting
+        /// downstream for its siblings - time during which no picking-station resource is held
+        /// at all. This list is measured on whatever object actually took the slot, which for a
+        /// split order is the CHILD, and ends when the picker finishes it. It is therefore the
+        /// only one of the two that answers "is a station slot being blocked?".
+        /// </summary>
+        internal List<double> _statSlotOccupancyTimes = new List<double>();
+        /// <summary>
+        /// (SlotOccupancy) Of the slot-holding time above, the part spent waiting for the FIRST
+        /// item of that order to be picked - i.e. waiting for some pod carrying one of its SKUs
+        /// to reach the station. The remainder is transfer time, which is bounded by the item
+        /// count. Splitting this out is what tells apart "the station is blocked by picking" from
+        /// "the station is blocked waiting for supply".
+        /// </summary>
+        internal List<double> _statSlotFirstPickWaits = new List<double>();
+        /// <summary>
         /// The throughput times for all completed orders.
         /// </summary>
         internal List<double> _statOrderThroughputTimes = new List<double>();
@@ -604,6 +625,8 @@ namespace RAWSimO.Core
             StatOverallBundlesRejected = 0;
             StatRepositioningMoves = 0;
             _statOrderTurnoverTimes.Clear();
+            _statSlotOccupancyTimes.Clear();
+            _statSlotFirstPickWaits.Clear();
             _statOrderThroughputTimes.Clear();
             _statOrderLatenessTimes.Clear();
             _statBundleThroughputTimes.Clear();
@@ -1663,6 +1686,18 @@ namespace RAWSimO.Core
             sb.AppendLine("StatMedianTurnoverTime: " + ((_statOrderTurnoverTimes.Count == 0) ? "0" : StatisticsHelper.GetMedian(_statOrderTurnoverTimes).ToString(IOConstants.FORMATTER)));
             sb.AppendLine("StatLowerQuartileTurnoverTime: " + ((_statOrderTurnoverTimes.Count == 0) ? "0" : StatisticsHelper.GetLowerQuartile(_statOrderTurnoverTimes).ToString(IOConstants.FORMATTER)));
             sb.AppendLine("StatUpperQuartileTurnoverTime: " + ((_statOrderTurnoverTimes.Count == 0) ? "0" : StatisticsHelper.GetUpperQuartile(_statOrderTurnoverTimes).ToString(IOConstants.FORMATTER)));
+            // (SlotOccupancy) Picking-station slot blocking - see the field's remarks for why
+            // this is not the turnover time.
+            sb.AppendLine("StatSlotOccupancyCount: " + _statSlotOccupancyTimes.Count.ToString(IOConstants.FORMATTER));
+            sb.AppendLine("StatAverageSlotOccupancy: " + ((_statSlotOccupancyTimes.Count == 0) ? "0" : _statSlotOccupancyTimes.Average().ToString(IOConstants.FORMATTER)));
+            sb.AppendLine("StatMedianSlotOccupancy: " + ((_statSlotOccupancyTimes.Count == 0) ? "0" : StatisticsHelper.GetMedian(_statSlotOccupancyTimes).ToString(IOConstants.FORMATTER)));
+            sb.AppendLine("StatLowerQuartileSlotOccupancy: " + ((_statSlotOccupancyTimes.Count == 0) ? "0" : StatisticsHelper.GetLowerQuartile(_statSlotOccupancyTimes).ToString(IOConstants.FORMATTER)));
+            sb.AppendLine("StatUpperQuartileSlotOccupancy: " + ((_statSlotOccupancyTimes.Count == 0) ? "0" : StatisticsHelper.GetUpperQuartile(_statSlotOccupancyTimes).ToString(IOConstants.FORMATTER)));
+            sb.AppendLine("StatMaxSlotOccupancy: " + ((_statSlotOccupancyTimes.Count == 0) ? "0" : _statSlotOccupancyTimes.Max().ToString(IOConstants.FORMATTER)));
+            sb.AppendLine("StatMedianSlotFirstPickWait: " + ((_statSlotFirstPickWaits.Count == 0) ? "0" : StatisticsHelper.GetMedian(_statSlotFirstPickWaits).ToString(IOConstants.FORMATTER)));
+            sb.AppendLine("StatAverageSlotFirstPickWait: " + ((_statSlotFirstPickWaits.Count == 0) ? "0" : _statSlotFirstPickWaits.Average().ToString(IOConstants.FORMATTER)));
+            sb.AppendLine("StatUpperQuartileSlotFirstPickWait: " + ((_statSlotFirstPickWaits.Count == 0) ? "0" : StatisticsHelper.GetUpperQuartile(_statSlotFirstPickWaits).ToString(IOConstants.FORMATTER)));
+            sb.AppendLine("StatMaxSlotFirstPickWait: " + ((_statSlotFirstPickWaits.Count == 0) ? "0" : _statSlotFirstPickWaits.Max().ToString(IOConstants.FORMATTER)));
             sb.AppendLine("StatAverageThroughputTime: " + ((_statOrderThroughputTimes.Count == 0) ? "0" : _statOrderThroughputTimes.Average().ToString(IOConstants.FORMATTER)));
             sb.AppendLine("StatMedianThroughputTime: " + ((_statOrderThroughputTimes.Count == 0) ? "0" : StatisticsHelper.GetMedian(_statOrderThroughputTimes).ToString(IOConstants.FORMATTER)));
             sb.AppendLine("StatLowerQuartileThroughputTime: " + ((_statOrderThroughputTimes.Count == 0) ? "0" : StatisticsHelper.GetLowerQuartile(_statOrderThroughputTimes).ToString(IOConstants.FORMATTER)));

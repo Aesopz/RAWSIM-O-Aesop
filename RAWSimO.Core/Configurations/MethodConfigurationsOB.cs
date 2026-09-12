@@ -1757,6 +1757,23 @@ namespace RAWSimO.Core.Configurations
         /// structure, so expect the insensitivity to shrink when this is on.
         /// </summary>
         public bool FaithfulMarginal = true;
+
+        /// <summary>
+        /// (PackingBufferLimit) Mirrors M4GConfiguration, including the three-way setting:
+        /// StationCount = 0 is off (canon bit-identical), StationCount &gt; 0 with Capacity = 0 is
+        /// observe-only (B_occ tracked, plan unchanged), and both positive makes the limit bind.
+        /// See M4GConfiguration.PackingStationCount for the full remarks.
+        /// </summary>
+        public int PackingStationCount = 0;
+        /// <summary>Boxes per consolidation station; 78 is Xie et al. (2021) Appendix B. 0 or less = unlimited.</summary>
+        public int PackingBufferCapacity = 78;
+        /// <summary>
+        /// (MaxPartsPerOrder) Lifetime cap on parts per parent order, counted across decisions.
+        /// 0 or less = unlimited (canon). Mirrors M4GConfiguration.MaxPartsPerOrder; the greedy
+        /// enforces it by skipping moves rather than by a constraint, which is the one permitted
+        /// difference under the M5-mirrors-M4G rule.
+        /// </summary>
+        public int MaxPartsPerOrder = 0;
         /// <summary>Maximum times a degenerate ("do nothing", V*&lt;=0) solve may double lambda and retry,
         /// making the ratio search two-sided. 0 restores the original one-sided loop bit-for-bit.
         /// Needed whenever the running price statistic can UNDER-estimate the true marginal ratio,
@@ -2630,6 +2647,45 @@ namespace RAWSimO.Core.Configurations
         /// Implies UseReturnPendingBots. Off in canon.
         /// </summary>
         public bool ContinuousDispatch = false;
+
+        /// <summary>
+        /// (PackingBufferLimit) Number of downstream consolidation stations. This field alone
+        /// decides whether the buffer EXISTS and is TRACKED; PackingBufferCapacity decides
+        /// whether that occupancy also CONSTRAINS the model. The three settings are:
+        ///
+        ///   StationCount = 0                    feature off. No buffer, no constraint, and the
+        ///                                       engine's release hook in OutputStation is inert
+        ///                                       because Instance.PackingBuffer stays null - canon
+        ///                                       is bit-identical.
+        ///   StationCount = 1, Capacity = 0      observe only. The buffer counts every split
+        ///                                       parent so B_occ can be read off the instance, but
+        ///                                       no constraint is added, so the plan is unchanged.
+        ///   StationCount = 1, Capacity = 78     the constraint binds: new split parents may not
+        ///                                       outnumber the free boxes.
+        ///
+        /// A split parent reserves one box when it first leaves residual demand behind and
+        /// releases it at consolidation; an order served whole never takes one, because it is
+        /// packed at the picking station and needs no merge.
+        /// </summary>
+        public int PackingStationCount = 0;
+        /// <summary>
+        /// Boxes per consolidation station; 78 is Xie et al. (2021) Appendix B. 0 or less means
+        /// unlimited, which is PackingBuffer's own convention for probe-tracking only - see
+        /// PackingStationCount for the three combinations.
+        /// </summary>
+        public int PackingBufferCapacity = 78;
+        /// <summary>
+        /// (MaxPartsPerOrder) Cap on how many parts a parent order may be split into over its
+        /// WHOLE LIFE, counted across decisions - not per decision. One part = one (order,
+        /// station) placement, the same quantity the split-lifetime probe counts. 0 or less =
+        /// unlimited (canon). N = 1 reproduces ForbidSplitting's B8/B8c one-station rule, which
+        /// is why the constraint below is written as its generalisation.
+        ///
+        /// Deliberately NOT named MaxChildrenPerOrder: that field belongs to the abandoned
+        /// SplitOrderManager/SplitPlanner and means "maximal parts per EPOCH", which is a
+        /// different quantity - a per-epoch cap of 2 still allows 10 parts over 5 epochs.
+        /// </summary>
+        public int MaxPartsPerOrder = 0;
 
     }
 

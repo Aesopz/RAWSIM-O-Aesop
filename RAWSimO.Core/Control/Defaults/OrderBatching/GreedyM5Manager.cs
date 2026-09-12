@@ -60,6 +60,71 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             _pricing = new M4GPricing(_config);
             _logger = new SplitConsolidationLogger(instance);
             instance.OrderCompleted += _logger.LogParentCompleted;
+            EnsurePackingBuffer();
+        }
+
+        // ── (PackingBufferLimit / MaxPartsPerOrder) control state, mirroring M4GManager ──────
+
+        /// <summary>Parts each parent has already used, across decisions.</summary>
+        private readonly Dictionary<int, int> _partsUsed = new Dictionary<int, int>();
+
+        /// <summary>
+        /// Whether the consolidation buffer exists at all - TRACKING only. Mirrors M4GManager:
+        /// whether occupancy also constrains the plan is PackingCapacity's question.
+        /// </summary>
+        private bool PackingBufferEnabled()
+        {
+            return _config != null && _config.PackingStationCount > 0;
+        }
+
+        /// <summary>
+        /// Total box capacity C, or 0 when nothing must be constrained - which covers both
+        /// "feature off" and "observe only" (buffer counting, capacity unlimited). Same
+        /// convention as PackingBuffer's own "Capacity &lt;= 0 = unlimited (probe-tracking only)".
+        /// </summary>
+        private int PackingCapacity()
+        {
+            if (!PackingBufferEnabled()) return 0;
+            if (_config.PackingBufferCapacity <= 0) return 0;
+            return _config.PackingStationCount * _config.PackingBufferCapacity;
+        }
+
+        /// <summary>Creates the shared buffer whenever tracking is on; null keeps canon inert.</summary>
+        private void EnsurePackingBuffer()
+        {
+            if (!PackingBufferEnabled()) return;
+            if (Instance.PackingBuffer == null)
+                Instance.PackingBuffer = new RAWSimO.Core.Elements.PackingBuffer(PackingCapacity());
+        }
+
+        /// <summary>Boxes still free; int.MaxValue when the feature is off.</summary>
+        private int PackingBoxesFree()
+        {
+            int cap = PackingCapacity();
+            if (cap <= 0 || Instance.PackingBuffer == null) return int.MaxValue;
+            return Math.Max(0, cap - Instance.PackingBuffer.AliveParentCount);
+        }
+
+        /// <summary>Parts this parent spent in earlier decisions.</summary>
+        private int PartsUsed(int orderId)
+        {
+            int used;
+            return _partsUsed.TryGetValue(orderId, out used) ? used : 0;
+        }
+
+        /// <summary>
+        /// Boxes this epoch's plan-under-construction would consume: orders that took a slot,
+        /// do not already hold a box, and are not yet fully covered. Recomputed rather than
+        /// cached because SlotOpeners holds at most a handful of orders per epoch.
+        /// </summary>
+        private int BoxesConsumed(M5EpochState st)
+        {
+            int n = 0;
+            foreach (int id in st.SlotOpeners)
+                if (!Instance.PackingBuffer.Holds(id)) n++;
+            foreach (var o in st.Committed)
+                if (st.SlotOpeners.Contains(o.ID) && !Instance.PackingBuffer.Holds(o.ID)) n--;
+            return n < 0 ? 0 : n;
         }
 
         /// <summary>The HGS-M5-specific config of this controller.</summary>
@@ -149,6 +214,17 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             public HashSet<Pod> DispatchedThisEpoch = new HashSet<Pod>();
             /// <summary>(order, stationIndex) pairs already holding a slot in the plan under construction.</summary>
             public HashSet<long> OrderSlotAt = new HashSet<long>();
+            /// <summary>
+            /// (MaxPartsPerOrder) Parts this order has taken in the plan under construction, so the
+            /// lifetime cap can be checked without rescanning OrderSlotAt on every candidate move.
+            /// </summary>
+            public Dictionary<int, int> PartsThisEpoch = new Dictionary<int, int>();
+            /// <summary>
+            /// (PackingBufferLimit) Orders that have taken a slot in the plan under construction.
+            /// Those not already holding a box and not yet fully covered are the ones this epoch
+            /// would turn into new split parents, i.e. the epoch's box consumption.
+            /// </summary>
+            public HashSet<int> SlotOpeners = new HashSet<int>();
             /// <summary>
             /// (V2a, incremental valuation) Per-SKU cap on how much may be drawn from pods
             /// dispatched THIS epoch: pooled residual demand minus what already-committed inbound
@@ -244,6 +320,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 c.FreeBots = new List<Bot>(FreeBots);
                 c.DispatchedThisEpoch = new HashSet<Pod>(DispatchedThisEpoch);
                 c.OrderSlotAt = new HashSet<long>(OrderSlotAt);
+                c.PartsThisEpoch = new Dictionary<int, int>(PartsThisEpoch);
+                c.SlotOpeners = new HashSet<int>(SlotOpeners);
                 c.PaBound = PaBound;                               // read-only
                 c.PaDrawn = new Dictionary<ItemDescription, int>(PaDrawn);
                 return c;
@@ -719,6 +797,33 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 int residualUnits = 0;
                 foreach (var p in res) if (p.Value > 0) { openCount++; residualUnits += p.Value; }
                 if (openCount == 0) continue;
+                // (MaxPartsPerOrder / PackingBufferLimit) Both caps only ever forbid a move that
+                // would open a NEW (order, station) pair, so they are evaluated once per order
+                // rather than inside the station loop. The MILP states them as constraints on
+                // y[o,w]; the greedy has no constraints, so it withholds the move instead - the
+                // one permitted divergence under the M5-mirrors-M4G rule.
+                int partsLeft = int.MaxValue;
+                if (_config.MaxPartsPerOrder > 0)
+                {
+                    int spentHere;
+                    st.PartsThisEpoch.TryGetValue(order.ID, out spentHere);
+                    partsLeft = _config.MaxPartsPerOrder - PartsUsed(order.ID) - spentHere;
+                    if (partsLeft <= 0 && !st.OrderSlotAt.Contains(OrderStationKey(order, 0)))
+                    {
+                        // No budget and no station already open for this order: nothing it can do.
+                        bool anyOpen = false;
+                        for (int s2 = 0; s2 < st.StationList.Count && !anyOpen; s2++)
+                            anyOpen = st.OrderSlotAt.Contains(OrderStationKey(order, s2));
+                        if (!anyOpen) continue;
+                    }
+                }
+                // A box is needed only if this order is not already holding one AND this epoch
+                // cannot finish it. "Cannot finish" is judged conservatively per move below via
+                // `completes`; here we only need to know whether any box is left at all.
+                bool needsBox = PackingCapacity() > 0 && !Instance.PackingBuffer.Holds(order.ID);
+                bool boxAvailable = !needsBox
+                    || st.SlotOpeners.Contains(order.ID)
+                    || BoxesConsumed(st) < PackingBoxesFree();
                 foreach (var line in res)
                 {
                     if (line.Value <= 0) continue;
@@ -726,6 +831,13 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     {
                         bool holdsSlot = st.OrderSlotAt.Contains(OrderStationKey(order, s));
                         if (!holdsSlot && st.FreeSlots[s] <= 0) continue;
+                        // (MaxPartsPerOrder) A move that opens a new station spends a part, and
+                        // the last part may only be spent on a move that finishes the order -
+                        // the greedy's reading of M4G's N1 row. Keeping one part in reserve is
+                        // what stops an order from being left with demand it can no longer be
+                        // served for; it waits for a station that can cover its whole remainder.
+                        if (!holdsSlot && (partsLeft <= 0 || (partsLeft == 1 && !(openCount == 1))))
+                            continue;
                         int stock;
                         if (!st.PerStationAvail[s].TryGetValue(line.Key, out stock) || stock < line.Value) continue;
                         // One walk for both the V2a check and the rho term - see RhoAndNewForDraw.
@@ -734,6 +846,19 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                             out sourced, out fromNew);
                         if (ViolatesPaBound(st, line.Key, fromNew)) continue;         // V2a
                         bool completes = openCount == 1;
+                        // (PackingBufferLimit) A move needs a consolidation box when it makes the
+                        // order a split parent - which happens either because it leaves residual
+                        // demand behind, OR because it opens a SECOND station for the order even
+                        // though it finishes it. Charging only the first case would let the greedy
+                        // dodge the budget by splitting an order across two stations in one epoch,
+                        // the same loophole M4G closes with S1a.
+                        if (needsBox && !boxAvailable)
+                        {
+                            int spentSoFar;
+                            st.PartsThisEpoch.TryGetValue(order.ID, out spentSoFar);
+                            int partsAfter = PartsUsed(order.ID) + spentSoFar + (holdsSlot ? 0 : 1);
+                            if (!completes || partsAfter >= 2) continue;
+                        }
                         var mv = new M5LineMove
                         {
                             Order = order,
@@ -786,6 +911,12 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             {
                 st.FreeSlots[mv.StationIndex]--;
                 st.OrderSlotAt.Add(OrderStationKey(mv.Order, mv.StationIndex));
+                // (MaxPartsPerOrder / PackingBufferLimit) One new (order, station) pair is
+                // exactly one new part, the same unit M4G's y[o,w] counts.
+                int hadParts;
+                st.PartsThisEpoch.TryGetValue(mv.Order.ID, out hadParts);
+                st.PartsThisEpoch[mv.Order.ID] = hadParts + 1;
+                st.SlotOpeners.Add(mv.Order.ID);
             }
             if (st.Residuals[mv.Order].Values.All(v => v <= 0))
                 st.Committed.Add(mv.Order);
@@ -1258,6 +1389,27 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             }
             if (!fastPath)
                 st.Result.SplitParents.Add(order);
+            // (MaxPartsPerOrder / PackingBufferLimit) Control state. parts.Count is the number of
+            // stations this order is committed to in this epoch, i.e. the parts it just spent -
+            // the same unit M4GManager derives from stationGroups.Count.
+            if (_config.MaxPartsPerOrder > 0 && parts.Count > 0)
+                _partsUsed[order.ID] = PartsUsed(order.ID) + parts.Count;
+            if (PackingBufferEnabled())
+            {
+                // Any split parent needs a box, including one split entirely within this
+                // single epoch. See M4GManager for why !IsFullyClaimed is the wrong test.
+                if (order.IsSplitParent && Instance.PackingBuffer != null)
+                    Instance.PackingBuffer.RegisterParent(order.ID);
+                if (coversAll)
+                {
+                    // The engine releases the box itself in OutputStation; clear the local mirror.
+                    _partsUsed.Remove(order.ID);
+                }
+            }
+            else if (coversAll)
+            {
+                _partsUsed.Remove(order.ID);
+            }
             if (_config.ReleaseParentOnFirstSplit
                 && order.IsSplitParent
                 && (Instance.ItemManager as ItemManager).IsOrderAvailable(order))

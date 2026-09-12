@@ -34,6 +34,10 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             _m4gConfig = instance.ControllerConfig.OrderBatchingConfig as M4GConfiguration;
             if (_m4gConfig == null)
                 throw new InvalidOperationException("M4GManager requires an M4GConfiguration.");
+            // (PackingBufferLimit) Created here, once, and only when the feature is on. Leaving it
+            // null is what keeps the engine's release hook in OutputStation inert for canon and
+            // for every other arm - see PackingBuffer's own remarks.
+            EnsurePackingBuffer();
             // Unit-consistency guard (spec 3.5): lambda/mu/epsilon are priced in metres, which
             // requires the objective's distance terms to be metres too. StarveAwareCostEnabled
             // switches the cost functions to seconds - fail hard rather than solve nonsense.
@@ -97,6 +101,185 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// </summary>
         private System.IO.StreamWriter _splitLifeLog;
         private readonly HashSet<int> _splitSeen = new HashSet<int>();
+
+        // ── (PackingBufferLimit / MaxPartsPerOrder) control state ─────────────────────────
+        // Deliberately separate from _splitSeen above. That set is a PROBE: it exists so the
+        // split-lifetime log can fire "split" exactly once per parent. Hanging control logic on
+        // it would couple measurement to behaviour, so turning the probe off would silently
+        // change what the model does. These two carry the control state and nothing else.
+
+        /// <summary>Parts (order-station placements) each parent has already used, across decisions.</summary>
+        private readonly Dictionary<int, int> _partsUsed = new Dictionary<int, int>();
+        /// <summary>Whether PB1 was added to the last model built - diagnostics for the redundancy test.</summary>
+        private bool _lastPbAdded;
+
+        /// <summary>
+        /// Whether the consolidation buffer exists at all. Governs TRACKING only: when true the
+        /// buffer is created and every split parent is registered and released, so B_occ can be
+        /// read off the instance. Whether that occupancy also CONSTRAINS the model is a separate
+        /// question, answered by PackingCapacity below.
+        /// </summary>
+        private bool PackingBufferEnabled()
+        {
+            return _m4gConfig != null && _m4gConfig.PackingStationCount > 0;
+        }
+
+        /// <summary>
+        /// Total box capacity C, or 0 when the buffer must not constrain anything. 0 covers two
+        /// cases that behave identically in the model and differently on the instance: the whole
+        /// feature off (no buffer), and observe-only (buffer present and counting, capacity
+        /// unlimited). This is PackingBuffer's own convention - "Capacity &lt;= 0 = unlimited
+        /// (probe-tracking only)" - so the observe-only arm measures the pressure the limit would
+        /// apply without applying it, which is what makes it a free rider on any other run.
+        /// </summary>
+        private int PackingCapacity()
+        {
+            if (!PackingBufferEnabled()) return 0;
+            if (_m4gConfig.PackingBufferCapacity <= 0) return 0;
+            return _m4gConfig.PackingStationCount * _m4gConfig.PackingBufferCapacity;
+        }
+
+        /// <summary>
+        /// Creates the shared buffer the first time it is needed. Mirrors SplitM2eICManager's
+        /// constructor block. Left null when the feature is off, which is what keeps the engine's
+        /// release hook (OutputStation.RemoveAnyCompletedOrder) inert for every other arm.
+        /// </summary>
+        private void EnsurePackingBuffer()
+        {
+            if (!PackingBufferEnabled()) return;
+            if (Instance.PackingBuffer == null)
+                Instance.PackingBuffer = new RAWSimO.Core.Elements.PackingBuffer(PackingCapacity());
+        }
+
+        /// <summary>Boxes still free this decision; int.MaxValue when the feature is off.</summary>
+        private int PackingBoxesFree()
+        {
+            int cap = PackingCapacity();
+            if (cap <= 0 || Instance.PackingBuffer == null) return int.MaxValue;
+            return Math.Max(0, cap - Instance.PackingBuffer.AliveParentCount);
+        }
+
+        /// <summary>Parts this parent has already spent in earlier decisions.</summary>
+        private int PartsUsed(int orderId)
+        {
+            int used;
+            return _partsUsed.TryGetValue(orderId, out used) ? used : 0;
+        }
+
+        /// <summary>
+        /// (MaxPartsPerOrder / PackingBufferLimit) The two downstream-cost constraints. Both are
+        /// written on y[o,w], the binding layer's existing (order, station) placement indicator -
+        /// the same quantity the split-lifetime probe counts as a "part". Called from BOTH model
+        /// paths with whatever y variables that path actually constrained; referencing a y no
+        /// B2/B4 pair pins would manufacture a free binary, which is why the caller passes the
+        /// list rather than this method rebuilding it.
+        ///
+        ///   (N1) sum_w y[o,w]  &lt;=  N - n_o          parts left in this order's lifetime budget
+        ///   (T1) t_o &gt;= y[o,w],  (T2) t_o &lt;= sum_w y[o,w]      "served at all this decision"
+        ///   (S1) s_o &gt;= t_o - z_o                   served but not completed => leaves residual
+        ///   (B1) sum_o s_o &lt;= C - B_occ             new parents fit in the free boxes
+        ///
+        /// N=1 makes (N1) exactly ForbidSplitting's B8/B8c, so this is that rule's generalisation
+        /// rather than a second mechanism. s_o carries NO objective coefficient: it is a counter,
+        /// and pricing it would smuggle in a hand-set weight - the mistake SlotScale already
+        /// documented (see IM4GPrices / project_slot_penalty_rejected).
+        ///
+        /// Both blocks are skipped entirely when their flag is off, so the flag-off model is a
+        /// strict subset of the flag-on one and canon stays bit-identical.
+        /// </summary>
+        private void AddSplitCapConstraints(LinearModel wrapper, M4GSnapshot snap,
+            VariableCollection<string> bin, Dictionary<int, List<Variable>> yByOrder)
+        {
+            _lastPbAdded = false;
+            if (_m4gConfig == null) return;
+            bool capParts = _m4gConfig.MaxPartsPerOrder > 0;
+            int boxesFree = PackingBoxesFree();
+            bool capBoxes = PackingCapacity() > 0;
+            // (PB redundancy test) Every order this decision touches must occupy a station slot
+            // (B3), so at most sum_w Cs[w] distinct orders can be touched at all - and therefore
+            // at most that many can become new split parents. When the free boxes already exceed
+            // that bound, PB1 cannot possibly bind, and adding it costs one binary plus one row
+            // per pending order for nothing. Skipping it is exact: the constraint is slack at
+            // every feasible point, so the optimal set is unchanged.
+            if (capBoxes)
+            {
+                int slotsFree = 0;
+                foreach (var c in snap.Cs.Values) slotsFree += c;
+                if (boxesFree >= slotsFree) capBoxes = false;
+            }
+            if (!capParts && !capBoxes) return;
+
+            // Accumulators for the single capacity row assembled after the loop.
+            var boxCoeffs = new List<double>();
+            var boxVars = new List<Variable>();
+            foreach (var order in snap.PendingOrders)
+            {
+                List<Variable> ys;
+                if (!yByOrder.TryGetValue(order.ID, out ys) || ys.Count == 0) continue;
+
+                // (N1) Lifetime parts budget, with the budget-exhaustion rule built in.
+                //
+                //     sum_w y[o,w]  <=  (r - 1) + z_o        r = N - n_o, the parts still unspent
+                //
+                // Read it as: NEVER spend your last part unless it finishes the order. With N = 2
+                // and a four-line order, the first decision may take one part (r = 2, z = 0 gives
+                // <= 1), and the only way the order can ever move again is a placement that draws
+                // its whole remainder at one station (r = 1 forces z = 1). That is exactly the
+                // "first part takes line A, so the next one must take B, C and D together"
+                // semantics, and the model is made to see it at the moment it takes part one.
+                //
+                // n_o accumulates across decisions in _partsUsed (incremented at commit by the
+                // number of stations the order was placed at), so this is a LIFETIME cap, not the
+                // per-epoch cap that SplitPlanner's MaxChildrenPerOrder means by the same words.
+                //
+                // No order can strand: the state "budget gone, demand left" is unreachable,
+                // because reaching it would require a decision that spent the last part without
+                // completing - precisely what this row forbids. An order at r = 1 simply waits
+                // until some station can cover its whole remainder, which is queueing, not
+                // deadlock. Math.Max is defensive only; r >= 1 holds for every pending order.
+                if (capParts)
+                {
+                    int budget = Math.Max(0, _m4gConfig.MaxPartsPerOrder - PartsUsed(order.ID) - 1);
+                    wrapper.AddConstr(LinearExpression.Sum(ys) <= budget + bin["z_" + order.ID], "N1");
+                }
+
+                // (PB1) Consolidation box budget - accumulated here, stated once below.
+                //
+                // The exact charge is "1 if this order becomes a new split parent", which is a
+                // disjunction (opened a second station this decision, OR was served without
+                // finishing) and therefore needs an indicator variable to linearise. This arm
+                // deliberately does NOT pay that price. It charges
+                //
+                //     sum_w y[o,w] - z_o
+                //
+                // per order instead: 0 for an order served whole at one station, 1 for the normal
+                // "served, not finished" case, and k for an order opened at k stations in one
+                // decision - where the exact charge would be 1. So the budget is CONSERVATIVE:
+                // it can over-charge, never under-charge, and the buffer therefore cannot
+                // overflow. The term is non-negative by construction, because z_o = 1 requires
+                // draws (B5/B7) and therefore at least one y.
+                //
+                // Measured cost of the approximation: 3 of 673 parents are opened at two stations
+                // within one decision (0.4%), so the two formulations agree on 99.6% of orders.
+                // Bought with it: zero auxiliary binaries, zero linking rows, and a model layer
+                // that carries exactly one capacity constraint - which is what the design calls
+                // for. Everything else about the buffer lives in the simulation layer.
+                if (capBoxes && !Instance.PackingBuffer.Holds(order.ID))
+                {
+                    foreach (var yv in ys) { boxCoeffs.Add(1.0); boxVars.Add(yv); }
+                    boxCoeffs.Add(-1.0); boxVars.Add(bin["z_" + order.ID]);
+                }
+            }
+
+            // (PB1) The one capacity constraint the model layer carries. boxesFree is a
+            // snapshot taken at build time; the buffer only shrinks through this decision's
+            // own commits, so the plan cannot overspend it.
+            if (capBoxes && boxVars.Count > 0)
+            {
+                wrapper.AddConstr(LinearExpression.Sum(boxCoeffs, boxVars) <= boxesFree, "PB1");
+                _lastPbAdded = true;
+            }
+        }
 
         private void EnsureSplitLifeLog()
         {
@@ -307,7 +490,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 + "lambda,mu,delta,epsilon,lambdaRef,lambdaDF,dStar,valuedLines,boundLines,valuedOrders,boundOrders,newTrips,boundUnits,"
                 + "objective,solveSec,qmax,rho,unitsFromSunk,unitsFromNew,inboundCoverUnits,"
                 + "splitsDeferred,splitsCommitted,wipOrders,wipUnits,dinkIters,lambdaStart,lambdaEnd,"
-                + "tbar,urgentOrders,lbFail,lbValue,mipGap,guardLamNext,guardTrialObj");
+                + "tbar,urgentOrders,lbFail,lbValue,mipGap,guardLamNext,guardTrialObj,"
+                + "boxOcc,boxReserved,boxFree,pbAdded");
         }
 
         /// <summary>
@@ -363,7 +547,14 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 wipOrders.ToString(), wipUnits.ToString(), dinkIters.ToString(), Inv(lambdaStart),
                 Inv(lambdaEnd), Inv(_lastTbar), _lastUrgentOrders.ToString(),
                 _lastLbFail.ToString(), Inv(_lastLbValue), Inv(_lastGap),
-                Inv(_lastGuardLamNext), Inv(_lastGuardTrialObj) }));
+                Inv(_lastGuardLamNext), Inv(_lastGuardTrialObj),
+                // (PackingBufferLimit) boxOcc is the PHYSICAL occupancy the buffer reports;
+                // boxReserved is what this manager has committed and not yet seen consolidate.
+                // Their difference is the in-flight backlog: parents split but still being picked.
+                (Instance.PackingBuffer != null ? Instance.PackingBuffer.AliveParentCount : 0).ToString(),
+                (Instance.PackingBuffer != null ? Instance.PackingBuffer.AliveParentCount : 0).ToString(),
+                (PackingCapacity() > 0 ? PackingBoxesFree().ToString() : "-1"),
+                (_lastPbAdded ? "1" : "0") }));
         }
 
         /// <summary>TEMP DIAGNOSTIC (fill-mode deadlock investigation, remove before merge).</summary>
@@ -1098,9 +1289,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             }
 
             // ── (B2'/B4') slot occupancy. Unit counts come straight from the placement indicators. ──
+            var yByOrder = new Dictionary<int, List<Variable>>();
             foreach (var order in snap.PendingOrders)
             {
                 int totalResidual = snap.Residuals[order].Values.Sum();
+                var ysHere = new List<Variable>();
                 foreach (var station in snap.Cs.Keys)
                 {
                     var mine = model.Places
@@ -1111,8 +1304,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     wrapper.AddConstr(LinearExpression.Sum(units) <= totalResidual * bin[yName], "B2c");
                     var flags = mine.Select(pl => bin[pl.GbName]).ToList();
                     wrapper.AddConstr(bin[yName] <= LinearExpression.Sum(flags), "B4c");
+                    ysHere.Add(bin[yName]);
                 }
+                if (ysHere.Count > 0) yByOrder[order.ID] = ysHere;
             }
+            AddSplitCapConstraints(wrapper, snap, bin, yByOrder);
 
             // ── (V7/B8, gated) ForbidSplitting: one station per order, in both layers. This is
             // the SYMBOL-ALIGNED no-split control: the canon model plus exactly this restriction,
@@ -1956,6 +2152,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 else
                     wrapper.AddConstr(qb[qbName] <= qh[v.name], "B1");
             }
+            var yByOrderFull = new Dictionary<int, List<Variable>>();
             foreach (var order in snap.PendingOrders)
             {
                 int totalResidual = snap.Residuals[order].Values.Sum();
@@ -1973,6 +2170,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     wrapper.AddConstr(bin[yName] <= LinearExpression.Sum(draws), "B4");
                     boundStationVars.Add(bin[yName]);
                 }
+                if (boundStationVars.Count > 0)
+                    yByOrderFull[order.ID] = new List<Variable>(boundStationVars);
                 // (B8, gated) One station per order in the binding layer too - the same shi2
                 // mirror as V7, applied to y[o,s] (already the binding layer's order-station
                 // indicator, unlike the valuation layer which needed a new yhat).
@@ -2075,6 +2274,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 }
                 wrapper.AddConstr(bin["z_" + order.ID] <= bin["zh_" + order.ID], "B6z");
             }
+            AddSplitCapConstraints(wrapper, snap, bin, yByOrderFull);
             // (B3) slot capacity - an inequality, unlike M3G's eshi4 equality
             foreach (var station in snap.Cs.Keys)
             {
@@ -3141,6 +3341,16 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                         Instance.ResourceManager.TransferExtractRequests(order, target);
                     }
                     AllocateOrder(target, station);
+                    // (ThroughputTime) Stamp the PARENT the first time any of its work reaches a
+                    // station. AllocateOrder stamps whatever object it is given, which for a split
+                    // order is the child - so without this the parent keeps the +Infinity it was
+                    // constructed with, and every throughput statistic it feeds turns into
+                    // -Infinity. GreedyM4GManager and GreedyM5Manager already do this; M4GManager
+                    // did not, which is why the split arm's StatAverageThroughputTime was
+                    // unusable. Measurement only - nothing reads TimeStampSubmit back into a
+                    // decision in this manager.
+                    if (!ReferenceEquals(target, order) && double.IsPositiveInfinity(order.TimeStampSubmit))
+                        order.TimeStampSubmit = Instance.Controller.CurrentTime;
                     // (ForbidCrossStationOnly) Remember where this order went the first time it
                     // took anything, so BuildSymbols can refuse to offer it any other station on
                     // later decisions. Keyed on the parent id even when a child was allocated -
@@ -3194,6 +3404,40 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 // draws happen to be grouped.
                 bool residualFullyBoundThisDecision = snap.Residuals[order]
                     .All(p => mine.Where(e => e.Key.skui.ID == p.Key.ID).Sum(e => e.Value) >= p.Value);
+                // (MaxPartsPerOrder / PackingBufferLimit) Control state, kept deliberately apart
+                // from the probe below. Parts are counted the same way the probe counts them -
+                // one per (order, station) placement this decision - so the cap speaks about
+                // exactly the quantity the split-lifetime log reports.
+                if (_m4gConfig.MaxPartsPerOrder > 0 && stationsInDecision > 0)
+                    _partsUsed[order.ID] = PartsUsed(order.ID) + stationsInDecision;
+                if (PackingBufferEnabled())
+                {
+                    // Reserve once the order is a SPLIT PARENT with residual demand: that is
+                    // the moment a consolidation box becomes necessary, and it is exactly the
+                    // population the engine's release path can ever free (OutputStation only
+                    // releases on a child's completion, via finishedOrder.Parent). Testing
+                    // !IsFullyClaimed alone is NOT the same thing - an order can be left with
+                    // residual without any child having been created, and such an order would be
+                    // registered and never released, so occupancy would grow without bound.
+                    // Same predicate the split-lifetime probe below uses, deliberately.
+                    // Any split parent needs a consolidation box - including one whose parts
+                    // were ALL dispatched in this single decision, which is fully claimed the
+                    // moment it is split. Testing !IsFullyClaimed here would have excluded
+                    // exactly the canonical "3A to station 1, 2B to station 2" case.
+                    if (order.IsSplitParent && Instance.PackingBuffer != null)
+                        Instance.PackingBuffer.RegisterParent(order.ID);
+                    // The engine releases the box itself (OutputStation.RemoveAnyCompletedOrder),
+                    // so only the local mirror is cleared here.
+                    if (order.IsFullyClaimed)
+                    {
+                        _partsUsed.Remove(order.ID);
+                    }
+                }
+                else if (order.IsFullyClaimed)
+                {
+                    _partsUsed.Remove(order.ID);
+                }
+
                 // Split-lifetime probe. Recorded AFTER this decision's claims, so linesLeft /
                 // unitsLeft are the remainder this decision actually leaves behind. Measurement
                 // only - nothing below reads these back.

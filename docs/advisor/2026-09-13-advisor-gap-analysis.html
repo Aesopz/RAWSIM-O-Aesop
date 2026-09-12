@@ -1,0 +1,685 @@
+<title>教授建議落差盤點</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;0,6..72,700;1,6..72,400&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --ground:#F1F4F8; --surface:#FFFFFF; --sunken:#E8EDF3; --ink:#101A2B; --body:#3A4557;
+    --muted:#6B788C; --rule:#D5DDE7; --rule-soft:#E6ECF3;
+    --accent:#1E4E79; --accent-soft:#1E4E7914;
+    --ok:#0F7052; --ok-soft:#0F705216;
+    --part:#94610A; --part-soft:#94610A16;
+    --gap:#A22C2C; --gap-soft:#A22C2C16;
+    --talk:#5A3D91; --talk-soft:#5A3D9116;
+    --f-display:"Newsreader","Noto Serif TC","PingFang TC","Microsoft JhengHei",serif;
+    --f-body:"Source Sans 3","Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+    --f-mono:"JetBrains Mono","Noto Sans TC","Microsoft JhengHei",monospace;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --ground:#0E131B; --surface:#161D27; --sunken:#121821; --ink:#E9EEF5; --body:#BEC9D8;
+    --muted:#8A96A8; --rule:#28313D; --rule-soft:#1E2631;
+    --accent:#6FA8DC; --accent-soft:#6FA8DC1A;
+    --ok:#4FC79E; --ok-soft:#4FC79E1C;
+    --part:#E0A94A; --part-soft:#E0A94A1C;
+    --gap:#E07070; --gap-soft:#E070701C;
+    --talk:#B08BE0; --talk-soft:#B08BE01C;
+  }}
+  :root[data-theme="dark"]{
+    --ground:#0E131B; --surface:#161D27; --sunken:#121821; --ink:#E9EEF5; --body:#BEC9D8;
+    --muted:#8A96A8; --rule:#28313D; --rule-soft:#1E2631;
+    --accent:#6FA8DC; --accent-soft:#6FA8DC1A;
+    --ok:#4FC79E; --ok-soft:#4FC79E1C;
+    --part:#E0A94A; --part-soft:#E0A94A1C;
+    --gap:#E07070; --gap-soft:#E070701C;
+    --talk:#B08BE0; --talk-soft:#B08BE01C;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--ground);color:var(--body);font-family:var(--f-body);font-size:1.0625rem;
+       line-height:1.75;margin:0;padding-block:clamp(2rem,6vw,4rem) 4rem;padding-left:20px;padding-right:20px;
+       -webkit-font-smoothing:antialiased}
+  .wrap{max-width:46rem;margin-inline:auto;display:flex;flex-direction:column;gap:3rem}
+  .wide{max-width:58rem;margin-inline:auto;width:100%}
+  .eyebrow{font-family:var(--f-mono);font-size:.7rem;letter-spacing:.15em;text-transform:uppercase;
+           color:var(--muted);margin:0 0 .9rem}
+  h1{font-family:var(--f-display);font-weight:700;font-size:clamp(2rem,6vw,2.9rem);line-height:1.1;
+     letter-spacing:-.015em;color:var(--ink);margin:0 0 1rem;text-wrap:balance}
+  .lede{font-size:1.15rem;line-height:1.65;margin:0;border-left:3px solid var(--accent);padding-left:1.1rem}
+  h2{font-family:var(--f-display);font-weight:600;font-size:1.5rem;color:var(--ink);margin:0 0 1rem;
+     letter-spacing:-.01em;text-wrap:balance}
+  h3{font-family:var(--f-display);font-weight:600;font-size:1.08rem;color:var(--ink);margin:0 0 .45rem}
+  p{margin:0 0 .95rem}p:last-child{margin-bottom:0}
+  section{display:flex;flex-direction:column}
+  strong{color:var(--ink);font-weight:600}
+  code,.num{font-family:var(--f-mono);font-size:.88em;font-variant-numeric:tabular-nums}
+  code{background:var(--sunken);padding:.1em .35em;border-radius:3px;color:var(--ink)}
+  pre{font-family:var(--f-mono);font-size:.82rem;line-height:1.7;background:var(--sunken);color:var(--ink);
+      border:1px solid var(--rule);border-radius:6px;padding:.95rem 1.1rem;overflow-x:auto;margin:0 0 1rem}
+  a{color:var(--accent)}
+
+  /* dashboard */
+  .dash{display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:.85rem}
+  .stat{background:var(--surface);border:1px solid var(--rule);border-radius:9px;padding:1rem 1.1rem;
+        display:flex;flex-direction:column;gap:.25rem}
+  .stat .n{font-family:var(--f-mono);font-size:1.9rem;font-weight:500;line-height:1;font-variant-numeric:tabular-nums}
+  .stat .k{font-size:.82rem;color:var(--muted);line-height:1.4}
+  .n.ok{color:var(--ok)} .n.part{color:var(--part)} .n.gap{color:var(--gap)} .n.talk{color:var(--talk)}
+
+  /* item cards */
+  .items{display:flex;flex-direction:column;gap:1.35rem}
+  .item{background:var(--surface);border:1px solid var(--rule);border-radius:10px;overflow:hidden}
+  .item-head{display:flex;align-items:flex-start;gap:.8rem;padding:1rem 1.25rem .8rem;flex-wrap:wrap}
+  .idx{font-family:var(--f-mono);font-size:.78rem;color:var(--muted);padding-top:.3rem;min-width:1.6rem}
+  .item-head h3{flex:1 1 14rem;margin:0}
+  .chip{font-family:var(--f-mono);font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;
+        padding:.24rem .55rem;border-radius:4px;white-space:nowrap;border:1px solid}
+  .c-ok{color:var(--ok);border-color:var(--ok);background:var(--ok-soft)}
+  .c-part{color:var(--part);border-color:var(--part);background:var(--part-soft)}
+  .c-gap{color:var(--gap);border-color:var(--gap);background:var(--gap-soft)}
+  .c-talk{color:var(--talk);border-color:var(--talk);background:var(--talk-soft)}
+  .rows{border-top:1px solid var(--rule-soft)}
+  .row{display:grid;grid-template-columns:7.5rem 1fr;gap:.9rem;padding:.8rem 1.25rem;
+       border-bottom:1px solid var(--rule-soft)}
+  .row:last-child{border-bottom:none}
+  .row .lab{font-family:var(--f-mono);font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;
+            color:var(--muted);padding-top:.25rem}
+  .row .val{font-size:.97rem;line-height:1.65}
+  .row .val p{margin-bottom:.6rem}
+  .row.rec{background:var(--sunken)}
+  .row.rec .val{color:var(--ink)}
+  @media (max-width:560px){.row{grid-template-columns:1fr;gap:.2rem}}
+
+  /* tables */
+  .t-scroll{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-family:var(--f-mono);font-size:.8rem;
+        font-variant-numeric:tabular-nums}
+  th,td{text-align:right;padding:.5rem .7rem;border-bottom:1px solid var(--rule);white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  thead th{font-size:.67rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
+           font-weight:500;border-bottom-color:var(--ink)}
+  tbody tr:last-child td{border-bottom:none}
+  td.ink{color:var(--ink)} td.pos{color:var(--ok)} td.neg{color:var(--gap)}
+
+  /* note */
+  .note{background:var(--surface);border:1px solid var(--rule);border-left:3px solid var(--talk);
+        border-radius:0 8px 8px 0;padding:1.05rem 1.25rem}
+  .note .ntag{font-family:var(--f-mono);font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;
+              color:var(--talk);display:block;margin-bottom:.5rem}
+  .note.warn{border-left-color:var(--gap)} .note.warn .ntag{color:var(--gap)}
+  .note.good{border-left-color:var(--ok)} .note.good .ntag{color:var(--ok)}
+  .note p{font-size:1rem}
+
+  ul{margin:0 0 .95rem;padding-left:1.15rem}
+  li{margin-bottom:.4rem}
+  li::marker{color:var(--muted)}
+
+  footer{border-top:1px solid var(--rule);padding-top:1.25rem;font-family:var(--f-mono);
+         font-size:.75rem;line-height:1.9;color:var(--muted)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">口試準備 · 2026-09-13</p>
+  <h1>教授建議落差盤點</h1>
+  <p class="lede">
+    把教授的十項建議逐條對上簡報 <code>Defense_aesop_rp (4).pdf</code>（27 頁）與現有實驗資料，
+    標出<strong>已補齊</strong>、<strong>部分</strong>、<strong>缺</strong>，
+    並分開「建議直接補」與「建議與教授討論」。
+  </p>
+</header>
+
+<section class="wide">
+  <div class="dash">
+    <div class="stat"><span class="n ok">1</span><span class="k">已補齊</span></div>
+    <div class="stat"><span class="n part">5</span><span class="k">部分，需補強</span></div>
+    <div class="stat"><span class="n gap">4</span><span class="k">簡報完全沒有</span></div>
+    <div class="stat"><span class="n talk">3</span><span class="k">建議先討論再決定</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>先講三個結論</h2>
+  <p>
+    <strong>一、教授最重的那一點，你其實已經有最強的答案，只是沒放進簡報。</strong>
+    他要求「先把不拆單的 OA–PS–TA 基礎做好，再證明改善來自拆單」——
+    你在 2026-09-12 完成的四段消融鏈正是這件事，而且做到了框架移植的虛無結果
+    （件數 <span class="num">+0.65%</span>、<span class="num">t=0.67</span>、n.s.）。
+    簡報裡一頁都沒有。
+  </p>
+  <p>
+    <strong>二、簡報有一半沒做完。</strong>
+    大綱承諾八章，實際停在第 27 頁、第四章結尾。
+    沒有 Ch05 實驗與結果、Ch06 結論、Ch07 參考文獻、Ch08 附錄。
+    教授看到的是一份「方法講很細、結果沒講完」的簡報，這本身就會造成
+    「元素很多但沒 align」的印象。
+  </p>
+  <p>
+    <strong>三、有兩處內容今天已經過期。</strong>
+    p.13 與 p.16 寫著「packing station not modelled / 合併成本是量測而非建模」，
+    但你今天已經把包裝站容量做成模型裡的一條限制式並跑出劑量反應曲線。
+    這是教授關心的「拆單的代價」，必須更新。
+  </p>
+</section>
+
+<section class="wide">
+  <h2>逐條對照</h2>
+  <div class="items">
+
+    <!-- 1 -->
+    <article class="item">
+      <div class="item-head">
+        <span class="idx">01</span>
+        <h3>拆單如何產生效益的因果鏈</h3>
+        <span class="chip c-part">部分</span>
+        <span class="chip c-talk">有一點要討論</span>
+      </div>
+      <div class="rows">
+        <div class="row"><span class="lab">教授要求</span><span class="val">
+          補一條鏈：拆單 → 改變訂單與工作站組合 → 提高 Pod 與需求的匹配 → 提高 pile-on
+          → 減少 Pod visits 或運輸需求 → 提高吞吐／降低距離能耗。
+          並強調「若 pile-on 沒提高，拆單理論上只會增加成本」。
+        </span></div>
+        <div class="row"><span class="lab">簡報現況</span><span class="val">
+          p.8 有三欄概念圖（傳統／拆單／為何重要），但結論停在
+          「more flexible resource coordination and matching opportunities」——
+          <strong>是機會的陳述，不是因果鏈</strong>。沒有 pile-on、沒有 pod visits。
+        </span></div>
+        <div class="row"><span class="lab">你已有的</span><span class="val">
+          <p>S2→S3（不拆單→拆單，6 bots，5 seeds）：</p>
+          <pre>pile-on   +60.69%   t=30.83   *
+趟次      −35%
+公尺/行   −34.57%   t=−42.73  *
+EOR       −28.65%   t=−32.90  *
+件數      +13.42%   t=13.96   *
+完成訂單   +4.17%   t= 5.18   *</pre>
+          <p>而且有一個恆等式可以把鏈講得比教授更精確：</p>
+          <pre>pile-on × 趟次 = 完成訂單
+3.255 × 176.6 = 574.8      5.310 × 113.0 = 600.0</pre>
+        </span></div>
+        <div class="row rec"><span class="lab">建議</span><span class="val">
+          <p><strong>同意補</strong>，而且你有比他要求的更完整的版本。補一張機制圖，
+          鏈的每一段都掛上實測數字。</p>
+          <p><strong>但有一段要跟教授討論</strong>：他的鏈把
+          <em>pile-on ↑ ⟹ throughput ↑</em> 當成必然。實際上——</p>
+          <ul>
+            <li>Jiao 自己在 Omega 的結論章寫：<strong>「本研究發現貨架移動次數與系統運作效率之間沒有相關性」</strong>
+                （M2G 相對 M1G：PO <span class="num">+4.43%</span>、TP <span class="num">−1.22%</span>）。</li>
+            <li>你的資料同向且更極端：pile-on <span class="num">+63.1%</span>，完成訂單只
+                <span class="num">+4.3%</span>。</li>
+          </ul>
+          <p>正確的鏈應該<strong>止於距離與能耗</strong>，吞吐只有在「貨架供給是瓶頸」時才會跟著動。
+          這不是反駁教授，是把他的鏈補精確——而且引用的是他自己認可的期刊裡的原文。</p>
+        </span></div>
+      </div>
+    </article>
+
+    <!-- 2 -->
+    <article class="item">
+      <div class="item-head">
+        <span class="idx">02</span>
+        <h3>先把不拆單的 OA–PS–TA 基礎做好</h3>
+        <span class="chip c-gap">簡報完全沒有</span>
+        <span class="chip c-ok">資料齊全</span>
+      </div>
+      <div class="rows">
+        <div class="row"><span class="lab">教授要求</span><span class="val">
+          基礎層（不拆單的聯合決策）→ 延伸層（加入拆單）→ 效益驗證（只有拆單條件不同）。
+          若基礎系統本身做不好，拆單再好也只是補救基準模型的缺陷。
+        </span></div>
+        <div class="row"><span class="lab">簡報現況</span><span class="val">
+          <strong>完全沒有。</strong> 27 頁裡沒有任何一頁呈現 M1G／不拆單基準的表現，
+          也沒有任何消融。p.12 與 p.14 只做「文獻功能比較」，不是實驗比較。
+        </span></div>
+        <div class="row"><span class="lab">你已有的</span><span class="val">
+          <p>2026-09-12 的四段鏈，每一段只換一件事（小規模 6 bots、5 seeds）：</p>
+          <div class="t-scroll"><table>
+            <thead><tr><th>節點</th><th>件數</th><th>行數</th><th>訂單</th><th>pile-on</th><th>公尺/行</th><th>EOR</th></tr></thead>
+            <tbody>
+              <tr><td class="ink">S0 M1G</td><td>1238.4</td><td>805.8</td><td>574.8</td><td>3.255</td><td>14.785</td><td>1.696</td></tr>
+              <tr><td class="ink">S1 NS·M1G目標式</td><td>1246.4</td><td>810.6</td><td>576.4</td><td>3.399</td><td>14.297</td><td>1.634</td></tr>
+              <tr><td class="ink">S2 NS·μ定價</td><td>1240.0</td><td>811.0</td><td>575.6</td><td>3.304</td><td>14.511</td><td>1.663</td></tr>
+              <tr><td class="ink">S3 M4G 拆單</td><td>1406.4</td><td>937.0</td><td>599.6</td><td>5.310</td><td>9.495</td><td>1.187</td></tr>
+            </tbody>
+          </table></div>
+          <pre>S0→S1  框架移植   件數 +0.65% t=0.67 n.s.   三項產出全持平
+S1→S2  定價       十項中九項 n.s.            不拆單下貢獻為零
+S2→S3  拆單       十項全部顯著               效率增益的全部來源</pre>
+        </span></div>
+        <div class="row rec"><span class="lab">建議</span><span class="val">
+          <p><strong>最優先補。</strong> 這是教授最重的一點，而你手上的答案比他期待的更強：
+          <strong>不只證明了基礎穩，還證明了重建版與原版無可測量差異</strong>
+          （所以改善確定不是來自「基準做得爛」）。</p>
+          <p>⚠️ 附帶一個要主動揭露的細節：S0→S1 有三項時間指標顯著
+          （休息 +4.65%、週期中位 +16.84%、逾期 −28.13%）。成因是移植臂用的是
+          HADGS 式的急單閘門、M1G 用自己的 Od。主動講比被問好。</p>
+        </span></div>
+      </div>
+    </article>
+
+    <!-- 3 -->
+    <article class="item">
+      <div class="item-head">
+        <span class="idx">03</span>
+        <h3>OA / PS / TA / Pod / Robot 的角色對齊</h3>
+        <span class="chip c-part">部分</span>
+      </div>
+      <div class="rows">
+        <div class="row"><span class="lab">教授要求</span><span class="val">
+          明確區分「哪個訂單去哪個站」「哪個 Pod 供應」「哪台機器人搬」是三個不同決策。
+          並說明 TA 到底指什麼、哪些在模型內、哪些交給模擬器、機器人位置是否影響 OA／PS。
+        </span></div>
+        <div class="row"><span class="lab">簡報現況</span><span class="val">
+          p.20 的決策變數有標 <code>(PS)</code> <code>(TA)</code> <code>(OA)</code>，
+          p.18 的 Output 也分三行。<strong>資訊在，但沒有一張圖把它們的先後與從屬關係畫出來</strong>，
+          而且 p.7 引用 Jiao 的圖是五格橫排（OA→PS→TA→Path→Repositioning），容易讓人以為是同一條流水線。
+        </span></div>
+        <div class="row"><span class="lab">你已有的</span><span class="val">
+          模型本身已經是正確的：<code>z[p,w]</code> 是 Pod→Station（PS）、
+          <code>y[r,p]</code> 是 Robot→Pod（TA）、<code>x[o,w]</code> 是 Order→Station（OA）、
+          <code>g[o,i,w]</code> 是行→站（拆單）。機器人位置只透過
+          <code>d[r,p]</code> 進入目標式，<strong>不影響 OA／PS 的可行性</strong>——這正是教授想確認的事。
+        </span></div>
+        <div class="row rec"><span class="lab">建議</span><span class="val">
+          <p><strong>同意補</strong>，成本低。一張圖，四個框：</p>
+          <pre>訂單／殘餘需求  →  OA  x[o,w]     哪張單佔哪個站的槽位
+                    PS  z[p,w]     哪個 Pod 去哪個站
+                    TA  y[r,p]     哪台機器人搬哪個 Pod
+                    OS  g[o,i,w]   哪一行落在哪個站
+
+模型內：以上四者同時決定（聯合）
+模擬器：路徑規劃 WHCA*n、實際搬運、放回、補貨</pre>
+          <p>並加一句：<strong>機器人位置只進入成本（<code>d[r,p]</code>），不進入可行性</strong>。</p>
+        </span></div>
+      </div>
+    </article>
+
+    <!-- 4 -->
+    <article class="item">
+      <div class="item-head">
+        <span class="idx">04</span>
+        <h3>決策時序與 inventory position</h3>
+        <span class="chip c-part">部分</span>
+        <span class="chip c-ok">有加分項沒講</span>
+      </div>
+      <div class="rows">
+        <div class="row"><span class="lab">教授要求</span><span class="val">
+          什麼時候觸發？一次幾張單？在途 Pod 算不算供應？已承諾的 Pod 能不能再指派？
+          並提出 inventory position＝實際庫存＋在途−已配置。
+        </span></div>
+        <div class="row"><span class="lab">簡報現況</span><span class="val">
+          p.18 有三段流程（Trigger → Model Computing → Operating in EE-RAWSim-O），
+          Trigger 只有一句「available workstation capacity 達到門檻 δ」。
+          Input Sets 列了 <code>Pa</code> <code>Pb</code> <code>Wa</code> <code>R</code>
+          <code>Ra</code> <code>O</code> <code>L</code> <code>G</code>，但<strong>沒有說它們怎麼更新</strong>。
+        </span></div>
+        <div class="row"><span class="lab">你已有的</span><span class="val">
+          <p><strong>你其實已經完整實作了教授說的 inventory position</strong>，這是加分項而不是缺口：</p>
+          <pre>Pa   可新派的貨架
+Pb   已在途或已在站的貨架（行程沉沒，不再重複計價）
+V2a  以「已承諾的在途庫存」扣減本期可再承諾的量
+     ⟹ 明明有 Pod 在途就不會再派一個
+
+Residuals   每張母單的剩餘需求（已扣掉子單認領的）
+            ⟹ 不會重複計算同一筆需求</pre>
+        </span></div>
+        <div class="row rec"><span class="lab">建議</span><span class="val">
+          <p><strong>同意補，而且要當成賣點講</strong>。教授提 inventory position 是在測試你有沒有想到，
+          而你不只想到還實作了。補一張時序圖：</p>
+          <pre>訂單陸續到達（Fill 模式，維持池深 100）
+        ↓
+站台釋放槽位 → 可用容量 ≥ δ → 觸發決策
+        ↓
+Snapshot：Pa / Pb / Wa / Ra / O / L / G  + 每單殘餘需求
+        ↓
+聯合求解（OA + PS + TA + 拆單），Dinkelbach 更新 λ
+        ↓
+落地：建子單、佔槽位、派機器人 → 模擬器接手
+        ↓
+Pb 更新（新派的貨架變成在途）、Residuals 扣減</pre>
+        </span></div>
+      </div>
+    </article>
+
+    <!-- 5 -->
+    <article class="item">
+      <div class="item-head">
+        <span class="idx">05</span>
+        <h3>online / real-time / batch 的定位</h3>
+        <span class="chip c-gap">簡報完全沒有</span>
+      </div>
+      <div class="rows">
+        <div class="row"><span class="lab">教授要求</span><span class="val">
+          避免把 online 說成「一張單進來就只處理這一張」。建議定位為
+          <em>Dynamic rolling-horizon joint optimization</em>：動態到達、觸發時以當下可觀測狀態聯合求解、不使用未來資訊。
+        </span></div>
+        <div class="row"><span class="lab">簡報現況</span><span class="val">
+          全篇用 online，標題也是 <em>Online Joint Optimization</em>。
+          沒有任何一頁定義它與 batch 的差別，也沒說明每次求解實際處理多少張單。
+        </span></div>
+        <div class="row"><span class="lab">你已有的</span><span class="val">
+          事實上你每次求解處理的是<strong>整個 pending 池</strong>（中位 110–140 張），
+          不是一張。這已經是 rolling-horizon 的作法，只是沒講。
+          <code>pendingOrders</code> 中位 <span class="num">140</span>、最大 <span class="num">158</span>。
+        </span></div>
+        <div class="row rec"><span class="lab">建議</span><span class="val">
+          <p><strong>同意改</strong>。純措辭，零成本，而且改完更準確。加一頁或一段：</p>
+          <pre>訂單到達        動態、連續（Fill 模式）
+決策觸發        站台可用容量 ≥ δ 時
+每次求解規模    整個 pending 池（中位 110–140 張）
+資訊條件        只用當下可觀測狀態，不使用未來訂單
+與 batch 的差別  batch 是固定時間窗批次；本研究是事件觸發、滾動視窗</pre>
+          <p>⚠️ 標題要不要改成 Dynamic 要謹慎——<strong>Jiao 的論文標題就是 Online Joint Optimization</strong>，
+          沿用他的詞有對齊基準的好處。建議<strong>標題保留 online，內文補上精確定義</strong>，
+          並在口頭說明時用教授的詞。</p>
+        </span></div>
+      </div>
+    </article>
+
+    <!-- 6 -->
+    <article class="item">
+      <div class="item-head">
+        <span class="idx">06</span>
+        <h3>實驗公平性：缺貨訂單與 idle time</h3>
+        <span class="chip c-gap">簡報完全沒有</span>
+        <span class="chip c-talk">一半要討論</span>
+      </div>
+      <div class="rows">
+        <div class="row"><span class="lab">教授要求</span><span class="val">
+          不應直接剔除缺貨訂單（否則績效自然變好）；必須揭露被排除／等待／延遲的比例；
+          並在高負載下比較，同時報告 idle time 以排除「差異只是利用率不同」。
+        </span></div>
+        <div class="row"><span class="lab">簡報現況</span><span class="val">
+          <strong>完全沒有報過 idle time</strong>，也沒有揭露訂單生成規則。
+          p.16 的 Assumptions 只寫「Fill-mode arrivals」。
+        </span></div>
+        <div class="row"><span class="lab">你已有的</span><span class="val">
+          <p>訂單生成確實是庫存驅動的（<code>InventoryLevelDrivenOrderGeneration = true</code>），
+          教授的觀察正確。但有一個重要的辯護理由：</p>
+          <pre>本研究的 Fill 模式 ≡ Jiao 的 constant backlog
+   程式碼層級逐字對應：while(available &lt; OrderCount) generate
+   且 OrderCount = 100 正是 Jiao 小規模三個值之一</pre>
+          <p>機器人休息佔比（可作為 idle 的代理）各臂都有記錄，例如
+          S0 <span class="num">24.71%</span>、S3 <span class="num">30.10%</span>。</p>
+        </span></div>
+        <div class="row rec"><span class="lab">建議</span><span class="val">
+          <p><strong>idle time：同意補。</strong> 資料現成，只是沒放。而且它能直接回應
+          「差異會不會只是利用率不同」——把各臂的站台佔用與機器人休息並排就好。</p>
+          <p><strong>缺貨訂單：建議討論。</strong> 你的立場是：</p>
+          <ul>
+            <li>這不是「偷偷簡化」，是<strong>對齊基準文獻</strong>——與 Jiao 的訂單流機制逐字相同，
+                改掉就無法與他比較。</li>
+            <li>但教授要求的<strong>揭露</strong>是合理的，應該補：被庫存過濾掉的需求比例、
+                以及這對結論的影響方向。</li>
+          </ul>
+          <p>⚠️ 誠實評估：這一項教授是對的，你只是有一個好理由。<strong>不要辯成「所以不用處理」</strong>，
+          要辯成「所以維持現狀但完整揭露」。</p>
+        </span></div>
+      </div>
+    </article>
+
+    <!-- 7 -->
+    <article class="item">
+      <div class="item-head">
+        <span class="idx">07</span>
+        <h3>warm-up 與尾端效應、穩態 throughput</h3>
+        <span class="chip c-gap">簡報完全沒有</span>
+        <span class="chip c-talk">建議討論</span>
+      </div>
+      <div class="rows">
+        <div class="row"><span class="lab">教授要求</span><span class="val">
+          兩小時可能太短。應同時報「完整期間」與「排除 warm-up 與尾端的穩態」兩種結果，
+          並補上 flow time、percentile completion time、未完成訂單數等。
+        </span></div>
+        <div class="row"><span class="lab">簡報現況</span><span class="val">
+          沒有提到 warm-up，所有數字都是完整 7200 s。
+        </span></div>
+        <div class="row"><span class="lab">你已有的</span><span class="val">
+          週期中位（<code>StatMedianTurnoverTime</code>）與逾期（<code>StatOverallOrdersLate</code>、
+          <code>StatAverageLatenessSec</code>）每一場都有記錄，只是簡報沒放。
+        </span></div>
+        <div class="row rec"><span class="lab">建議</span><span class="val">
+          <p><strong>建議討論，並提出折衷。</strong> 完整照做等於重跑全部實驗。你的理由是：</p>
+          <ul>
+            <li>本研究所有比較都是<strong>同設定下的配對比較（paired by seed）</strong>，
+                warm-up 對兩組的影響相同，會在配對差分中大量抵消。</li>
+            <li>暖機的絕對影響可以量化：大規模第一次決策合法地要
+                <span class="num">105–115</span> 秒，之後就穩定。</li>
+          </ul>
+          <p>折衷方案：<strong>不重跑，改為在既有資料上補一組「排除前 20 分鐘」的穩態 throughput
+          作為 robustness check</strong>。決策 log 有逐決策時間戳，可以直接從現有輸出重算，成本接近零。</p>
+          <p>同時補上 flow time 與未完成訂單數——這兩個資料也是現成的。</p>
+        </span></div>
+      </div>
+    </article>
+
+    <!-- 8 -->
+    <article class="item">
+      <div class="item-head">
+        <span class="idx">08</span>
+        <h3>卡住的訂單與 starvation 處理機制</h3>
+        <span class="chip c-part">部分</span>
+        <span class="chip c-ok">有機制沒講</span>
+      </div>
+      <div class="rows">
+        <div class="row"><span class="lab">教授要求</span><span class="val">
+          需要處理「訂單長期佔用 slot、所需 Pod 遲遲不到、阻塞後續」的機制：
+          不指派無法滿足的訂單、超過門檻提高優先權、重新指派、釋放 slot。
+        </span></div>
+        <div class="row"><span class="lab">簡報現況</span><span class="val">
+          <strong>一個字都沒提</strong>，即使模型裡有實作。
+        </span></div>
+        <div class="row"><span class="lab">你已有的</span><span class="val">
+          <pre>UrgentOrderGate（急單閘門，正典開啟）
+  剩餘寬限 &lt; 門檻的訂單數 ≥ 空槽數時
+  ⟹ 它們成為本期唯一的候選集合
+
+PiSKU 過濾
+  ⟹ 本期沒有任何 Pod 能覆蓋其殘餘行的訂單，不會被指派進站
+
+V4g 限制式
+  ⟹ 有不可覆蓋殘餘行的訂單，不得領取完成獎勵</pre>
+          <p>實測逾期單數：各臂 <span class="num">2–6</span> 張，約
+          <span class="num">0.8–1.1%</span> 的完成訂單。</p>
+        </span></div>
+        <div class="row rec"><span class="lab">建議</span><span class="val">
+          <p><strong>同意補，而且是加分</strong>。教授提這一點是擔心你沒處理，
+          事實上你三個機制都有。補一頁說明，並附上逾期率作為證據。</p>
+          <p>⚠️ 但要誠實：<strong>你沒有「超過門檻重新指派到其他工作站」與「釋放被長時間占用的 slot」</strong>。
+          這兩項確實沒做。建議列為限制，並說明為何在目前的逾期率下不構成威脅。</p>
+        </span></div>
+      </div>
+    </article>
+
+    <!-- 9 -->
+    <article class="item">
+      <div class="item-head">
+        <span class="idx">09</span>
+        <h3>實驗規模的跳躍（2 站 vs 12 站）</h3>
+        <span class="chip c-gap">簡報完全沒有</span>
+        <span class="chip c-talk">建議討論</span>
+      </div>
+      <div class="rows">
+        <div class="row"><span class="lab">教授要求</span><span class="val">
+          2 站與 12 站差距過大，建議 2 → 4 → 8 → 12 漸進，或至少加一個中間規模。
+          每站 6 個容量可能偏小。
+        </span></div>
+        <div class="row"><span class="lab">簡報現況</span><span class="val">
+          p.24 小規模：<span class="num">6 robots · 2 stations</span>；
+          p.27 大規模：<span class="num">45 robots · 12 stations</span>。
+          中間空白，教授的觀察完全正確。
+        </span></div>
+        <div class="row"><span class="lab">你已有的</span><span class="val">
+          <p>機器人維度有三個點：<span class="num">6</span> / <span class="num">10</span> /
+          <span class="num">45</span> bots，而且今天新增的 6 vs 10 是乾淨的單變數對照
+          （layout 只差一行 <code>BotCount</code>）：</p>
+          <pre>              6 bots         10 bots
+總距離      +1.56% n.s.    −6.14% *
+公尺/行     +1.50% n.s.    −6.78% *
+EOR         +1.79% n.s.    −6.99% *
+件數        −0.51% n.s.    +0.31% n.s.</pre>
+          <p>但<strong>站台維度只有 2 與 12 兩點</strong>，沒有中間。</p>
+        </span></div>
+        <div class="row rec"><span class="lab">建議</span><span class="val">
+          <p><strong>建議討論，並明確界定宣稱範圍。</strong> 你的理由：</p>
+          <ul>
+            <li>成本是真的：大規模單場約 <span class="num">11</span> 分鐘，
+                每個設定點 5 seeds、多臂，完整交叉是數百小時。</li>
+            <li>你已經在<strong>機制敏感的維度</strong>（機器人／站台比、包裝站容量）做了劑量反應，
+                站台數屬於<strong>情境參數</strong>，對齊 Jiao 的基準設定。</li>
+          </ul>
+          <p>⚠️ <strong>但這一項我認為你應該讓步一部分。</strong>
+          站台數是唯一可能<strong>翻轉</strong>拆單結論的維度——站台多了，同期跨站拆單的機會就多，
+          而你實測那個形態目前只佔 <span class="num">3/673</span>（休眠狀態）。
+          若口委問「4 站會不會翻轉」，你現在答不出來。</p>
+          <p>建議：<strong>補一個 4 站的小規模點</strong>（成本約 10 分鐘，
+          <code>small_4o10b</code> layout 現成），把唯一的真洞補起來，其餘列為後續研究。</p>
+        </span></div>
+      </div>
+    </article>
+
+    <!-- 10 -->
+    <article class="item">
+      <div class="item-head">
+        <span class="idx">10</span>
+        <h3>文獻投影片的來源標示</h3>
+        <span class="chip c-part">部分</span>
+      </div>
+      <div class="rows">
+        <div class="row"><span class="lab">教授要求</span><span class="val">
+          標示作者、年份、論文名稱、Journal／conference、期刊品質。
+          並在主簡報就讓人看懂 Jiao 做了什麼、Xie 做了什麼、你多做什麼。
+        </span></div>
+        <div class="row"><span class="lab">簡報現況</span><span class="val">
+          <p>完整引用只出現在 <strong>p.6</strong>（Xie, EJOR 288(1), 80-97）與
+          <strong>p.7</strong>（Jiao, Omega 138, 103374）的圖說裡。</p>
+          <p>而真正做比較的三頁——<strong>p.11 / p.12 / p.14</strong>——
+          只有「Jiao et al. (2026)」「Xie et al. (2021)」，<strong>沒有期刊名、沒有品質標示</strong>。
+          p.14 的研究缺口表也沒有 Journal 欄。</p>
+        </span></div>
+        <div class="row rec"><span class="lab">建議</span><span class="val">
+          <p><strong>同意補，成本最低的一項。</strong> 在 p.14 的表加一欄：</p>
+          <pre>Xie et al. (2021)        EJOR          Q1 · IF ~6.0
+Jiao et al. (2023)       —（待查）
+Jiao et al. (2026)       Omega         Q1 · IF ~6.7   ← 教授明說可信賴
+Tadumadze et al. (2023)  —（待查）
+Kizil et al. (2026)      —（待查）</pre>
+          <p>並在 p.11 的兩個標題框加上期刊名。教授特別說 <strong>Omega 是可信賴的期刊</strong>——
+          把它標出來對你有利，因為你的主要對照就是它。</p>
+        </span></div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<section>
+  <h2>簡報本身的問題（教授沒明講，但會扣分）</h2>
+  <div class="note warn">
+    <span class="ntag">結構</span>
+    <p><strong>大綱承諾八章，簡報只到第四章。</strong>
+    p.3 列出 01 Research Background → 08 Appendix，但檔案在 p.27 結束，
+    停在 Methodology 的最後一張圖。沒有 Ch05 Experiment and Results、
+    Ch06 Conclusion、Ch07 Reference、Ch08 Appendix。</p>
+    <p style="margin-bottom:0">教授說的「內容很多但沒 align 在同一條邏輯上」，很可能有一部分正是這個——
+    他看到的是方法講了十頁、結果只有兩張圖（p.24、p.27），而且那兩張還掛在 Methodology 章底下。</p>
+  </div>
+  <div class="note warn" style="margin-top:1rem">
+    <span class="ntag">已過期的內容</span>
+    <p style="margin-bottom:0">
+      <strong>p.13</strong>：「*Packing station not modelled, parent consolidation occurs outside
+      the modelled system and is observed as order turnaround time.*」<br>
+      <strong>p.16</strong>：「The cost of consolidation is therefore measured, not modelled.」<br><br>
+      兩者今天都已不成立——包裝站容量已經是模型裡的一條限制式，而且有劑量反應曲線
+      （<span class="num">C ∈ {∞,70,60,50,40}</span>，轉折在 <span class="num">60</span> 附近）。
+      <strong>這是教授最關心的「拆單的代價」，改成有建模對你是大幅加分。</strong>
+    </p>
+  </div>
+  <div class="note warn" style="margin-top:1rem">
+    <span class="ntag">細節</span>
+    <ul style="margin-bottom:0">
+      <li><strong>p.24</strong> 頁首寫 <code>Chapter 04 · Methodology</code>，但內容是實驗結果。</li>
+      <li><strong>p.27</strong> 頁首寫 <code>Chapter 05 · Methodology</code>——章號與章名互相矛盾。</li>
+      <li><strong>p.18</strong> 的 <code>δ ∈ ℤ_{&gt;0}</code> 沒有渲染成數學符號，直接印出底線與大括號。</li>
+      <li><strong>p.21</strong> 紅圈標出 <code>Σ_w x[o,w] ≤ 1</code>，旁邊紅字卻寫
+          「An order is not restricted to being processed at a single station」——
+          看起來自相矛盾。若那是在展示「不拆單模型有這條、本研究拿掉」，必須畫清楚。</li>
+      <li><strong>p.27</strong> 文字方塊有錯字：<code>Pfficiency</code> 應為 <code>Efficiency</code>。</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>建議的行動順序</h2>
+  <p>依「效益 ÷ 成本」排序，不是依教授列的順序：</p>
+  <div class="t-scroll wide"><table>
+    <thead><tr><th>順序</th><th>做什麼</th><th>對應</th><th>成本</th><th>效益</th></tr></thead>
+    <tbody>
+      <tr><td class="ink">1</td><td>補四段消融鏈一頁</td><td>教授 §2</td><td>只做投影片</td><td class="pos">最高</td></tr>
+      <tr><td class="ink">2</td><td>更新 p.13 / p.16 的包裝站敘述</td><td>教授 §1 代價</td><td>只做投影片</td><td class="pos">高</td></tr>
+      <tr><td class="ink">3</td><td>補拆單效益機制圖（含 pile-on 恆等式）</td><td>教授 §1</td><td>只做投影片</td><td class="pos">高</td></tr>
+      <tr><td class="ink">4</td><td>補決策時序圖 + 角色對齊圖</td><td>教授 §3 §4</td><td>只做投影片</td><td class="pos">高</td></tr>
+      <tr><td class="ink">5</td><td>文獻表加 Journal 欄</td><td>教授 §10</td><td>極低</td><td class="pos">中</td></tr>
+      <tr><td class="ink">6</td><td>補 idle time 與逾期到結果頁</td><td>教授 §6 §8</td><td>資料現成</td><td class="pos">中</td></tr>
+      <tr><td class="ink">7</td><td>穩態 throughput（從既有 log 重算）</td><td>教授 §7</td><td>低</td><td class="pos">中</td></tr>
+      <tr><td class="ink">8</td><td>補 4 站台的中間規模點</td><td>教授 §9</td><td>約 10 分鐘</td><td class="pos">中</td></tr>
+      <tr><td class="ink">9</td><td>把 Ch05–Ch08 寫完</td><td>結構</td><td class="neg">高</td><td class="pos">必要</td></tr>
+    </tbody>
+  </table></div>
+  <p style="margin-top:1rem">
+    前七項<strong>全部不需要重跑實驗</strong>——資料都在手上，缺的只是把它放進簡報。
+    這也回頭印證教授的判斷：問題不是你想得不夠多，是還沒 align。
+  </p>
+</section>
+
+<section>
+  <h2>要跟教授討論的三件事</h2>
+  <div class="note">
+    <span class="ntag">討論一 · 機制鏈止於哪裡</span>
+    <p style="margin-bottom:0">
+      教授的鏈假設 <em>pile-on ↑ ⟹ throughput ↑</em>。但 Jiao 在 Omega 的結論章明確寫
+      「貨架移動次數與系統運作效率<strong>無相關</strong>」，而本研究實測 pile-on
+      <span class="num">+63.1%</span> 對應完成訂單僅 <span class="num">+4.3%</span>。
+      建議把鏈定義成止於<strong>距離與能耗</strong>，吞吐只在貨架供給為瓶頸時才動。
+      這不是反駁，是用他認可的期刊原文把鏈補精確。
+    </p>
+  </div>
+  <div class="note" style="margin-top:1rem">
+    <span class="ntag">討論二 · warm-up 要不要重跑</span>
+    <p style="margin-bottom:0">
+      所有比較都是同 seed 配對，warm-up 對兩組影響相同、在差分中抵消。
+      建議不重跑，改為<strong>從既有決策 log 重算「排除前 20 分鐘」的穩態 throughput</strong>
+      作為 robustness check，成本接近零。若教授仍要求完整重跑，再評估。
+    </p>
+  </div>
+  <div class="note" style="margin-top:1rem">
+    <span class="ntag">討論三 · 掃描範圍的取捨</span>
+    <p style="margin-bottom:0">
+      立場：<strong>情境參數（站台數、backlog、SKU 數）對齊 Jiao 的基準設定，改了就無法比較；
+      運算預算集中在機制參數（機器人／站台比、包裝站容量）。</strong>
+      其餘不影響結論正確性，只影響適用範圍，已寫成具體的後續研究。
+      ⚠️ 但站台數建議讓步補一個 4 站點——它是唯一可能翻轉結論的維度。
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="note good">
+    <span class="ntag">一句話</span>
+    <p style="margin-bottom:0">
+      教授說「你考慮了很多元素但尚未 align」——盤點下來，
+      <strong>十項建議裡有六項的答案已經在你的資料裡，只是沒進簡報</strong>。
+      真正需要新做的只有 4 站台那一個點，以及把後四章寫完。
+      前者十分鐘，後者才是你現在最大的風險。
+    </p>
+  </div>
+</section>
+
+<footer class="wide">
+  簡報來源 — <code>Defense_aesop_rp (4).pdf</code>（27 頁，2026-09-12 14:47）<br>
+  教授建議原始記錄 — <code>docs/advisor/2026-09-13-advisor-feedback.md</code><br>
+  實驗資料 — <code>docs/defense material/2026-09-12-pricing-contribution-chain.md</code>、
+  <code>docs/superpowers/specs/2026-09-12-packing-buffer-and-split-cap-design.md</code>
+</footer>
+
+</div>
