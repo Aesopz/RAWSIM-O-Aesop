@@ -2597,6 +2597,40 @@ namespace RAWSimO.Core.Configurations
         /// on 7/7 KPIs, so nothing in canon currently reaches either branch.</summary>
         public bool UpperBoundJump = false;
 
+        /// <summary>
+        /// (UseReturnPendingBots) Admits a bot that is still carrying a pod back to storage as a
+        /// dispatchable robot, so the decision does not have to wait for it to go idle. Mirrors
+        /// HADGSManager's flag of the same name and M1GReturnPendingManager's admission test:
+        /// only bots that have ALREADY reached, or are heading to, their park waypoint qualify,
+        /// which keeps the first leg of the return trip near zero so the pure-distance objective
+        /// stays correct without a second travel leg or an availability-time dimension.
+        ///
+        /// Off in canon - turning it on changes which robots the model may commit, so it is an
+        /// ablation, not a default.
+        /// </summary>
+        public bool UseReturnPendingBots = false;
+
+        /// <summary>Metres of remaining return travel within which a return-pending bot counts as
+        /// available. Negative disables the distance test (only exact waypoint matches admit).</summary>
+        public double ReturnPendingDistanceThreshold = 1.0;
+
+        /// <summary>
+        /// (ContinuousDispatch) Drops the near-park distance test, so a bot is dispatchable from
+        /// the moment it starts carrying a pod home rather than only when it has nearly arrived.
+        ///
+        /// Measured motivation: of the robots admitted to Ra in canon, 94.8% were already in a
+        /// RestTask and only 4.3% were still parking - rest is where a robot waits for the next
+        /// decision epoch, not where it runs out of work. Reserving the pod earlier lets
+        /// GetNextTask hand out the Extract the instant the park finishes, with no rest in between.
+        ///
+        /// No objective change: GetBotReferenceWaypoint already measures from the park waypoint,
+        /// so the cost stays d(park -> new pod). The first leg is the PREVIOUS task's committed
+        /// cost - adding it would double-count a sunk cost, the same reason rho was removed.
+        ///
+        /// Implies UseReturnPendingBots. Off in canon.
+        /// </summary>
+        public bool ContinuousDispatch = false;
+
     }
 
     /// <summary>

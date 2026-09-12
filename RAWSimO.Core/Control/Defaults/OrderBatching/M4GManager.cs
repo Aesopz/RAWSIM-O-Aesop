@@ -449,6 +449,60 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// set is NOT truncated to an urgent subset and NOT clipped to the free-slot count -
         /// the valuation layer's whole point is to see the entire backlog (spec D3).
         /// </summary>
+        /// <summary>
+        /// (UseReturnPendingBots) A bot still carrying a pod home counts as dispatchable once it
+        /// has reached - or is heading straight to - its park waypoint. Mirrors HADGSManager's
+        /// private helper of the same name rather than inheriting M1GReturnPendingManager, which
+        /// is a sibling class, not a base of this one.
+        ///
+        /// The two guards matter: BottoPod excludes a bot this decision has already committed, and
+        /// IsNearReturnLocation keeps the un-modelled first leg of the return trip near zero. The
+        /// objective prices distance only, with no availability time, so admitting a bot that is
+        /// still far from storage would understate its true cost by the whole remaining return leg.
+        /// </summary>
+        protected override bool CanUseReturnPendingBot(Bot bot)
+        {
+            if (_m4gConfig == null) return false;
+            if (!_m4gConfig.UseReturnPendingBots && !_m4gConfig.ContinuousDispatch) return false;
+            ParkPodTask parkTask;
+            if (!IsReturnPendingBot(bot, out parkTask)) return false;
+            if (Instance.ResourceManager.BottoPod.ContainsKey(bot)) return false;
+            // (ContinuousDispatch) The whole return trip qualifies, not just its last metre.
+            if (_m4gConfig.ContinuousDispatch) return true;
+            return IsNearReturnLocation(bot, parkTask.StorageLocation);
+        }
+
+        /// <summary>Distances for a return-pending bot are measured from the park waypoint it is
+        /// on its way to, not from where it happens to be mid-trip.</summary>
+        protected override RAWSimO.Core.Waypoints.Waypoint GetBotReferenceWaypoint(Bot bot)
+        {
+            ParkPodTask parkTask;
+            if (_m4gConfig != null
+                && (_m4gConfig.UseReturnPendingBots || _m4gConfig.ContinuousDispatch)
+                && IsReturnPendingBot(bot, out parkTask))
+                return parkTask.StorageLocation;
+            return base.GetBotReferenceWaypoint(bot);
+        }
+
+        private bool IsReturnPendingBot(Bot bot, out ParkPodTask parkTask)
+        {
+            parkTask = bot == null ? null : bot.CurrentTask as ParkPodTask;
+            return parkTask != null && bot.Pod != null
+                && parkTask.Pod == bot.Pod && parkTask.StorageLocation != null;
+        }
+
+        private bool IsNearReturnLocation(Bot bot, RAWSimO.Core.Waypoints.Waypoint storageLocation)
+        {
+            if (storageLocation == null) return false;
+            if (bot.CurrentWaypoint == storageLocation) return true;
+            if (bot.GetInfoDestinationWaypoint() == storageLocation) return true;
+            var botWaypoint = base.GetBotReferenceWaypoint(bot);
+            if (botWaypoint == null) return false;
+            double threshold = _m4gConfig.ReturnPendingDistanceThreshold;
+            if (threshold < 0) return false;
+            return RAWSimO.Core.Metrics.Distances.CalculateShortestPath(botWaypoint, storageLocation, Instance) <= threshold;
+        }
+
         private M4GSnapshot BuildSnapshot()
         {
             M4GSnapshot snap = new M4GSnapshot();

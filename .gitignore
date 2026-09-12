@@ -71,3 +71,4 @@ docs/thesis/**/*.loa
 # pptx 解包工作目錄（unzip 產物，含 5MB 內嵌字型；原始 .pptx 才是來源）
 slide/*/u/
 slide/work/unpacked/
+.rollback/
