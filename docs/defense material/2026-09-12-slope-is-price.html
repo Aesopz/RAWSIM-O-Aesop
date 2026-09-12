@@ -1,0 +1,678 @@
+<title>斜率就是價格</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Spectral:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground:  #F4F6F3;
+    --surface: #FFFFFF;
+    --sunken:  #ECEFEB;
+    --ink:     #16201C;
+    --body:    #3A443F;
+    --muted:   #6E7A74;
+    --rule:    #D9DFD9;
+    --teal:    #0E7C6B;
+    --teal-w:  #0E7C6B22;
+    --amber:   #A8620E;
+    --amber-w: #A8620E22;
+    --hull:    #AEBAB2;
+
+    --f-display: "Archivo", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    --f-body:    "Spectral", "Noto Serif TC", "PingFang TC", "Microsoft JhengHei", serif;
+    --f-mono:    "IBM Plex Mono", "Noto Sans TC", "Microsoft JhengHei", monospace;
+
+    --measure: 40rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:  #111614;
+      --surface: #18201D;
+      --sunken:  #131A17;
+      --ink:     #E9EEE9;
+      --body:    #C2CBC5;
+      --muted:   #8A958E;
+      --rule:    #29332E;
+      --teal:    #4ECDC0;
+      --teal-w:  #4ECDC024;
+      --amber:   #E0A44A;
+      --amber-w: #E0A44A24;
+      --hull:    #47534B;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:  #111614;
+    --surface: #18201D;
+    --sunken:  #131A17;
+    --ink:     #E9EEE9;
+    --body:    #C2CBC5;
+    --muted:   #8A958E;
+    --rule:    #29332E;
+    --teal:    #4ECDC0;
+    --teal-w:  #4ECDC024;
+    --amber:   #E0A44A;
+    --amber-w: #E0A44A24;
+    --hull:    #47534B;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--body);
+    font-family: var(--f-body);
+    font-size: 1.0625rem;
+    line-height: 1.72;
+    margin: 0;
+    padding-block: clamp(2.5rem, 7vw, 5rem) 4rem;
+    padding-left: 20px;
+    padding-right: 20px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: var(--measure); margin-inline: auto; display: flex; flex-direction: column; gap: 3.25rem; }
+  .wide { max-width: 52rem; margin-inline: auto; width: 100%; }
+
+  /* ── masthead ─────────────────────────────── */
+  .eyebrow {
+    font-family: var(--f-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 1rem;
+  }
+  h1 {
+    font-family: var(--f-display);
+    font-weight: 700;
+    font-size: clamp(2.1rem, 6.5vw, 3.1rem);
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    margin: 0 0 1.1rem;
+    text-wrap: balance;
+  }
+  .thesis {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    color: var(--body);
+    margin: 0;
+    border-left: 2px solid var(--teal);
+    padding-left: 1.1rem;
+  }
+  .thesis strong { color: var(--ink); font-weight: 600; }
+
+  h2 {
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: 1.45rem;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin: 0 0 0.9rem;
+    text-wrap: balance;
+  }
+  h3 {
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: 1.02rem;
+    color: var(--ink);
+    margin: 0 0 0.5rem;
+  }
+  p { margin: 0 0 1rem; }
+  p:last-child { margin-bottom: 0; }
+  section { display: flex; flex-direction: column; }
+  strong { color: var(--ink); font-weight: 600; }
+
+  code, .num {
+    font-family: var(--f-mono);
+    font-size: 0.9em;
+    font-variant-numeric: tabular-nums;
+  }
+  code { background: var(--sunken); padding: 0.1em 0.35em; border-radius: 3px; color: var(--ink); }
+
+  pre {
+    font-family: var(--f-mono);
+    font-size: 0.84rem;
+    line-height: 1.75;
+    background: var(--sunken);
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 1rem 1.15rem;
+    overflow-x: auto;
+    margin: 0 0 1rem;
+  }
+
+  /* ── the figure ───────────────────────────── */
+  .fig {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .fig-head {
+    padding: 1.1rem 1.35rem 0.85rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  .fig-title {
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--ink);
+    margin: 0 0 0.2rem;
+  }
+  .fig-sub { font-size: 0.83rem; color: var(--muted); margin: 0; line-height: 1.5; }
+
+  .plot { display: block; width: 100%; height: auto; }
+
+  .controls {
+    border-top: 1px solid var(--rule);
+    padding: 1.1rem 1.35rem 1.35rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.95rem;
+  }
+  .slider-row { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .slider-row label {
+    font-family: var(--f-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  input[type="range"] {
+    flex: 1 1 14rem;
+    min-width: 10rem;
+    accent-color: var(--teal);
+    height: 1.5rem;
+  }
+  .lam-readout {
+    font-family: var(--f-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 1.15rem;
+    font-weight: 500;
+    color: var(--ink);
+    min-width: 5.5ch;
+    text-align: right;
+  }
+
+  .presets { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  button {
+    font-family: var(--f-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    background: var(--surface);
+    color: var(--body);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 0.42rem 0.7rem;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  button:hover { border-color: var(--muted); color: var(--ink); }
+  button:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+  button.on-amber { border-color: var(--amber); color: var(--amber); background: var(--amber-w); }
+  button.on-teal  { border-color: var(--teal);  color: var(--teal);  background: var(--teal-w); }
+
+  .readout {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+    gap: 0.15rem 1.5rem;
+    border-top: 1px dashed var(--rule);
+    padding-top: 0.95rem;
+  }
+  .ro-item { display: flex; flex-direction: column; gap: 0.1rem; }
+  .ro-k {
+    font-family: var(--f-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .ro-v {
+    font-family: var(--f-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 1.02rem;
+    color: var(--ink);
+  }
+  .ro-v.hl { color: var(--teal); font-weight: 500; }
+
+  /* ── tables ───────────────────────────────── */
+  .t-scroll { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--f-mono);
+    font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
+  }
+  th, td { text-align: right; padding: 0.5rem 0.7rem; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  thead th {
+    font-size: 0.68rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    border-bottom-color: var(--ink);
+  }
+  td.ink { color: var(--ink); }
+  td.win { color: var(--teal); }
+  tbody tr:last-child td { border-bottom: none; }
+
+  /* ── note block ───────────────────────────── */
+  .note {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--amber);
+    border-radius: 0 8px 8px 0;
+    padding: 1.1rem 1.3rem;
+  }
+  .note .ntag {
+    font-family: var(--f-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--amber);
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+  .note p { font-size: 1rem; }
+
+  /* ── slide checklist ──────────────────────── */
+  .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1.35rem; }
+  .steps li { display: grid; grid-template-columns: 2.3rem 1fr; gap: 0.9rem; align-items: start; }
+  .steps .st-n {
+    font-family: var(--f-mono);
+    font-size: 0.78rem;
+    color: var(--teal);
+    border: 1px solid var(--teal);
+    border-radius: 4px;
+    text-align: center;
+    padding: 0.15rem 0;
+    line-height: 1.5;
+  }
+  .steps p { font-size: 1rem; margin: 0; }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 1.25rem;
+    font-family: var(--f-mono);
+    font-size: 0.76rem;
+    line-height: 1.85;
+    color: var(--muted);
+  }
+  footer a { color: var(--teal); }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">M4G · 定價層 · 口試輔助圖</p>
+    <h1>斜率就是價格</h1>
+    <p class="thesis">
+      固定權重與動態定價<strong>用的是同一個函數形式</strong>。差別只有一個：
+      那條線的斜率，是人工釘死的，還是每次決策從系統自己的狀態解出來的。
+    </p>
+  </header>
+
+  <section>
+    <h2>一、把每個可行方案畫成一個點</h2>
+    <p>
+      每次決策，求解器面對的是一組候選派工方案。每個方案有兩個數字：它要花掉多少
+      <strong>行走距離 D</strong>，以及它能服務多少<strong>訂單 P</strong>。把它們畫在
+      <span class="num">(P, D)</span> 平面上，整個選擇問題就變成一句話 ——
+      <strong>用一條斜率 λ 的直線從左下方往上推，第一個碰到的點就是解答。</strong>
+    </p>
+    <p>
+      拉動下面的 λ，看它怎麼沿著左下角的凸包走。
+    </p>
+  </section>
+
+  <div class="fig wide">
+    <div class="fig-head">
+      <p class="fig-title">Which plan does <span class="num">min D − λP</span> choose?</p>
+      <p class="fig-sub">Illustrative candidate set. The two reference slopes are real: λ = 40 is M1G's hand-set order reward; λ* = 19.5 is the measured median from the 10-bot runs.</p>
+    </div>
+    <svg class="plot" id="plot" viewBox="0 0 660 420" role="img"
+         aria-label="Scatter of candidate dispatch plans in the orders-versus-metres plane, with a supporting line of slope lambda."></svg>
+    <div class="controls">
+      <div class="slider-row">
+        <label for="lam">λ — metres per order</label>
+        <input type="range" id="lam" min="8" max="60" step="0.5" value="19.5">
+        <span class="lam-readout" id="lamOut">19.5</span>
+      </div>
+      <div class="presets">
+        <button id="bFixed" type="button">λ = 40 — M1G 釘死</button>
+        <button id="bStar" type="button">λ* = 19.5 — 實測</button>
+      </div>
+      <div class="readout">
+        <div class="ro-item"><span class="ro-k">選中方案</span><span class="ro-v" id="roPlan">B</span></div>
+        <div class="ro-item"><span class="ro-k">距離 D</span><span class="ro-v" id="roD">39 m</span></div>
+        <div class="ro-item"><span class="ro-k">訂單 P</span><span class="ro-v" id="roP">2</span></div>
+        <div class="ro-item"><span class="ro-k">實得比值 D/P</span><span class="ro-v hl" id="roR">19.5</span></div>
+      </div>
+    </div>
+  </div>
+
+  <section>
+    <h2>二、λ* 就是從原點畫出去的切線</h2>
+    <p>
+      把 λ 調到 <span class="num">19.5</span>，會看到一件特別的事：那條線<strong>同時碰到 B 點與原點</strong>。
+      原點就是「這回合什麼都不派」。兩者打平，代表 B 這個方案的比值恰好等於 λ ——
+      也就是說，<span class="num">λ = D/P</span> 在此成立，這正是<strong>比值最小的那個方案</strong>。
+    </p>
+    <p>
+      這就是 Dinkelbach 的終止條件。當試解退化成「什麼都不派」時，它不是失敗，
+      而是一張<strong>最優性證書</strong>：它證明了此刻沒有任何方案的性價比能超過 λ。
+    </p>
+    <div class="t-scroll">
+      <table>
+        <thead>
+          <tr><th>λ 落在</th><th>選中</th><th>D</th><th>P</th><th>D / P</th><th>讀法</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>λ &lt; 19.5</td><td class="ink">什麼都不派</td><td>0</td><td>0</td><td>—</td><td>門檻比任何方案都嚴</td></tr>
+          <tr><td>19.5 – 29</td><td class="ink win">B</td><td>39</td><td>2</td><td class="win">19.5</td><td>比值最優</td></tr>
+          <tr><td>29 – 36</td><td class="ink">D</td><td>68</td><td>3</td><td>22.7</td><td>多服務一單，但每單更貴</td></tr>
+          <tr><td>λ &gt; 36</td><td class="ink">G</td><td>140</td><td>5</td><td>28.0</td><td>M1G 的 λ=40 落在這裡</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:1rem">
+      M1G 宣稱一張訂單值 <strong>40 公尺</strong>。門檻這麼寬鬆，它會一路接受到 G ——
+      實得比值 <span class="num">28.0</span>，比最優的 <span class="num">19.5</span> 貴了四成。
+      <strong>它不是算錯，是它的匯率從一開始就訂錯了。</strong>
+    </p>
+  </section>
+
+  <section>
+    <h2>三、把高維壓成兩維，不是簡化</h2>
+    <p>
+      MILP 有數千個二元變數 —— 哪台車、走向哪個貨架、送到哪個站台、關掉哪張訂單的哪一行。
+      畫成一個點，會不會失真？不會，而理由是可以證明的：
+      <strong>目標式從頭到尾只透過兩個純量看見一個解。</strong>
+    </p>
+    <pre>x ∈ X ⊆ {0,1}ⁿ              n 是數千
+
+φ(x) = ( P(x), D(x) )       把任何一個解壓成兩個純量
+
+f(x) = D(x) − λ·P(x) = g( φ(x) )      f 只是 φ 的函數
+
+⟹   argmin f(x)  =  在平面點雲 φ(X) 上取 argmin
+      x ∈ X</pre>
+    <p>
+      <span class="num">φ(X)</span> 是 <span class="num">ℝ²</span> 上的一個有限點集 —— 上面那張圖就是它。
+      措辭要精確：<strong>φ 並非無損</strong>，它不是單射，哪台車、哪個貨架、哪個站台全都被壓掉了。
+      保住的不是資訊而是目標值 —— <span class="num">φ(x)</span> 是
+      <span class="num">f</span> 的<strong>充分統計量</strong>。
+    </p>
+    <pre>資訊       有損     φ 不是單射
+目標值     無損     f 只透過 φ 看解
+argmin     無損     ⟹ 在點雲上取 argmin 與在 X 上取 argmin 是同一件事</pre>
+    <p>
+      所以被問到「你把幾千個變數壓成一個點怎麼會無損」時，正確答覆是：
+      <strong>是有損，而丟掉的那部分恰好是目標式看不見的部分。</strong>
+    </p>
+    <p>
+      這也順帶解釋了最優解為何不唯一。落在同一點上的方案對目標式完全等價，只能由 tie-breaking 決定。
+      那不是模型不穩定，是 φ 非單射的直接後果。
+    </p>
+    <p>
+      被投影丟掉的是<strong>限制式</strong>。哪些點會出現在雲裡，由可行性決定：機隊、站台空位、
+      庫存、跨站禁令。所以這張圖能完整回答「給定候選集，模型會挑誰」，
+      但回答不了「候選集為什麼長這樣」—— 而那恰好是下面這一段的內容。
+    </p>
+    <h3 style="margin-top:1.4rem">邊界：這句話只對單次決策成立</h3>
+    <p style="margin-bottom:0">
+      同一點上的兩個方案此刻等價，卻會把系統推到<strong>不同的未來狀態</strong> ——
+      不同的貨架在途、不同的站台佔用、不同的機器人位置，下一回合的候選集因此不同。
+      所以完整的口徑是：<strong>單次決策的目標值上 φ 是充分統計量，跨決策的軌跡上 φ 有損。</strong>
+      我們量到過「兩個模型前兩次決策逐位相同、整場結果卻差 4.55%」，那不是實作缺陷，
+      是這個有損性在時間上累積。估值層存在的理由也正在這裡 ——
+      用一步前瞻補回一點被投影丟掉的軌跡形狀。
+    </p>
+  </section>
+
+  <div class="note wide">
+    <span class="ntag">但真實資料沒有完全照這張圖走</span>
+    <p>
+      幾何預測「λ 變小 → 沿凸包往左走 → 批量變小」。實測不是這樣：10 bots、5 seeds、
+      四千多次決策，固定價與動態價的「訂單／趟次」分布幾乎重疊（平均
+      <span class="num">1.650</span> vs <span class="num">1.622</span>，CV
+      <span class="num">0.579</span> vs <span class="num">0.565</span>）。
+    </p>
+    <p style="margin-bottom:0">
+      原因是圖上那排點在現實中不存在。每次決策能派的車受機隊與站台空位限制，
+      <strong>P 根本長不大</strong>，所以凸包又短又陡。λ 的改變無處可花在 P 上，
+      就全部兌現在 D —— 每趟距離從 <span class="num">12.272</span> 降到
+      <span class="num">11.601</span> 公尺（−5.5%），而趟次只動了 −0.7%。
+      <strong>換句話說：定價實際上是在挑更近的貨架，不是在改變批量。</strong>
+    </p>
+  </div>
+
+  <section>
+    <h2>四、這在數字上長什麼樣</h2>
+    <p>
+      同一對臂（M4G-NS 框架，一個用 M1G 的釘死權重、一個用量測價），
+      layout 只差一行 <code>BotCount</code>，5 seeds 配對檢定：
+    </p>
+    <div class="t-scroll">
+      <table>
+        <thead>
+          <tr><th>指標</th><th>6 bots</th><th></th><th>10 bots</th><th></th></tr>
+        </thead>
+        <tbody>
+          <tr><td>件數</td><td>−0.51%</td><td>n.s.</td><td>+0.31%</td><td>n.s.</td></tr>
+          <tr><td>總距離</td><td>+1.56%</td><td>n.s.</td><td class="win">−6.14%</td><td class="win">*</td></tr>
+          <tr><td>公尺 / 行</td><td>+1.50%</td><td>n.s.</td><td class="win">−6.78%</td><td class="win">*</td></tr>
+          <tr><td>EOR</td><td>+1.79%</td><td>n.s.</td><td class="win">−6.99%</td><td class="win">*</td></tr>
+          <tr><td>休息佔比</td><td>+0.47%</td><td>n.s.</td><td>+10.36%</td><td>*</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:1rem">
+      三項效率指標的符號全部翻轉，吞吐在兩個規模下都持平。理由用這張圖就講得完：
+      <strong>定價是一個接受門檻，而門檻只有在你有餘裕拒絕的時候才有用。</strong>
+      6 bots 時機器人幾乎全忙，沒東西可以拒絕；10 bots 時休息佔比顯著上升 —— 那就是被擋下來的派車。
+    </p>
+  </section>
+
+  <section>
+    <h2>五、要把它做成一頁投影片</h2>
+    <p>
+      這一頁的資訊量大約是三張投影片。如果只能給一張，建議這樣砍：
+    </p>
+    <ol class="steps">
+      <li>
+        <span class="st-n">01</span>
+        <p><strong>只留圖，砍掉所有推導。</strong> 凸包、切線、兩條參考斜率就夠了。
+        Dinkelbach 的收斂證明留在口頭，不要上卡片。</p>
+      </li>
+      <li>
+        <span class="st-n">02</span>
+        <p><strong>兩個數字並排就是全部論點。</strong>
+        <span class="num">λ = 40</span>（宣稱）對 <span class="num">λ* = 19.5</span>（實測）。
+        觀眾自己會看出差一倍。</p>
+      </li>
+      <li>
+        <span class="st-n">03</span>
+        <p><strong>標籤全英文，圖上不寫句子。</strong>
+        <span class="num">P — orders served</span>、<span class="num">D — metres travelled</span>、
+        <span class="num">hand-set</span>、<span class="num">measured</span>。四個片語，不要動詞。</p>
+      </li>
+      <li>
+        <span class="st-n">04</span>
+        <p><strong>效率表另開一張。</strong> 幾何是「為什麼」，表格是「所以呢」，
+        擠在一起兩邊都看不清。</p>
+      </li>
+      <li>
+        <span class="st-n">05</span>
+        <p><strong>那個反直覺的點留給提問。</strong>
+        「幾何說批量會變，資料說沒有」是這頁最有意思的地方，但它需要一分鐘才講得清。
+        放在備援投影片，被問到再翻。</p>
+      </li>
+    </ol>
+  </section>
+
+  <footer class="wide">
+    圖中候選方案為示意；兩條參考斜率與所有百分比取自實測。<br>
+    資料 — small layout、2 揀貨站、7200 s、庫存 70%、每組 5 seeds。<br>
+    完整記錄 — <code>docs/defense material/2026-09-12-pricing-contribution-chain.md</code>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // Candidate plans: [label, P orders, D metres]. Illustrative, but shaped like a
+  // real decision: a short convex hull, because the fleet caps how large P can get.
+  var PLANS = [
+    { id: "—", P: 0, D: 0,   nil: true },
+    { id: "A",      P: 1, D: 24  },
+    { id: "B",      P: 2, D: 39  },
+    { id: "C",      P: 2, D: 56  },
+    { id: "D",      P: 3, D: 68  },
+    { id: "E",      P: 3, D: 78  },
+    { id: "F",      P: 4, D: 115 },
+    { id: "G",      P: 5, D: 140 }
+  ];
+  var HULL = [PLANS[0], PLANS[2], PLANS[4], PLANS[7]]; // origin, B, D, G
+  var LAM_STAR = 19.5, LAM_FIXED = 40;
+
+  var W = 660, H = 420;
+  var M = { t: 26, r: 96, b: 52, l: 62 };
+  var PMAX = 5.8, DMAX = 168;
+
+  var svg    = document.getElementById("plot");
+  var slider = document.getElementById("lam");
+  var lamOut = document.getElementById("lamOut");
+  var NS = "http://www.w3.org/2000/svg";
+
+  function x(P) { return M.l + (P / PMAX) * (W - M.l - M.r); }
+  function y(D) { return H - M.b - (D / DMAX) * (H - M.t - M.b); }
+
+  function el(name, attrs, text) {
+    var n = document.createElementNS(NS, name);
+    for (var k in attrs) { if (attrs[k] !== null) n.setAttribute(k, attrs[k]); }
+    if (text !== undefined) { n.textContent = text; }
+    return n;
+  }
+
+  function chosen(lam) {
+    var best = PLANS[0], bestV = 0;
+    for (var i = 0; i < PLANS.length; i++) {
+      var v = PLANS[i].D - lam * PLANS[i].P;
+      if (v < bestV - 1e-9) { bestV = v; best = PLANS[i]; }
+    }
+    return best;
+  }
+
+  function draw(lam) {
+    while (svg.firstChild) { svg.removeChild(svg.firstChild); }
+    var pick = chosen(lam);
+
+    // grid + axes
+    var g = el("g", {});
+    var d;
+    for (d = 0; d <= 160; d += 40) {
+      g.appendChild(el("line", { x1: M.l, y1: y(d), x2: W - M.r, y2: y(d),
+        stroke: "var(--rule)", "stroke-width": 1 }));
+      g.appendChild(el("text", { x: M.l - 10, y: y(d) + 4, "text-anchor": "end",
+        fill: "var(--muted)", "font-family": "var(--f-mono)", "font-size": 11 }, String(d)));
+    }
+    for (var p = 0; p <= 5; p++) {
+      g.appendChild(el("text", { x: x(p), y: H - M.b + 20, "text-anchor": "middle",
+        fill: "var(--muted)", "font-family": "var(--f-mono)", "font-size": 11 }, String(p)));
+    }
+    g.appendChild(el("line", { x1: M.l, y1: M.t, x2: M.l, y2: H - M.b,
+      stroke: "var(--ink)", "stroke-width": 1.25 }));
+    g.appendChild(el("line", { x1: M.l, y1: H - M.b, x2: W - M.r, y2: H - M.b,
+      stroke: "var(--ink)", "stroke-width": 1.25 }));
+    g.appendChild(el("text", { x: (M.l + W - M.r) / 2, y: H - 12, "text-anchor": "middle",
+      fill: "var(--body)", "font-family": "var(--f-mono)", "font-size": 11.5,
+      "letter-spacing": "0.06em" }, "P — orders served"));
+    g.appendChild(el("text", { x: 16, y: (M.t + H - M.b) / 2, "text-anchor": "middle",
+      fill: "var(--body)", "font-family": "var(--f-mono)", "font-size": 11.5,
+      "letter-spacing": "0.06em",
+      transform: "rotate(-90 16 " + ((M.t + H - M.b) / 2) + ")" }, "D — metres travelled"));
+    svg.appendChild(g);
+
+    // convex hull path
+    var pts = HULL.map(function (q) { return x(q.P) + "," + y(q.D); }).join(" ");
+    svg.appendChild(el("polyline", { points: pts, fill: "none", stroke: "var(--hull)",
+      "stroke-width": 1.5, "stroke-dasharray": "5 4" }));
+
+    // reference ray: the ratio-optimal slope out of the origin
+    svg.appendChild(el("line", { x1: x(0), y1: y(0), x2: x(PMAX), y2: y(LAM_STAR * PMAX),
+      stroke: "var(--teal)", "stroke-width": 1, "stroke-dasharray": "2 5", opacity: 0.75 }));
+    svg.appendChild(el("text", { x: W - M.r + 8, y: y(LAM_STAR * PMAX) + 4,
+      fill: "var(--teal)", "font-family": "var(--f-mono)", "font-size": 10.5 }, "λ* 19.5"));
+
+    // reference ray: M1G's hand-set slope
+    svg.appendChild(el("line", { x1: x(0), y1: y(0), x2: x(DMAX / LAM_FIXED), y2: y(DMAX),
+      stroke: "var(--amber)", "stroke-width": 1, "stroke-dasharray": "2 5", opacity: 0.75 }));
+    svg.appendChild(el("text", { x: x(DMAX / LAM_FIXED) + 6, y: M.t + 2,
+      fill: "var(--amber)", "font-family": "var(--f-mono)", "font-size": 10.5 }, "λ 40"));
+
+    // the supporting line through the chosen plan, slope lambda
+    var c = pick.D - lam * pick.P;               // D = lam*P + c
+    var isFixed = Math.abs(lam - LAM_FIXED) < 0.26;
+    var lineCol = isFixed ? "var(--amber)" : "var(--teal)";
+    svg.appendChild(el("line", {
+      x1: x(0), y1: y(c), x2: x(PMAX), y2: y(lam * PMAX + c),
+      stroke: lineCol, "stroke-width": 2.25, "stroke-linecap": "round"
+    }));
+
+    // plan markers
+    PLANS.forEach(function (q) {
+      var on = q === pick;
+      var cx = x(q.P), cy = y(q.D);
+      if (on) {
+        svg.appendChild(el("circle", { cx: cx, cy: cy, r: 11, fill: lineCol, opacity: 0.16 }));
+      }
+      svg.appendChild(el("circle", {
+        cx: cx, cy: cy, r: on ? 6 : 4.5,
+        fill: on ? lineCol : "var(--surface)",
+        stroke: on ? lineCol : "var(--muted)", "stroke-width": 1.6
+      }));
+      var lab = q.nil ? "do nothing" : q.id;
+      svg.appendChild(el("text", {
+        x: q.nil ? cx + 12 : cx, y: q.nil ? cy + 4 : cy - 13,
+        "text-anchor": q.nil ? "start" : "middle",
+        fill: on ? lineCol : "var(--muted)",
+        "font-family": "var(--f-mono)", "font-size": q.nil ? 10.5 : 11.5,
+        "font-weight": on ? 500 : 400
+      }, lab));
+    });
+
+    // readout
+    document.getElementById("roPlan").textContent = pick.nil ? "什麼都不派" : pick.id;
+    document.getElementById("roD").textContent = pick.D + " m";
+    document.getElementById("roP").textContent = String(pick.P);
+    document.getElementById("roR").textContent = pick.nil ? "—" : (pick.D / pick.P).toFixed(1);
+
+    document.getElementById("bFixed").className = isFixed ? "on-amber" : "";
+    document.getElementById("bStar").className =
+      Math.abs(lam - LAM_STAR) < 0.26 ? "on-teal" : "";
+  }
+
+  function set(v) {
+    slider.value = v;
+    lamOut.textContent = Number(v).toFixed(1);
+    draw(Number(v));
+  }
+
+  slider.addEventListener("input", function () { set(slider.value); });
+  document.getElementById("bFixed").addEventListener("click", function () { set(LAM_FIXED); });
+  document.getElementById("bStar").addEventListener("click", function () { set(LAM_STAR); });
+
+  set(LAM_STAR);
+})();
+</script>
