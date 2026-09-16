@@ -46,7 +46,9 @@
   "file": "hgs_m5.xconf",
   "source": "small/hgs_m5.xconf",
   "source_sha256": "345f9e99dfc60b2c3aec38269b21ef83545315aa16764a19aeb0eb9cc12c54ab",
-  "renamed_from": "(unchanged)"
+  "renamed_from": "(unchanged)",
+  "canon_v2_change": "2026-09-16: +<PackingFullWholeOrderFallback>true</PackingFullWholeOrderFallback>",
+  "sha256_v2": "6b65aa0eb8e46d42bfd8889c23ff2d9fa9f8accac48d7b5b38f939504173cd73"
  },
  {
   "scale": "large",
@@ -67,7 +69,9 @@
   "file": "hgs_m5_k10.xconf",
   "source": "small/hgs_m5_k10.xconf",
   "source_sha256": "8fea542d87d6026f668492df60356a7d41611cee36064d1615736aa06cc13e46",
-  "renamed_from": "<Name>hgs_m5</Name>"
+  "renamed_from": "<Name>hgs_m5</Name>",
+  "canon_v2_change": "2026-09-16: +<PackingFullWholeOrderFallback>true</PackingFullWholeOrderFallback>",
+  "sha256_v2": "43b5dc270cadf208acff08b1c24ef5986775d4f9ca11d6b4affdd4288e2dde2b"
  },
  {
   "scale": "large",

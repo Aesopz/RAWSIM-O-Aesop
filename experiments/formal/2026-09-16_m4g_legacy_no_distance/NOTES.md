@@ -8,7 +8,7 @@
 
 **問題**：把距離項從目標式移除（w1=0，限制式不變）後，PS/TA 的表現如何變化？距離定價對揀貨流程是否重要？
 
-**動機**：回應教授「把距離放進目標式不太對」的質疑：同一可行域、同一組 Jiao 權重，只把 w1 由 1 改 0；主檢定為 Legacy vs Legacy-NoDist，另附對 M4G 的參考比較。
+**動機**：回應教授「把距離放進目標式不太對」的質疑：同一可行域、同一組 Jiao 權重，只把 w1 由 1 改 0；主檢定為 Legacy vs Legacy-M4G-WS₀，另附對 M4G 的參考比較。
 
 ## 設定
 
@@ -76,9 +76,11 @@ excel cross-check: {"status": "passed", "checks": 200, "rel_tol": 1e-09}
 
 ## 分析（Claude 當下判讀）
 
-- 結論：在 Jiao 權重目標式下把距離項移除（w1 1→0，限制式不變），幾乎沒有影響：主檢定 NoDist vs Legacy 只有 m/line +5.3%**（6b）/ +4.0%*（10b）、EOR +3.4%*（6b）/ n.s.（10b）；件數、訂單、pile-on、趟次全 n.s.（10b 件數 −0.42%*** 但量級可忽略）。
+- 結論：在 Jiao 權重目標式下把距離項移除（w1 1→0，限制式不變），幾乎沒有影響：主檢定 M4G-WS₀ vs Legacy 只有 m/line +5.3%**（6b）/ +4.0%*（10b）、EOR +3.4%*（6b）/ n.s.（10b）；件數、訂單、pile-on、趟次全 n.s.（10b 件數 −0.42%*** 但量級可忽略）。
 - 機制：加權和裡 −40 與 1000 的量級遠大於距離，距離只在完成數相同的候選間當 tie-breaker；拿掉它幾乎不改變決策。
-- 對照 M4G：NoDist 相對 M4G 趟次 +20.7%*** / +69.8%***、EOR +24.2%*** / +58.8%***。三組並排（10b）：NoDist pile-on 2.98 / Legacy 2.94 / M4G 5.12。
+- 對照 M4G：M4G-WS₀ 相對 M4G 趟次 +20.7%*** / +69.8%***、EOR +24.2%*** / +58.8%***。三組並排（10b）：M4G-WS₀ pile-on 2.98 / Legacy 2.94 / M4G 5.12。
 - 回應教授「把距離放進目標式不太對」：以加權和加入距離確實無效，但距離以比值分子（每單位進度的公尺）計價時效果巨大。距離不是不重要，是加權和用錯方式。
 - 可信度：10 seeds、60/60 valid、Canon v1、bin_legacydist（守門員逐位相同）、Excel 通過。Legacy 對照沿用實驗 A。
 - 口徑：Adding distance as a weighted term changes nothing; pricing it as a ratio halves the trips.
+
+**命名（2026-09-16）**：論文與投影片一律用 M4G-WS（weighted-sum objective, Jiao et al. 2026 α=(1,−40,1000)）與 M4G-WS₀（w₁=0）；「Legacy」只是程式旗標名，不出現在書面。

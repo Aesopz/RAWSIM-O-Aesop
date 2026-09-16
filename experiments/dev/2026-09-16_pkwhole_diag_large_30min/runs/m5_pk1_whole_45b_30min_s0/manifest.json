@@ -1,12 +1,13 @@
 {
- "run_id": "2026-09-16_pkwhole_test/m5_pk1_whole_45b_s0",
- "experiment": "2026-09-16_pkwhole_test",
- "kind": "fast",
- "arm": "m5_pk1_whole_45b",
+ "run_id": "2026-09-16_pkwhole_diag_large_30min/m5_pk1_whole_45b_30min_s0",
+ "experiment": "2026-09-16_pkwhole_diag_large_30min",
+ "kind": "dev",
+ "arm": "m5_pk1_whole_45b_30min",
  "seed": 0,
- "question": "開啟 PackingFullWholeOrderFallback（HADGS 式整單組合派車）後，1 站 78 箱的 M5 件數能否從 2079 回到 HADGS 量級（seed 0: 6528）？",
- "motivation": "使用者指出容量滿時 M5 應退化成整單決策而非崩潰；行級貪婪缺整單複合動作，此旗標補上。",
+ "question": "診斷：大規模 1 站容量滿時，TryWholeOrderCombo 各退出原因的分布？",
+ "motivation": "30 分鐘縮短版，只為讀退出計數；不入正式資料。",
  "changed": [
+  "SimulationDuration",
   "PackingStationCount",
   "PackingBufferCapacity",
   "PackingFullWholeOrderFallback"
@@ -15,19 +16,19 @@
   "xlayo": {
    "source": "Canon/large/large_45b_12p_6r.xlayo",
    "template": null,
-   "snapshot": "experiments\\fast\\2026-09-16_pkwhole_test\\runs\\m5_pk1_whole_45b_s0\\config\\large_45b_12p_6r.xlayo",
+   "snapshot": "experiments\\dev\\2026-09-16_pkwhole_diag_large_30min\\runs\\m5_pk1_whole_45b_30min_s0\\config\\large_45b_12p_6r.xlayo",
    "sha256": "0306b921bad71e9a0d548a61746616b07faf93d04d2681fdcfa61acec551dfb5"
   },
   "xsett": {
-   "source": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
-   "template": null,
-   "snapshot": "experiments\\fast\\2026-09-16_pkwhole_test\\runs\\m5_pk1_whole_45b_s0\\config\\large_fill200_mu1000_2h_inv70.xsett",
-   "sha256": "0c6e8002c8bb5637bdbd6b4a128d7eb95bd0ade89fea4af75b83470da2676e85"
+   "source": "inputs/large_fill200_mu1000_0p5h_inv70.xsett",
+   "template": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "snapshot": "experiments\\dev\\2026-09-16_pkwhole_diag_large_30min\\runs\\m5_pk1_whole_45b_30min_s0\\config\\large_fill200_mu1000_0p5h_inv70.xsett",
+   "sha256": "ca984970f793efd9f009069d76cce6b6dc088afcf271cb31359c8b64b25d4929"
   },
   "xconf": {
    "source": "inputs/hgs_m5_k10_pk1_whole.xconf",
    "template": "Canon/large/hgs_m5_k10.xconf",
-   "snapshot": "experiments\\fast\\2026-09-16_pkwhole_test\\runs\\m5_pk1_whole_45b_s0\\config\\hgs_m5_k10_pk1_whole.xconf",
+   "snapshot": "experiments\\dev\\2026-09-16_pkwhole_diag_large_30min\\runs\\m5_pk1_whole_45b_30min_s0\\config\\hgs_m5_k10_pk1_whole.xconf",
    "sha256": "dbab121340063569a3170feb80b5c5e3535adace879137d0147b7b77abf7aeca"
   }
  },
@@ -64,7 +65,7 @@
   "PackingFullWholeOrderFallback": "true"
  },
  "scenario": {
-  "hours": 2.0,
+  "hours": 0.5,
   "pstations": 12,
   "rstations": 6,
   "skus": 1000,
@@ -90,15 +91,15 @@
  },
  "command": [
   "C:\\Users\\Aesop\\Desktop\\EE-RAWSim-O_PP\\bin_pkwhole\\RAWSimO.CLI.exe",
-  "experiments\\fast\\2026-09-16_pkwhole_test\\runs\\m5_pk1_whole_45b_s0\\config\\large_45b_12p_6r.xlayo",
-  "experiments\\fast\\2026-09-16_pkwhole_test\\runs\\m5_pk1_whole_45b_s0\\config\\large_fill200_mu1000_2h_inv70.xsett",
-  "experiments\\fast\\2026-09-16_pkwhole_test\\runs\\m5_pk1_whole_45b_s0\\config\\hgs_m5_k10_pk1_whole.xconf",
-  "experiments\\fast\\2026-09-16_pkwhole_test\\runs\\m5_pk1_whole_45b_s0",
+  "experiments\\dev\\2026-09-16_pkwhole_diag_large_30min\\runs\\m5_pk1_whole_45b_30min_s0\\config\\large_45b_12p_6r.xlayo",
+  "experiments\\dev\\2026-09-16_pkwhole_diag_large_30min\\runs\\m5_pk1_whole_45b_30min_s0\\config\\large_fill200_mu1000_0p5h_inv70.xsett",
+  "experiments\\dev\\2026-09-16_pkwhole_diag_large_30min\\runs\\m5_pk1_whole_45b_30min_s0\\config\\hgs_m5_k10_pk1_whole.xconf",
+  "experiments\\dev\\2026-09-16_pkwhole_diag_large_30min\\runs\\m5_pk1_whole_45b_30min_s0",
   "0"
  ],
- "queued": "2026-09-16T15:51:41",
- "started": "2026-09-16T15:51:42",
- "finished": "2026-09-16T16:03:07",
+ "queued": "2026-09-16T15:48:52",
+ "started": "2026-09-16T15:48:53",
+ "finished": "2026-09-16T15:51:00",
  "exit": 0,
  "attempt": 1,
  "dll_at_start_sha256": "045f0b4f9d6b38bab92dc0d771d1a57d5944fc253514e8f4ab3aa31e68df03ae"

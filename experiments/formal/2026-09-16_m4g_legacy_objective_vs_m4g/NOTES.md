@@ -60,3 +60,5 @@ excel cross-check: {"status": "passed", "checks": 120, "rel_tol": 1e-09}
 - 拆單比例相近（seed 0：Legacy 41%、M4G 38% 的訂單被拆），差異來自目標式而非拆單多寡。
 - 可信度：10 seeds、40/40 valid、Canon v1；Legacy 用 bin_legacydist（新增 LegacyDistanceWeight 預設 1），守門員 2026-09-16_legacydist_guard 證明與 Release 逐位相同；Excel 交叉驗證通過。
 - 用途：Appendix「採用 Jiao 權重」對照；消融鏈中「同可行域只換目標式」的乾淨一段。口徑：Jiao's weights recover the throughput of splitting but not its efficiency.
+
+**命名（2026-09-16）**：論文與投影片一律用 M4G-WS（weighted-sum objective, Jiao et al. 2026 α=(1,−40,1000)）與 M4G-WS₀（w₁=0）；「Legacy」只是程式旗標名，不出現在書面。

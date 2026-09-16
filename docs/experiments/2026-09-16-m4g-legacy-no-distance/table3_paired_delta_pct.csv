@@ -1,5 +1,0 @@
-﻿Policy,Reference,Bots,Items,Lines,Orders,Pile-on,Trips,Trips/order,m/line,EOR (kJ/order),Turnover (s),Station idle (%)
-M4G-Legacy-NoDist,M4G-Legacy,6,−0.85,−0.68,−0.02,−1.31,+1.42,+1.46,+5.31**,+3.40*,−0.38,+35.16
-M4G-Legacy-NoDist,M4G,6,−1.69**,−1.37**,−1.59**,−18.38***,+20.66***,+22.60***,+25.51***,+24.23***,+2.99,+115.41**
-M4G-Legacy-NoDist,M4G-Legacy,10,−0.42***,−0.40,−0.85,+1.45,−2.29,−1.47,+4.00*,+2.55,−4.85,+44.49***
-M4G-Legacy-NoDist,M4G,10,−0.46***,+0.34,−1.01**,−41.73***,+69.83***,+71.55***,+57.63***,+58.76***,−11.09***,+53.73***

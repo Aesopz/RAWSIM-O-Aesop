@@ -1,0 +1,3 @@
+﻿Policy,Reference,Bots,Items,Lines,Orders,Pile-on,Trips,Trips/order,m/line,EOR (kJ/order),Turnover (s),Station idle (%)
+M4G,M4G-WS,6,+0.86**,+0.70,+1.59**,+20.91***,−15.94***,−17.24***,−16.10***,−16.77***,−3.27,−37.25**
+M4G,M4G-WS,10,+0.04,−0.73*,+0.17,+74.11***,−42.47***,−42.56***,−34.02***,−35.41***,+7.01,−6.01

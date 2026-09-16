@@ -2,7 +2,7 @@
  "id": "2026-09-16_pkwhole_test",
  "kind": "fast",
  "binary": "bin_pkwhole",
- "question": "開啟 PackingFullWholeOrderFallback 後，1 站 78 箱的 M5 能否退化成整單派車（件數接近 HADGS 6341 而非 2079）？",
+ "question": "開啟 PackingFullWholeOrderFallback（HADGS 式整單組合派車）後，1 站 78 箱的 M5 件數能否從 2079 回到 HADGS 量級（seed 0: 6528）？",
  "motivation": "使用者指出容量滿時 M5 應退化成整單決策而非崩潰；行級貪婪缺整單複合動作，此旗標補上。",
  "scenario_confirmed_by_user": true,
  "arms": [

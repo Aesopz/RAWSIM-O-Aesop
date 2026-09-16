@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ControlConfiguration xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <Name>hgs_m5</Name>
+  <Name>hgs_m5_k10_pk1_whole</Name>
   <PathPlanningConfig xsi:type="WHCAnStarPathPlanningConfiguration">
     <Name />
     <AutoSetParameter>false</AutoSetParameter>
@@ -129,6 +129,9 @@
     <LineBoundTau>true</LineBoundTau>
     <M1GUrgentGate>true</M1GUrgentGate>
     <DrawsFirstDispatch>true</DrawsFirstDispatch>
+    <CandidatePodTopK>10</CandidatePodTopK>
+    <PackingStationCount>1</PackingStationCount>
+    <PackingBufferCapacity>78</PackingBufferCapacity>
     <PackingFullWholeOrderFallback>true</PackingFullWholeOrderFallback>
   </OrderBatchingConfig>
   <ReplenishmentBatchingConfig xsi:type="SamePodReplenishmentBatchingConfiguration">

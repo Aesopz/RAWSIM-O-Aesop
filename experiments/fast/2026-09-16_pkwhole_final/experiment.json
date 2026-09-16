@@ -1,0 +1,60 @@
+{
+ "id": "2026-09-16_pkwhole_final",
+ "kind": "fast",
+ "binary": "bin_pkwhole2",
+ "question": "最終候選建置（診斷碼移除、parts-cap 觸發納入）：旗標關是否與 Release 逐位相同？旗標開的 1 站與 N=2 是否解凍？",
+ "motivation": "烘入 Canon v2 前的最終守門員與效果確認。",
+ "scenario_confirmed_by_user": true,
+ "arms": [
+  {
+   "label": "pk1_flagoff",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/hgs_m5_k10_pk1.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "PackingStationCount",
+    "PackingBufferCapacity"
+   ],
+   "seeds": [
+    0
+   ]
+  },
+  {
+   "label": "pk1_flagon",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/hgs_m5_k10_pk1_whole.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "PackingStationCount",
+    "PackingBufferCapacity",
+    "PackingFullWholeOrderFallback"
+   ],
+   "seeds": [
+    0
+   ]
+  },
+  {
+   "label": "n2_flagon",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/hgs_m5_k10_n2_whole.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "MaxPartsPerOrder",
+    "PackingFullWholeOrderFallback"
+   ],
+   "seeds": [
+    0
+   ]
+  }
+ ],
+ "comparisons": []
+}

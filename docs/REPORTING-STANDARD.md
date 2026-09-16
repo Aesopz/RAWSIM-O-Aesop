@@ -1,7 +1,7 @@
 # 報告規範：正典組態、指標字典、APA 7 圖表
 
 > 給所有 agent：產出**任何數據、表格、圖**之前讀這份。與 `docs/EXPERIMENT-HANDBOOK.md` 並用。
-> 版本：2026-09-15，Canon v1。正典改版（`exp.py canon-bump`）時必須同步更新第 1 節。
+> 版本：2026-09-16，Canon v2。正典改版（`exp.py canon-bump`）時必須同步更新第 1 節。
 
 ---
 
@@ -36,6 +36,7 @@ HGS-M5 大規模 ＝ HGS-M5 ＋ CandidatePodTopK=10                       ← �
 | `OrderAtomicCanonPrices` | — | ✓ | — | 整單下沿用正典價格 |
 | `MarginalDispatchScore` | — | — | ✓ | 派車以邊際淨值計分 |
 | `DrawsFirstDispatch` | — | — | ✓ | 先取完改善的取貨，再評估派車（提速） |
+| `PackingFullWholeOrderFallback` | — | — | ✓ | 拆單預算（包裝箱／MaxPartsPerOrder）耗盡時，以 HADGS 式整單貨架組合派車解凍；預算未耗盡時不啟動（Canon v2） |
 | `CandidatePodTopK=10` | — | — | 僅大規模 | 候選貨架前 10 |
 
 ### 1.3 共同數值參數
@@ -59,6 +60,21 @@ HGS-M5 大規模 ＝ HGS-M5 ＋ CandidatePodTopK=10                       ← �
 | 版本 | 日期 | 內容 |
 |---|---|---|
 | v1 | 2026-09-15 | NewPodFirstAllocation＋LineBoundTau＋M1GUrgentGate（M4G/NS/M5）；M5 加 DrawsFirstDispatch |
+| v2 | 2026-09-16 | M5 加 PackingFullWholeOrderFallback（預算耗盡時整單組合派車）；M4G 不變（MILP 自然退化）；預算未耗盡的場次逐位不變 |
+
+### 1.6 書面 policy 名稱（投影片、論文、CSV 的 Policy 欄）
+
+| 書面名 | 意義 | 程式旗標 |
+|---|---|---|
+| M1G | Jiao 的 MILP 基準 | `M1GConfiguration` |
+| M4G | 比值目標式，行級拆單 | `M4GConfiguration` |
+| M4G-NS | 比值目標式，整單承諾（no split） | `OrderAtomicNoSplit`＋`OrderAtomicCanonPrices` |
+| M4G-WS | Jiao 加權和目標式 α=(1,−40,1000)，M4G 可行域 | `LegacyObjective`＋`LegacyIdleSlotWeight=1000`＋`LegacyRewardValuation` |
+| M4G-WS₀ | 同上，距離權重 w₁=0 | 加 `LegacyDistanceWeight=0` |
+| HGS-M5 | M4G 的貪婪鏡像 | `GreedyM5Configuration` |
+| HADGS | 大規模啟發式基準 | `HADGSConfiguration` |
+
+規則：書面名稱描述**它是什麼**（目標式形式、承諾單位），不用程式旗標名；「Legacy」「NoDist」等旗標字樣不得出現在表格、圖或內文。arm label 與實驗 id 可保留程式名，呈現層一律換成書面名（`csv_bundle.py` 的 label map 負責）。
 
 ---
 

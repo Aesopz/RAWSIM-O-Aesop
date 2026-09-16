@@ -92,10 +92,10 @@ python scripts/exp.py <command> ...
 
 **時長 2 h 與庫存 70% 永遠固定。** 只允許變動：backlog 深度、bots 數、貨架容量、SKU 種類（以及實驗要測的模型旗標，例如 `MaxPartsPerOrder`）。
 
-### 1.4 目前正典（Canon v1，2026-09-15）
+### 1.4 目前正典（Canon v2，2026-09-16）
 
 - M4G、M4G-NS、M5 皆開：`NewPodFirstAllocation`、`LineBoundTau`、`M1GUrgentGate`。
-- M5 另開 `DrawsFirstDispatch`（先取行後派車，提速且精度 n.s.）。
+- M5 另開 `DrawsFirstDispatch`（先取行後派車，提速且精度 n.s.）與 `PackingFullWholeOrderFallback`（Canon v2，2026-09-16：拆單預算耗盡時 HADGS 式整單組合派車；預算未觸頂時逐位不變）。
 - 大規模 M5 另有 `CandidatePodTopK=10`。
 - β（程式碼欄位名仍叫 Delta*）仍在 M4G 內。
 - `MaxPartsPerOrder`、`PackingStationCount`、`PackingBufferCapacity` **不在正典**，只有實驗臂才開。

@@ -130,6 +130,7 @@
     <M1GUrgentGate>true</M1GUrgentGate>
     <DrawsFirstDispatch>true</DrawsFirstDispatch>
     <CandidatePodTopK>10</CandidatePodTopK>
+    <PackingFullWholeOrderFallback>true</PackingFullWholeOrderFallback>
   </OrderBatchingConfig>
   <ReplenishmentBatchingConfig xsi:type="SamePodReplenishmentBatchingConfiguration">
     <Name />

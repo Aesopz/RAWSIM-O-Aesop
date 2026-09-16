@@ -1,0 +1,30 @@
+{
+ "id": "2026-09-16_pkwhole_diag_large_30min",
+ "kind": "dev",
+ "binary": "bin_pkwhole",
+ "question": "診斷：大規模 1 站容量滿時，TryWholeOrderCombo 各退出原因的分布？",
+ "motivation": "30 分鐘縮短版，只為讀退出計數；不入正式資料。",
+ "scenario_confirmed_by_user": true,
+ "arms": [
+  {
+   "label": "m5_pk1_whole_45b_30min",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "inputs/large_fill200_mu1000_0p5h_inv70.xsett",
+   "xconf": "inputs/hgs_m5_k10_pk1_whole.xconf",
+   "templates": {
+    "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "SimulationDuration",
+    "PackingStationCount",
+    "PackingBufferCapacity",
+    "PackingFullWholeOrderFallback"
+   ],
+   "seeds": [
+    0
+   ]
+  }
+ ],
+ "comparisons": []
+}

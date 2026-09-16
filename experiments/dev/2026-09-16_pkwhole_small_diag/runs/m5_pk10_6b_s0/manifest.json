@@ -78,12 +78,12 @@
  },
  "dll": {
   "path": "bin_pkwhole\\RAWSimO.Core.dll",
-  "sha256": "ec8000f116be4389acac3ba09fb79d8650dca6b52f181dc5b9ee280b0eeb53d0",
-  "built": "2026-09-16T11:52:54"
+  "sha256": "415d68472e04ee98ac8ea91766ec60f991b45862976e7b1d9f3087215837c669",
+  "built": "2026-09-16T12:27:28"
  },
  "git": {
-  "head": "06a384206eaea6541733acbf6c81e2fae06e3dcd",
-  "uncommitted_code_diff_sha": "6717f3512abc0e69"
+  "head": "84cf448814a30c2c3921067cfdbb55a80f2d4e42",
+  "uncommitted_code_diff_sha": "f8ef3250fba4d70f"
  },
  "command": [
   "C:\\Users\\Aesop\\Desktop\\EE-RAWSim-O_PP\\bin_pkwhole\\RAWSimO.CLI.exe",
@@ -93,10 +93,10 @@
   "experiments\\dev\\2026-09-16_pkwhole_small_diag\\runs\\m5_pk10_6b_s0",
   "0"
  ],
- "queued": "2026-09-16T11:53:41",
- "started": "2026-09-16T11:53:42",
- "finished": "2026-09-16T11:54:35",
+ "queued": "2026-09-16T12:27:51",
+ "started": "2026-09-16T12:27:52",
+ "finished": "2026-09-16T12:28:37",
  "exit": 0,
  "attempt": 1,
- "dll_at_start_sha256": "ec8000f116be4389acac3ba09fb79d8650dca6b52f181dc5b9ee280b0eeb53d0"
+ "dll_at_start_sha256": "415d68472e04ee98ac8ea91766ec60f991b45862976e7b1d9f3087215837c669"
 }
