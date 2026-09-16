@@ -1,0 +1,206 @@
+{
+ "verified": "2026-09-16T20:07:44",
+ "canon_version": 2,
+ "runs": [
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ns_6b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ns_6b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ns_6b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ns_6b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ns_6b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ns_6b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ns_6b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ns_6b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ns_6b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ns_6b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ws_ns_6b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ws_ns_6b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ws_ns_6b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ws_ns_6b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ws_ns_6b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ws_ns_6b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ws_ns_6b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ws_ns_6b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ws_ns_6b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ws_ns_6b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ns_10b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ns_10b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ns_10b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ns_10b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ns_10b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ns_10b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ns_10b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ns_10b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ns_10b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ns_10b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ws_ns_10b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ws_ns_10b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ws_ns_10b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ws_ns_10b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ws_ns_10b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ws_ns_10b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ws_ns_10b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ws_ns_10b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ws_ns_10b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ws_ns_10b_s9",
+   "validity": "valid",
+   "problems": []
+  }
+ ]
+}

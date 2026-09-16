@@ -1,0 +1,20 @@
+2 h · 10 seeds · 2 Pstations · 2 Rstations · 100 SKUs · 100 backlog · 100 pods / 120 cells · cap 100 · 70% stock
+policy,bots,Items,Lines,Orders,Pile-on,Trips,Trips/Orders,m/Line,EOR(kJ/order),TurnoverMedian(s),StationIdle(%)
+m4g_ns_6b,6b,1147.3,748.1,523.2,3.083,169.8,0.3252,14.84,1.746,435.5,20.37
+m4g_ws_ns_6b,6b,1258.4,820.8,584.3,3.304,176.9,0.3029,14.66,1.678,346.8,12.66
+m4g_ns_10b,10b,1411.2,919.0,634.5,3.208,198.2,0.3125,15.06,1.804,428.8,2.05
+m4g_ws_ns_10b,10b,1419.2,922.6,646.7,3.181,203.5,0.3147,16.22,1.903,371.6,1.52
+
+paired m4g_ns_6b vs m4g_ws_ns_6b (delta% = (mean_b - mean_a)/mean_a; n=10)
+stat,Items,Lines,Orders,Pile-on,Trips,Trips/Orders,m/Line,EOR(kJ/order),TurnoverMedian(s),StationIdle(%)
+pct,−8.83,−8.86,−10.46,−6.69,−4.01,+7.36,+1.19,+4.05,+25.56,+60.86
+p,< .001,< .001,< .001,< .001,.021,< .001,.326,.009,< .001,< .001
+sig,***,***,***,***,*,***,,**,***,***
+
+paired m4g_ns_10b vs m4g_ws_ns_10b (delta% = (mean_b - mean_a)/mean_a; n=10)
+stat,Items,Lines,Orders,Pile-on,Trips,Trips/Orders,m/Line,EOR(kJ/order),TurnoverMedian(s),StationIdle(%)
+pct,−0.56,−0.39,−1.89,+0.84,−2.60,−0.69,−7.15,−5.24,+15.37,+35.42
+p,.049,.211,< .001,.604,.112,.659,< .001,< .001,< .001,.060
+sig,*,,***,,,,***,***,***,
+
+excel cross-check: {"status": "passed", "checks": 120, "rel_tol": 1e-09}

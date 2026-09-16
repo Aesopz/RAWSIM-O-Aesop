@@ -1,0 +1,115 @@
+{
+ "config": {
+  "xlayo": {
+   "source": "Canon/small/small_10b_2p_2r.xlayo",
+   "template": null,
+   "snapshot": "experiments\\formal\\2026-09-16_m4g_ws_ns_vs_ns\\runs\\m4g_ns_10b_s6\\config\\small_10b_2p_2r.xlayo",
+   "sha256": "4eaeb3e3b27eec593ac331981d4d0ee8cdbbdf06f1cbb48f9dc81fa583a16914"
+  },
+  "xsett": {
+   "source": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "template": null,
+   "snapshot": "experiments\\formal\\2026-09-16_m4g_ws_ns_vs_ns\\runs\\m4g_ns_10b_s6\\config\\small_fill100_mu100_2h_inv70.xsett",
+   "sha256": "1d8c90458b74fb1bcc2a362480ca9bd48582f2823c36ab39e2fa345e38ec6100"
+  },
+  "xconf": {
+   "source": "Canon/small/m4g_ns.xconf",
+   "template": null,
+   "snapshot": "experiments\\formal\\2026-09-16_m4g_ws_ns_vs_ns\\runs\\m4g_ns_10b_s6\\config\\m4g_ns.xconf",
+   "sha256": "cdcbe12f584c40a6c9f177cdf8a9c29f83a1a448e62a6f7f49c712d1100ddb9c"
+  }
+ },
+ "order_batching_type": "M4GConfiguration",
+ "order_batching_flags": {
+  "TieBreaker": "EarliestDueTime",
+  "FastLane": "true",
+  "LateBeforeMatch": "false",
+  "FastLaneTieBreaker": "EarliestDueTime",
+  "LambdaScale": "1",
+  "MuScale": "1",
+  "DeltaScale": "1",
+  "EpsilonScale": "0",
+  "WarmupLines": "50",
+  "LambdaFallback": "10",
+  "DeltaFallback": "0.05",
+  "LinesPerOrderFallback": "2.4",
+  "LambdaFixed": "0",
+  "DeltaFixed": "0",
+  "PickDistancePricing": "true",
+  "DegenerateToBindingOnly": "false",
+  "ValuationOrderLimit": "0",
+  "UrgentOrderGate": "true",
+  "PodCreditCapEnabled": "false",
+  "PodTierDrawPricingEnabled": "false",
+  "IncrementalValuationEnabled": "false",
+  "SplitOnlyAtPresentPods": "false",
+  "SplitMarginalProbeEnabled": "false",
+  "SplitMarginalProbeEveryNDecisions": "50",
+  "SplitMarginalProbeTimeLimitSec": "10",
+  "ReleaseParentOnFirstSplit": "true",
+  "DinkelbachIterations": "5",
+  "DinkelbachTolerance": "0.5",
+  "DinkelbachEscalations": "0",
+  "ForbidSplitting": "false",
+  "LineAtomicSplitting": "true",
+  "CompactLineModel": "true",
+  "OrderAtomicNoSplit": "true",
+  "OrderAtomicCanonPrices": "true",
+  "NewPodFirstAllocation": "true",
+  "LineBoundTau": "true",
+  "M1GUrgentGate": "true",
+  "LegacyObjective": "false",
+  "UpperBoundJump": "true"
+ },
+ "dll": {
+  "sha256": "2b11c291972a376685b86cf4f825087ac7794cc384f024a138e7fbbc4c76b676",
+  "note": "reused legacy run; DLL equivalence asserted by experiment.json reuse_from"
+ },
+ "git": {
+  "head": "e7107871d624d0fddf3a118267cc207a61d2b158",
+  "uncommitted_code_diff_sha": "e3b0c44298fc1c14"
+ },
+ "exit": 0,
+ "finished": "2026-09-15T02:20:14",
+ "run_id": "2026-09-16_m4g_ws_ns_vs_ns/m4g_ns_10b_s6",
+ "experiment": "2026-09-16_m4g_ws_ns_vs_ns",
+ "kind": "formal",
+ "arm": "m4g_ns_10b",
+ "seed": 6,
+ "question": "整單承諾（不拆單）下，Jiao 加權和目標式（M4G-WS-NS）與比值目標式（M4G-NS）表現差異？補 M4G 架構 2×2（拆單 × 目標式）的第四格。",
+ "motivation": "seed 0 顯示不拆單時比值目標式無優勢（EOR +2.5%），拆單時優勢兩倍以上 ⟹ 定價是拆單的放大器；需 10 seeds 確認交互作用。對照 M4G-NS 沿用 tau10_ns。",
+ "changed": [],
+ "scenario": {
+  "hours": 2.0,
+  "pstations": 2,
+  "rstations": 2,
+  "skus": 100,
+  "backlog": 100,
+  "pods": 100,
+  "cells": 120,
+  "cap": "100",
+  "stock": 70.0,
+  "bots": 10
+ },
+ "canon": {
+  "version": 2,
+  "fingerprint": "3228a86133c4b32d"
+ },
+ "retro": {
+  "reused_from": {
+   "legacy": {
+    "0": "out/tau10_ns_10_s0",
+    "1": "out/tau10_ns_10_s1",
+    "2": "out/tau10_ns_10_s2",
+    "3": "out/tau10_ns_10_s3",
+    "4": "out/tau10_ns_10_s4",
+    "5": "out/tau10_ns_10_s5",
+    "6": "out/tau10_ns_10_s6",
+    "7": "out/tau10_ns_10_s7",
+    "8": "out/tau10_ns_10_s8",
+    "9": "out/tau10_ns_10_s9"
+   }
+  },
+  "linked": "2026-09-16T20:01:26"
+ }
+}

@@ -1,0 +1,155 @@
+{
+ "id": "2026-09-16_m4g_ws_ns_vs_ns",
+ "kind": "formal",
+ "question": "整單承諾（不拆單）下，Jiao 加權和目標式（M4G-WS-NS）與比值目標式（M4G-NS）表現差異？補 M4G 架構 2×2（拆單 × 目標式）的第四格。",
+ "motivation": "seed 0 顯示不拆單時比值目標式無優勢（EOR +2.5%），拆單時優勢兩倍以上 ⟹ 定價是拆單的放大器；需 10 seeds 確認交互作用。對照 M4G-NS 沿用 tau10_ns。",
+ "equivalent_dlls": {
+  "guard": "2026-09-16_pkwhole_final",
+  "sha256": [
+   "2b11c291972a376685b86cf4f825087ac7794cc384f024a138e7fbbc4c76b676",
+   "94a44bdb4844fea74934bfe1d0db3a0c2ea11971cb6fe05084b23dc09159120d"
+  ],
+  "note": "v1 Release (tau10_ns) vs v2 Release: M4G code path unchanged (v2 adds M5-only fallback; LegacyDistanceWeight default 1 guarded by legacydist_guard)"
+ },
+ "scenario_confirmed_by_user": true,
+ "arms": [
+  {
+   "label": "m4g_ns_6b",
+   "display": "M4G-NS",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "Canon/small/m4g_ns.xconf",
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "reuse_from": {
+    "legacy": {
+     "0": "out/tau10_ns_6_s0",
+     "1": "out/tau10_ns_6_s1",
+     "2": "out/tau10_ns_6_s2",
+     "3": "out/tau10_ns_6_s3",
+     "4": "out/tau10_ns_6_s4",
+     "5": "out/tau10_ns_6_s5",
+     "6": "out/tau10_ns_6_s6",
+     "7": "out/tau10_ns_6_s7",
+     "8": "out/tau10_ns_6_s8",
+     "9": "out/tau10_ns_6_s9"
+    }
+   }
+  },
+  {
+   "label": "m4g_ws_ns_6b",
+   "display": "M4G-WS-NS",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_ws_ns.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g_ns.xconf"
+   },
+   "changed": [
+    "OrderAtomicCanonPrices",
+    "LegacyObjective",
+    "LegacyOrderReward",
+    "LegacyIdleSlotWeight",
+    "LegacyRewardValuation"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m4g_ns_10b",
+   "display": "M4G-NS",
+   "xlayo": "Canon/small/small_10b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "Canon/small/m4g_ns.xconf",
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "reuse_from": {
+    "legacy": {
+     "0": "out/tau10_ns_10_s0",
+     "1": "out/tau10_ns_10_s1",
+     "2": "out/tau10_ns_10_s2",
+     "3": "out/tau10_ns_10_s3",
+     "4": "out/tau10_ns_10_s4",
+     "5": "out/tau10_ns_10_s5",
+     "6": "out/tau10_ns_10_s6",
+     "7": "out/tau10_ns_10_s7",
+     "8": "out/tau10_ns_10_s8",
+     "9": "out/tau10_ns_10_s9"
+    }
+   }
+  },
+  {
+   "label": "m4g_ws_ns_10b",
+   "display": "M4G-WS-NS",
+   "xlayo": "Canon/small/small_10b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_ws_ns.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g_ns.xconf"
+   },
+   "changed": [
+    "OrderAtomicCanonPrices",
+    "LegacyObjective",
+    "LegacyOrderReward",
+    "LegacyIdleSlotWeight",
+    "LegacyRewardValuation"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  }
+ ],
+ "comparisons": [
+  {
+   "a": "m4g_ws_ns_6b",
+   "b": "m4g_ns_6b",
+   "kind": "ablation",
+   "variable": "objective: Jiao weighted sum vs measured ratio prices; whole-order commitment, same feasible region"
+  },
+  {
+   "a": "m4g_ws_ns_10b",
+   "b": "m4g_ns_10b",
+   "kind": "ablation",
+   "variable": "objective: Jiao weighted sum vs measured ratio prices; whole-order commitment, same feasible region"
+  }
+ ]
+}

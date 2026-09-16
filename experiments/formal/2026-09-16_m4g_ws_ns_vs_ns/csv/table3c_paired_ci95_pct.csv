@@ -1,0 +1,5 @@
+﻿Policy,Reference,Bots,Bound,Items,Lines,Orders,Pile-on,Trips,Trips/order,m/line,EOR (kJ/order),Turnover (s),Station idle (%)
+M4G-NS,M4G-WS-NS,6,CI low,−11.64,−11.77,−13.44,−9.14,−7.27,+4.44,−1.40,+1.32,+19.23,+41.46
+M4G-NS,M4G-WS-NS,6,CI high,−6.02,−5.95,−7.47,−4.25,−0.75,+10.28,+3.77,+6.79,+31.90,+80.26
+M4G-NS,M4G-WS-NS,10,CI low,−1.12,−1.05,−2.55,−2.71,−5.95,−4.12,−9.21,−7.54,+10.63,−1.85
+M4G-NS,M4G-WS-NS,10,CI high,−0.00,+0.26,−1.22,+4.40,+0.74,+2.73,−5.08,−2.93,+20.11,+72.69
