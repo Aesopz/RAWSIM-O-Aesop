@@ -1,0 +1,619 @@
+<title>The M4 Splitting Model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Spectral:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap">
+
+<style>
+:root{
+  --ink:#16202B; --body:#33404E; --soft:#5C6A78; --faint:#8592A0;
+  --paper:#F7F8FA; --card:#FFFFFF; --wash:#ECF1F8; --rule:#DBE1E9;
+  --navy:#1F3864; --navy-soft:#41598A;
+  --meas:#0F6E78; --meas-soft:#12868F;
+  --warn:#9A4B2C;
+  --shadow:0 1px 2px rgba(22,32,43,.05), 0 8px 24px -18px rgba(22,32,43,.28);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ink:#EEF2F6; --body:#C3CDD8; --soft:#94A2B1; --faint:#6E7D8C;
+    --paper:#0E151C; --card:#151F29; --wash:#182533; --rule:#26333F;
+    --navy:#8FAEDC; --navy-soft:#6E90C4;
+    --meas:#4FBAC4; --meas-soft:#3FA5AF;
+    --warn:#D08A63;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -20px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#EEF2F6; --body:#C3CDD8; --soft:#94A2B1; --faint:#6E7D8C;
+  --paper:#0E151C; --card:#151F29; --wash:#182533; --rule:#26333F;
+  --navy:#8FAEDC; --navy-soft:#6E90C4;
+  --meas:#4FBAC4; --meas-soft:#3FA5AF;
+  --warn:#D08A63;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -20px rgba(0,0,0,.8);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--body);
+  font-family:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  font-size:16.5px; line-height:1.62; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1080px; margin:0 auto; padding:0 28px 120px}
+.col{max-width:70ch}
+
+/* ── masthead ─────────────────────────────────────────── */
+header.top{padding:76px 0 40px; border-bottom:1px solid var(--rule); margin-bottom:52px}
+.kicker{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:12px;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--meas); font-weight:500;
+}
+h1{
+  font-family:Spectral,Georgia,serif; font-weight:600; color:var(--ink);
+  font-size:clamp(2.3rem,5.2vw,3.4rem); line-height:1.08; letter-spacing:-.018em;
+  margin:.34em 0 .18em; text-wrap:balance;
+}
+.dek{font-size:1.14rem; color:var(--soft); max-width:62ch; margin:0}
+.premise{
+  margin-top:34px; padding:20px 24px; background:var(--card);
+  border:1px solid var(--rule); border-radius:3px; box-shadow:var(--shadow);
+  max-width:70ch;
+}
+.premise p{margin:0; font-size:1.02rem}
+.premise strong{color:var(--ink); font-weight:600}
+
+/* ── sections ─────────────────────────────────────────── */
+section{margin:0 0 64px}
+h2{
+  font-family:Spectral,Georgia,serif; font-weight:600; color:var(--ink);
+  font-size:1.72rem; line-height:1.2; letter-spacing:-.012em;
+  margin:0 0 6px; text-wrap:balance;
+}
+h2 .n{
+  font-family:"IBM Plex Mono",monospace; font-size:.72em; font-weight:400;
+  color:var(--faint); margin-right:.6em; letter-spacing:.04em;
+}
+.sub{color:var(--soft); margin:0 0 26px; max-width:68ch}
+h3{
+  font-family:"IBM Plex Sans",sans-serif; font-weight:600; color:var(--ink);
+  font-size:.85rem; letter-spacing:.09em; text-transform:uppercase;
+  margin:34px 0 12px;
+}
+p{margin:0 0 15px}
+p.col, ul.col, ol.col{max-width:70ch}
+strong{color:var(--ink); font-weight:600}
+em{font-style:italic}
+a{color:var(--meas)}
+
+/* ── maths ────────────────────────────────────────────── */
+.m{font-family:Spectral,Georgia,serif; font-style:italic; color:var(--ink)}
+.mr{font-family:Spectral,Georgia,serif; font-style:normal; color:var(--ink)}
+sub,sup{font-size:.66em; font-style:italic; line-height:0}
+.op{display:inline-flex; flex-direction:column; align-items:center;
+    vertical-align:-.42em; line-height:1; margin:0 .12em}
+.op i{font-style:normal; font-size:1.5em; font-family:Spectral,Georgia,serif}
+.op small{font-size:.58em; margin-top:.06em; font-family:Spectral,Georgia,serif;
+          font-style:italic; color:var(--soft)}
+.eqn{
+  background:var(--wash); border:1px solid var(--rule); border-radius:3px;
+  padding:16px 20px; margin:14px 0 18px; overflow-x:auto;
+  font-family:Spectral,Georgia,serif; font-size:1.12rem; color:var(--ink);
+  white-space:nowrap;
+}
+.eqn.wrapok{white-space:normal}
+.tag{
+  display:inline-block; min-width:3.4em; margin-right:.9em;
+  font-family:"IBM Plex Mono",monospace; font-size:.74em; font-style:normal;
+  color:var(--navy); font-weight:500; letter-spacing:.02em;
+}
+
+/* ── delta list ───────────────────────────────────────── */
+.delta{display:grid; gap:2px; background:var(--rule); border:1px solid var(--rule);
+       border-radius:3px; overflow:hidden}
+.drow{display:grid; grid-template-columns:118px 1fr; gap:0; background:var(--card)}
+.dkind{
+  padding:14px 16px; font-family:"IBM Plex Mono",monospace; font-size:.72rem;
+  letter-spacing:.09em; text-transform:uppercase; font-weight:500;
+  border-right:1px solid var(--rule);
+}
+.dkind.rm{color:var(--warn)} .dkind.rp{color:var(--navy)}
+.dkind.rx{color:var(--navy)} .dkind.ad{color:var(--meas)}
+.dkind.un{color:var(--faint)}
+.dbody{padding:13px 18px}
+.dbody .line{margin:0 0 4px; font-family:Spectral,Georgia,serif; font-size:1.02rem;
+             color:var(--ink); overflow-x:auto}
+.dbody .line:last-child{margin-bottom:0}
+.dbody .why{margin:7px 0 0; font-size:.9rem; color:var(--soft); font-family:"IBM Plex Sans",sans-serif}
+
+/* ── tables ───────────────────────────────────────────── */
+.tw{overflow-x:auto; margin:16px 0 20px; border:1px solid var(--rule);
+    border-radius:3px; background:var(--card)}
+table{border-collapse:collapse; width:100%; font-size:.94rem}
+th{
+  text-align:left; padding:11px 16px; background:var(--wash); color:var(--ink);
+  font-weight:600; font-size:.76rem; letter-spacing:.07em; text-transform:uppercase;
+  border-bottom:1px solid var(--rule); white-space:nowrap;
+}
+td{padding:11px 16px; border-bottom:1px solid var(--rule); vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.num{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums;
+       white-space:nowrap; color:var(--ink)}
+td.sym{font-family:Spectral,Georgia,serif; font-size:1.06rem; white-space:nowrap; color:var(--ink)}
+.mono{font-family:"IBM Plex Mono",monospace; font-size:.86em}
+
+/* ── two-layer split ──────────────────────────────────── */
+.layers{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+        gap:18px; margin:18px 0 8px}
+.layer{background:var(--card); border:1px solid var(--rule); border-radius:3px;
+       padding:20px 22px; box-shadow:var(--shadow)}
+.layer h4{margin:0 0 3px; font-family:Spectral,Georgia,serif; font-size:1.2rem;
+          font-weight:600; color:var(--ink)}
+.layer .role{margin:0 0 14px; font-size:.82rem; color:var(--faint);
+             font-family:"IBM Plex Mono",monospace; letter-spacing:.05em}
+.layer dl{margin:0; display:grid; grid-template-columns:auto 1fr; gap:7px 16px; align-items:baseline}
+.layer dt{font-family:Spectral,Georgia,serif; font-size:1.04rem; color:var(--ink); white-space:nowrap}
+.layer dd{margin:0; font-size:.92rem; color:var(--soft)}
+
+/* ── callouts ─────────────────────────────────────────── */
+.note{
+  margin:22px 0; padding:16px 20px; background:var(--card);
+  border:1px solid var(--rule); border-left:3px solid var(--meas);
+  border-radius:0 3px 3px 0; max-width:72ch;
+}
+.note.caution{border-left-color:var(--warn)}
+.note h4{
+  margin:0 0 6px; font-size:.78rem; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--meas); font-weight:600; font-family:"IBM Plex Sans",sans-serif;
+}
+.note.caution h4{color:var(--warn)}
+.note p{margin:0 0 10px; font-size:.96rem}
+.note p:last-child{margin-bottom:0}
+
+/* ── chain ────────────────────────────────────────────── */
+.chain{display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+       gap:14px; margin:20px 0}
+.link{background:var(--card); border:1px solid var(--rule); border-radius:3px; padding:18px 20px}
+.link .sym{font-family:Spectral,Georgia,serif; font-size:1.55rem; color:var(--meas);
+           font-style:italic; line-height:1; display:block; margin-bottom:9px}
+.link .def{font-family:Spectral,Georgia,serif; font-size:1rem; color:var(--ink); margin:0 0 7px}
+.link .unit{font-family:"IBM Plex Mono",monospace; font-size:.74rem; color:var(--faint);
+            letter-spacing:.05em; margin:0}
+
+footer{border-top:1px solid var(--rule); padding-top:26px; margin-top:70px;
+       font-size:.86rem; color:var(--faint); max-width:72ch}
+footer code{font-family:"IBM Plex Mono",monospace; font-size:.92em; color:var(--soft)}
+
+@media (max-width:640px){
+  body{font-size:16px}
+  .wrap{padding:0 18px 80px}
+  header.top{padding:48px 0 32px}
+  .drow{grid-template-columns:1fr}
+  .dkind{border-right:none; border-bottom:1px solid var(--rule); padding:10px 16px}
+}
+</style>
+
+<div class="wrap">
+
+<header class="top">
+  <div class="kicker">Chapter 05 · Methodology</div>
+  <h1>The M4 Splitting Model</h1>
+  <p class="dek">An online joint order-assignment, pod-selection and task-allocation model in which
+  the decision atom is the item rather than the order — stated as the increment over M1
+  (Jiao et al., 2026).</p>
+
+  <div class="premise">
+    <p><strong>One measured quantity runs the whole model.</strong> Travel distance, in metres.
+    Every price in the objective is that distance divided by a different counter of work done —
+    lines closed, orders completed, units picked — so nothing in the value side of the objective
+    is a number somebody chose.</p>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<section>
+  <h2><span class="n">§1</span>What changes, and what does not</h2>
+  <p class="sub">M1 assigns whole orders. M4 keeps its resource layer intact and replaces
+  only the order side. The list below is the complete difference.</p>
+
+  <div class="eqn wrapok">
+    <span class="tag">M1</span>
+    <span class="m">x̂</span><sub>o,w</sub> <span class="mr">∈ {0, 1}</span>
+    &nbsp;&nbsp;<span style="font-family:'IBM Plex Sans',sans-serif;font-size:.82rem;color:var(--soft)">the order is the atom</span>
+    &nbsp;&nbsp;<span class="mr" style="color:var(--faint)">→</span>&nbsp;&nbsp;
+    <span class="tag">M4</span>
+    <span class="m">q̂</span><sub>o,i,p,w</sub> <span class="mr">∈ ℤ</span><sub>≥0</sub>
+    &nbsp;&nbsp;<span style="font-family:'IBM Plex Sans',sans-serif;font-size:.82rem;color:var(--soft)">the item is the atom</span>
+  </div>
+
+  <p class="col">Splitting is not a feature bolted onto M1. It is what a finer atom makes
+  representable: once a decision variable counts units of SKU <span class="m">i</span> of order
+  <span class="m">o</span> drawn from pod <span class="m">p</span> at station
+  <span class="m">w</span>, an order spread over several pods, stations or decisions is simply a
+  feasible assignment of that variable.</p>
+
+  <div class="delta">
+    <div class="drow">
+      <div class="dkind rm">Removed</div>
+      <div class="dbody">
+        <p class="line"><span class="tag">(2)</span>
+          <span class="op"><i>∑</i><small>w</small></span>
+          <span class="m">x̂</span><sub>o,w</sub> <span class="mr">≤ 1</span></p>
+        <p class="line"><span class="tag">(12)(13)</span>
+          <span class="m">δ</span><sub>o,p,w</sub></p>
+        <p class="why">The one-order-one-workstation rule goes, and with it the auxiliary
+        variable: <span class="m">q</span><sub>o,i,p,w</sub> already names the
+        (order, pod, workstation) triple that <span class="m">δ</span><sub>o,p,w</sub> existed
+        to express. A finer atom does not only relax the model — here it also shrinks it.</p>
+      </div>
+    </div>
+
+    <div class="drow">
+      <div class="dkind rp">Replaced</div>
+      <div class="dbody">
+        <p class="line"><span class="tag">B1</span>
+          <span class="m">q</span><sub>o,i,p,w</sub> <span class="mr">≤</span>
+          <span class="m">q̂</span><sub>o,i,p,w</sub></p>
+        <p class="line"><span class="tag">V1</span>
+          <span class="op"><i>∑</i><small>o</small></span>
+          <span class="m">q̂</span><sub>o,i,p,w</sub> <span class="mr">≤</span>
+          <span class="m">n̂</span><sub>i,p</sub> <span class="m">z</span><sub>p,w</sub></p>
+        <p class="line"><span class="tag">V2</span>
+          <span class="op"><i>∑</i><small>p,w</small></span>
+          <span class="m">q̂</span><sub>o,i,p,w</sub> <span class="mr">≤</span>
+          <span class="m">n</span><sub>i,o</sub></p>
+        <p class="line"><span class="tag">V3</span>
+          <span class="op"><i>∑</i><small>p,w</small></span>
+          <span class="m">q̂</span><sub>o,i,p,w</sub> <span class="mr">≥</span>
+          <span class="m">n</span><sub>i,o</sub> <span class="m">ê</span><sub>o,i</sub></p>
+        <p class="why">M1's (3) becomes B1, restated per unit. M1's single coverage inequality (5)
+        becomes three: a draw needs stock on that pod at that station, never exceeds the residual
+        demand, and a line counts as closed only when it is drawn in full.</p>
+      </div>
+    </div>
+
+    <div class="drow">
+      <div class="dkind rx">Relaxed</div>
+      <div class="dbody">
+        <p class="line"><span class="tag">B3</span>
+          <span class="op"><i>∑</i><small>o</small></span>
+          <span class="m">x</span><sub>o,w</sub> <span class="mr">≤</span>
+          <span class="m">c</span><sub>w</sub><span class="mr">(</span><span class="m">t</span><span class="mr">)</span></p>
+        <p class="why">M1's (4) is an <em>equality</em>: assigned orders must equal capacity minus
+        unused capacity, and the objective then charges 1000 per unused slot. B3 is an inequality,
+        so a station may be left partly idle when nothing is worth sending. The unused-capacity
+        variable <span class="m">u</span><sub>w</sub> disappears with it.</p>
+      </div>
+    </div>
+
+    <div class="drow">
+      <div class="dkind ad">Added</div>
+      <div class="dbody">
+        <p class="line"><span class="tag">V4</span>
+          <span class="m">ê</span><sub>o,i</sub> <span class="mr">≥</span>
+          <span class="m">f̂</span><sub>o</sub></p>
+        <p class="line"><span class="tag">B2</span>
+          <span class="op"><i>∑</i><small>i,p</small></span>
+          <span class="m">q</span><sub>o,i,p,w</sub> <span class="mr">≤</span>
+          <span class="m">N</span><sub>o</sub> <span class="m">x</span><sub>o,w</sub></p>
+        <p class="line"><span class="tag">B4</span>
+          <span class="m">x</span><sub>o,w</sub> <span class="mr">≤</span>
+          <span class="op"><i>∑</i><small>i,p</small></span>
+          <span class="m">q</span><sub>o,i,p,w</sub></p>
+        <p class="line"><span class="tag">B5</span>
+          <span class="op"><i>∑</i><small>p,w</small></span>
+          <span class="m">q</span><sub>o,i,p,w</sub> <span class="mr">≥</span>
+          <span class="m">n</span><sub>i,o</sub> <span class="m">e</span><sub>o,i</sub></p>
+        <p class="line"><span class="tag">B6</span>
+          <span class="m">e</span><sub>o,i</sub> <span class="mr">≤</span>
+          <span class="m">ê</span><sub>o,i</sub><span class="mr">,</span>&nbsp;&nbsp;
+          <span class="m">f</span><sub>o</sub> <span class="mr">≤</span>
+          <span class="m">f̂</span><sub>o</sub></p>
+        <p class="line"><span class="tag">B7</span>
+          <span class="m">e</span><sub>o,i</sub> <span class="mr">≥</span>
+          <span class="m">f</span><sub>o</sub></p>
+        <p class="why">M1 needs no completion variable: under its coverage constraint an assignment
+        already implies the order can be filled. Allow partial fulfilment and that implication
+        breaks, so closure and completion must be carried explicitly — in both layers.</p>
+      </div>
+    </div>
+
+    <div class="drow">
+      <div class="dkind un">Unchanged</div>
+      <div class="dbody">
+        <p class="line"><span class="tag">R1–R5</span>
+          <span class="mr">←</span> <span class="mr">(6)–(11)</span></p>
+        <p class="why">One pod per station, one robot per pod, one pod per robot, dispatch requires
+        a robot, and pods and robots already committed by the system are inherited. Task allocation
+        stays inside the model, exactly as in M1.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<section>
+  <h2><span class="n">§2</span>Two layers, and the rate between them</h2>
+  <p class="sub">M1 already separates what could be assigned from what is assigned. M4 keeps that
+  separation and prices the gap with a measured rate instead of a fixed weight.</p>
+
+  <div class="layers">
+    <div class="layer">
+      <h4>Valuation</h4>
+      <p class="role">what the decision claims</p>
+      <dl>
+        <dt><span class="m">q̂</span><sub>o,i,p,w</sub></dt><dd>valued draw, in units</dd>
+        <dt><span class="m">ê</span><sub>o,i</sub></dt><dd>line (<span class="m">o</span>, <span class="m">i</span>) closed in full</dd>
+        <dt><span class="m">f̂</span><sub>o</sub></dt><dd>every line of the order closed</dd>
+      </dl>
+    </div>
+    <div class="layer">
+      <h4>Binding</h4>
+      <p class="role">what the decision executes</p>
+      <dl>
+        <dt><span class="m">q</span><sub>o,i,p,w</sub></dt><dd>executed draw, in units</dd>
+        <dt><span class="m">x</span><sub>o,w</sub></dt><dd>the order occupies a slot at <span class="m">w</span></dd>
+        <dt><span class="m">e</span><sub>o,i</sub>, <span class="m">f</span><sub>o</sub></dt><dd>bound closure and completion</dd>
+      </dl>
+    </div>
+  </div>
+
+  <p class="col">The valuation layer is not slot-limited: it may score coverage the station
+  cannot take this decision. The binding layer is what actually happens. In M1 the price ratio
+  between the two is set by hand —
+  <span class="mono">α₁ = −40</span> on the valuation variable and, once the equality (4) is
+  substituted into the objective, an effective <span class="mono">−1000</span> on the binding one.
+  That is an implicit realisation rate of <span class="mono">40 / 1000 ≈ 0.038</span>, fixed for
+  the whole run and for every instance.</p>
+
+  <div class="eqn wrapok">
+    <span class="m">β</span> <span class="mr">=</span>
+    <span class="mr">cumulative bound lines&nbsp;/&nbsp;cumulative valued lines</span>
+  </div>
+
+  <p class="col">M4 measures it instead. Of the lines the valuation layer scored as closed, what
+  share did the binding layer actually take? That ratio is <span class="m">β</span>, recomputed as
+  the run proceeds and clamped to [0, 1].</p>
+
+  <div class="note">
+    <h4>Conditioned on committed supply</h4>
+    <p>A single system-wide rate would be wrong, because the measured rate is not flat.
+    On the small instance at 10 robots it is <strong>0.2117</strong> when one pod is already
+    committed and <strong>0.1376</strong> when two are.</p>
+    <p>The cause is structural: slot capacity pins bound lines near 1.01 per decision whatever the
+    committed count, while valued lines grow with it (4.79 → 7.38). The extra coverage a third pod
+    is scored for is coverage the binding layer demonstrably cannot take. So
+    <span class="m">β</span> is conditioned on the committed-pod count, capped at three, with a
+    stratum falling back to the global ratio until it has seen 50 valued lines.</p>
+  </div>
+
+  <p class="col"><strong>A note on the symbol.</strong> This rate is written
+  <span class="m">β</span>, not <span class="m">δ</span>, because the source paper already spends
+  <span class="m">δ</span> twice — as the capacity threshold that triggers a decision (p. 4,
+  Table 5) and as the auxiliary variable <span class="m">δ</span><sub>o,p,w</sub> (p. 6,
+  constraints (12)–(13)). Jiao's symbols are kept as they are; this one is ours to name.</p>
+</section>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<section>
+  <h2><span class="n">§3</span>The objective is a ratio</h2>
+  <p class="sub">Not a weighted sum of distance and value, but distance <em>per unit of value
+  delivered</em> — which removes the need to decide how many metres an order is worth.</p>
+
+  <div class="eqn">
+    <span class="mr">min</span>&nbsp;&nbsp;<span class="m">D</span> <span class="mr">/</span> <span class="m">V</span>
+  </div>
+
+  <div class="eqn">
+    <span class="tag">D</span>
+    <span class="op"><i>∑</i><small>p ∈ P<sub>a</sub></small></span>
+    <span class="op"><i>∑</i><small>w</small></span>
+    <span class="m">d</span><sub>p,w</sub> <span class="m">z</span><sub>p,w</sub>
+    &nbsp;<span class="mr">+</span>&nbsp;
+    <span class="op"><i>∑</i><small>r ∈ R<sub>a</sub></small></span>
+    <span class="op"><i>∑</i><small>p ∈ P<sub>a</sub></small></span>
+    <span class="m">d</span><sub>r,p</sub> <span class="m">y</span><sub>r,p</sub>
+  </div>
+
+  <div class="eqn">
+    <span class="tag">V</span>
+    <span class="m">λ</span> <span class="mr">[ (1−</span><span class="m">β</span><span class="mr">)</span>
+    <span class="op"><i>∑</i><small>o,i</small></span><span class="m">e</span><sub>o,i</sub>
+    <span class="mr">+</span> <span class="m">β</span>
+    <span class="op"><i>∑</i><small>o,i</small></span><span class="m">ê</span><sub>o,i</sub><span class="mr">]</span>
+    &nbsp;<span class="mr">+</span>&nbsp;
+    <span class="m">μ</span> <span class="mr">[ (1−</span><span class="m">β</span><span class="mr">)</span>
+    <span class="op"><i>∑</i><small>o</small></span><span class="m">f</span><sub>o</sub>
+    <span class="mr">+</span> <span class="m">β</span>
+    <span class="op"><i>∑</i><small>o</small></span><span class="m">f̂</span><sub>o</sub><span class="mr">]</span>
+    &nbsp;<span class="mr">+</span>&nbsp;
+    <span class="m">ε</span> <span class="op"><i>∑</i><small>&nbsp;</small></span><span class="m">q</span>
+    &nbsp;<span class="mr">+</span>&nbsp;
+    <span class="m">ρ</span> <span class="mr">[</span>
+    <span class="op"><i>∑</i><small>p ∈ P<sub>p</sub></small></span><span class="m">q</span>
+    <span class="mr">−</span>
+    <span class="op"><i>∑</i><small>p ∈ P<sub>a</sub></small></span><span class="m">q</span>
+    <span class="mr">]</span>
+  </div>
+
+  <p class="col">Only newly dispatched pods pay travel; a pod already en route or standing at a
+  station has had its trip paid for and is sunk. Both <span class="m">D</span> and
+  <span class="m">V</span> are in metres, so the ratio is dimensionless.</p>
+
+  <h3>Term by term</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Term</th><th>Prices</th><th>Applies to</th></tr></thead>
+      <tbody>
+        <tr><td class="num">T1, T2</td><td>travel of newly dispatched pods and their robots</td><td>dispatch</td></tr>
+        <tr><td class="num">T3</td><td>line closure at <span class="m">λ</span>, split across the two layers by <span class="m">β</span></td><td>both layers</td></tr>
+        <tr><td class="num">T4</td><td>order completion at <span class="m">μ</span>, same split</td><td>both layers</td></tr>
+        <tr><td class="num">T5</td><td>immediacy at <span class="m">ε</span> — among equally valued solutions, prefer the one that executes now</td><td>binding only</td></tr>
+        <tr><td class="num">T6</td><td>pod tier at <span class="m">ρ</span></td><td>binding only</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>T6 — why the pod you drain matters</h3>
+  <p class="col">Which pod is actually drained has a real-world consequence, so only bound draws
+  carry it. A unit taken from a pod being picked <em>right now</em> saves a future trip to fetch
+  that item later, and is rewarded. A unit from a pod this decision dispatches genuinely costs an
+  extra trip, and is charged. Queued and en-route pods are already sunk, exactly as in T1 and T2.</p>
+
+  <div class="eqn wrapok">
+    <span class="m">p</span> <span class="mr">∈</span> <span class="m">P</span><sub>p</sub>
+    <span class="mr">:&nbsp; −</span><span class="m">ρ</span>
+    &nbsp;&nbsp;&nbsp;&nbsp;
+    <span class="m">p</span> <span class="mr">∈</span> <span class="m">P</span><sub>a</sub>
+    <span class="mr">:&nbsp; +</span><span class="m">ρ</span>
+    &nbsp;&nbsp;&nbsp;&nbsp;
+    <span class="m">p</span> <span class="mr">∈</span> <span class="m">P</span><sub>q</sub>
+    <span class="mr">∪</span> <span class="m">P</span><sub>b</sub>
+    <span class="mr">:&nbsp; 0</span>
+  </div>
+
+  <p class="col">This term has no counterpart under an order atom. Reducing the decision atom does
+  not only relax constraints — it opens a pricing dimension that did not previously exist.</p>
+</section>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<section>
+  <h2><span class="n">§4</span>Where the prices come from</h2>
+  <p class="sub">Distance is the only thing measured. Each price is that distance divided by a
+  different counter of work done.</p>
+
+  <div class="chain">
+    <div class="link">
+      <span class="sym">λ</span>
+      <p class="def">distance ÷ closed lines</p>
+      <p class="unit">metres per line</p>
+    </div>
+    <div class="link">
+      <span class="sym">μ</span>
+      <p class="def">λ × lines per order<br>= distance ÷ completed orders</p>
+      <p class="unit">metres per order</p>
+    </div>
+    <div class="link">
+      <span class="sym">ρ</span>
+      <p class="def">distance ÷ units picked</p>
+      <p class="unit">metres per unit</p>
+    </div>
+    <div class="link">
+      <span class="sym">ε</span>
+      <p class="def">0.001 × λ</p>
+      <p class="unit">metres per unit</p>
+    </div>
+  </div>
+
+  <p class="col"><span class="m">β</span> is not a price. It is dimensionless — the exchange rate
+  between the two layers — and is the one quantity above that distance does not produce.</p>
+
+  <div class="note">
+    <h4>Why the ratios are not free parameters</h4>
+    <p>The ratio objective is linearised by Dinkelbach, which solves
+    <span class="mr">min</span> <span class="m">D</span> <span class="mr">−</span>
+    <span class="m">V</span> at the current <span class="m">λ</span>. That works only if
+    <span class="m">V</span> keeps its <em>shape</em> while <span class="m">λ</span> searches — so
+    <span class="m">μ</span>, <span class="m">ε</span> and <span class="m">ρ</span> all scale with
+    <span class="m">λ</span> together, and only the level moves.</p>
+    <p>Their ratios are therefore fixed by the instance, not chosen:
+    <span class="mono">μ/λ</span> is lines per order, <span class="mono">ρ/λ</span> is the
+    reciprocal of units per line. If those ratios drifted with
+    <span class="m">λ</span>, changing <span class="m">λ</span> would be changing the model rather
+    than correcting a ratio estimate.</p>
+  </div>
+
+  <h3>Measured on one run</h3>
+  <p class="col">Small instance, 6 robots, seed 0, read from the decision log.</p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Price</th><th>Median</th><th>Range</th><th>Ratio to λ</th></tr></thead>
+      <tbody>
+        <tr><td class="sym">λ</td><td class="num">8.063</td><td class="num">6.28 – 10.00</td><td class="num">1</td></tr>
+        <tr><td class="sym">μ</td><td class="num">12.222</td><td class="num">9.80 – 16.67</td><td class="num">1.517</td></tr>
+        <tr><td class="sym">ρ</td><td class="num">3.697</td><td class="num">1.09 – 185.5</td><td class="num">0.467</td></tr>
+        <tr><td class="sym">ε</td><td class="num">0.008</td><td class="num">0.006 – 0.010</td><td class="num">0.001</td></tr>
+        <tr><td class="sym">β</td><td class="num">0.188</td><td class="num">0.05 – 0.211</td><td class="num">—</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="col" style="font-size:.92rem;color:var(--soft)">The high end of
+  <span class="m">ρ</span>'s range is a warm-up artefact: early in the run the units-picked
+  counter is still small. It converges quickly.</p>
+
+  <h3>Before the statistics are usable</h3>
+  <p class="col">For the first 50 closed lines the running counts are too thin to price from, and
+  seed values stand in. They govern the warm-up only.</p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Price</th><th>Warm-up value</th><th>Derived from</th></tr></thead>
+      <tbody>
+        <tr><td class="sym">λ</td><td class="num">10 m / line</td><td class="mono">LambdaFallback</td></tr>
+        <tr><td class="sym">μ</td><td class="num">24 m / order</td><td class="mono">λ × LinesPerOrderFallback (2.4)</td></tr>
+        <tr><td class="sym">ρ</td><td class="num">15 m / unit</td><td class="mono">λ × RhoFallback / 10</td></tr>
+        <tr><td class="sym">ε</td><td class="num">0.01</td><td class="mono">EpsilonScale × λ</td></tr>
+        <tr><td class="sym">β</td><td class="num">0.05</td><td class="mono">DeltaFallback</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note caution">
+    <h4>The warm-up ρ has to be a ratio, not a constant</h4>
+    <p>It was once an absolute 15. Halving the warm-up <span class="m">λ</span> to 5 then pushed
+    <span class="mono">ρ/λ</span> from 1.5 to 3.0 — every draw-line move scored positive, no move
+    was ever accepted, and the run produced zero orders. Pinning
+    <span class="mono">ρ/λ</span> restores the invariant and leaves the fallback as what it should
+    be: a starting guess for a ratio that the Dinkelbach iteration then corrects.</p>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<section>
+  <h2><span class="n">§5</span>Fine print</h2>
+  <p class="sub">Three things worth stating before someone else finds them.</p>
+
+  <h3>“Zero hand-tuned constants” is not literally true</h3>
+  <p class="col">The four steady-state prices carry no tuning knob: every scale is 1 and both
+  override fields are off. But some numbers are set by hand, and the honest claim has to name
+  them.</p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Parameter</th><th>Value</th><th>What it governs</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">EpsilonScale</td><td class="num">0.001</td><td>the whole run — but ε is only a tie-break, deliberately three orders of magnitude below λ</td></tr>
+        <tr><td class="mono">WarmupLines</td><td class="num">50</td><td>when measurement takes over from the seed values</td></tr>
+        <tr><td class="mono">LambdaFallback</td><td class="num">10</td><td>warm-up only</td></tr>
+        <tr><td class="mono">LinesPerOrderFallback</td><td class="num">2.4</td><td>warm-up only</td></tr>
+        <tr><td class="mono">RhoFallback</td><td class="num">15</td><td>warm-up only, as a ratio anchor</td></tr>
+        <tr><td class="mono">DeltaFallback</td><td class="num">0.05</td><td>warm-up only</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="col">So: <strong>no price that governs steady-state behaviour is set by hand.</strong>
+  The hand-set numbers are warm-up seeds and one tie-break scale.</p>
+
+  <h3>λ's denominator includes work the picking decision does not control</h3>
+  <p class="col">λ and ρ divide the fleet's <em>total</em> distance, which also contains
+  replenishment trips and pod returns to storage — roughly three quarters of it on the small
+  benchmark. Detrended, λ correlates with replenishment intensity at +0.73 over two hours, and the
+  sign is perverse: a busy replenishment period raises λ, which raises the value side, which makes
+  the picking side more willing to dispatch exactly when the fleet is most contended.</p>
+  <p class="col">An extract-distance denominator is implemented and switched off, because turning
+  it on would move every published number. It changes λ's <em>level</em> only —
+  <span class="mono">μ/λ</span>, <span class="mono">ρ/λ</span> and <span class="mono">ε/λ</span>
+  share the numerator and are immune. This belongs in the limitations chapter, not the model
+  chapter.</p>
+
+  <h3>Splitting across stations costs two slots</h3>
+  <p class="col">Station capacity is still counted in <em>orders</em> — six on the small instance,
+  inherited from M1 — and B2 makes any draw for an order at a station occupy one of them. An order
+  served at two stations therefore consumes two slots. That is a structural reason why splitting
+  concentrates in the temporal direction rather than the spatial one, and it is a property of the
+  capacity semantics, not a defect of the model.</p>
+</section>
+
+<footer>
+  Model statements read from <code>M4GManager.cs</code> (constraints R/V/B, objective T1–T6) and
+  <code>M4GPricing.cs</code>, under the canonical <code>m4g.xconf</code>; gated-off constraints are
+  omitted because they are inert there. Baseline notation and equation numbers follow Jiao et al.
+  (2026), <em>Omega</em> 138:103374. Measured values are seed 0 of the small 6-robot instance.
+</footer>
+
+</div>

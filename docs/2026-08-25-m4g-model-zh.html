@@ -1,0 +1,582 @@
+<title>M4 拆單模型</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&family=Spectral:ital,wght@0,400;0,500;1,400;1,500&display=swap">
+
+<style>
+:root{
+  --ink:#16202B; --body:#33404E; --soft:#5C6A78; --faint:#8592A0;
+  --paper:#F7F8FA; --card:#FFFFFF; --wash:#ECF1F8; --rule:#DBE1E9;
+  --navy:#1F3864; --meas:#0F6E78; --warn:#9A4B2C;
+  --shadow:0 1px 2px rgba(22,32,43,.05), 0 8px 24px -18px rgba(22,32,43,.28);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ink:#EEF2F6; --body:#C3CDD8; --soft:#94A2B1; --faint:#6E7D8C;
+    --paper:#0E151C; --card:#151F29; --wash:#182533; --rule:#26333F;
+    --navy:#8FAEDC; --meas:#4FBAC4; --warn:#D08A63;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -20px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#EEF2F6; --body:#C3CDD8; --soft:#94A2B1; --faint:#6E7D8C;
+  --paper:#0E151C; --card:#151F29; --wash:#182533; --rule:#26333F;
+  --navy:#8FAEDC; --meas:#4FBAC4; --warn:#D08A63;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -20px rgba(0,0,0,.8);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--body);
+  font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  font-size:16.5px; line-height:1.85; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1060px; margin:0 auto; padding:0 28px 120px}
+.col{max-width:40em}
+
+header.top{padding:76px 0 40px; border-bottom:1px solid var(--rule); margin-bottom:52px}
+.kicker{
+  font-family:"IBM Plex Mono",monospace; font-size:12px; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--meas); font-weight:500;
+}
+h1{
+  font-family:"Noto Serif TC",Georgia,serif; font-weight:700; color:var(--ink);
+  font-size:clamp(2.1rem,4.8vw,3.05rem); line-height:1.24; letter-spacing:.01em;
+  margin:.3em 0 .22em; text-wrap:balance;
+}
+.dek{font-size:1.08rem; color:var(--soft); max-width:38em; margin:0}
+.premise{
+  margin-top:34px; padding:20px 26px; background:var(--card);
+  border:1px solid var(--rule); border-radius:3px; box-shadow:var(--shadow);
+  max-width:42em;
+}
+.premise p{margin:0; font-size:1.02rem}
+strong{color:var(--ink); font-weight:700}
+
+section{margin:0 0 64px}
+h2{
+  font-family:"Noto Serif TC",Georgia,serif; font-weight:700; color:var(--ink);
+  font-size:1.6rem; line-height:1.4; margin:0 0 6px; text-wrap:balance;
+}
+h2 .n{font-family:"IBM Plex Mono",monospace; font-size:.68em; font-weight:400;
+      color:var(--faint); margin-right:.7em; letter-spacing:.04em}
+.sub{color:var(--soft); margin:0 0 26px; max-width:40em}
+h3{
+  font-weight:700; color:var(--ink); font-size:1.02rem;
+  margin:34px 0 12px; letter-spacing:.02em;
+}
+p{margin:0 0 15px}
+a{color:var(--meas)}
+
+/* 數學 */
+.m{font-family:Spectral,Georgia,serif; font-style:italic; color:var(--ink)}
+.mr{font-family:Spectral,Georgia,serif; font-style:normal; color:var(--ink)}
+sub,sup{font-size:.66em; font-style:italic; line-height:0}
+.op{display:inline-flex; flex-direction:column; align-items:center;
+    vertical-align:-.42em; line-height:1; margin:0 .12em}
+.op i{font-style:normal; font-size:1.5em; font-family:Spectral,Georgia,serif}
+.op small{font-size:.58em; margin-top:.06em; font-family:Spectral,Georgia,serif;
+          font-style:italic; color:var(--soft)}
+.eqn{
+  background:var(--wash); border:1px solid var(--rule); border-radius:3px;
+  padding:16px 20px; margin:14px 0 18px; overflow-x:auto;
+  font-family:Spectral,Georgia,serif; font-size:1.12rem; color:var(--ink);
+  white-space:nowrap; line-height:1.9;
+}
+.eqn.wrapok{white-space:normal}
+.tag{
+  display:inline-block; min-width:3.6em; margin-right:.9em;
+  font-family:"IBM Plex Mono",monospace; font-size:.72em; font-style:normal;
+  color:var(--navy); font-weight:500;
+}
+
+/* 增量清單 */
+.delta{display:grid; gap:2px; background:var(--rule); border:1px solid var(--rule);
+       border-radius:3px; overflow:hidden}
+.drow{display:grid; grid-template-columns:104px 1fr; background:var(--card)}
+.dkind{
+  padding:15px 16px; font-size:.84rem; font-weight:700; letter-spacing:.08em;
+  border-right:1px solid var(--rule); line-height:1.6;
+}
+.dkind.rm{color:var(--warn)} .dkind.rp{color:var(--navy)}
+.dkind.rx{color:var(--navy)} .dkind.ad{color:var(--meas)} .dkind.un{color:var(--faint)}
+.dbody{padding:14px 20px}
+.dbody .line{margin:0 0 5px; font-family:Spectral,Georgia,serif; font-size:1.02rem;
+             color:var(--ink); overflow-x:auto; line-height:1.9}
+.dbody .line:last-child{margin-bottom:0}
+.dbody .why{margin:9px 0 0; font-size:.94rem; color:var(--soft); line-height:1.8}
+
+/* 表格 */
+.tw{overflow-x:auto; margin:16px 0 20px; border:1px solid var(--rule);
+    border-radius:3px; background:var(--card)}
+table{border-collapse:collapse; width:100%; font-size:.94rem}
+th{
+  text-align:left; padding:11px 16px; background:var(--wash); color:var(--ink);
+  font-weight:700; font-size:.84rem; border-bottom:1px solid var(--rule); white-space:nowrap;
+}
+td{padding:11px 16px; border-bottom:1px solid var(--rule); vertical-align:top; line-height:1.75}
+tr:last-child td{border-bottom:none}
+td.num{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums;
+       white-space:nowrap; color:var(--ink)}
+td.sym{font-family:Spectral,Georgia,serif; font-size:1.08rem; white-space:nowrap; color:var(--ink)}
+.mono{font-family:"IBM Plex Mono",monospace; font-size:.88em}
+
+/* 兩層 */
+.layers{display:grid; grid-template-columns:repeat(auto-fit,minmax(290px,1fr));
+        gap:18px; margin:18px 0 8px}
+.layer{background:var(--card); border:1px solid var(--rule); border-radius:3px;
+       padding:20px 24px; box-shadow:var(--shadow)}
+.layer h4{margin:0 0 2px; font-family:"Noto Serif TC",serif; font-size:1.18rem;
+          font-weight:700; color:var(--ink)}
+.layer .role{margin:0 0 14px; font-size:.88rem; color:var(--faint)}
+.layer dl{margin:0; display:grid; grid-template-columns:auto 1fr; gap:8px 18px; align-items:baseline}
+.layer dt{font-family:Spectral,Georgia,serif; font-size:1.04rem; color:var(--ink); white-space:nowrap}
+.layer dd{margin:0; font-size:.94rem; color:var(--soft); line-height:1.7}
+
+.note{
+  margin:22px 0; padding:17px 22px; background:var(--card);
+  border:1px solid var(--rule); border-left:3px solid var(--meas);
+  border-radius:0 3px 3px 0; max-width:42em;
+}
+.note.caution{border-left-color:var(--warn)}
+.note h4{margin:0 0 7px; font-size:.95rem; color:var(--meas); font-weight:700}
+.note.caution h4{color:var(--warn)}
+.note p{margin:0 0 10px; font-size:.96rem}
+.note p:last-child{margin-bottom:0}
+
+.chain{display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+       gap:14px; margin:20px 0}
+.link{background:var(--card); border:1px solid var(--rule); border-radius:3px; padding:18px 20px}
+.link .sym{font-family:Spectral,Georgia,serif; font-size:1.6rem; color:var(--meas);
+           font-style:italic; line-height:1; display:block; margin-bottom:10px}
+.link .def{font-size:.98rem; color:var(--ink); margin:0 0 7px; line-height:1.7}
+.link .unit{font-family:"IBM Plex Mono",monospace; font-size:.74rem; color:var(--faint);
+            letter-spacing:.04em; margin:0}
+
+footer{border-top:1px solid var(--rule); padding-top:26px; margin-top:70px;
+       font-size:.9rem; color:var(--faint); max-width:44em; line-height:1.85}
+footer code{font-family:"IBM Plex Mono",monospace; font-size:.9em; color:var(--soft)}
+
+@media (max-width:640px){
+  .wrap{padding:0 18px 80px}
+  header.top{padding:48px 0 32px}
+  .drow{grid-template-columns:1fr}
+  .dkind{border-right:none; border-bottom:1px solid var(--rule); padding:10px 16px}
+}
+</style>
+
+<div class="wrap">
+
+<header class="top">
+  <div class="kicker">Chapter 05 · Methodology</div>
+  <h1>M4 拆單模型</h1>
+  <p class="dek">在資訊不完整的線上聯合決策中，把決策原子由「訂單」降到「件」的
+  OA–PS–TA 模型。以相對 M1（Jiao et al., 2026）的增量方式陳述。</p>
+
+  <div class="premise">
+    <p><strong>整個模型只量測一件事：行走距離，單位是公尺。</strong>
+    目標式價值側的每一個價格，都是這段距離除以一種不同的工作計數器 ——
+    關閉的行數、完成的訂單數、揀取的件數。所以價值側沒有任何一個數字是人挑的。</p>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════ -->
+<section>
+  <h2><span class="n">§1</span>改了什麼，沒改什麼</h2>
+  <p class="sub">M1 指派整張訂單。M4 保留它的資源層不動，只替換訂單側。
+  以下是完整的差異清單。</p>
+
+  <div class="eqn wrapok">
+    <span class="tag">M1</span>
+    <span class="m">x̂</span><sub>o,w</sub> <span class="mr">∈ {0, 1}</span>
+    &nbsp;&nbsp;<span style="font-family:'Noto Sans TC',sans-serif;font-size:.86rem;color:var(--soft)">原子是訂單</span>
+    &nbsp;&nbsp;<span class="mr" style="color:var(--faint)">→</span>&nbsp;&nbsp;
+    <span class="tag">M4</span>
+    <span class="m">q̂</span><sub>o,i,p,w</sub> <span class="mr">∈ ℤ</span><sub>≥0</sub>
+    &nbsp;&nbsp;<span style="font-family:'Noto Sans TC',sans-serif;font-size:.86rem;color:var(--soft)">原子是件</span>
+  </div>
+
+  <p class="col">拆單不是外掛在 M1 上的功能，而是原子變細之後自然可表達的東西。
+  一旦決策變數計的是「訂單 <span class="m">o</span> 的 SKU <span class="m">i</span>
+  由貨架 <span class="m">p</span> 在站台 <span class="m">w</span> 取幾件」，
+  一張跨越多個貨架、多個站台或多期的訂單，就只是這個變數的一組可行解。</p>
+
+  <div class="delta">
+    <div class="drow">
+      <div class="dkind rm">移除</div>
+      <div class="dbody">
+        <p class="line"><span class="tag">(2)</span>
+          <span class="op"><i>∑</i><small>w</small></span>
+          <span class="m">x̂</span><sub>o,w</sub> <span class="mr">≤ 1</span></p>
+        <p class="line"><span class="tag">(12)(13)</span>
+          <span class="m">δ</span><sub>o,p,w</sub></p>
+        <p class="why">「一單一站」的限制式消失，連同輔助變數一起：
+        <span class="m">q</span><sub>o,i,p,w</sub> 的下標本身就帶了
+        <span class="m">δ</span><sub>o,p,w</sub> 當初要表達的（訂單, 貨架, 站台）三元組。
+        <strong>原子變細不只放寬了模型，在這裡它還縮小了模型。</strong></p>
+      </div>
+    </div>
+
+    <div class="drow">
+      <div class="dkind rp">取代</div>
+      <div class="dbody">
+        <p class="line"><span class="tag">B1</span>
+          <span class="m">q</span><sub>o,i,p,w</sub> <span class="mr">≤</span>
+          <span class="m">q̂</span><sub>o,i,p,w</sub></p>
+        <p class="line"><span class="tag">V1</span>
+          <span class="op"><i>∑</i><small>o</small></span>
+          <span class="m">q̂</span><sub>o,i,p,w</sub> <span class="mr">≤</span>
+          <span class="m">n̂</span><sub>i,p</sub> <span class="m">z</span><sub>p,w</sub></p>
+        <p class="line"><span class="tag">V2</span>
+          <span class="op"><i>∑</i><small>p,w</small></span>
+          <span class="m">q̂</span><sub>o,i,p,w</sub> <span class="mr">≤</span>
+          <span class="m">n</span><sub>i,o</sub></p>
+        <p class="line"><span class="tag">V3</span>
+          <span class="op"><i>∑</i><small>p,w</small></span>
+          <span class="m">q̂</span><sub>o,i,p,w</sub> <span class="mr">≥</span>
+          <span class="m">n</span><sub>i,o</sub> <span class="m">ê</span><sub>o,i</sub></p>
+        <p class="why">M1 的 (3) 變成 B1，改為逐件陳述。
+        M1 的單一覆蓋不等式 (5) 拆成三條：取件需要該貨架上有庫存且該貨架已派至該站、
+        取件量不得超過剩餘需求、以及一條訂單行唯有被取滿才算關閉。</p>
+      </div>
+    </div>
+
+    <div class="drow">
+      <div class="dkind rx">放寬</div>
+      <div class="dbody">
+        <p class="line"><span class="tag">B3</span>
+          <span class="op"><i>∑</i><small>o</small></span>
+          <span class="m">x</span><sub>o,w</sub> <span class="mr">≤</span>
+          <span class="m">c</span><sub>w</sub><span class="mr">(</span><span class="m">t</span><span class="mr">)</span></p>
+        <p class="why">M1 的 (4) 是<strong>等式</strong>：已指派訂單數必須等於可用容量減未用容量，
+        目標式再對每個空槽收 1000。B3 是不等式，所以當沒有值得派出的東西時，
+        站台可以留著空槽。未用容量變數 <span class="m">u</span><sub>w</sub> 也隨之消失。</p>
+      </div>
+    </div>
+
+    <div class="drow">
+      <div class="dkind ad">新增</div>
+      <div class="dbody">
+        <p class="line"><span class="tag">V4</span>
+          <span class="m">ê</span><sub>o,i</sub> <span class="mr">≥</span>
+          <span class="m">f̂</span><sub>o</sub></p>
+        <p class="line"><span class="tag">B2</span>
+          <span class="op"><i>∑</i><small>i,p</small></span>
+          <span class="m">q</span><sub>o,i,p,w</sub> <span class="mr">≤</span>
+          <span class="m">N</span><sub>o</sub> <span class="m">x</span><sub>o,w</sub></p>
+        <p class="line"><span class="tag">B4</span>
+          <span class="m">x</span><sub>o,w</sub> <span class="mr">≤</span>
+          <span class="op"><i>∑</i><small>i,p</small></span>
+          <span class="m">q</span><sub>o,i,p,w</sub></p>
+        <p class="line"><span class="tag">B5</span>
+          <span class="op"><i>∑</i><small>p,w</small></span>
+          <span class="m">q</span><sub>o,i,p,w</sub> <span class="mr">≥</span>
+          <span class="m">n</span><sub>i,o</sub> <span class="m">e</span><sub>o,i</sub></p>
+        <p class="line"><span class="tag">B6</span>
+          <span class="m">e</span><sub>o,i</sub> <span class="mr">≤</span>
+          <span class="m">ê</span><sub>o,i</sub><span class="mr">,</span>&nbsp;&nbsp;
+          <span class="m">f</span><sub>o</sub> <span class="mr">≤</span>
+          <span class="m">f̂</span><sub>o</sub></p>
+        <p class="line"><span class="tag">B7</span>
+          <span class="m">e</span><sub>o,i</sub> <span class="mr">≥</span>
+          <span class="m">f</span><sub>o</sub></p>
+        <p class="why">M1 不需要完成變數：在它的覆蓋限制式下，「被指派」已經蘊含「湊得齊」。
+        一旦容許部分滿足，這個蘊含關係就斷了，所以「行關閉」與「訂單完成」
+        必須被明確承載 —— 而且兩層都要。</p>
+      </div>
+    </div>
+
+    <div class="drow">
+      <div class="dkind un">不變</div>
+      <div class="dbody">
+        <p class="line"><span class="tag">R1–R5</span>
+          <span class="mr">←</span> <span class="mr">(6)–(11)</span></p>
+        <p class="why">一貨架一站、一貨架一車、一車一貨架、派架須有車，
+        以及繼承系統中已承諾的貨架與機器人。
+        <strong>任務指派仍在模型內</strong>，與 M1 完全相同。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ -->
+<section>
+  <h2><span class="n">§2</span>兩層結構，與兩層之間的兌現率</h2>
+  <p class="sub">M1 本身已經把「可以被指派的」與「實際被指派的」分開。
+  M4 保留這個分離，但用量測而來的比率取代固定的權重。</p>
+
+  <div class="layers">
+    <div class="layer">
+      <h4>估值層</h4>
+      <p class="role">這次決策所<em>宣稱</em>的</p>
+      <dl>
+        <dt><span class="m">q̂</span><sub>o,i,p,w</sub></dt><dd>估值取件量</dd>
+        <dt><span class="m">ê</span><sub>o,i</sub></dt><dd>訂單行 (<span class="m">o</span>, <span class="m">i</span>) 已被取滿</dd>
+        <dt><span class="m">f̂</span><sub>o</sub></dt><dd>該訂單所有行皆關閉</dd>
+      </dl>
+    </div>
+    <div class="layer">
+      <h4>綁定層</h4>
+      <p class="role">這次決策所<em>執行</em>的</p>
+      <dl>
+        <dt><span class="m">q</span><sub>o,i,p,w</sub></dt><dd>實際取件量</dd>
+        <dt><span class="m">x</span><sub>o,w</sub></dt><dd>訂單 <span class="m">o</span> 佔用站台 <span class="m">w</span> 的一個槽位</dd>
+        <dt><span class="m">e</span><sub>o,i</sub>, <span class="m">f</span><sub>o</sub></dt><dd>綁定的行關閉與訂單完成</dd>
+      </dl>
+    </div>
+  </div>
+
+  <p class="col">估值層<strong>不受槽位限制</strong>：它可以宣稱站台本次吃不下的覆蓋。
+  綁定層才是真正發生的事。在 M1 裡，兩層之間的價格比是手工釘死的 ——
+  估值變數上掛 <span class="mono">α₁ = −40</span>，而把等式 (4) 代入目標式之後，
+  綁定變數實際領到 <span class="mono">−1000</span>。
+  那就是一個隱含的兌現率 <span class="mono">40 / 1000 ≈ 0.038</span>，
+  整場模擬固定，而且對所有實例都一樣。</p>
+
+  <div class="eqn wrapok">
+    <span class="m">β</span> <span class="mr">=</span>
+    <span style="font-family:'Noto Sans TC',sans-serif;font-size:.98rem">累積綁定行數 &nbsp;÷&nbsp; 累積估值行數</span>
+  </div>
+
+  <p class="col">M4 改成量測它：估值層判定為關閉的那些行，綁定層實際取走了幾成？
+  這個比值就是 <span class="m">β</span>，隨模擬進行持續重算，並夾在 [0, 1] 之間。</p>
+
+  <div class="note">
+    <h4>以已承諾供給分層</h4>
+    <p>用單一的全系統比率是錯的，因為實測的比率並不平坦：
+    小規模 10 台機器人下，已承諾一台貨架時是 <strong>0.2117</strong>，
+    兩台時是 <strong>0.1376</strong>。</p>
+    <p>原因是結構性的：不論已承諾幾台，槽位容量把綁定行數釘在每次決策約 1.01 行，
+    但估值行數會隨之成長（4.79 → 7.38）。也就是說，第三台貨架被計分的那些額外覆蓋，
+    <strong>是綁定層根本吃不下的覆蓋</strong>。因此 <span class="m">β</span>
+    以已承諾貨架數分層（上限 3），某層在累積滿 50 條估值行之前退回全域比值。</p>
+  </div>
+
+  <p class="col"><strong>關於符號。</strong>這個比率寫作 <span class="m">β</span> 而不是
+  <span class="m">δ</span>，因為原論文已經把 <span class="m">δ</span> 用掉兩次 ——
+  一次是觸發決策的容量門檻（p. 4、Table 5），一次是輔助變數
+  <span class="m">δ</span><sub>o,p,w</sub>（p. 6、限制式 (12)–(13)）。
+  Jiao 的符號維持原樣，要改名的是我們自己的。</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════ -->
+<section>
+  <h2><span class="n">§3</span>目標式是一個比值</h2>
+  <p class="sub">不是距離與價值的加權和，而是<strong>每單位價值所付出的距離</strong> ——
+  這樣就不必決定「一張訂單值幾公尺」。</p>
+
+  <div class="eqn">
+    <span class="mr">min</span>&nbsp;&nbsp;<span class="m">D</span> <span class="mr">/</span> <span class="m">V</span>
+  </div>
+
+  <div class="eqn">
+    <span class="tag">D</span>
+    <span class="op"><i>∑</i><small>p ∈ P<sub>a</sub></small></span>
+    <span class="op"><i>∑</i><small>w</small></span>
+    <span class="m">d</span><sub>p,w</sub> <span class="m">z</span><sub>p,w</sub>
+    &nbsp;<span class="mr">+</span>&nbsp;
+    <span class="op"><i>∑</i><small>r ∈ R<sub>a</sub></small></span>
+    <span class="op"><i>∑</i><small>p ∈ P<sub>a</sub></small></span>
+    <span class="m">d</span><sub>r,p</sub> <span class="m">y</span><sub>r,p</sub>
+  </div>
+
+  <div class="eqn">
+    <span class="tag">V</span>
+    <span class="m">λ</span> <span class="mr">[ (1−</span><span class="m">β</span><span class="mr">)</span>
+    <span class="op"><i>∑</i><small>o,i</small></span><span class="m">e</span><sub>o,i</sub>
+    <span class="mr">+</span> <span class="m">β</span>
+    <span class="op"><i>∑</i><small>o,i</small></span><span class="m">ê</span><sub>o,i</sub><span class="mr">]</span>
+    &nbsp;<span class="mr">+</span>&nbsp;
+    <span class="m">μ</span> <span class="mr">[ (1−</span><span class="m">β</span><span class="mr">)</span>
+    <span class="op"><i>∑</i><small>o</small></span><span class="m">f</span><sub>o</sub>
+    <span class="mr">+</span> <span class="m">β</span>
+    <span class="op"><i>∑</i><small>o</small></span><span class="m">f̂</span><sub>o</sub><span class="mr">]</span>
+    &nbsp;<span class="mr">+</span>&nbsp;
+    <span class="m">ε</span> <span class="op"><i>∑</i><small>&nbsp;</small></span><span class="m">q</span>
+    &nbsp;<span class="mr">+</span>&nbsp;
+    <span class="m">ρ</span> <span class="mr">[</span>
+    <span class="op"><i>∑</i><small>p ∈ P<sub>p</sub></small></span><span class="m">q</span>
+    <span class="mr">−</span>
+    <span class="op"><i>∑</i><small>p ∈ P<sub>a</sub></small></span><span class="m">q</span>
+    <span class="mr">]</span>
+  </div>
+
+  <p class="col">只有本次新派出的貨架支付行程；已在途或已在站的貨架，行程是沉沒成本。
+  <span class="m">D</span> 與 <span class="m">V</span> 都以公尺計價，所以這個比值是無量綱的。</p>
+
+  <h3>逐項說明</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>項</th><th>計價對象</th><th>作用層</th></tr></thead>
+      <tbody>
+        <tr><td class="num">T1, T2</td><td>新派出貨架與其機器人的行程</td><td>派車</td></tr>
+        <tr><td class="num">T3</td><td>行關閉，價格 <span class="m">λ</span>，以 <span class="m">β</span> 在兩層之間拆分</td><td>兩層</td></tr>
+        <tr><td class="num">T4</td><td>訂單完成，價格 <span class="m">μ</span>，同樣的拆分</td><td>兩層</td></tr>
+        <tr><td class="num">T5</td><td>即時性，價格 <span class="m">ε</span> —— 價值相同時偏好現在就執行的解</td><td>僅綁定層</td></tr>
+        <tr><td class="num">T6</td><td>貨架層級，價格 <span class="m">ρ</span></td><td>僅綁定層</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>T6 —— 為什麼「從哪台貨架取件」有差</h3>
+  <p class="col">實際被取空的是哪一台貨架，有真實世界的後果，所以只有綁定層的取件承載這一項。
+  從<strong>正在被揀貨</strong>的貨架取一件，省下了未來為那件商品再跑一趟，所以給獎勵；
+  從<strong>本次決策新派出</strong>的貨架取一件，確實多跑了一趟，所以收費。
+  排隊中與在途的貨架，行程已經沉沒，與 T1／T2 同一口徑。</p>
+
+  <div class="eqn wrapok">
+    <span class="m">p</span> <span class="mr">∈</span> <span class="m">P</span><sub>p</sub>
+    <span class="mr">:&nbsp; −</span><span class="m">ρ</span>
+    &nbsp;&nbsp;&nbsp;&nbsp;
+    <span class="m">p</span> <span class="mr">∈</span> <span class="m">P</span><sub>a</sub>
+    <span class="mr">:&nbsp; +</span><span class="m">ρ</span>
+    &nbsp;&nbsp;&nbsp;&nbsp;
+    <span class="m">p</span> <span class="mr">∈</span> <span class="m">P</span><sub>q</sub>
+    <span class="mr">∪</span> <span class="m">P</span><sub>b</sub>
+    <span class="mr">:&nbsp; 0</span>
+  </div>
+
+  <p class="col"><strong>這一項在訂單原子下沒有對應物。</strong>
+  降低決策原子不只是放寬限制式 —— 它同時打開了一個先前不存在的定價維度。</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════ -->
+<section>
+  <h2><span class="n">§4</span>價格從哪裡來</h2>
+  <p class="sub">被量測的只有距離。每一個價格都是這段距離除以一種不同的工作計數器。</p>
+
+  <div class="chain">
+    <div class="link">
+      <span class="sym">λ</span>
+      <p class="def">距離 ÷ 已關閉行數</p>
+      <p class="unit">metres per line</p>
+    </div>
+    <div class="link">
+      <span class="sym">μ</span>
+      <p class="def">λ × 每張訂單的行數<br>= 距離 ÷ 完成訂單數</p>
+      <p class="unit">metres per order</p>
+    </div>
+    <div class="link">
+      <span class="sym">ρ</span>
+      <p class="def">距離 ÷ 已揀件數</p>
+      <p class="unit">metres per unit</p>
+    </div>
+    <div class="link">
+      <span class="sym">ε</span>
+      <p class="def">0.001 × λ</p>
+      <p class="unit">metres per unit</p>
+    </div>
+  </div>
+
+  <p class="col"><span class="m">β</span> 不是價格。它無量綱 —— 是兩層之間的兌換率 ——
+  也是上面唯一一個不由距離產生的量。</p>
+
+  <div class="note">
+    <h4>為什麼那些比值不是自由參數</h4>
+    <p>比值目標式由 Dinkelbach 線性化，每次迭代在當前的 <span class="m">λ</span> 下求解
+    <span class="mr">min</span> <span class="m">D</span> <span class="mr">−</span>
+    <span class="m">V</span>。這件事成立的前提是：<span class="m">λ</span> 在搜尋時，
+    <span class="m">V</span> 的<strong>形狀必須不動</strong> ——
+    所以 <span class="m">μ</span>、<span class="m">ε</span>、<span class="m">ρ</span>
+    連同 <span class="m">λ</span> 等比例縮放，只有水位在移動。</p>
+    <p>因此這些比值是由實例本身決定的，不是選出來的：
+    <span class="mono">μ/λ</span> 就是每張訂單的行數，
+    <span class="mono">ρ/λ</span> 就是每行件數的倒數。
+    如果比值會隨 <span class="m">λ</span> 漂移，那麼改變 <span class="m">λ</span>
+    就是在改變模型，而不是在修正一個比值估計。</p>
+  </div>
+
+  <h3>單場實測</h3>
+  <p class="col">小規模、6 台機器人、seed 0，取自決策日誌。</p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>價格</th><th>中位數</th><th>範圍</th><th>對 λ 之比</th></tr></thead>
+      <tbody>
+        <tr><td class="sym">λ</td><td class="num">8.063</td><td class="num">6.28 – 10.00</td><td class="num">1</td></tr>
+        <tr><td class="sym">μ</td><td class="num">12.222</td><td class="num">9.80 – 16.67</td><td class="num">1.517</td></tr>
+        <tr><td class="sym">ρ</td><td class="num">3.697</td><td class="num">1.09 – 185.5</td><td class="num">0.467</td></tr>
+        <tr><td class="sym">ε</td><td class="num">0.008</td><td class="num">0.006 – 0.010</td><td class="num">0.001</td></tr>
+        <tr><td class="sym">β</td><td class="num">0.188</td><td class="num">0.05 – 0.211</td><td class="num">—</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="col" style="font-size:.94rem;color:var(--soft)"><span class="m">ρ</span>
+  範圍的高端是暖機期的假象：模擬初期件數計數器還很小。它收斂得很快。</p>
+
+  <h3>統計量還不可用之前</h3>
+  <p class="col">前 50 條關閉行之內，累積計數太薄無法據以定價，改用種子值。
+  它們<strong>只支配暖機期</strong>。</p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>價格</th><th>暖機值</th><th>推導自</th></tr></thead>
+      <tbody>
+        <tr><td class="sym">λ</td><td class="num">10 m / line</td><td class="mono">LambdaFallback</td></tr>
+        <tr><td class="sym">μ</td><td class="num">24 m / order</td><td class="mono">λ × LinesPerOrderFallback (2.4)</td></tr>
+        <tr><td class="sym">ρ</td><td class="num">15 m / unit</td><td class="mono">λ × RhoFallback / 10</td></tr>
+        <tr><td class="sym">ε</td><td class="num">0.01</td><td class="mono">EpsilonScale × λ</td></tr>
+        <tr><td class="sym">β</td><td class="num">0.05</td><td class="mono">DeltaFallback</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note caution">
+    <h4>暖機期的 ρ 必須是比值，不能是絕對值</h4>
+    <p>它曾經是絕對值 15。當暖機 <span class="m">λ</span> 從 10 減半為 5，
+    <span class="mono">ρ/λ</span> 就從 1.5 變成 3.0 ——
+    <strong>每一個 draw-line move 的分數都變成正的，沒有任何 move 被接受，
+    整場模擬產出零張訂單</strong>。把 <span class="mono">ρ/λ</span> 釘住才恢復了那條不變量，
+    並讓 fallback 回到它應有的角色：一個比值的起始猜測，之後由 Dinkelbach 迭代去修正。</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ -->
+<section>
+  <h2><span class="n">§5</span>該自己講出來的三件事</h2>
+  <p class="sub">與其被別人找到，不如自己先寫清楚。</p>
+
+  <h3>「零調參」不能照字面講</h3>
+  <p class="col">四個穩態價格確實沒有任何調校旋鈕：所有 scale 都是 1，兩個覆寫欄位都關閉。
+  但確實有些數字是手設的，誠實的宣稱必須把它們列出來。</p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>參數</th><th>值</th><th>支配範圍</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">EpsilonScale</td><td class="num">0.001</td><td>全程 —— 但 ε 只是平手時的破局項，刻意壓在 λ 的千分之一</td></tr>
+        <tr><td class="mono">WarmupLines</td><td class="num">50</td><td>何時由量測值接手</td></tr>
+        <tr><td class="mono">LambdaFallback</td><td class="num">10</td><td>僅暖機期</td></tr>
+        <tr><td class="mono">LinesPerOrderFallback</td><td class="num">2.4</td><td>僅暖機期</td></tr>
+        <tr><td class="mono">RhoFallback</td><td class="num">15</td><td>僅暖機期，作為比值的錨</td></tr>
+        <tr><td class="mono">DeltaFallback</td><td class="num">0.05</td><td>僅暖機期</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="col">所以正確的說法是：<strong>沒有任何支配穩態行為的價格是手設的；
+  手設的數字只有暖機種子值，以及一個比 λ 低三個數量級的破局尺度。</strong></p>
+
+  <h3>λ 的分母包含了揀貨決策管不到的工作</h3>
+  <p class="col">λ 與 ρ 除的是全隊的<strong>總</strong>距離，其中也包含補貨行程與貨架放回 ——
+  在小型 benchmark 上大約佔四分之三。去趨勢之後，λ 與補貨強度在兩小時尺度上的相關係數是
+  <strong>+0.73</strong>，而且方向是反的：補貨忙碌會推高 λ，推高價值側，
+  於是揀貨側<strong>在車隊最擁擠的時候反而更願意派車</strong>。</p>
+  <p class="col">以揀貨距離為分母的版本已經實作但關閉，因為開啟會動到所有已發表的數字。
+  它只影響 λ 的<strong>水位</strong> —— <span class="mono">μ/λ</span>、
+  <span class="mono">ρ/λ</span>、<span class="mono">ε/λ</span> 共用分子，天生免疫。
+  這一條應該寫進研究限制章，不是模型章。</p>
+
+  <h3>跨站拆單要付兩個槽位</h3>
+  <p class="col">站台容量仍然以<strong>訂單</strong>計 —— 小規模是 6，承自 M1 ——
+  而 B2 讓任何一次為某訂單在某站的取件都佔用其中一個槽位。
+  因此一張在兩個站台被服務的訂單會消耗兩個槽位。
+  這是拆單為何集中在時間方向而非空間方向的結構性原因，
+  屬於容量語意的性質，不是模型的缺陷。</p>
+</section>
+
+<footer>
+  模型陳述取自 <code>M4GManager.cs</code>（限制式 R／V／B、目標式 T1–T6）與
+  <code>M4GPricing.cs</code>，設定為正典的 <code>m4g.xconf</code>；
+  在該設定下被關閉的限制式已略去，因為它們是 inert 的。
+  基準模型的符號與式號沿用 Jiao et al. (2026), <em>Omega</em> 138:103374。
+  實測值為小規模 6 機器人實例的 seed 0。
+</footer>
+
+</div>

@@ -1,0 +1,20 @@
+{
+ "version": 2,
+ "fingerprint": "3228a86133c4b32d",
+ "date": "2026-09-16T16:57:34",
+ "note": "Canon v2: GreedyM5 PackingFullWholeOrderFallback=true（拆單預算耗盡時 HADGS 式整單組合派車）。M4G/NS 不變。守門員 2026-09-16_pkwhole_final pk1_flagoff 與 Release 逐位相同；預算未觸頂之場次行為不變。",
+ "history": [
+  {
+   "version": 1,
+   "date": "2026-09-15T16:20:32",
+   "note": "2026-09-15 正典：NewPodFirstAllocation+LineBoundTau+M1GUrgentGate（M4G/NS/M5），M5 另加 DrawsFirstDispatch",
+   "fingerprint": "9890dba8e0a7ec54"
+  },
+  {
+   "version": 2,
+   "date": "2026-09-16T16:57:34",
+   "note": "Canon v2: GreedyM5 PackingFullWholeOrderFallback=true（拆單預算耗盡時 HADGS 式整單組合派車）。M4G/NS 不變。守門員 2026-09-16_pkwhole_final pk1_flagoff 與 Release 逐位相同；預算未觸頂之場次行為不變。",
+   "fingerprint": "3228a86133c4b32d"
+  }
+ ]
+}
