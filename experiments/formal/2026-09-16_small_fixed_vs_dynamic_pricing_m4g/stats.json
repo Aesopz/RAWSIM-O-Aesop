@@ -1,5 +1,5 @@
 {
- "generated": "2026-09-16T11:06:47",
+ "generated": "2026-09-16T19:47:08",
  "definitions": {
   "pct": "(mean_b - mean_a) / mean_a * 100",
   "delta": "b - a paired by seed",

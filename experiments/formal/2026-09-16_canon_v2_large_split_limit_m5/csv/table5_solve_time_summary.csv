@@ -1,0 +1,5 @@
+﻿Policy,Bots,Time per decision (s),Total time (s),Decisions
+HGS-M5,45,0.0655,359.3,5467
+HGS-M5 N=2,45,0.0617,315.5,5113
+HGS-M5 N=3,45,0.0576,326.0,5660
+HGS-M5 N=4,45,0.0597,325.1,5446

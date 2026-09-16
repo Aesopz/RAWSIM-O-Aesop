@@ -25,7 +25,8 @@
    "reuse_from": {
     "experiment": "2026-09-15_canon_v1_large_split_limit_m5",
     "arm": "m5_45b"
-   }
+   },
+   "display": "HGS-M5"
   },
   {
    "label": "m5_n2_45b",
@@ -49,7 +50,8 @@
     7,
     8,
     9
-   ]
+   ],
+   "display": "HGS-M5 N=2"
   },
   {
    "label": "m5_n3_45b",
@@ -73,7 +75,8 @@
     7,
     8,
     9
-   ]
+   ],
+   "display": "HGS-M5 N=3"
   },
   {
    "label": "m5_n4_45b",
@@ -97,7 +100,8 @@
     7,
     8,
     9
-   ]
+   ],
+   "display": "HGS-M5 N=4"
   }
  ],
  "comparisons": [
@@ -119,5 +123,13 @@
    "kind": "ablation",
    "variable": "MaxPartsPerOrder=4"
   }
- ]
+ ],
+ "equivalent_dlls": {
+  "guard": "2026-09-16_pkwhole_final",
+  "sha256": [
+   "94a44bdb4844fea74934bfe1d0db3a0c2ea11971cb6fe05084b23dc09159120d",
+   "2b11c291972a376685b86cf4f825087ac7794cc384f024a138e7fbbc4c76b676"
+  ],
+  "note": "v1 Release vs v2 Release: differ only by PackingFullWholeOrderFallback, which is inert when no budget binds; guard pk1_flagoff bit-identical to v1 output"
+ }
 }

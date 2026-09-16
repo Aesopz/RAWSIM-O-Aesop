@@ -277,7 +277,7 @@ python scripts/exp.py verify 2026-09-16_m4g_n2_trend
 python scripts/exp.py table 2026-09-16_m4g_n2_trend
 ```
 
-產生 `results.csv`（12 欄表＋場景行＋配對檢定）、`stats.xlsx`、`stats.json`、`apa_tables.docx` 與 `NOTES.md`。只接受 `valid`；`superseded` 會在表頭加警告。
+產生 `results.csv`（12 欄表＋場景行＋配對檢定）、`stats.xlsx`、`stats.json`、`apa_tables.docx`、`NOTES.md`，以及 **`csv/` 完整 CSV 組**（means／sd／Δ%／p／CI95／per-seed／solve time；Policy 欄取 arm 的 `display`）。只接受 `valid`；`superseded` 會在表頭加警告。
 
 **所有統計由 `scripts/stats_pipeline.py` 計算**：scipy 算精確 p 值，Excel 用原生公式獨立重算並自動比對，誤差超過 1e-9 就中止。**不得心算或手抄任何平均、百分比、p 值**；回報時直接引用 `results.csv`／`stats.json`，並確認 `excel_check` 是 `passed`（詳見 `docs/REPORTING-STANDARD.md` 第 5 節）。
 
@@ -311,6 +311,7 @@ python scripts/exp.py table 2026-09-16_m4g_n2_trend
 | `arms[].xlayo/xsett/xconf` | ✓ | `Canon/...`（相對 `Material/Instances/`）或 `inputs/...`（相對實驗資料夾） |
 | `arms[].seeds` | ✓ | seed 清單，例如 `[0]`、`[0,1,2,3,4]`、`[0..9]` 要寫全 |
 | `arms[].templates` | 非 Canon 檔必填 | `{"xconf": "Canon/small/m4g.xconf"}` |
+| `arms[].display` | 建議 | 書面 policy 名稱（M4G-WS、HGS-M5 N=2…），CSV 與表格用它 |
 | `arms[].changed` | 有改變數時必填 | 改動的 XML 標籤名，例如 `["MaxPartsPerOrder"]` |
 | `comparisons[]` | formal 必填 | `{"a": 對照組, "b": 實驗組, "kind": "ablation"/"benchmark"/"fidelity", "variable": "唯一差異"}`；delta ＝ b − a |
 

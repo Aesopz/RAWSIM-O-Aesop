@@ -1,0 +1,4 @@
+﻿Policy,Reference,Bots,Items,Lines,Orders,Pile-on,Trips,Trips/order,m/line,EOR (kJ/order),Turnover (s),Station idle (%)
+HGS-M5 N=2,HGS-M5,45,< .001,.004,< .001,< .001,< .001,< .001,< .001,< .001,< .001,< .001
+HGS-M5 N=3,HGS-M5,45,.100,.211,.892,< .001,< .001,< .001,< .001,< .001,.517,.097
+HGS-M5 N=4,HGS-M5,45,.792,.438,.894,.652,.669,.657,.081,.150,.470,.748

@@ -97,8 +97,8 @@
  ],
  "queued": "2026-09-16T18:31:01",
  "started": "2026-09-16T18:31:04",
- "finished": null,
- "exit": null,
+ "finished": "2026-09-16T18:44:52",
+ "exit": 0,
  "attempt": 1,
  "dll_at_start_sha256": "2b11c291972a376685b86cf4f825087ac7794cc384f024a138e7fbbc4c76b676"
 }

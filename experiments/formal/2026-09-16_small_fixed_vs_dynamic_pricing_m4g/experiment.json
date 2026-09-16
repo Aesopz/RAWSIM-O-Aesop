@@ -25,7 +25,8 @@
    "reuse_from": {
     "experiment": "2026-09-15_canon_v1_small_split_limit_fidelity",
     "arm": "m4g_6b"
-   }
+   },
+   "display": "M4G (dynamic)"
   },
   {
    "label": "m4g_fix4p5_6b",
@@ -52,7 +53,8 @@
     7,
     8,
     9
-   ]
+   ],
+   "display": "M4G fixed λ=4.5"
   },
   {
    "label": "m4g_fix6_6b",
@@ -79,7 +81,8 @@
     7,
     8,
     9
-   ]
+   ],
+   "display": "M4G fixed λ=6"
   },
   {
    "label": "m4g_fix8_6b",
@@ -106,7 +109,8 @@
     7,
     8,
     9
-   ]
+   ],
+   "display": "M4G fixed λ=8"
   },
   {
    "label": "m4g_fix11_6b",
@@ -133,7 +137,8 @@
     7,
     8,
     9
-   ]
+   ],
+   "display": "M4G fixed λ=11"
   },
   {
    "label": "m4g_fix15_6b",
@@ -160,7 +165,8 @@
     7,
     8,
     9
-   ]
+   ],
+   "display": "M4G fixed λ=15"
   },
   {
    "label": "m4g_fix20_6b",
@@ -187,7 +193,8 @@
     7,
     8,
     9
-   ]
+   ],
+   "display": "M4G fixed λ=20"
   },
   {
    "label": "m4g_fix28_6b",
@@ -214,7 +221,8 @@
     7,
     8,
     9
-   ]
+   ],
+   "display": "M4G fixed λ=28"
   },
   {
    "label": "m4g_dyn_10b",
@@ -236,7 +244,8 @@
    "reuse_from": {
     "experiment": "2026-09-15_canon_v1_small_split_limit_fidelity",
     "arm": "m4g_10b"
-   }
+   },
+   "display": "M4G (dynamic)"
   },
   {
    "label": "m4g_fix4p5_10b",
@@ -263,7 +272,8 @@
     7,
     8,
     9
-   ]
+   ],
+   "display": "M4G fixed λ=4.5"
   },
   {
    "label": "m4g_fix6_10b",
@@ -290,7 +300,8 @@
     7,
     8,
     9
-   ]
+   ],
+   "display": "M4G fixed λ=6"
   },
   {
    "label": "m4g_fix8_10b",
@@ -317,7 +328,8 @@
     7,
     8,
     9
-   ]
+   ],
+   "display": "M4G fixed λ=8"
   },
   {
    "label": "m4g_fix11_10b",
@@ -344,7 +356,8 @@
     7,
     8,
     9
-   ]
+   ],
+   "display": "M4G fixed λ=11"
   },
   {
    "label": "m4g_fix15_10b",
@@ -371,7 +384,8 @@
     7,
     8,
     9
-   ]
+   ],
+   "display": "M4G fixed λ=15"
   },
   {
    "label": "m4g_fix20_10b",
@@ -398,7 +412,8 @@
     7,
     8,
     9
-   ]
+   ],
+   "display": "M4G fixed λ=20"
   },
   {
    "label": "m4g_fix28_10b",
@@ -425,7 +440,8 @@
     7,
     8,
     9
-   ]
+   ],
+   "display": "M4G fixed λ=28"
   }
  ],
  "comparisons": [

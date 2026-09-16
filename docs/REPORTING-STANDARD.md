@@ -332,7 +332,7 @@ Note. 2 h, 10 seeds, 2 pick stations, ...       ← Note. 斜體，精簡
 
 ### 5.5 每批數據固定產出 CSV 組（使用者 2026-09-15 定案：「以後也要做 csv」）
 
-每次整理一組比較，除了 stats.json／stats.xlsx／apa_tables.docx，一律在 `docs/experiments/<日期>-<主題>/` 產出下列 CSV（UTF-8 BOM，表頭英文，內容依 4.1 規範，無中文、無代號、無判讀字）：
+`exp.py table` **每次自動**在實驗資料夾 `csv/` 產出下列 CSV（2026-09-16 起；不靠手動）。Policy 欄用 `experiment.json` 各 arm 的 `display` 欄位（書面名，見 1.6），未填則用 label。要放進 `docs/experiments/<日期>-<主題>/` 時直接複製 `csv/`。清單（UTF-8 BOM，表頭英文，內容依 4.1 規範，無中文、無代號、無判讀字）：
 
 | 檔案 | 內容 |
 |---|---|

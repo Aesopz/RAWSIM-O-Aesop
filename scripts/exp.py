@@ -780,6 +780,12 @@ def cmd_table(exp_id):
     io.open(os.path.join(exp_dir(exp_id), "results.csv"), "w", encoding="utf-8").write(text)
     print(text)
     print("outputs: stats.xlsx (Excel-verified), stats.json, apa_tables.docx")
+    # (REPORTING-STANDARD 5.5) The CSV bundle is produced on EVERY table run, into the experiment
+    # folder's csv/ subdir. Policy display names come from arm["display"] / arm["display_bots"] when
+    # given, else from the label with a Legacy->M4G-WS style cleanup left to the author.
+    label_map = {a["label"]: [a.get("display", a["label"]), scen[a["label"]]["bots"]] for a in exp["arms"]}
+    import csv_bundle as CB
+    CB.bundle(exp_id, os.path.join(exp_dir(exp_id), "csv"), label_map)
     write_notes(exp, text)
 
 

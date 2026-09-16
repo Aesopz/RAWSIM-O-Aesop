@@ -1,0 +1,206 @@
+{
+ "verified": "2026-09-16T19:52:18",
+ "canon_version": 2,
+ "runs": [
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_45b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_45b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_45b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_45b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_45b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_45b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_45b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_45b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_45b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_45b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk3_45b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk3_45b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk3_45b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk3_45b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk3_45b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk3_45b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk3_45b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk3_45b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk3_45b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk3_45b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk1_45b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk1_45b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk1_45b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk1_45b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk1_45b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk1_45b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk1_45b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk1_45b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk1_45b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk1_45b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk2_45b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk2_45b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk2_45b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk2_45b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk2_45b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk2_45b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk2_45b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk2_45b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk2_45b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk2_45b_s9",
+   "validity": "valid",
+   "problems": []
+  }
+ ]
+}

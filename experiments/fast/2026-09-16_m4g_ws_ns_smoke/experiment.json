@@ -1,0 +1,29 @@
+{
+ "id": "2026-09-16_m4g_ws_ns_smoke",
+ "kind": "fast",
+ "question": "M4G-WS-NS（整單限制式＋Jiao 加權和目標式）能否正常運作？seed 0 件數落在哪裡（對照 M1G 1224、M4G-NS 1225、M4G-WS 1388）？",
+ "motivation": "補 M4G 架構內 2×2 的第四格：不拆單下定價的乾淨消融（vs M4G-NS）。",
+ "scenario_confirmed_by_user": false,
+ "arms": [
+  {
+   "label": "m4g_ws_ns_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_ws_ns.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g_ns.xconf"
+   },
+   "changed": [
+    "OrderAtomicCanonPrices",
+    "LegacyObjective",
+    "LegacyOrderReward",
+    "LegacyIdleSlotWeight",
+    "LegacyRewardValuation"
+   ],
+   "seeds": [
+    0
+   ]
+  }
+ ],
+ "comparisons": []
+}
