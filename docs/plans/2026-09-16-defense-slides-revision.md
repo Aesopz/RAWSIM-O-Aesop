@@ -108,3 +108,14 @@
 - [ ] RQ1 ↔ 第 32 頁；RQ2 ↔ N 掃描頁＋6/10 bots；RQ3 ↔ Turnover 頁。
 - [ ] 第 24、27 頁已換成 Canon v1 資料或 λ* 分布圖。
 - [ ] `exp.py status` 全部 analysed；CSV 組在 `docs/experiments/`。
+
+
+---
+
+## 執行紀錄（2026-09-16）
+
+- ✅ S1 重做為 M4G 版（NS 版誤跑，已 superseded）：動態贏事後最佳常數 EOR 13–28%***。
+- ✅ A（M4G-WS vs M4G）、B（M4G-WS₀）完成；書面名稱 M4G-WS／M4G-WS₀。
+- ✅ 拆單型態重算：同期跨站 ≤0.7%，跨期 ≥99.4%。
+- ✅ **Canon v2**：M5 PackingFullWholeOrderFallback；S2 1/2 站與大規模 N=2/3/4 重跑中（50 場）。
+- ⏳ 簡報格式修改與新增頁尚未開始（1.1–1.4）；明日繼續。

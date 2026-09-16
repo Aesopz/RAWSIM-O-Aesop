@@ -1,0 +1,21 @@
+{
+ "verified": "2026-09-16T16:57:34",
+ "canon_version": 1,
+ "runs": [
+  {
+   "run_id": "2026-09-16_pkwhole_final/pk1_flagoff_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_pkwhole_final/pk1_flagon_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_pkwhole_final/n2_flagon_s0",
+   "validity": "valid",
+   "problems": []
+  }
+ ]
+}

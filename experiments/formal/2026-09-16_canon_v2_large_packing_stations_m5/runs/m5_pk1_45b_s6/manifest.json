@@ -1,0 +1,103 @@
+{
+ "run_id": "2026-09-16_canon_v2_large_packing_stations_m5/m5_pk1_45b_s6",
+ "experiment": "2026-09-16_canon_v2_large_packing_stations_m5",
+ "kind": "formal",
+ "arm": "m5_pk1_45b",
+ "seed": 6,
+ "question": "Canon v2 下，12 揀貨站配 1/2/3 個包裝站（每站 78 箱）相對無限制的效益流失？需要幾個包裝站？",
+ "motivation": "Canon v1 的 1、2 站結果被凍結汙染（1 站 seed0 1985 → v2 7815）；3 站與無限制未觸頂，沿用 v1（逐位不變）。",
+ "changed": [
+  "PackingStationCount",
+  "PackingBufferCapacity"
+ ],
+ "config": {
+  "xlayo": {
+   "source": "Canon/large/large_45b_12p_6r.xlayo",
+   "template": null,
+   "snapshot": "experiments\\formal\\2026-09-16_canon_v2_large_packing_stations_m5\\runs\\m5_pk1_45b_s6\\config\\large_45b_12p_6r.xlayo",
+   "sha256": "0306b921bad71e9a0d548a61746616b07faf93d04d2681fdcfa61acec551dfb5"
+  },
+  "xsett": {
+   "source": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "template": null,
+   "snapshot": "experiments\\formal\\2026-09-16_canon_v2_large_packing_stations_m5\\runs\\m5_pk1_45b_s6\\config\\large_fill200_mu1000_2h_inv70.xsett",
+   "sha256": "0c6e8002c8bb5637bdbd6b4a128d7eb95bd0ade89fea4af75b83470da2676e85"
+  },
+  "xconf": {
+   "source": "inputs/hgs_m5_k10_pk1.xconf",
+   "template": "Canon/large/hgs_m5_k10.xconf",
+   "snapshot": "experiments\\formal\\2026-09-16_canon_v2_large_packing_stations_m5\\runs\\m5_pk1_45b_s6\\config\\hgs_m5_k10_pk1.xconf",
+   "sha256": "32156498d68594b3ca0eae062c9da9e34c34d3a3311e73691cee029773a1c228"
+  }
+ },
+ "order_batching_type": "GreedyM5Configuration",
+ "order_batching_flags": {
+  "TieBreaker": "EarliestDueTime",
+  "FastLane": "true",
+  "LateBeforeMatch": "false",
+  "FastLaneTieBreaker": "EarliestDueTime",
+  "LambdaScale": "1",
+  "MuScale": "1",
+  "DeltaScale": "1",
+  "EpsilonScale": "0",
+  "WarmupLines": "50",
+  "LambdaFallback": "10",
+  "DeltaFallback": "0.05",
+  "LinesPerOrderFallback": "2.4",
+  "LambdaFixed": "0",
+  "DeltaFixed": "0",
+  "PickDistancePricing": "true",
+  "IncrementalValuationEnabled": "false",
+  "LambdaEscalations": "0",
+  "ReleaseParentOnFirstSplit": "true",
+  "UpperBoundJump": "true",
+  "UrgentOrderGate": "true",
+  "MarginalDispatchScore": "true",
+  "NewPodFirstAllocation": "true",
+  "LineBoundTau": "true",
+  "M1GUrgentGate": "true",
+  "DrawsFirstDispatch": "true",
+  "CandidatePodTopK": "10",
+  "PackingFullWholeOrderFallback": "true",
+  "PackingStationCount": "1",
+  "PackingBufferCapacity": "78"
+ },
+ "scenario": {
+  "hours": 2.0,
+  "pstations": 12,
+  "rstations": 6,
+  "skus": 1000,
+  "backlog": 200,
+  "pods": 1203,
+  "cells": 1352,
+  "cap": "500",
+  "stock": 70.0,
+  "bots": 45
+ },
+ "canon": {
+  "version": 2,
+  "fingerprint": "3228a86133c4b32d"
+ },
+ "dll": {
+  "path": "RAWSimO.CLI\\bin\\x64\\Release\\RAWSimO.Core.dll",
+  "sha256": "2b11c291972a376685b86cf4f825087ac7794cc384f024a138e7fbbc4c76b676",
+  "built": "2026-09-16T16:58:17"
+ },
+ "git": {
+  "head": "bade4b3177f09107b40abb9099c84565149a2a24",
+  "uncommitted_code_diff_sha": "e3b0c44298fc1c14"
+ },
+ "command": [
+  "C:\\Users\\Aesop\\Desktop\\EE-RAWSim-O_PP\\RAWSimO.CLI\\bin\\x64\\Release\\RAWSimO.CLI.exe",
+  "experiments\\formal\\2026-09-16_canon_v2_large_packing_stations_m5\\runs\\m5_pk1_45b_s6\\config\\large_45b_12p_6r.xlayo",
+  "experiments\\formal\\2026-09-16_canon_v2_large_packing_stations_m5\\runs\\m5_pk1_45b_s6\\config\\large_fill200_mu1000_2h_inv70.xsett",
+  "experiments\\formal\\2026-09-16_canon_v2_large_packing_stations_m5\\runs\\m5_pk1_45b_s6\\config\\hgs_m5_k10_pk1.xconf",
+  "experiments\\formal\\2026-09-16_canon_v2_large_packing_stations_m5\\runs\\m5_pk1_45b_s6",
+  "6"
+ ],
+ "queued": "2026-09-16T18:31:02",
+ "started": null,
+ "finished": null,
+ "exit": null,
+ "attempt": 1
+}

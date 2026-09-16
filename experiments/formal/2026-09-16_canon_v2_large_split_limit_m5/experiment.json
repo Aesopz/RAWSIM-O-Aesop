@@ -1,0 +1,123 @@
+{
+ "id": "2026-09-16_canon_v2_large_split_limit_m5",
+ "kind": "formal",
+ "question": "Canon v2（預算耗盡時整單組合派車）下，大規模 45 bots 限制每張訂單最多拆 N=2/3/4 份相對不設限的 HGS-M5 有何影響？",
+ "motivation": "Canon v1 的 N≤3 結果被行級貪婪凍結汙染（N=2 seed0 4460 件 → v2 8370）；重跑取得限制拆單的真實代價。對照 m5_45b 預算從未觸頂，沿用 v1 資料（逐位不變）。",
+ "scenario_confirmed_by_user": true,
+ "arms": [
+  {
+   "label": "m5_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "Canon/large/hgs_m5_k10.xconf",
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "reuse_from": {
+    "experiment": "2026-09-15_canon_v1_large_split_limit_m5",
+    "arm": "m5_45b"
+   }
+  },
+  {
+   "label": "m5_n2_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/hgs_m5_k10_n2.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "MaxPartsPerOrder"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m5_n3_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/hgs_m5_k10_n3.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "MaxPartsPerOrder"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m5_n4_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/hgs_m5_k10_n4.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "MaxPartsPerOrder"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  }
+ ],
+ "comparisons": [
+  {
+   "a": "m5_45b",
+   "b": "m5_n2_45b",
+   "kind": "ablation",
+   "variable": "MaxPartsPerOrder=2"
+  },
+  {
+   "a": "m5_45b",
+   "b": "m5_n3_45b",
+   "kind": "ablation",
+   "variable": "MaxPartsPerOrder=3"
+  },
+  {
+   "a": "m5_45b",
+   "b": "m5_n4_45b",
+   "kind": "ablation",
+   "variable": "MaxPartsPerOrder=4"
+  }
+ ]
+}
