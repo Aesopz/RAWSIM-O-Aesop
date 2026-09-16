@@ -1,0 +1,5 @@
+﻿Policy,Items,Lines,Orders,Pile-on,Trips,Pods per order,m/line,EOR (kJ/order),Turnover (s),Station idle (%),- supply lag (%),- no order (%)
+M1G baseline,1238.4,805.8,574.8,3.26,175.4,0.31,14.79,1.70,332.9,14.05,13.70,0.00
+M4G-No splitting (fixed parameter),1238.4,805.8,574.8,3.26,175.4,0.31,14.79,1.70,332.9,14.05,13.70,0.00
+M4G-No splitting (Dinkelbach),1240.0,811.0,575.6,3.30,173.2,0.30,14.51,1.66,348.2,13.91,13.59,0.00
+M4G splitting,1406.4,937.0,599.6,5.31,111.2,0.19,9.50,1.19,808.5,2.41,2.13,0.00

@@ -1,0 +1,5 @@
+﻿Policy,Bots,Time per decision (s),Total time (s),Decisions
+M4G-NS,6,0.1668,150.1,904
+M4G,6,0.2184,210.3,962
+M4G-NS,10,0.2202,189.8,859
+M4G,10,0.2850,262.2,918

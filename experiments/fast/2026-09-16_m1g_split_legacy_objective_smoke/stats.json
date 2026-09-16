@@ -1,0 +1,139 @@
+{
+ "generated": "2026-09-16T01:00:17",
+ "definitions": {
+  "pct": "(mean_b - mean_a) / mean_a * 100",
+  "delta": "b - a paired by seed",
+  "test": "scipy.stats.ttest_rel, two-tailed",
+  "ci": "95% t interval",
+  "dz": "mean(delta) / sd(delta)",
+  "rounding": "presentation only, half-up"
+ },
+ "descriptives": {
+  "m1g_split_6b": {
+   "Items": {
+    "n": 1,
+    "mean": 1388.0,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 1388.0,
+    "max": 1388.0
+   },
+   "Lines": {
+    "n": 1,
+    "mean": 931.0,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 931.0,
+    "max": 931.0
+   },
+   "Orders": {
+    "n": 1,
+    "mean": 612.0,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 612.0,
+    "max": 612.0
+   },
+   "Pile-on": {
+    "n": 1,
+    "mean": 4.467153284671533,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 4.467153284671533,
+    "max": 4.467153284671533
+   },
+   "Trips": {
+    "n": 1,
+    "mean": 137.0,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 137.0,
+    "max": 137.0
+   },
+   "Trips/Orders": {
+    "n": 1,
+    "mean": 0.2238562091503268,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 0.2238562091503268,
+    "max": 0.2238562091503268
+   },
+   "m/Line": {
+    "n": 1,
+    "mean": 11.510810168556498,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 11.510810168556498,
+    "max": 11.510810168556498
+   },
+   "EOR(kJ/order)": {
+    "n": 1,
+    "mean": 1.39377581013376,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 1.39377581013376,
+    "max": 1.39377581013376
+   },
+   "TurnoverMedian(s)": {
+    "n": 1,
+    "mean": 822.266666671528,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 822.266666671528,
+    "max": 822.266666671528
+   },
+   "StationIdle(%)": {
+    "n": 1,
+    "mean": 3.6493827161964374,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 3.6493827161964374,
+    "max": 3.6493827161964374
+   }
+  }
+ },
+ "paired": {},
+ "per_seed": {
+  "m1g_split_6b": {
+   "0": {
+    "Items": 1388.0,
+    "Lines": 931.0,
+    "Orders": 612.0,
+    "Pile-on": 4.467153284671533,
+    "Trips": 137.0,
+    "Trips/Orders": 0.2238562091503268,
+    "m/Line": 11.510810168556498,
+    "EOR(kJ/order)": 1.39377581013376,
+    "TurnoverMedian(s)": 822.266666671528,
+    "StationIdle(%)": 3.6493827161964374,
+    "_hours": 2.0,
+    "_source": "experiments\\fast\\2026-09-16_m1g_split_legacy_objective_smoke\\runs\\m1g_split_6b_s0\\small_6b_2p_2r-small_fill100_mu100_2h_inv70-m1g_split-0\\statistics.txt"
+   }
+  }
+ },
+ "excel_check": {
+  "status": "passed",
+  "checks": 10,
+  "rel_tol": 1e-09
+ }
+}

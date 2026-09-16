@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using RAWSimO.Core.Configurations;
@@ -87,6 +87,24 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         private const int DeltaStratumCap = 3;
         /// <summary>Running decision counter.</summary>
         private int _decisionIndex = 0;
+
+        // ---- Forward realisation rate of a PROMISE (diagnostic only; feeds no price) ----------
+        // delta/beta multiplies (f_hat - f) in the objective - orders the plan says a station could
+        // finish but is NOT binding now. Its estimator, however, is Sum(bound)/Sum(valued), whose
+        // numerator is made entirely of orders already cashed in. shi3 (yaos <= yos) puts every
+        // cashed order in the denominator too, so the statistic describes a population that does
+        // not include the one it prices. These counters measure the estimand directly: of the
+        // orders that were valued-but-not-bound at some decision, how many were bound LATER.
+        /// <summary>orderID -> decision index at which it first became a live (uncashed) promise.</summary>
+        private readonly Dictionary<int, int> _promisedAt = new Dictionary<int, int>();
+        /// <summary>Distinct orders that ever entered the promise pool.</summary>
+        private long _promisedEver = 0;
+        /// <summary>Promises later bound (any lag).</summary>
+        private long _promiseConverted = 0;
+        /// <summary>Promises bound at exactly the next decision.</summary>
+        private long _promiseConvertedNext = 0;
+        /// <summary>Sum of conversion lags in decisions, for the mean.</summary>
+        private long _promiseLagSum = 0;
         /// <summary>Per-decision diagnostic log.</summary>
         private System.IO.StreamWriter _decisionLog;
 
@@ -101,13 +119,14 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             _decisionLog = new System.IO.StreamWriter(System.IO.Path.Combine(dir, "m4gns_decision_log.csv"), false)
             { AutoFlush = true };
             _decisionLog.WriteLine("decision,time,solved,pendingOrders,stationsWithCap,podsPa,podsPb,botsRa,mu,delta,"
-                + "valuedOrders,boundOrders,newTrips,sumUs,objective,solveSec,dinkIters,muStart,muEnd");
+                + "valuedOrders,boundOrders,newTrips,nXps,nDops,sumUs,objective,solveSec,dinkIters,muStart,muEnd,"
+                + "promisedEver,promiseConverted,promiseConvNext,promiseConvRate,promiseMeanLag,livePromises");
         }
 
         /// <summary>Writes one decision row. Every numeric field is written unformatted for exact diffing.</summary>
         private void WriteDecision(bool solved, int pendingOrders, int stationsWithCap, int podsPa, int podsPb,
-            int botsRa, double mu, double delta, int valuedOrders, int boundOrders, int newTrips, double sumUs,
-            double objective, double solveSec, int dinkIters, double muStart, double muEnd)
+            int botsRa, double mu, double delta, int valuedOrders, int boundOrders, int newTrips, int nXps, int nDops,
+            double sumUs, double objective, double solveSec, int dinkIters, double muStart, double muEnd)
         {
             EnsureDecisionLog();
             _decisionLog.WriteLine(string.Join(",", new string[] {
@@ -116,9 +135,14 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 (solved ? "1" : "0"),
                 pendingOrders.ToString(), stationsWithCap.ToString(), podsPa.ToString(), podsPb.ToString(),
                 botsRa.ToString(), mu.ToString(), delta.ToString(),
-                valuedOrders.ToString(), boundOrders.ToString(), newTrips.ToString(), sumUs.ToString(),
+                valuedOrders.ToString(), boundOrders.ToString(), newTrips.ToString(),
+                nXps.ToString(), nDops.ToString(), sumUs.ToString(),
                 objective.ToString(), solveSec.ToString(), dinkIters.ToString(),
-                muStart.ToString(), muEnd.ToString() }));
+                muStart.ToString(), muEnd.ToString(),
+                _promisedEver.ToString(), _promiseConverted.ToString(), _promiseConvertedNext.ToString(),
+                (_promisedEver > 0 ? (double)_promiseConverted / _promisedEver : 0.0).ToString(),
+                (_promiseConverted > 0 ? (double)_promiseLagSum / _promiseConverted : 0.0).ToString(),
+                _promisedAt.Count.ToString() }));
         }
 
         /// <summary>Mirrors M1GManager.M1GBotPodCost (private in the base class, so inaccessible to
@@ -258,10 +282,150 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             public List<Symbol> DeVarNameyrp;
             public List<Symbol> DeVarNameus;
             public List<Symbol> DeVarNamedops;
+            /// <summary>(IncrementalValuationEnabled) "orderID_stationID" keys whose order the pods
+            /// already committed to that station can finish on their own. Snapshot-invariant, so it
+            /// is computed once per BuildModelNS and reused by every Dinkelbach re-solve.</summary>
+            public HashSet<string> PbCovered;
             public void Dispose()
             {
                 if (Wrapper != null) { Wrapper.Dispose(); Wrapper = null; }
             }
+        }
+
+        /// <summary>
+        /// (IncrementalValuationEnabled) The (order, station) pairs whose order the pods ALREADY
+        /// committed to that station can complete on their own. Mirrors M4G's V2a deduction: the
+        /// previous decision already paid for that completion, so promising it again this period
+        /// must earn nothing. Uses the same committed-stock baseline as ComputeMuUpperBoundNS and
+        /// the same accessors shi5 uses (CountAvailable / Positions), so the test agrees with the
+        /// constraint that actually gates yos.
+        /// </summary>
+        /// <summary>The "orderID_stationID" key ComputePbCoveredNS stores, for a yos/yaos symbol.</summary>
+        private static string PairKey(Symbol v)
+        {
+            return v.order.ID.ToString() + "_" + v.outputstation.ID.ToString();
+        }
+
+        private HashSet<string> ComputePbCoveredNS(Dictionary<OutputStation, int> Cs,
+            Dictionary<OutputStation, HashSet<Pod>> inboundPods, HashSet<Order> pendingOrders, HashSet<Pod> Pb)
+        {
+            var covered = new HashSet<string>();
+            if (Pb == null || Pb.Count == 0) return covered;
+            foreach (var station in Cs.Keys)
+            {
+                var agg = new Dictionary<ItemDescription, int>();
+                HashSet<Pod> inbound;
+                if (inboundPods.TryGetValue(station, out inbound))
+                    foreach (var pod in inbound)
+                    {
+                        if (!Pb.Contains(pod)) continue;
+                        foreach (var sku in pod.ItemDescriptionsContained)
+                        {
+                            int a = pod.CountAvailable(sku);
+                            if (a <= 0) continue;
+                            int cur;
+                            agg[sku] = (agg.TryGetValue(sku, out cur) ? cur : 0) + a;
+                        }
+                    }
+                if (agg.Count == 0) continue;
+                foreach (var order in pendingOrders)
+                {
+                    bool all = true;
+                    foreach (var line in order.Positions)
+                    {
+                        int need = line.Value;
+                        if (need <= 0) continue;
+                        int stock;
+                        agg.TryGetValue(line.Key, out stock);
+                        if (stock < need) { all = false; break; }
+                    }
+                    if (all) covered.Add(order.ID.ToString() + "_" + station.ID.ToString());
+                }
+            }
+            return covered;
+        }
+
+        /// <summary>
+        /// (UpperBoundJump) A provable upper bound on the optimal ratio mu* = min D/F over the
+        /// current snapshot, or 0 when no bound can be constructed.
+        ///
+        /// mu* is a minimum over the feasible set, so for ANY feasible x, mu* &lt;= D(x)/F(x).
+        /// Take x = "one bot fetches one pod to a station with a free slot, and one whole order
+        /// is completed there". That plan's F is at least 1 order, so mu* &lt;= D(x)/1 = D(x).
+        /// The cheapest such x is the tightest bound of this family and needs no solve.
+        ///
+        /// Order-denominated counterpart of M4GManager.ComputeLambdaUpperBound, whose denominator
+        /// counts lines and which therefore only asks the pod to CLOSE ONE LINE. Completing a
+        /// whole order is a stronger requirement, so the bound is constructible less often - when
+        /// it is not, the caller falls back to the doubling escalation.
+        ///
+        /// The pod must be NECESSARY (the station's committed stock alone cannot finish the
+        /// order); otherwise the order needs no new trip and D(x) would not be the cost of this
+        /// plan. Over-estimating is safe: Dinkelbach converges monotonically downward from any
+        /// mu_0 above mu*, so a loose bound costs iterations, never correctness.
+        /// </summary>
+        private double ComputeMuUpperBoundNS(HashSet<Bot> Ra, HashSet<Pod> Pa,
+            Dictionary<OutputStation, int> Cs, Dictionary<OutputStation, HashSet<Pod>> inboundPods,
+            HashSet<Order> pendingOrders)
+        {
+            if (Ra.Count == 0 || Pa.Count == 0 || pendingOrders.Count == 0) return 0.0;
+            var stations = Cs.Keys.Where(s => Cs[s] > 0).OrderBy(s => s.ID).ToList();
+            if (stations.Count == 0) return 0.0;
+
+            // Stock already committed to each station - the baseline a candidate pod adds to.
+            var stationStock = new List<Dictionary<ItemDescription, int>>();
+            foreach (var station in stations)
+            {
+                var agg = new Dictionary<ItemDescription, int>();
+                HashSet<Pod> inbound;
+                if (inboundPods.TryGetValue(station, out inbound))
+                    foreach (var pod in inbound)
+                        foreach (var sku in pod.ItemDescriptionsContained)
+                        {
+                            int a = pod.CountAvailable(sku);
+                            if (a <= 0) continue;
+                            int cur;
+                            agg[sku] = (agg.TryGetValue(sku, out cur) ? cur : 0) + a;
+                        }
+                stationStock.Add(agg);
+            }
+
+            double best = double.PositiveInfinity;
+            foreach (var pod in Pa)
+            {
+                double dBot = double.PositiveInfinity;
+                foreach (var bot in Ra)
+                {
+                    double d = M1GBotPodCostNS(bot, pod);
+                    if (d < dBot) dBot = d;
+                }
+                if (double.IsPositiveInfinity(dBot)) continue;
+
+                for (int s = 0; s < stations.Count; s++)
+                {
+                    double cost = dBot + M1GPodStationCostNS(pod, stations[s])
+                                + PodStationExtraCost(pod, stations[s]);
+                    if (cost >= best) continue;                 // cannot improve the incumbent
+                    bool completesAnOrder = false;
+                    foreach (var order in pendingOrders)
+                    {
+                        bool allCovered = true, podNeeded = false;
+                        foreach (var line in order.Positions)
+                        {
+                            int need = line.Value;
+                            if (need <= 0) continue;
+                            int stock;
+                            stationStock[s].TryGetValue(line.Key, out stock);
+                            if (stock >= need) continue;        // this line is already covered
+                            podNeeded = true;
+                            if (stock + pod.CountAvailable(line.Key) < need) { allCovered = false; break; }
+                        }
+                        if (allCovered && podNeeded) { completesAnOrder = true; break; }
+                    }
+                    if (completesAnOrder) best = cost;
+                }
+            }
+            return double.IsPositiveInfinity(best) ? 0.0 : best;
         }
 
         /// <summary>Builds the shared (mu-independent) model: all six variable collections and
@@ -290,6 +454,33 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 // omit: the constructor already hard-throws if StarveAwareCostEnabled is set, so
                 // M1G's own call would be a no-op in every reachable state of this class anyway.
                 PrepareDecisionExtras(Pods, Cs, Ra);
+
+                // (ObjectiveFirstBuild) M1GManager builds its objective at cs:706-722 and only
+                // then adds shi2..shi13, so its variables are created in objective order. This
+                // mirror builds constraints first, which gives Gurobi a different column order -
+                // and with many equally optimal solutions, column order is what decides which one
+                // comes back. Touching the same collections in the same order here reproduces
+                // M1G's ordering; nothing else about the model changes.
+                if (_cfg.ObjectiveFirstBuild)
+                {
+                    if (Ra.Count() > 0)
+                    {
+                        foreach (var v in deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation)
+                            && Instance.ResourceManager.UnusedPods.Contains(u.pod)))
+                        { var _ = variablesBinary[v.name]; }
+                        foreach (var v in deVarNameyrp.Where(u => Ra.Contains(u.robot)
+                            && Instance.ResourceManager.UnusedPods.Contains(u.pod) && u.pod.Waypoint != null))
+                        { var _ = variablesBinary[v.name]; }
+                    }
+                    else
+                    {
+                        foreach (var v in deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation)
+                            && Instance.ResourceManager.UnusedPods.Contains(u.pod)))
+                        { var _ = variablesBinary[v.name]; }
+                    }
+                    foreach (var v in deVarNameyos) { var _ = variablesBinary[v.name]; }
+                    foreach (var v in deVarNameus) { var _ = variablesInteger3[v.name]; }
+                }
 
                 // shi2: each order goes to at most one station (valuation layer). M1GManager.cs:714-715.
                 foreach (var order in pendingOrders)
@@ -370,6 +561,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     DeVarNameyrp = deVarNameyrp,
                     DeVarNameus = deVarNameus,
                     DeVarNamedops = deVarNamedops,
+                    PbCovered = _cfg.IncrementalValuationEnabled
+                        ? ComputePbCoveredNS(Cs, inboundPods, pendingOrders, Pb) : null,
                 };
             }
             catch
@@ -406,15 +599,58 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             double w1 = 1;
 
             LinearExpression distanceTerm = Ra.Count() > 0
-                ? LinearExpression.Sum(model.DeVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * (M1GPodStationCostNS(v.pod, v.outputstation) + PodStationExtraCost(v.pod, v.outputstation))), wrapper)
+                ? LinearExpression.Sum(model.DeVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * (M1GPodStationCostNS(v.pod, v.outputstation) + PodStationExtraCost(v.pod, v.outputstation) + LexSurcharge(v.pod.ID + 0.001 * v.outputstation.ID))), wrapper)
                     + LinearExpression.Sum(model.DeVarNameyrp.Where(u => Ra.Contains(u.robot) && Instance.ResourceManager.UnusedPods.Contains(u.pod) && u.pod.Waypoint != null).Select(v => variablesBinary[v.name] *
-                    M1GBotPodCostNS(v.robot, v.pod)), wrapper)
-                : LinearExpression.Sum(model.DeVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * (M1GPodStationCostNS(v.pod, v.outputstation) + PodStationExtraCost(v.pod, v.outputstation))), wrapper);
+                    (M1GBotPodCostNS(v.robot, v.pod) + RobotIdSurcharge(v.robot))), wrapper)
+                : LinearExpression.Sum(model.DeVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * (M1GPodStationCostNS(v.pod, v.outputstation) + PodStationExtraCost(v.pod, v.outputstation) + LexSurcharge(v.pod.ID + 0.001 * v.outputstation.ID))), wrapper);
 
-            LinearExpression objective = distanceTerm * w1
-                + LinearExpression.Sum(model.DeVarNameyaos.Select(v => variablesBinary[v.name])) * (-mu * (1.0 - delta))
-                + LinearExpression.Sum(model.DeVarNameyos.Select(v => variablesBinary[v.name])) * (-mu * delta)
-                + LinearExpression.Sum(model.DeVarNameus.Select(v => variablesInteger3[v.name])) * sigma;
+            // A term whose coefficient is exactly zero adds nothing to the objective value, but it
+            // is still handed to Gurobi and perturbs presolve/branching - which decides WHICH of
+            // several equally optimal solutions comes back. That matters in the degeneracy arm
+            // (delta pinned to 1 makes the valuation coefficient exactly 0, a term M1G's objective
+            // does not have at all). Skipping zero terms is a no-op for the canon, where every
+            // coefficient is non-zero.
+            LinearExpression objective = distanceTerm * w1;
+            // (DecoupledLayerReward) Both layers at full mu instead of one mu split by beta.
+            double cValued = _cfg.DecoupledLayerReward ? -mu : -mu * (1.0 - delta);
+            double cBound = _cfg.DecoupledLayerReward ? -mu : -mu * delta;
+            HashSet<string> pbCovered = _cfg.IncrementalValuationEnabled ? model.PbCovered : null;
+            if (pbCovered == null || pbCovered.Count == 0)
+            {
+                if (cValued != 0.0)
+                    objective = objective
+                        + LinearExpression.Sum(model.DeVarNameyaos.Select(v => variablesBinary[v.name])) * cValued;
+                if (cBound != 0.0)
+                    objective = objective
+                        + LinearExpression.Sum(model.DeVarNameyos.Select(v => variablesBinary[v.name])) * cBound;
+            }
+            else
+            {
+                // (IncrementalValuationEnabled) Split by whether the committed pods alone already
+                // cover the order at that station. Covered pairs: the promise earns nothing (yos 0)
+                // but cashing it in still earns the full mu, so the binding coefficient absorbs the
+                // whole price instead of the usual mu*(1-delta) + mu*delta split that shi3 creates.
+                var yaosCovered = model.DeVarNameyaos.Where(v => pbCovered.Contains(PairKey(v))).ToList();
+                var yaosNew = model.DeVarNameyaos.Where(v => !pbCovered.Contains(PairKey(v))).ToList();
+                var yosNew = model.DeVarNameyos.Where(v => !pbCovered.Contains(PairKey(v))).ToList();
+                // A covered pair's yos coefficient is zeroed, so its yaos must absorb BOTH layers'
+                // prices to keep cashing it in worth the full amount. cValued + cBound is -mu in
+                // the canon split and -2*mu under DecoupledLayerReward; hard-coding -mu here would
+                // silently halve the binding reward whenever decoupling is on.
+                double cCoveredBound = cValued + cBound;
+                if (yaosCovered.Count > 0 && cCoveredBound != 0.0)
+                    objective = objective
+                        + LinearExpression.Sum(yaosCovered.Select(v => variablesBinary[v.name])) * cCoveredBound;
+                if (yaosNew.Count > 0 && cValued != 0.0)
+                    objective = objective
+                        + LinearExpression.Sum(yaosNew.Select(v => variablesBinary[v.name])) * cValued;
+                if (yosNew.Count > 0 && cBound != 0.0)
+                    objective = objective
+                        + LinearExpression.Sum(yosNew.Select(v => variablesBinary[v.name])) * cBound;
+            }
+            if (sigma != 0.0)
+                objective = objective
+                    + LinearExpression.Sum(model.DeVarNameus.Select(v => variablesInteger3[v.name])) * sigma;
 
             wrapper.SetObjective(objective, OptimizationSense.Minimize);
 
@@ -477,6 +713,12 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             NSSolveResult result = new NSSolveResult();
             double totalSolveSec = 0.0;
             int dinkIters = 0;
+            // (staleModel) SolveOnceNS re-solves the SAME model object, so the variable values
+            // the readback below reads are whichever solve ran LAST - not necessarily the one
+            // `result` describes. M4GResult avoids this by carrying its draws out of the solve;
+            // NSSolveResult carries only numbers, so a trial solve that is rejected leaves its
+            // (often null) plan in the model. Track it and re-solve at muK before committing.
+            bool staleModel = false;
             NSModel model = BuildModelNS(PiSKU, OiSKU, allPods, Cs, variableNames, pendingOrders, inboundPods, Ra, R, Pb, Pa, PodToBot);
             try
             {
@@ -485,12 +727,36 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 if (result.HasSolution)
                 {
                     int escalations = 0;
+                    bool jumpedToBound = false;
                     for (int i = 0; i < _cfg.DinkelbachIterations; i++)
                     {
                         double vStar = muK > 0 ? (result.DStar - result.Objective) / muK : 0.0;
-                        // Two-sided search, mirrored from M4GManager: V* <= 0 means the best
-                        // solution at this mu is "dispatch nothing", so double mu and retry
-                        // rather than getting stuck unable to ever raise it.
+                        // (UpperBoundJump) Degenerate incumbent: the null plan is optimal at this
+                        // mu, so there is no D*/F* to iterate from. Rather than doubling blindly,
+                        // move ONCE to a provable upper bound on mu* and let the normal Newton steps
+                        // walk back down - monotonically, since every mu_k from here on is above mu*.
+                        // Only worth doing when the bound is above the current mu; if it is not, mu
+                        // was already high enough and the degeneracy means this snapshot genuinely
+                        // has nothing worth dispatching.
+                        if (vStar <= 0 && _cfg.UpperBoundJump && !jumpedToBound && muK > 0)
+                        {
+                            double muUb = ComputeMuUpperBoundNS(Ra, Pa, Cs, inboundPods, pendingOrders);
+                            if (muUb > muK)
+                            {
+                                jumpedToBound = true;
+                                double sigmaUb = _cfg.SlotScale * muUb;
+                                NSSolveResult ubRes = SolveOnceNS(model, Cs, Ra, muUb, delta, sigmaUb);
+                                totalSolveSec += ubRes.SolveSec;
+                                if (!ubRes.HasSolution) break;
+                                result = ubRes;
+                                muK = muUb;
+                                sigma = sigmaUb;
+                                dinkIters++;
+                                continue;
+                            }
+                        }
+                        // Fallback when no bound can be constructed (no single pod completes any
+                        // order on its own): double mu so the fixed point is still reachable.
                         if (vStar <= 0 && escalations < _cfg.DinkelbachEscalations && muK > 0)
                         {
                             escalations++;
@@ -512,9 +778,9 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                         double sigmaNext = _cfg.SlotScale * muNext;
                         NSSolveResult next = SolveOnceNS(model, Cs, Ra, muNext, delta, sigmaNext);
                         totalSolveSec += next.SolveSec;
-                        if (!next.HasSolution) break;                                // keep the previous solution
+                        if (!next.HasSolution) { staleModel = true; break; }                                // keep the previous solution
                         double nextVStar = muNext > 0 ? (next.DStar - next.Objective) / muNext : 0.0;
-                        if (nextVStar <= 0) break;                                    // candidate itself degenerate
+                        if (nextVStar <= 0) { staleModel = true; break; }                                    // candidate itself degenerate
                         result = next;
                         muK = muNext;
                         sigma = sigmaNext;
@@ -522,8 +788,16 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     }
                 }
 
+                // Put the accepted solution back into the model before reading the variables.
+                if (staleModel && result.HasSolution)
+                {
+                    NSSolveResult restored = SolveOnceNS(model, Cs, Ra, muK, delta, sigma);
+                    totalSolveSec += restored.SolveSec;
+                    if (restored.HasSolution) result = restored;
+                }
+                
                 double muEnd = muK;
-                int valuedOrders = 0, boundOrders = 0, newTrips = 0;
+                int valuedOrders = 0, boundOrders = 0, newTrips = 0, nXps = 0, nDops = 0;
                 double sumUs = 0.0;
 
                 if (result.HasSolution)
@@ -543,9 +817,13 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     foreach (var v in model.DeVarNamexps)
                         if (Math.Round(variablesBinary[v.name].GetValue()) != 0)
                             isXps.Add(v);
+                    var valuedIds = new HashSet<int>();
                     foreach (var v in model.DeVarNameyos)
                         if (Math.Round(variablesBinary[v.name].GetValue()) != 0)
+                        {
                             valuedOrders++;
+                            valuedIds.Add(v.order.ID);
+                        }
                     foreach (var v in model.DeVarNameyaos)
                         if (Math.Round(variablesBinary[v.name].GetValue()) != 0)
                         {
@@ -572,6 +850,33 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     foreach (var v in model.DeVarNameus)
                         sumUs += Math.Round(variablesInteger3[v.name].GetValue());
 
+                    // Diagnostic only: M1G logs these two counts, NS did not, so the degeneracy
+                    // check could not compare the pod->station selections at all.
+                    nXps = isXps.Count;
+                    nDops = isDops.Count;
+
+                    // (promise diagnostic) Settle this decision's bindings against the live promise
+                    // pool first, THEN admit the orders promised-but-not-cashed here. Doing it in
+                    // this order keeps an order bound in the same decision it was first valued out
+                    // of the pool entirely - it was never a promise, so it must not dilute the rate.
+                    var boundIds = new HashSet<int>(isYaos.Select(v => v.order.ID));
+                    foreach (int oid in boundIds)
+                    {
+                        int promisedAt;
+                        if (!_promisedAt.TryGetValue(oid, out promisedAt)) continue;
+                        _promiseConverted++;
+                        int lag = _decisionIndex - promisedAt;
+                        _promiseLagSum += lag;
+                        if (lag == 1) _promiseConvertedNext++;
+                        _promisedAt.Remove(oid);
+                    }
+                    foreach (int oid in valuedIds)
+                    {
+                        if (boundIds.Contains(oid) || _promisedAt.ContainsKey(oid)) continue;
+                        _promisedAt[oid] = _decisionIndex;
+                        _promisedEver++;
+                    }
+
                     Dictionary<Symbol, int> newZiops = new Dictionary<Symbol, int>();
                     if (availableStationorder.Count > 0)
                         AssignZiopsNS(availableStationorder, isXps, isDops, isYrp, newZiops);
@@ -592,7 +897,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
 
                 WriteDecision(result.HasSolution, pendingOrders.Count, Cs.Count(c => c.Value > 0), Pa.Count, Pb.Count,
                     Ra.Count, _pricing.Mu(Instance.StatOverallDistanceTraveled), delta,
-                    valuedOrders, boundOrders, newTrips, sumUs, result.Objective, totalSolveSec, dinkIters, mu0, muEnd);
+                    valuedOrders, boundOrders, newTrips, nXps, nDops, sumUs, result.Objective, totalSolveSec, dinkIters, mu0, muEnd);
                 _decisionIndex++;
                 // Feed this decision's bound/valued ORDER counts into delta's running totals, after
                 // WriteDecision so the logged delta reflects state prior to this decision's own

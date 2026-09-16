@@ -1,0 +1,117 @@
+{
+ "run_id": "2026-09-16_m1g_split_legacy_objective_smoke/m1g_split_6b_s0",
+ "experiment": "2026-09-16_m1g_split_legacy_objective_smoke",
+ "kind": "fast",
+ "arm": "m1g_split_6b",
+ "seed": 0,
+ "question": "M1G-S（M4G 可行域允許拆單＋M1G 固定權重目標式 w1=1/w2=−40/w3=1000，忠實估值鏡像）在 Canon v1 小規模 6 bots seed 0 能否正常跑完？行為是否合理（有拆單、無停擺）？",
+ "motivation": "補 2×2 消融（拆單 × 定價）的第四格；正式 10 seeds 前先 1 seed 確認可行。",
+ "changed": [
+  "LegacyObjective",
+  "LegacyOrderReward",
+  "LegacyIdleSlotWeight",
+  "LegacyRewardValuation"
+ ],
+ "config": {
+  "xlayo": {
+   "source": "Canon/small/small_6b_2p_2r.xlayo",
+   "template": null,
+   "snapshot": "experiments\\fast\\2026-09-16_m1g_split_legacy_objective_smoke\\runs\\m1g_split_6b_s0\\config\\small_6b_2p_2r.xlayo",
+   "sha256": "6910adaad737ff46a5e0f2818bf26aab26772818f97b971eeb7a65aaf21d4dd4"
+  },
+  "xsett": {
+   "source": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "template": null,
+   "snapshot": "experiments\\fast\\2026-09-16_m1g_split_legacy_objective_smoke\\runs\\m1g_split_6b_s0\\config\\small_fill100_mu100_2h_inv70.xsett",
+   "sha256": "1d8c90458b74fb1bcc2a362480ca9bd48582f2823c36ab39e2fa345e38ec6100"
+  },
+  "xconf": {
+   "source": "inputs/m1g_split.xconf",
+   "template": "Canon/small/m4g.xconf",
+   "snapshot": "experiments\\fast\\2026-09-16_m1g_split_legacy_objective_smoke\\runs\\m1g_split_6b_s0\\config\\m1g_split.xconf",
+   "sha256": "94bfc2d27cbc44b26b56317453a30f27c86a080cdb7a107f79953102b2c5361e"
+  }
+ },
+ "order_batching_type": "M4GConfiguration",
+ "order_batching_flags": {
+  "TieBreaker": "EarliestDueTime",
+  "FastLane": "true",
+  "LateBeforeMatch": "false",
+  "FastLaneTieBreaker": "EarliestDueTime",
+  "LambdaScale": "1",
+  "MuScale": "1",
+  "DeltaScale": "1",
+  "EpsilonScale": "0",
+  "WarmupLines": "50",
+  "LambdaFallback": "10",
+  "DeltaFallback": "0.05",
+  "LinesPerOrderFallback": "2.4",
+  "LambdaFixed": "0",
+  "DeltaFixed": "0",
+  "PickDistancePricing": "true",
+  "DegenerateToBindingOnly": "false",
+  "ValuationOrderLimit": "0",
+  "UrgentOrderGate": "true",
+  "PodCreditCapEnabled": "false",
+  "PodTierDrawPricingEnabled": "false",
+  "IncrementalValuationEnabled": "false",
+  "SplitOnlyAtPresentPods": "false",
+  "SplitMarginalProbeEnabled": "false",
+  "SplitMarginalProbeEveryNDecisions": "50",
+  "SplitMarginalProbeTimeLimitSec": "10",
+  "ReleaseParentOnFirstSplit": "true",
+  "DinkelbachIterations": "5",
+  "DinkelbachTolerance": "0.5",
+  "DinkelbachEscalations": "0",
+  "ForbidSplitting": "false",
+  "LineAtomicSplitting": "true",
+  "CompactLineModel": "true",
+  "NewPodFirstAllocation": "true",
+  "LineBoundTau": "true",
+  "M1GUrgentGate": "true",
+  "LegacyObjective": "true",
+  "UpperBoundJump": "true",
+  "LegacyOrderReward": "-40",
+  "LegacyIdleSlotWeight": "1000",
+  "LegacyRewardValuation": "true"
+ },
+ "scenario": {
+  "hours": 2.0,
+  "pstations": 2,
+  "rstations": 2,
+  "skus": 100,
+  "backlog": 100,
+  "pods": 100,
+  "cells": 120,
+  "cap": "100",
+  "stock": 70.0,
+  "bots": 6
+ },
+ "canon": {
+  "version": 1,
+  "fingerprint": "9890dba8e0a7ec54"
+ },
+ "dll": {
+  "path": "RAWSimO.CLI\\bin\\x64\\Release\\RAWSimO.Core.dll",
+  "sha256": "94a44bdb4844fea74934bfe1d0db3a0c2ea11971cb6fe05084b23dc09159120d",
+  "built": "2026-09-15T10:47:50"
+ },
+ "git": {
+  "head": "06a384206eaea6541733acbf6c81e2fae06e3dcd",
+  "uncommitted_code_diff_sha": "9dc2608b1bc729bc"
+ },
+ "command": [
+  "C:\\Users\\Aesop\\Desktop\\EE-RAWSim-O_PP\\RAWSimO.CLI\\bin\\x64\\Release\\RAWSimO.CLI.exe",
+  "experiments\\fast\\2026-09-16_m1g_split_legacy_objective_smoke\\runs\\m1g_split_6b_s0\\config\\small_6b_2p_2r.xlayo",
+  "experiments\\fast\\2026-09-16_m1g_split_legacy_objective_smoke\\runs\\m1g_split_6b_s0\\config\\small_fill100_mu100_2h_inv70.xsett",
+  "experiments\\fast\\2026-09-16_m1g_split_legacy_objective_smoke\\runs\\m1g_split_6b_s0\\config\\m1g_split.xconf",
+  "experiments\\fast\\2026-09-16_m1g_split_legacy_objective_smoke\\runs\\m1g_split_6b_s0",
+  "0"
+ ],
+ "queued": "2026-09-16T00:57:46",
+ "started": "2026-09-16T00:57:48",
+ "finished": "2026-09-16T00:59:17",
+ "exit": 0,
+ "attempt": 1,
+ "dll_at_start_sha256": "94a44bdb4844fea74934bfe1d0db3a0c2ea11971cb6fe05084b23dc09159120d"
+}

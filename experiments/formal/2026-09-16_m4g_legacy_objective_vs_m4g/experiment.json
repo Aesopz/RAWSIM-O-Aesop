@@ -1,0 +1,130 @@
+{
+ "id": "2026-09-16_m4g_legacy_objective_vs_m4g",
+ "kind": "formal",
+ "binary": "bin_legacydist",
+ "question": "同一可行解區域（M4G 限制式，允許行級拆單）下，Jiao 的固定權重目標式（w1=1, w2=−40, w3=1000）相對本研究的比值目標式（λ/μ/β 量測）表現如何？",
+ "motivation": "Appendix 素材：說明本研究目標式優於直接套用 Jiao 權重；消融鏈中「同可行域只換目標式」的乾淨對照。M4G 對照組沿用既有 Canon v1 資料。",
+ "scenario_confirmed_by_user": true,
+ "arms": [
+  {
+   "label": "m4g_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "Canon/small/m4g.xconf",
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "reuse_from": {
+    "experiment": "2026-09-15_canon_v1_small_split_limit_fidelity",
+    "arm": "m4g_6b"
+   }
+  },
+  {
+   "label": "m4g_legacy_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_legacy.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "LegacyObjective",
+    "LegacyOrderReward",
+    "LegacyIdleSlotWeight",
+    "LegacyRewardValuation"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m4g_10b",
+   "xlayo": "Canon/small/small_10b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "Canon/small/m4g.xconf",
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "reuse_from": {
+    "experiment": "2026-09-15_canon_v1_small_split_limit_fidelity",
+    "arm": "m4g_10b"
+   }
+  },
+  {
+   "label": "m4g_legacy_10b",
+   "xlayo": "Canon/small/small_10b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_legacy.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "LegacyObjective",
+    "LegacyOrderReward",
+    "LegacyIdleSlotWeight",
+    "LegacyRewardValuation"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  }
+ ],
+ "comparisons": [
+  {
+   "a": "m4g_legacy_6b",
+   "b": "m4g_6b",
+   "kind": "ablation",
+   "variable": "objective: Jiao weights (1, -40, 1000) vs measured ratio prices; same feasible region"
+  },
+  {
+   "a": "m4g_legacy_10b",
+   "b": "m4g_10b",
+   "kind": "ablation",
+   "variable": "objective: Jiao weights (1, -40, 1000) vs measured ratio prices; same feasible region"
+  }
+ ],
+ "equivalent_dlls": {
+  "guard": "2026-09-16_legacydist_guard",
+  "sha256": [
+   "94a44bdb4844fea74934bfe1d0db3a0c2ea11971cb6fe05084b23dc09159120d",
+   "d716b5148f4096928ab0e870a86d8266cdd25d3f3ceb995a466a970c3a55bf35"
+  ],
+  "note": "bin_legacydist adds LegacyDistanceWeight (default 1); guard run bit-identical to Release except wall-clock timings"
+ }
+}

@@ -717,7 +717,15 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 }
 
             // Orders whose residual demand is at least partly in stock.
-            HashSet<Order> candidates = new HashSet<Order>(_pendingOrders.Where(o =>
+            // (OrderAtomicCanonPrices) Under whole-order commitment admission follows M1G
+            // (M1GManager.cs:636): every line must be covered by system stock. The canon's "any line
+            // has stock" rule exists so a partly stocked order can be served line by line; when the
+            // order is the atom such an order can never be committed (V4g / NS1 forbid it), so admitting
+            // it only adds dead variables and widens the Pa candidate set. Commitments are unchanged.
+            HashSet<Order> candidates = OrderAtomicCanon
+                ? new HashSet<Order>(_pendingOrders.Where(o =>
+                    o.RemainingPositions.All(p => Instance.StockInfo.GetActualStock(p.Key) >= p.Value)))
+                : new HashSet<Order>(_pendingOrders.Where(o =>
                 o.RemainingPositions.Any(p => Instance.StockInfo.GetActualStock(p.Key) >= 1)));
             HashSet<ItemDescription> demanded = new HashSet<ItemDescription>(
                 candidates.SelectMany(o => o.RemainingPositions.Select(p => p.Key)));
@@ -759,7 +767,12 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             ScreenPaCandidates(snap, candidates);
 
             snap.PiSKU = GeneratePiSKU(snap.AllPods);
-            snap.PendingOrders = new HashSet<Order>(candidates.Where(o =>
+            // (OrderAtomicCanonPrices) M1G's second admission test (M1GManager.cs:716): every line's
+            // demand must be covered by the aggregate stock of the pods in the model.
+            snap.PendingOrders = OrderAtomicCanon
+                ? new HashSet<Order>(candidates.Where(o =>
+                    o.RemainingPositions.All(p => IsAvailabletoPiSKU(p.Key) >= p.Value)))
+                : new HashSet<Order>(candidates.Where(o =>
                 o.RemainingPositions.Any(p => snap.PiSKU.ContainsKey(p.Key))));
 
             // (UrgentOrderGate) HADGS's Od switch. Once the orders whose remaining slack is
@@ -771,11 +784,40 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             {
                 DateTime nowU = Instance.SettingConfig.StartTime
                     .AddSeconds(Convert.ToInt32(Instance.Controller.CurrentTime));
+                int freeSlots = snap.Cs.Values.Sum();
+                if (OrderAtomicCanon || _m4gConfig.M1GUrgentGate)
+                {
+                    // (M1GUrgentGate) Same M1G form for the line-atomic canon, to test whether the
+                    // gate can be unified across both commitment units.
+                    // (OrderAtomicCanonPrices) Under whole-order commitment the gate follows M1G's
+                    // GenerateOd (M1GManager.cs:450-470, 717-719), not HADGS's. The HADGS form admits
+                    // any urgent order, which is harmless when lines can be served piecemeal but becomes
+                    // absorbing when the order is the atom: orders that are hard to cover whole are the
+                    // ones skipped until they turn urgent, and once they alone fill the candidate set no
+                    // plan can commit them (measured on small/10bot: set shrank from 100 to 2 in the last
+                    // 20 minutes while the real backlog stayed at 100). M1G only counts an urgent order
+                    // whose every SKU is held, by every pod carrying it, in sufficient quantity on a pod
+                    // no bot has claimed - and only takes over the set when such orders outnumber ALL free
+                    // slots (strictly). An SKU no model pod holds fails the test, as it cannot be covered.
+                    var od = new HashSet<Order>(snap.PendingOrders.Where(o =>
+                        o.DueTime - (nowU - o.TimePlaced).TotalSeconds < _m4gConfig.UrgentSlackSec
+                        && o.RemainingPositions.All(p =>
+                        {
+                            List<Pod> holders;
+                            return snap.PiSKU.TryGetValue(p.Key, out holders)
+                                && holders.All(v => v.CountAvailable(p.Key) >= p.Value
+                                    && Instance.ResourceManager.UnusedPods.Contains(v));
+                        })));
+                    if (od.Count > freeSlots)
+                        snap.PendingOrders = od;
+                }
+                else
+                {
                 var od = new HashSet<Order>(snap.PendingOrders.Where(o =>
                     o.DueTime - (nowU - o.TimePlaced).TotalSeconds < _m4gConfig.UrgentSlackSec));
-                int freeSlots = snap.Cs.Values.Sum();
                 if (od.Count > 0 && od.Count >= freeSlots)
                     snap.PendingOrders = od;
+                }
             }
 
             // Optional solve-time convergence knob: keep only the most urgent K orders.
@@ -952,6 +994,151 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// lambda_0 above lambda* (Kouarfate et al., Lemma 2.9 iv), so a loose bound costs
         /// iterations, never correctness.
         /// </summary>
+        /// <summary>(OrderAtomicCanonPrices) True when the order is the atom AND the canon price
+        /// list is kept. Requires the compact model, which is where the order-atomic arm lives.</summary>
+        private bool OrderAtomicCanon
+        {
+            get
+            {
+                return _m4gConfig.OrderAtomicCanonPrices && _m4gConfig.OrderAtomicNoSplit
+                    && _m4gConfig.CompactLineModel && _m4gConfig.LineAtomicSplitting;
+            }
+        }
+
+        /// <summary>Residual line count n(o): lines of the order that still carry demand. This is
+        /// the number of lines committing the whole order closes, i.e. what lambda prices.</summary>
+        private static int ResidualLineCount(M4GSnapshot snap, Order order)
+        {
+            Dictionary<ItemDescription, int> res;
+            return snap.Residuals.TryGetValue(order, out res) ? res.Count(p => p.Value > 0) : 0;
+        }
+
+        /// <summary>
+        /// (OrderAtomicCanonPrices) Provable upper bound on lambda* when the order is the atom.
+        ///
+        /// lambda* = min D(x)/V(x) over feasible non-null x, so ANY feasible plan's ratio bounds it.
+        /// The canon's plan - one pod closes one more line - is not feasible here: a commitment is a
+        /// whole order. The plan family used instead: commit order o at a station w with free slots,
+        /// cover o's demand from the stock already committed to w plus new pods chosen greedily by
+        /// covered units per metre, each carried by a distinct available bot. In the fixed Dinkelbach
+        /// form V = sum_o (n(o) + L) * [(1-delta) f + delta fh], so this plan has V = n(o) + L.
+        ///
+        /// Greedy covering may use more pods than necessary and so miss a plan that fits the bots
+        /// available; that loosens or loses the bound but never invalidates it. An (o,w) whose demand
+        /// the committed stock alone covers is skipped: committing it costs no distance, so the
+        /// decision is not degenerate and the bound is never called for it.
+        /// </summary>
+        /// <param name="snap">The decision snapshot.</param>
+        /// <param name="model">The built model, used to test which pod-station moves exist.</param>
+        /// <param name="linesPerOrder">L = mu0/lambda0 for this decision, as used by the objective.</param>
+        /// <returns>The bound, or 0 when no plan of this family is feasible.</returns>
+        private double ComputeLambdaUpperBoundOrderAtomic(M4GSnapshot snap, M4GModel model, double linesPerOrder)
+        {
+            if (snap.Ra.Count == 0) { _lastLbFail = 1; return 0.0; }
+            if (snap.Pa.Count == 0) { _lastLbFail = 2; return 0.0; }
+            var stations = snap.Cs.Keys.Where(s => snap.Cs[s] > 0).OrderBy(s => s.ID).ToList();
+            if (stations.Count == 0) { _lastLbFail = 3; return 0.0; }
+
+            // Committed stock per station: Pb pods inbound to it - the same sunk supply NS1 counts.
+            var stationStock = new Dictionary<int, Dictionary<ItemDescription, int>>();
+            foreach (var station in stations)
+            {
+                var agg = new Dictionary<ItemDescription, int>();
+                HashSet<Pod> inbound;
+                if (snap.InboundPods.TryGetValue(station, out inbound))
+                    foreach (var pod in inbound.Where(p => snap.Pb.Contains(p)))
+                        foreach (var sku in pod.ItemDescriptionsContained)
+                        {
+                            int a = pod.CountAvailable(sku);
+                            if (a <= 0) continue;
+                            int cur;
+                            agg[sku] = (agg.TryGetValue(sku, out cur) ? cur : 0) + a;
+                        }
+                stationStock[station.ID] = agg;
+            }
+            var xpsNames = new HashSet<string>(model.Sym.Xps.Select(v => v.name));
+
+            // A plan's own ratio D/V is a valid bound, but at exactly that price the plan scores 0 and
+            // ties with the null plan, so the solver may return null and the decision stalls (measured:
+            // 166 of 175 jumps did nothing, objective exactly 0, whenever the candidate pool had shrunk
+            // to a handful of urgent orders none of which a dispatch could piggyback). Price the plan at
+            // (D + tau)/V instead: it then beats null by exactly tau, the canon's own convergence
+            // tolerance, so the solver must act. Any value above a valid bound is still a valid bound.
+            double tau = Math.Max(0.0, _m4gConfig.DinkelbachTolerance);
+
+            double best = double.PositiveInfinity;
+            foreach (var order in snap.PendingOrders)
+            {
+                Dictionary<ItemDescription, int> res;
+                if (!snap.Residuals.TryGetValue(order, out res)) continue;
+                // V4g: an order with a line no pod holds cannot be valued, so it cannot be committed.
+                if (!res.All(p => snap.PiSKU.ContainsKey(p.Key))) continue;
+                int lines = res.Count(p => p.Value > 0);
+                if (lines == 0) continue;
+
+                foreach (var station in stations)
+                {
+                    var deficit = new Dictionary<ItemDescription, int>();
+                    foreach (var line in res)
+                    {
+                        if (line.Value <= 0) continue;
+                        int stock;
+                        stationStock[station.ID].TryGetValue(line.Key, out stock);
+                        if (stock < line.Value) deficit[line.Key] = line.Value - stock;
+                    }
+                    if (deficit.Count == 0) continue;
+
+                    var pods = snap.Pa.Where(p => xpsNames.Contains("xps_" + p.ID + "_" + station.ID)).ToList();
+                    var bots = new List<Bot>(snap.Ra);
+                    double distance = 0.0;
+                    bool feasible = true;
+                    while (deficit.Count > 0)
+                    {
+                        Pod pick = null; Bot pickBot = null;
+                        double pickScore = 0.0, pickCost = 0.0;
+                        foreach (var pod in pods)
+                        {
+                            int cover = 0;
+                            foreach (var d in deficit)
+                                cover += Math.Min(d.Value, Math.Max(0, pod.CountAvailable(d.Key)));
+                            if (cover <= 0) continue;
+                            Bot nearest = null; double dBot = double.PositiveInfinity;
+                            foreach (var bot in bots)
+                            {
+                                double db = M1GBotPodCost(bot, pod);
+                                if (db < dBot) { dBot = db; nearest = bot; }
+                            }
+                            if (nearest == null || double.IsPositiveInfinity(dBot)) continue;
+                            double cost = dBot + M1GPodStationCost(pod, station) + PodStationExtraCost(pod, station);
+                            if (double.IsPositiveInfinity(cost)) continue;
+                            double score = cost > 0 ? cover / cost : double.PositiveInfinity;
+                            if (pick == null || score > pickScore)
+                            {
+                                pick = pod; pickBot = nearest; pickScore = score; pickCost = cost;
+                            }
+                        }
+                        if (pick == null) { feasible = false; break; }
+                        distance += pickCost;
+                        foreach (var key in deficit.Keys.ToList())
+                        {
+                            int left = deficit[key] - Math.Max(0, pick.CountAvailable(key));
+                            if (left <= 0) deficit.Remove(key); else deficit[key] = left;
+                        }
+                        pods.Remove(pick);
+                        bots.Remove(pickBot);
+                        if ((distance + tau) / (lines + linesPerOrder) >= best) { feasible = false; break; }
+                    }
+                    if (!feasible) continue;
+                    double ratio = (distance + tau) / (lines + linesPerOrder);
+                    if (ratio < best) best = ratio;
+                }
+            }
+            if (double.IsPositiveInfinity(best)) { _lastLbFail = 5; return 0.0; }
+            _lastLbFail = 0;
+            _lastLbValue = best;
+            return best;
+        }
+
         private double ComputeLambdaUpperBound(M4GSnapshot snap)
         {
             if (snap.Ra.Count == 0) { _lastLbFail = 1; return 0.0; }
@@ -994,6 +1181,13 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             }
             if (demandBySku.Count == 0) { _lastLbFail = 4; return 0.0; }
 
+            // (LineBoundTau) Same fix as ComputeLambdaUpperBoundOrderAtomic: the candidate's own
+            // cost is a valid bound, but at exactly that price it ties the null plan (both score 0)
+            // and the solver may return null, wasting the jump. Priced at cost+tau instead, so it
+            // strictly beats null by tau once actually solved at this lambda. V=1 here (one line
+            // closed), so no denominator - tau adds directly to the numerator/bound.
+            double tau = _m4gConfig.LineBoundTau ? Math.Max(0.0, _m4gConfig.DinkelbachTolerance) : 0.0;
+
             double best = double.PositiveInfinity;
             foreach (var pod in snap.Pa)
             {
@@ -1009,7 +1203,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 {
                     double cost = dBot + M1GPodStationCost(pod, stations[s])
                                 + PodStationExtraCost(pod, stations[s]);
-                    if (cost >= best) continue;                 // cannot improve the incumbent
+                    if (cost + tau >= best) continue;           // cannot improve the incumbent
                     bool closesALine = false;
                     foreach (var sku in pod.ItemDescriptionsContained)
                     {
@@ -1022,7 +1216,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                             if (stock < need && stock + have >= need) { closesALine = true; break; }
                         if (closesALine) break;
                     }
-                    if (closesALine) best = cost;
+                    if (closesALine) best = cost + tau;
                 }
             }
             if (double.IsPositiveInfinity(best)) { _lastLbFail = 5; return 0.0; }
@@ -1963,6 +2157,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             public HashSet<string> BoundLineKeys = new HashSet<string>();
             public int ValuedOrders;
             public int BoundOrders;
+            /// <summary>(OrderAtomicCanonPrices) Sum of n(o) over valued orders - the canon's valued
+            /// line count when the order is the atom.</summary>
+            public int ValuedLinesByOrder;
+            /// <summary>(OrderAtomicCanonPrices) Sum of n(o) over bound orders.</summary>
+            public int BoundLinesByOrder;
             /// <summary>rho used to price this solve's binding-layer draws (diagnostics).</summary>
             public double Rho;
             /// <summary>Bound units drawn from a sunk (Pp+Pq+Pb) pod.</summary>
@@ -2460,6 +2659,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             double rho = rho0 * lambdaScaleRatio;
             if (_m4gConfig.LegacyObjective)
             {
+                // (LegacyDistanceWeight) w1 on the travel term. 1 (default) reproduces every published
+                // LegacyObjective result bit-for-bit; 0 drops distance from the score while the model,
+                // constraints and dStar bookkeeping stay exactly as they are.
+                if (_m4gConfig.LegacyDistanceWeight != 1.0)
+                    objective = objective * _m4gConfig.LegacyDistanceWeight;
                 // Legacy M1G value side (spec: Xie et al. 2021 s.3.3 construction). M1G's yos[o,s]
                 // reward is per (order, station) because M1G forbids splitting, so an order can
                 // only ever be assigned to one station and per-station == per-order there. Once
@@ -2644,9 +2848,21 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 }
                 else
                 {
+                    if (OrderAtomicCanon && model.OrderAtomic)
+                    {
+                        // (OrderAtomicCanonPrices) No line variable exists, so the canon's bound-line
+                        // term lambda(1-delta)*c rides on the order: committing o closes n(o) lines.
+                        if (sym.Zhat.Count > 0)
+                            objective = objective + LinearExpression.Sum(sym.Zhat.Select(v =>
+                                bin["z_" + v.order.ID]
+                                    * (-(lamBound * ResidualLineCount(snap, v.order) + muBound))), wrapper);
+                    }
+                    else
+                    {
                     var zhatBoundVars = sym.Zhat.Select(v => bin["z_" + v.order.ID]).ToList();
                     if (zhatBoundVars.Count > 0)
                         objective = objective + LinearExpression.Sum(zhatBoundVars) * (-muBound);
+                    }
                 }
                 if (sunkCovered != null)
                 {
@@ -2661,9 +2877,21 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 }
                 else
                 {
+                    if (OrderAtomicCanon && model.OrderAtomic)
+                    {
+                        // (OrderAtomicCanonPrices) Valuation-layer twin: the canon's lambda*delta*chat
+                        // term for o's n(o) valued lines rides on fh[o].
+                        if (sym.Zhat.Count > 0)
+                            objective = objective + LinearExpression.Sum(sym.Zhat.Select(v =>
+                                bin[v.name]
+                                    * (-(lamValued * ResidualLineCount(snap, v.order) + muValued))), wrapper);
+                    }
+                    else
+                    {
                     var zhatValuedVars = sym.Zhat.Select(v => bin[v.name]).ToList();
                     if (zhatValuedVars.Count > 0)
                         objective = objective + LinearExpression.Sum(zhatValuedVars) * (-muValued);
+                    }
                 }
                 }
                 // T5: tie-break that prefers executing now among equally valued solutions. sym.Qhat
@@ -2816,7 +3044,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     int need = pl.Units;
                     var here = snap.PiSKU[pl.Sku]
                         .Where(p => Math.Round(bin["xps_" + p.ID + "_" + pl.Station.ID].GetValue()) != 0)
-                        .OrderBy(p => snap.Pa.Contains(p) ? 1 : 0)
+                        .OrderBy(p => (snap.Pa.Contains(p) ? 1 : 0) ^ (_m4gConfig.NewPodFirstAllocation ? 1 : 0))
                         .ToList();
                     foreach (var pod in here)
                     {
@@ -2875,6 +3103,15 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             }
             result.ValuedOrders = sym.Zhat.Count(v => Math.Round(bin[v.name].GetValue()) != 0);
             result.BoundOrders = sym.Zhat.Count(v => Math.Round(bin["z_" + v.order.ID].GetValue()) != 0);
+            if (OrderAtomicCanon && model.OrderAtomic)
+            {
+                result.ValuedLinesByOrder = sym.Zhat
+                    .Where(v => Math.Round(bin[v.name].GetValue()) != 0)
+                    .Sum(v => ResidualLineCount(snap, v.order));
+                result.BoundLinesByOrder = sym.Zhat
+                    .Where(v => Math.Round(bin["z_" + v.order.ID].GetValue()) != 0)
+                    .Sum(v => ResidualLineCount(snap, v.order));
+            }
             // (ValuationFidelityLog) Size of the orders each layer claims, in residual lines.
             // Counted off snap.Residuals - the same demand ledger the Chat/Qhat symbols were built
             // from - so "lines" here means exactly what lambda prices, not the order's original
@@ -3053,7 +3290,13 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     // means this snapshot genuinely has nothing worth dispatching.
                     if (vStar <= 0 && _m4gConfig.UpperBoundJump && !jumpedToBound && lambdaK > 0)
                     {
-                        double lambdaUb = ComputeLambdaUpperBound(snap);
+                        // (OrderAtomicCanonPrices) The canon's line-closing plan is infeasible when the
+                        // order is the atom, so bound with a whole-order commitment instead. L is the
+                        // same mu0/lambda0 the objective uses, which fixes the plan's value V.
+                        double lambdaUb = OrderAtomicCanon && model != null
+                            ? ComputeLambdaUpperBoundOrderAtomic(snap, model,
+                                lambda0 > 0 ? mu0 / lambda0 : _m4gConfig.LinesPerOrderFallback)
+                            : ComputeLambdaUpperBound(snap);
                         if (lambdaUb > lambdaK)
                         {
                             jumpedToBound = true;
@@ -3185,7 +3428,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // (OrderAtomicNoSplit) There are no line keys in that arm, so beta is calibrated on
             // ORDERS - bound orders over valued orders - which is the same realisation rate one
             // atom up and keeps the price self-consistent with what the objective actually pays.
-            if (_m4gConfig.OrderAtomicNoSplit && _m4gConfig.CompactLineModel)
+            // (OrderAtomicCanonPrices) Keep the canon's LINE-denominated delta: register sum n(o)
+            // over bound and valued orders, which is what the line keys would have counted.
+            if (OrderAtomicCanon)
+                _pricing.RegisterDecision(result.BoundLinesByOrder, result.ValuedLinesByOrder, deltaStratum);
+            else if (_m4gConfig.OrderAtomicNoSplit && _m4gConfig.CompactLineModel)
                 _pricing.RegisterDecision(result.BoundOrders, result.ValuedOrders, deltaStratum);
             else
                 _pricing.RegisterDecision(result.BoundLineKeys.Count, result.ValuedLineKeys.Count, deltaStratum);

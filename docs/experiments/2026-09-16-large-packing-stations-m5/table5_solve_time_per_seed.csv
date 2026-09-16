@@ -1,0 +1,41 @@
+﻿Policy,Bots,Seed,Order batching time per decision (s),Order batching time total (s),Decisions
+HGS-M5,45,0,0.0495,264.1,5332
+HGS-M5,45,1,0.0816,474.8,5819
+HGS-M5,45,2,0.0639,354.0,5536
+HGS-M5,45,3,0.0830,431.7,5202
+HGS-M5,45,4,0.0573,337.9,5900
+HGS-M5,45,5,0.0581,305.6,5257
+HGS-M5,45,6,0.0608,317.5,5223
+HGS-M5,45,7,0.0520,271.7,5229
+HGS-M5,45,8,0.0801,478.0,5965
+HGS-M5,45,9,0.0687,357.5,5204
+HGS-M5 3 packing stations,45,0,0.0508,270.9,5332
+HGS-M5 3 packing stations,45,1,0.0647,376.3,5819
+HGS-M5 3 packing stations,45,2,0.0459,254.3,5536
+HGS-M5 3 packing stations,45,3,0.0625,325.0,5202
+HGS-M5 3 packing stations,45,4,0.0629,371.1,5900
+HGS-M5 3 packing stations,45,5,0.0750,394.1,5257
+HGS-M5 3 packing stations,45,6,0.0418,218.1,5223
+HGS-M5 3 packing stations,45,7,0.0512,267.7,5229
+HGS-M5 3 packing stations,45,8,0.0935,560.6,5998
+HGS-M5 3 packing stations,45,9,0.0429,223.4,5204
+HGS-M5 2 packing stations,45,0,0.7872,4741.1,6023
+HGS-M5 2 packing stations,45,1,1.0906,6555.7,6011
+HGS-M5 2 packing stations,45,2,1.1864,5793.4,4883
+HGS-M5 2 packing stations,45,3,1.2465,7456.7,5982
+HGS-M5 2 packing stations,45,4,1.0419,6194.0,5945
+HGS-M5 2 packing stations,45,5,1.2728,6871.7,5399
+HGS-M5 2 packing stations,45,6,1.4964,8311.3,5554
+HGS-M5 2 packing stations,45,7,1.1015,6019.7,5465
+HGS-M5 2 packing stations,45,8,0.8996,4707.4,5233
+HGS-M5 2 packing stations,45,9,0.8937,5042.1,5642
+HGS-M5 1 packing station,45,0,0.8147,3080.3,3781
+HGS-M5 1 packing station,45,1,1.1653,4505.1,3866
+HGS-M5 1 packing station,45,2,0.7457,2994.0,4015
+HGS-M5 1 packing station,45,3,0.7867,2939.7,3737
+HGS-M5 1 packing station,45,4,0.9535,3641.4,3819
+HGS-M5 1 packing station,45,5,1.3278,5296.4,3989
+HGS-M5 1 packing station,45,6,0.6818,2747.0,4029
+HGS-M5 1 packing station,45,7,1.2727,5250.0,4125
+HGS-M5 1 packing station,45,8,1.0125,4113.7,4063
+HGS-M5 1 packing station,45,9,1.3070,5220.2,3994

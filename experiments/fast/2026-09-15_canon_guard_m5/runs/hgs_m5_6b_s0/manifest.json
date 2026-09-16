@@ -1,0 +1,97 @@
+{
+ "run_id": "2026-09-15_canon_guard_m5/hgs_m5_6b_s0",
+ "experiment": "2026-09-15_canon_guard_m5",
+ "kind": "fast",
+ "arm": "hgs_m5_6b",
+ "seed": 0,
+ "question": "Canon 範本（誠實命名）跑 M5 小規模 seed 0，結果是否與 out/gc_m5_6bot_s0（同內容、舊檔名）逐位相同？並驗證 exp.py 全流程。",
+ "motivation": "exp.py 建立後第一次實跑；同時確認 Canon 範本改名不改變模擬行為。",
+ "changed": [],
+ "config": {
+  "xlayo": {
+   "source": "Canon/small/small_6b_2p_2r.xlayo",
+   "template": null,
+   "snapshot": "experiments\\fast\\2026-09-15_canon_guard_m5\\runs\\hgs_m5_6b_s0\\config\\small_6b_2p_2r.xlayo",
+   "sha256": "6910adaad737ff46a5e0f2818bf26aab26772818f97b971eeb7a65aaf21d4dd4"
+  },
+  "xsett": {
+   "source": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "template": null,
+   "snapshot": "experiments\\fast\\2026-09-15_canon_guard_m5\\runs\\hgs_m5_6b_s0\\config\\small_fill100_mu100_2h_inv70.xsett",
+   "sha256": "1d8c90458b74fb1bcc2a362480ca9bd48582f2823c36ab39e2fa345e38ec6100"
+  },
+  "xconf": {
+   "source": "Canon/small/hgs_m5.xconf",
+   "template": null,
+   "snapshot": "experiments\\fast\\2026-09-15_canon_guard_m5\\runs\\hgs_m5_6b_s0\\config\\hgs_m5.xconf",
+   "sha256": "b9bd87cf26d834d0cb92214ebd4229ae98236962e2cd8eb648ca8c859bdbc510"
+  }
+ },
+ "order_batching_type": "GreedyM5Configuration",
+ "order_batching_flags": {
+  "TieBreaker": "EarliestDueTime",
+  "FastLane": "true",
+  "LateBeforeMatch": "false",
+  "FastLaneTieBreaker": "EarliestDueTime",
+  "LambdaScale": "1",
+  "MuScale": "1",
+  "DeltaScale": "1",
+  "EpsilonScale": "0",
+  "WarmupLines": "50",
+  "LambdaFallback": "10",
+  "DeltaFallback": "0.05",
+  "LinesPerOrderFallback": "2.4",
+  "LambdaFixed": "0",
+  "DeltaFixed": "0",
+  "PickDistancePricing": "true",
+  "IncrementalValuationEnabled": "false",
+  "LambdaEscalations": "0",
+  "ReleaseParentOnFirstSplit": "true",
+  "UpperBoundJump": "true",
+  "UrgentOrderGate": "true",
+  "MarginalDispatchScore": "true",
+  "NewPodFirstAllocation": "true",
+  "LineBoundTau": "true",
+  "M1GUrgentGate": "true",
+  "DrawsFirstDispatch": "true"
+ },
+ "scenario": {
+  "hours": 2.0,
+  "pstations": 2,
+  "rstations": 2,
+  "skus": 100,
+  "backlog": 100,
+  "pods": 100,
+  "cells": 120,
+  "cap": "100",
+  "stock": 70.0,
+  "bots": 6
+ },
+ "canon": {
+  "version": 1,
+  "fingerprint": "9890dba8e0a7ec54"
+ },
+ "dll": {
+  "path": "RAWSimO.CLI\\bin\\x64\\Release\\RAWSimO.Core.dll",
+  "sha256": "94a44bdb4844fea74934bfe1d0db3a0c2ea11971cb6fe05084b23dc09159120d",
+  "built": "2026-09-15T10:47:50"
+ },
+ "git": {
+  "head": "06a384206eaea6541733acbf6c81e2fae06e3dcd",
+  "uncommitted_code_diff_sha": "9dc2608b1bc729bc"
+ },
+ "command": [
+  "C:\\Users\\Aesop\\Desktop\\EE-RAWSim-O_PP\\RAWSimO.CLI\\bin\\x64\\Release\\RAWSimO.CLI.exe",
+  "experiments\\fast\\2026-09-15_canon_guard_m5\\runs\\hgs_m5_6b_s0\\config\\small_6b_2p_2r.xlayo",
+  "experiments\\fast\\2026-09-15_canon_guard_m5\\runs\\hgs_m5_6b_s0\\config\\small_fill100_mu100_2h_inv70.xsett",
+  "experiments\\fast\\2026-09-15_canon_guard_m5\\runs\\hgs_m5_6b_s0\\config\\hgs_m5.xconf",
+  "experiments\\fast\\2026-09-15_canon_guard_m5\\runs\\hgs_m5_6b_s0",
+  "0"
+ ],
+ "queued": "2026-09-15T16:58:17",
+ "started": "2026-09-15T16:58:20",
+ "finished": "2026-09-15T16:58:38",
+ "exit": 0,
+ "attempt": 1,
+ "dll_at_start_sha256": "94a44bdb4844fea74934bfe1d0db3a0c2ea11971cb6fe05084b23dc09159120d"
+}

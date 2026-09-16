@@ -18,6 +18,12 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
     /// packing budget. SplitM1GExactManager itself stays untouched as the M2e baseline.
     /// See docs/superpowers/specs/2026-07-16-pod-centric-inbound-split-design.md.
     /// </summary>
+    // ===== 歷史遺跡（2026-09-13 標註）=====
+    // M2e-IC。拆單研究的第二代（inbound-committed 定價 + pod-tier），已被 M4G 取代。
+    // 保留原因：它是 PackingBuffer 與 WakeOnLastPick 唯一的既有使用者，也是「拆單需要
+    // 聯合最佳化」這條論證的歷史對照組。正典不使用，無 xconf 指向。
+    // 刪除會動到列舉與工廠，且失去重跑歷史對照的能力，故保留但不維護。
+    // ====================================
     public class SplitM2eICManager : M1GManager
     {
         /// <summary>

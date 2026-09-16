@@ -1,4 +1,4 @@
-using RAWSimO.Core.Configurations;
+﻿using RAWSimO.Core.Configurations;
 using RAWSimO.Core.Control;
 using RAWSimO.Core.Elements;
 using RAWSimO.Core.Items;
@@ -18,6 +18,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
     /// directly (via the PVGS copy), modifies none of them.
     /// See docs/superpowers/plans/2026-07-28-hgs-m3.md.
     /// </summary>
+    // ===== 歷史遺跡（2026-09-13 標註）=====
+    // HGS-M3。M3G（set-level 拆單 MILP）的貪婪對照，已被 HGS-M5 取代。
+    // 保留原因：line-closure 值函數的原始實作，消融鏈的歷史對照組。正典不使用。
+    // 刪除會動到列舉與工廠，且失去重跑歷史對照的能力，故保留但不維護。
+    // ====================================
     public class GreedyM3GManager : M1GManager
     {
         /// <summary>

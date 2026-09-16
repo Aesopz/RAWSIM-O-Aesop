@@ -1,0 +1,79 @@
+[
+ {
+  "scale": "small",
+  "file": "small_6b_2p_2r.xlayo",
+  "source": "small/small_6bot.xlayo",
+  "source_sha256": "11ed17e117d2c6aa8755d78face298087cd79bcbc61efefbb543023740cf58fe",
+  "renamed_from": "<NameLayout>1-2-2-10-0.84</NameLayout>"
+ },
+ {
+  "scale": "small",
+  "file": "small_10b_2p_2r.xlayo",
+  "source": "small/small_10bot.xlayo",
+  "source_sha256": "c06ed1982f0ae4deb51ff6209203ef9b6f8fd0943d9423a61dc0d811ba822b83",
+  "renamed_from": "<NameLayout>1-2-2-10-0.84</NameLayout>"
+ },
+ {
+  "scale": "small",
+  "file": "small_fill100_mu100_2h_inv70.xsett",
+  "source": "small/small_o100_mu100_2h_inv70.xsett",
+  "source_sha256": "3e72252ac3bc3d3fb2258f59599bb07359f4e301ce712bd766f3316f9cfdd832",
+  "renamed_from": "<Name>small_o100_mu100_4h_inv70</Name>"
+ },
+ {
+  "scale": "small",
+  "file": "m1g.xconf",
+  "source": "small/m1g.xconf",
+  "source_sha256": "c0358a2e8c6b01989f533217387e1e3cfdcd52ac76fee29c4df5819ae0150c1a",
+  "renamed_from": "(unchanged)"
+ },
+ {
+  "scale": "small",
+  "file": "m4g.xconf",
+  "source": "small/m4g.xconf",
+  "source_sha256": "ee0eec1d5e8fc1089b6af37c5f4525bfbf5048571e7b1c04436f6ac37307fcfe",
+  "renamed_from": "<Name>m1g</Name>"
+ },
+ {
+  "scale": "small",
+  "file": "m4g_ns.xconf",
+  "source": "small/m4g_ns_order.xconf",
+  "source_sha256": "b7a2db21e8c3a27a879b9e504b89885e770a98c9271392d619e563fdef572c5c",
+  "renamed_from": "<Name>m1g</Name>"
+ },
+ {
+  "scale": "small",
+  "file": "hgs_m5.xconf",
+  "source": "small/hgs_m5.xconf",
+  "source_sha256": "345f9e99dfc60b2c3aec38269b21ef83545315aa16764a19aeb0eb9cc12c54ab",
+  "renamed_from": "(unchanged)"
+ },
+ {
+  "scale": "large",
+  "file": "large_45b_12p_6r.xlayo",
+  "source": "large/large_test-toobig-45bot.xlayo",
+  "source_sha256": "a9642e07ae83afbb0f5688942d93d33d5bcb644f9e13165f975a67c879272bcf",
+  "renamed_from": "<NameLayout>large_test</NameLayout>"
+ },
+ {
+  "scale": "large",
+  "file": "large_fill200_mu1000_2h_inv70.xsett",
+  "source": "large/large_test.xsett",
+  "source_sha256": "2c78985c735475abafc65c628ded58ea8e309358316e7b6383ea5374787d3b75",
+  "renamed_from": "<Name>large_test</Name>"
+ },
+ {
+  "scale": "large",
+  "file": "hgs_m5_k10.xconf",
+  "source": "small/hgs_m5_k10.xconf",
+  "source_sha256": "8fea542d87d6026f668492df60356a7d41611cee36064d1615736aa06cc13e46",
+  "renamed_from": "<Name>hgs_m5</Name>"
+ },
+ {
+  "scale": "large",
+  "file": "hadgs_aligned.xconf",
+  "source": "small/hadgs_aligned.xconf",
+  "source_sha256": "12a2bfd404364129f475f0fa81987662c961f4855d9fbc1e6751221bb3298b67",
+  "renamed_from": "(unchanged)"
+ }
+]

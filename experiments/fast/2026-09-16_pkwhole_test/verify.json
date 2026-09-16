@@ -1,0 +1,11 @@
+{
+ "verified": "2026-09-16T11:08:37",
+ "canon_version": 1,
+ "runs": [
+  {
+   "run_id": "2026-09-16_pkwhole_test/m5_pk1_whole_45b_s0",
+   "validity": "valid",
+   "problems": []
+  }
+ ]
+}

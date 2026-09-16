@@ -1,0 +1,103 @@
+{
+ "run_id": "2026-09-16_large_packing_capacity_m5/m5_pk1_45b_s1",
+ "experiment": "2026-09-16_large_packing_capacity_m5",
+ "kind": "formal",
+ "arm": "m5_pk1_45b",
+ "seed": 1,
+ "question": "大規模 45 bots、12 揀貨站下，配置 1/2/3 個包裝站（每站 78 箱）相對無限制時拆單效益流失多少？需要幾個包裝站才保住效益？",
+ "motivation": "使用者要求的延伸實驗；包裝站數為整數。Canon v1 不設限時同時等待合併的母單峰值 175–201（中位 190）、時間平均 137，故 1 站（78）預期明顯受限、2 站（156）接近時間平均、3 站（234）高於峰值。對照組沿用既有 m5_45b。",
+ "changed": [
+  "PackingStationCount",
+  "PackingBufferCapacity"
+ ],
+ "config": {
+  "xlayo": {
+   "source": "Canon/large/large_45b_12p_6r.xlayo",
+   "template": null,
+   "snapshot": "experiments\\formal\\2026-09-16_large_packing_capacity_m5\\runs\\m5_pk1_45b_s1\\config\\large_45b_12p_6r.xlayo",
+   "sha256": "0306b921bad71e9a0d548a61746616b07faf93d04d2681fdcfa61acec551dfb5"
+  },
+  "xsett": {
+   "source": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "template": null,
+   "snapshot": "experiments\\formal\\2026-09-16_large_packing_capacity_m5\\runs\\m5_pk1_45b_s1\\config\\large_fill200_mu1000_2h_inv70.xsett",
+   "sha256": "0c6e8002c8bb5637bdbd6b4a128d7eb95bd0ade89fea4af75b83470da2676e85"
+  },
+  "xconf": {
+   "source": "inputs/hgs_m5_k10_pk1.xconf",
+   "template": "Canon/large/hgs_m5_k10.xconf",
+   "snapshot": "experiments\\formal\\2026-09-16_large_packing_capacity_m5\\runs\\m5_pk1_45b_s1\\config\\hgs_m5_k10_pk1.xconf",
+   "sha256": "0f4af235e4d67c6c54c805c196ff1ebd41f02ca2fefcc6d8b66f06e55735a13e"
+  }
+ },
+ "order_batching_type": "GreedyM5Configuration",
+ "order_batching_flags": {
+  "TieBreaker": "EarliestDueTime",
+  "FastLane": "true",
+  "LateBeforeMatch": "false",
+  "FastLaneTieBreaker": "EarliestDueTime",
+  "LambdaScale": "1",
+  "MuScale": "1",
+  "DeltaScale": "1",
+  "EpsilonScale": "0",
+  "WarmupLines": "50",
+  "LambdaFallback": "10",
+  "DeltaFallback": "0.05",
+  "LinesPerOrderFallback": "2.4",
+  "LambdaFixed": "0",
+  "DeltaFixed": "0",
+  "PickDistancePricing": "true",
+  "IncrementalValuationEnabled": "false",
+  "LambdaEscalations": "0",
+  "ReleaseParentOnFirstSplit": "true",
+  "UpperBoundJump": "true",
+  "UrgentOrderGate": "true",
+  "MarginalDispatchScore": "true",
+  "NewPodFirstAllocation": "true",
+  "LineBoundTau": "true",
+  "M1GUrgentGate": "true",
+  "DrawsFirstDispatch": "true",
+  "CandidatePodTopK": "10",
+  "PackingStationCount": "1",
+  "PackingBufferCapacity": "78"
+ },
+ "scenario": {
+  "hours": 2.0,
+  "pstations": 12,
+  "rstations": 6,
+  "skus": 1000,
+  "backlog": 200,
+  "pods": 1203,
+  "cells": 1352,
+  "cap": "500",
+  "stock": 70.0,
+  "bots": 45
+ },
+ "canon": {
+  "version": 1,
+  "fingerprint": "9890dba8e0a7ec54"
+ },
+ "dll": {
+  "path": "RAWSimO.CLI\\bin\\x64\\Release\\RAWSimO.Core.dll",
+  "sha256": "94a44bdb4844fea74934bfe1d0db3a0c2ea11971cb6fe05084b23dc09159120d",
+  "built": "2026-09-15T10:47:50"
+ },
+ "git": {
+  "head": "06a384206eaea6541733acbf6c81e2fae06e3dcd",
+  "uncommitted_code_diff_sha": "9dc2608b1bc729bc"
+ },
+ "command": [
+  "C:\\Users\\Aesop\\Desktop\\EE-RAWSim-O_PP\\RAWSimO.CLI\\bin\\x64\\Release\\RAWSimO.CLI.exe",
+  "experiments\\formal\\2026-09-16_large_packing_capacity_m5\\runs\\m5_pk1_45b_s1\\config\\large_45b_12p_6r.xlayo",
+  "experiments\\formal\\2026-09-16_large_packing_capacity_m5\\runs\\m5_pk1_45b_s1\\config\\large_fill200_mu1000_2h_inv70.xsett",
+  "experiments\\formal\\2026-09-16_large_packing_capacity_m5\\runs\\m5_pk1_45b_s1\\config\\hgs_m5_k10_pk1.xconf",
+  "experiments\\formal\\2026-09-16_large_packing_capacity_m5\\runs\\m5_pk1_45b_s1",
+  "1"
+ ],
+ "queued": "2026-09-16T00:22:43",
+ "started": "2026-09-16T00:22:45",
+ "finished": "2026-09-16T01:39:08",
+ "exit": 0,
+ "attempt": 1,
+ "dll_at_start_sha256": "94a44bdb4844fea74934bfe1d0db3a0c2ea11971cb6fe05084b23dc09159120d"
+}

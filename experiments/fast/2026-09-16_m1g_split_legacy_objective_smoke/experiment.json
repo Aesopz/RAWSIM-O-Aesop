@@ -1,0 +1,28 @@
+{
+ "id": "2026-09-16_m1g_split_legacy_objective_smoke",
+ "kind": "fast",
+ "question": "M1G-S（M4G 可行域允許拆單＋M1G 固定權重目標式 w1=1/w2=−40/w3=1000，忠實估值鏡像）在 Canon v1 小規模 6 bots seed 0 能否正常跑完？行為是否合理（有拆單、無停擺）？",
+ "motivation": "補 2×2 消融（拆單 × 定價）的第四格；正式 10 seeds 前先 1 seed 確認可行。",
+ "scenario_confirmed_by_user": true,
+ "arms": [
+  {
+   "label": "m1g_split_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m1g_split.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "LegacyObjective",
+    "LegacyOrderReward",
+    "LegacyIdleSlotWeight",
+    "LegacyRewardValuation"
+   ],
+   "seeds": [
+    0
+   ]
+  }
+ ],
+ "comparisons": []
+}

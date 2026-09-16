@@ -54,7 +54,16 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         {
             if (_config.MuFixed > 0) return _config.MuFixed;
             if (InWarmup) return _config.MuScale * _config.MuFallback;
-            return _config.MuScale * (cumulativeDistanceMetres / Math.Max(1, _completedOrders));
+            // (DecoupledLayerReward) Dinkelbach's fixed point only holds when the quantity the
+            // objective PAYS ON is the quantity mu is calibrated against. The decoupled objective
+            // pays mu on every bound order AND mu on every valued order, so its denominator is
+            // bound + valued, not completed orders alone. Leaving the denominator at completed
+            // orders alone inflates mu and silently amplifies the reward, which would make the
+            // arm look better for a reason that has nothing to do with the design.
+            double denominator = _config.DecoupledLayerReward
+                ? (double)(_boundOrdersTotal + _valuedOrdersTotal)
+                : _completedOrders;
+            return _config.MuScale * (cumulativeDistanceMetres / Math.Max(1.0, denominator));
         }
 
         /// <summary>System-wide realisation rate.</summary>

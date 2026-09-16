@@ -281,6 +281,53 @@ namespace RAWSimO.Core.Configurations
     public class M1GConfiguration : OrderBatchingConfiguration
     {
         /// <summary>
+        /// Break ties in the bot-&gt;pod assignment by lowest robot ID. The objective prices a
+        /// bot-&gt;pod pair by distance alone, so two equally distant robots are interchangeable
+        /// to the solver and which one comes back is arbitrary - enough to send two otherwise
+        /// identical models down different trajectories. Turning this on pins the choice, which
+        /// is what makes a degeneracy check between M1G and M4G-NS reproducible. Default false
+        /// keeps every existing result bit-identical.
+        /// </summary>
+        public bool RobotIdTieBreak = false;
+        /// <summary>
+        /// Weight w3 on the idle-slot term (Sum u_s) of the M1G objective. Jiao's published
+        /// value is 1000 and is the default, so every existing result stays bit-identical.
+        /// Because shi4 is an EQUALITY (Sum_o yaos[o,s] == Cs[s] - u_s), this penalty is
+        /// algebraically the same as a reward of w3 per BOUND order - it is what makes M1G
+        /// dispatch aggressively. Setting it to 0 removes that reward, which is the ablation
+        /// that tests whether the idle-slot term is load-bearing rather than cosmetic.
+        /// </summary>
+        public double SlotPenaltyWeight = 1000;
+        /// <summary>
+        /// Order-level mirror of M4GConfiguration.IncrementalValuationEnabled (canon default TRUE,
+        /// constraint V2a in M4GManager.cs:1803-1818). M4G caps how much newly dispatched pods (Pa)
+        /// may be credited, per SKU, after deducting what pods already committed to a station (Pb)
+        /// can supply - so the same demand cannot justify fetching a fresh pod every decision.
+        ///
+        /// NS cannot copy the constraint form: M4G restricts qh, a pure accounting variable, whereas
+        /// NS's yos is tied to binding by shi3 (yaos &lt;= yos), so cutting yos would cut the ability
+        /// to bind at all. The economics are applied as objective COEFFICIENTS instead, leaving the
+        /// feasible region byte-identical:
+        ///
+        ///   (o,s) already coverable by the committed pods alone : yos 0, yaos -mu
+        ///   (o,s) needing a newly dispatched pod                : yos -mu*delta, yaos -mu*(1-delta)
+        ///
+        /// Cashing an order in therefore always earns the full mu; only the PROMISE of one the
+        /// previous decision already paid for earns nothing. Motivation: shi5 lets yos open on Pb
+        /// stock (shi7 pins their xps to 1) at zero distance, while the distance term only ever bills
+        /// Pa - the cost side was marginal and the reward side cumulative. Measured consequence of
+        /// that asymmetry: ablating M1G's binding reward made Sum yos explode 5x (1117 -&gt; 5566)
+        /// while trips ROSE (179 -&gt; 257) and bound orders halved (582 -&gt; 337).
+        ///
+        /// KNOWN LOOSENESS: coverage is tested per order against aggregate Pb stock without deducting
+        /// units another order already claims, so two orders can both be marked covered by the same
+        /// units. That direction under-pays rather than over-pays. M4G avoids it by bounding in
+        /// aggregate per SKU, which has no order-granular counterpart here.
+        ///
+        /// Default false keeps every existing result bit-identical; the canon xconf turns it on.
+        /// </summary>
+        public bool IncrementalValuationEnabled = false;
+        /// <summary>
         /// Returns the type of the corresponding method this configuration belongs to.
         /// </summary>
         /// <returns>The type of the method.</returns>
@@ -1702,6 +1749,36 @@ namespace RAWSimO.Core.Configurations
         /// granularity. Measured on seed 0: removing it left completed orders bit-for-bit identical
         /// (610) while total distance fell 3.7%.</summary>
         public bool PodTierDrawPricingEnabled = false;
+        /// <summary>See M4GConfiguration.NewPodFirstAllocation. Default false.</summary>
+        public bool NewPodFirstAllocation = false;
+        /// <summary>See M4GConfiguration.LineBoundTau. Default false.</summary>
+        public bool LineBoundTau = false;
+        /// <summary>See M4GConfiguration.M1GUrgentGate. Default false.</summary>
+        public bool M1GUrgentGate = false;
+        /// <summary>
+        /// (Speed) In BuildPlan, take every improving draw-line move before pricing any dispatch,
+        /// and price dispatch only once the draws are exhausted. The default loop prices dispatch
+        /// on every iteration, costing O(D^2 * K * S) per plan for D draws, K candidate pods and
+        /// S free stations; this makes it O(D + (dispatches+1) * K * S * unlocked). Changes the
+        /// greedy's move order, so results are not bit-identical to false. Default false.
+        /// </summary>
+        public bool DrawsFirstDispatch = false;
+        /// <summary>
+        /// (Speed) When &gt; 0, EvaluateDispatch ranks (candidate pod, free station) pairs by the
+        /// same cheap optimistic score CandidatePodTopK uses and runs the full dispatch trial only
+        /// on the best K pairs, instead of trialling every screened pod at every free station.
+        /// Caps the trials per pricing at K when many stations have free slots. Replaces
+        /// CandidatePodTopK's pod screen while active. 0 = off (canon). Default 0.
+        /// </summary>
+        public int DispatchPairTopK = 0;
+        /// <summary>(PackingBufferLimit) When every consolidation box is taken, the line-level greedy can
+        /// only move orders that are already down to their last open line, because taking any earlier
+        /// line would turn the order into a split parent that needs a box. Multi-line orders therefore
+        /// freeze and the stations starve. true lets the greedy offer a WHOLE-ORDER move instead: all
+        /// remaining lines of an order drawn at ONE station in ONE epoch, which needs no box (the order is
+        /// never split). This is the degenerate whole-order dispatch M4G reaches through its MILP; the
+        /// greedy needs it spelled out. false (default) reproduces published results bit-for-bit.</summary>
+        public bool PackingFullWholeOrderFallback = false;
         /// <summary>Denominate the running prices in Extract-task distance only. false reproduces every published result bit-for-bit. See IM4GPrices.PickDistancePricing.</summary>
         public bool PickDistancePricing { get; set; } = false;
         /// <summary>Condition delta on committed-supply count instead of one system-wide scalar.
@@ -2270,6 +2347,47 @@ namespace RAWSimO.Core.Configurations
         /// price set (mu, delta, sigma, no lambda), so it measures splitting AND pricing together.
         /// </summary>
         public bool OrderAtomicNoSplit = false;
+        /// <summary>
+        /// (Requires <see cref="CompactLineModel"/> and <see cref="OrderAtomicNoSplit"/>.) Keeps the
+        /// order as the atom but restores the canon's price list, so the no-split control differs
+        /// from M4G only in the unit of commitment.
+        ///
+        /// OrderAtomicNoSplit drops the lambda line terms and calibrates beta on orders. Under
+        /// whole-order commitment every line of a committed order closes with it, so the canon's
+        /// line terms are carried by the order variables instead of being dropped:
+        ///   f[o]  pays  lambda(1-delta)*n(o) + mu(1-delta)
+        ///   fh[o] pays  lambda*delta*n(o)     + mu*delta
+        /// with n(o) the order's residual line count - exactly what the canon pays for closing all
+        /// of o's lines and completing o. Delta is registered on line counts (sum n(o) over bound
+        /// and valued orders), matching the canon's line-denominated rate.
+        ///
+        /// The upper-bound jump is replaced as well: the canon's "one pod closes one more line"
+        /// plan is not feasible when the order is the atom. The bound instead enumerates
+        /// committing a whole order at a station with free slots, covering its demand from the
+        /// station's committed stock plus greedily chosen new pods, and divides by n(o) + L,
+        /// the plan's value in the fixed Dinkelbach form. Default false.
+        /// </summary>
+        public bool OrderAtomicCanonPrices = false;
+        /// <summary>
+        /// (CompactLineModel) Out-of-model unit allocation order. False (canon): committed pods
+        /// (Pb) are drained before newly dispatched pods (Pa). True: newly dispatched pods first,
+        /// mirroring M1G's dops-first allocation. Default false.
+        /// </summary>
+        public bool NewPodFirstAllocation = false;
+        /// <summary>
+        /// (UrgentOrderGate) Use M1G's gate (feasibility-tested urgent orders, strictly more than
+        /// the free slots) instead of HADGS's, regardless of commitment unit. Default false.
+        /// </summary>
+        public bool M1GUrgentGate = false;
+        /// <summary>
+        /// (UpperBoundJump) Apply the same tau margin used by ComputeLambdaUpperBoundOrderAtomic
+        /// to the line-atomic bound (ComputeLambdaUpperBound): the candidate plan is priced at
+        /// (cost+tau) instead of cost, so it strictly beats the null plan at the jumped-to lambda
+        /// instead of tying it. Measured on canon (no tau): 27.1% of jump attempts at 6 bots and
+        /// 5.4% at 10 bots resolve to the null plan despite a valid bound (5-seed decision logs,
+        /// 2026-09-15). Default false.
+        /// </summary>
+        public bool LineBoundTau = false;
 
         /// <summary>
         /// Two-stage pricing: find lambda on a restricted problem that is guaranteed non-degenerate,
@@ -2376,6 +2494,12 @@ namespace RAWSimO.Core.Configurations
         public double LegacyOrderReward = -40;
         /// <summary>Legacy w3, the idle-slot weight.</summary>
         public double LegacyIdleSlotWeight = 0;
+        /// <summary>(LegacyObjective only) Legacy w1, the multiplier on the travel term (bot-to-pod plus
+        /// pod-to-station metres of newly dispatched pods). 1 = Jiao's objective. 0 removes distance from
+        /// the objective entirely while leaving every constraint untouched - the arm that asks whether
+        /// pricing PS/TA travel matters at all. Ignored when LegacyObjective is false: the ratio objective
+        /// D/P has no separate travel weight, its D is the numerator.</summary>
+        public double LegacyDistanceWeight = 1;
         /// <summary>(LegacyObjective) Attach the w2 order reward to the VALUATION variable zh_o
         /// instead of the binding variable z_o.
         ///
@@ -2716,7 +2840,12 @@ namespace RAWSimO.Core.Configurations
         /// <summary>Warm-up metres per completed order, used until WarmupOrders is reached.</summary>
         public double MuFallback = 24.0;
         /// <summary>Warm-up realisation rate, used until WarmupOrders is reached.</summary>
-        public double DeltaFallback = 0.05;
+        /// 0.25 is the ORDER-denominated scale: this model's atom is the order and the measured
+        /// order-level rate runs about 0.2-0.3 (M4G measures 0.2837 at order level against 0.1995
+        /// at line level). The 0.05 this field used to carry was copied from the LINE-level
+        /// default; it made the warm-up commitment premium 1/beta = 20x, which then collapsed to
+        /// ~1.5x the moment the measured rate took over - a cliff the model had to absorb.
+        public double DeltaFallback = 0.25;
         /// <summary>Pins mu to a constant when &gt; 0 (diagnostics / ablation only).</summary>
         public double MuFixed = 0;
         /// <summary>Pins delta to a constant when &gt; 0 (diagnostics / ablation only).</summary>
@@ -2735,6 +2864,41 @@ namespace RAWSimO.Core.Configurations
         /// worth of value". Replaces M1G's hand-set w3 = 1000, which the measured slot shadow
         /// price (8.51 m) says over-prices a slot by roughly 120x. 0 disables the term.</summary>
         public double SlotScale = 1.0;
+        /// <summary>
+        /// Create the decision variables in M1G's objective order before the constraints are
+        /// added, instead of letting the constraints create them. Purely a model-presentation
+        /// change: same variables, same constraints, same objective. It exists because Gurobi's
+        /// column order decides WHICH of several equally optimal solutions comes back, and this
+        /// model has many - a bot-&gt;pod pair is priced by distance alone, and an xps for a pod
+        /// already in use is priced at zero. Turn it on only for the degeneracy check against
+        /// M1G; default false keeps every existing result bit-identical.
+        /// </summary>
+        /// <summary>
+        /// On a degenerate solve (the null plan wins at this mu, so there is no D*/V* to iterate
+        /// from), jump ONCE to a provable upper bound on mu* instead of doubling mu blindly.
+        /// Mirrors M4GConfiguration.UpperBoundJump, which the M4G canon has switched on; the
+        /// bound here is order-denominated (cheapest plan that COMPLETES one whole order) because
+        /// this model's denominator counts orders, not lines.
+        /// </summary>
+        public bool UpperBoundJump = false;
+        /// <summary>
+        /// (DecoupledLayerReward) Pay BOTH layers the full mu instead of splitting one mu between
+        /// them by beta. Cannot be expressed through beta at all: mu*(1-beta)=mu needs beta=0 while
+        /// mu*beta=mu needs beta=1, so the split is structural, not a setting.
+        ///
+        ///   off : yaos -mu*(1-beta), yos -mu*beta  => bound earns mu, a promise earns mu*beta
+        ///   on  : yaos -mu,          yos -mu       => bound earns 2mu, a promise earns mu
+        ///
+        /// shi3 (yaos &lt;= yos) makes a bound order collect both terms, so the commitment premium
+        /// becomes exactly 2.0 regardless of what beta measures. Note this breaks the Dinkelbach
+        /// identity: mu is still calibrated as metres per COMPLETED order, but the objective now
+        /// pays out on completions plus promises, so total reward exceeds total distance and the
+        /// objective is no longer the linearisation of D/F. That tilt towards throughput is the
+        /// point of the arm - it is set by the measured f_hat/f ratio, not by a chosen constant.
+        /// Default false keeps every existing result bit-identical.
+        /// </summary>
+        public bool DecoupledLayerReward = false;
+        public bool ObjectiveFirstBuild = false;
     }
 
     /// <summary>
@@ -2758,7 +2922,12 @@ namespace RAWSimO.Core.Configurations
         /// <summary>Warm-up metres per completed order.</summary>
         public double MuFallback = 24.0;
         /// <summary>Warm-up realisation rate.</summary>
-        public double DeltaFallback = 0.05;
+        /// 0.25 is the ORDER-denominated scale: this model's atom is the order and the measured
+        /// order-level rate runs about 0.2-0.3 (M4G measures 0.2837 at order level against 0.1995
+        /// at line level). The 0.05 this field used to carry was copied from the LINE-level
+        /// default; it made the warm-up commitment premium 1/beta = 20x, which then collapsed to
+        /// ~1.5x the moment the measured rate took over - a cliff the model had to absorb.
+        public double DeltaFallback = 0.25;
         /// <summary>Pins mu when &gt; 0 (ablation only).</summary>
         public double MuFixed = 0;
         /// <summary>Pins delta when &gt; 0 (ablation only).</summary>

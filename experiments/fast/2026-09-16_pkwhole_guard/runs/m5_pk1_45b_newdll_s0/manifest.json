@@ -1,0 +1,103 @@
+{
+ "run_id": "2026-09-16_pkwhole_guard/m5_pk1_45b_newdll_s0",
+ "experiment": "2026-09-16_pkwhole_guard",
+ "kind": "fast",
+ "arm": "m5_pk1_45b_newdll",
+ "seed": 0,
+ "question": "新增 PackingFullWholeOrderFallback（預設 false）後，bin_pkwhole 跑 1 站 78 箱 seed 0 是否與昨晚 Release 結果逐位相同？",
+ "motivation": "守門員：確認新旗標預設不改變行為。",
+ "changed": [
+  "PackingStationCount",
+  "PackingBufferCapacity"
+ ],
+ "config": {
+  "xlayo": {
+   "source": "Canon/large/large_45b_12p_6r.xlayo",
+   "template": null,
+   "snapshot": "experiments\\fast\\2026-09-16_pkwhole_guard\\runs\\m5_pk1_45b_newdll_s0\\config\\large_45b_12p_6r.xlayo",
+   "sha256": "0306b921bad71e9a0d548a61746616b07faf93d04d2681fdcfa61acec551dfb5"
+  },
+  "xsett": {
+   "source": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "template": null,
+   "snapshot": "experiments\\fast\\2026-09-16_pkwhole_guard\\runs\\m5_pk1_45b_newdll_s0\\config\\large_fill200_mu1000_2h_inv70.xsett",
+   "sha256": "0c6e8002c8bb5637bdbd6b4a128d7eb95bd0ade89fea4af75b83470da2676e85"
+  },
+  "xconf": {
+   "source": "inputs/hgs_m5_k10_pk1.xconf",
+   "template": "Canon/large/hgs_m5_k10.xconf",
+   "snapshot": "experiments\\fast\\2026-09-16_pkwhole_guard\\runs\\m5_pk1_45b_newdll_s0\\config\\hgs_m5_k10_pk1.xconf",
+   "sha256": "0f4af235e4d67c6c54c805c196ff1ebd41f02ca2fefcc6d8b66f06e55735a13e"
+  }
+ },
+ "order_batching_type": "GreedyM5Configuration",
+ "order_batching_flags": {
+  "TieBreaker": "EarliestDueTime",
+  "FastLane": "true",
+  "LateBeforeMatch": "false",
+  "FastLaneTieBreaker": "EarliestDueTime",
+  "LambdaScale": "1",
+  "MuScale": "1",
+  "DeltaScale": "1",
+  "EpsilonScale": "0",
+  "WarmupLines": "50",
+  "LambdaFallback": "10",
+  "DeltaFallback": "0.05",
+  "LinesPerOrderFallback": "2.4",
+  "LambdaFixed": "0",
+  "DeltaFixed": "0",
+  "PickDistancePricing": "true",
+  "IncrementalValuationEnabled": "false",
+  "LambdaEscalations": "0",
+  "ReleaseParentOnFirstSplit": "true",
+  "UpperBoundJump": "true",
+  "UrgentOrderGate": "true",
+  "MarginalDispatchScore": "true",
+  "NewPodFirstAllocation": "true",
+  "LineBoundTau": "true",
+  "M1GUrgentGate": "true",
+  "DrawsFirstDispatch": "true",
+  "CandidatePodTopK": "10",
+  "PackingStationCount": "1",
+  "PackingBufferCapacity": "78"
+ },
+ "scenario": {
+  "hours": 2.0,
+  "pstations": 12,
+  "rstations": 6,
+  "skus": 1000,
+  "backlog": 200,
+  "pods": 1203,
+  "cells": 1352,
+  "cap": "500",
+  "stock": 70.0,
+  "bots": 45
+ },
+ "canon": {
+  "version": 1,
+  "fingerprint": "9890dba8e0a7ec54"
+ },
+ "dll": {
+  "path": "bin_pkwhole\\RAWSimO.Core.dll",
+  "sha256": "aee43bfe519f63aa8cb6093a7427ef9af6f966cbc560f84bd73b35afdc60b8dc",
+  "built": "2026-09-16T09:29:06"
+ },
+ "git": {
+  "head": "06a384206eaea6541733acbf6c81e2fae06e3dcd",
+  "uncommitted_code_diff_sha": "fd8f950b4bea11e3"
+ },
+ "command": [
+  "C:\\Users\\Aesop\\Desktop\\EE-RAWSim-O_PP\\bin_pkwhole\\RAWSimO.CLI.exe",
+  "experiments\\fast\\2026-09-16_pkwhole_guard\\runs\\m5_pk1_45b_newdll_s0\\config\\large_45b_12p_6r.xlayo",
+  "experiments\\fast\\2026-09-16_pkwhole_guard\\runs\\m5_pk1_45b_newdll_s0\\config\\large_fill200_mu1000_2h_inv70.xsett",
+  "experiments\\fast\\2026-09-16_pkwhole_guard\\runs\\m5_pk1_45b_newdll_s0\\config\\hgs_m5_k10_pk1.xconf",
+  "experiments\\fast\\2026-09-16_pkwhole_guard\\runs\\m5_pk1_45b_newdll_s0",
+  "0"
+ ],
+ "queued": "2026-09-16T09:30:12",
+ "started": "2026-09-16T09:30:16",
+ "finished": "2026-09-16T10:57:13",
+ "exit": 0,
+ "attempt": 1,
+ "dll_at_start_sha256": "aee43bfe519f63aa8cb6093a7427ef9af6f966cbc560f84bd73b35afdc60b8dc"
+}

@@ -1,0 +1,306 @@
+{
+ "verified": "2026-09-16T02:29:29",
+ "canon_version": 1,
+ "runs": [
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_6b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_6b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_6b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_6b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_6b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_6b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_6b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_6b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_6b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_6b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_6b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_6b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_6b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_6b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_6b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_6b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_6b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_6b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_6b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_6b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_nodist_6b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_nodist_6b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_nodist_6b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_nodist_6b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_nodist_6b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_nodist_6b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_nodist_6b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_nodist_6b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_nodist_6b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_nodist_6b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_10b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_10b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_10b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_10b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_10b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_10b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_10b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_10b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_10b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_10b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_10b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_10b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_10b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_10b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_10b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_10b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_10b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_10b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_10b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_10b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_nodist_10b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_nodist_10b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_nodist_10b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_nodist_10b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_nodist_10b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_nodist_10b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_nodist_10b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_nodist_10b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_nodist_10b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_legacy_nodist_10b_s9",
+   "validity": "valid",
+   "problems": []
+  }
+ ]
+}

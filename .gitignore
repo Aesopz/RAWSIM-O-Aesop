@@ -72,3 +72,10 @@ docs/thesis/**/*.loa
 slide/*/u/
 slide/work/unpacked/
 .rollback/
+
+# Experiment pipeline (exp.py): keep declarations, inputs, manifests, notes, stats; not engine output
+experiments/*/*/runs/*/*/
+experiments/*/*/runs/*/engine.log
+experiments/*/*/launch/
+experiments/registry.csv.lock
+bin_*/

@@ -1,4 +1,4 @@
-using RAWSimO.Core.Configurations;
+﻿using RAWSimO.Core.Configurations;
 using RAWSimO.Core.Elements;
 using RAWSimO.Core.IO;
 using RAWSimO.Core.Items;
@@ -32,6 +32,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
     /// AnyRelevantRequests1, GetPossibleRequests, AllocateOrder) and commits through the identical API
     /// (RegisterInboundPod / ClaimPod / BottoPod / _Ziops1 / AllocateOrder).
     /// </summary>
+    // ===== 歷史遺跡（2026-09-13 標註）=====
+    // ALNS。早期的鄰域搜尋嘗試，未進入任何論文結論。
+    // 保留原因：僅供對照參考。正典不使用。
+    // 刪除會動到列舉與工廠，且失去重跑歷史對照的能力，故保留但不維護。
+    // ====================================
     public class ALNSManager : HADGSManager
     {
         private readonly ALNSConfiguration _alns;

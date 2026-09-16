@@ -1,0 +1,4 @@
+﻿Policy,Reference,Bots,Items,Lines,Orders,Pile-on,Trips,Trips/order,m/line,EOR (kJ/order),Turnover (s),Station idle (%)
+HGS-M5 1 packing station,HGS-M5,45,< .001,< .001,< .001,< .001,< .001,< .001,< .001,< .001,< .001,< .001
+HGS-M5 2 packing stations,HGS-M5,45,< .001,< .001,< .001,< .001,< .001,< .001,< .001,< .001,< .001,< .001
+HGS-M5 3 packing stations,HGS-M5,45,.343,.343,.343,.343,.343,.343,.343,.343,.343,.343

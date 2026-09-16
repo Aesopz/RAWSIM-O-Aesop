@@ -1,0 +1,29 @@
+{
+ "id": "2026-09-16_legacydist_guard",
+ "kind": "fast",
+ "question": "新增 LegacyDistanceWeight 旗標（預設 1）後，bin_legacydist 建置跑 M4G-Legacy seed 0 是否與 Release 建置逐位相同？",
+ "motivation": "守門員：確認新旗標預設值不改變任何行為，之後才用此建置跑 w1=0 的實驗。",
+ "scenario_confirmed_by_user": true,
+ "arms": [
+  {
+   "label": "m1g_split_6b_newdll",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m1g_split.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "LegacyObjective",
+    "LegacyOrderReward",
+    "LegacyIdleSlotWeight",
+    "LegacyRewardValuation"
+   ],
+   "seeds": [
+    0
+   ]
+  }
+ ],
+ "comparisons": [],
+ "binary": "bin_legacydist"
+}

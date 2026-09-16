@@ -1,0 +1,120 @@
+{
+ "title": "Split Limit Relative to No Splitting",
+ "scenario_note": "2 h simulated, 10 seeds, 2 pick and 2 replenishment stations, 100 SKUs, backlog of 100 orders, 100 pods in 120 storage cells, pod capacity 100, 70% initial stock.",
+ "arms": [
+  {
+   "label": "M4G-NS 6b",
+   "bots": 6,
+   "runs": {
+    "0": "out/tau10_ns_6_s0",
+    "1": "out/tau10_ns_6_s1",
+    "2": "out/tau10_ns_6_s2",
+    "3": "out/tau10_ns_6_s3",
+    "4": "out/tau10_ns_6_s4",
+    "5": "out/tau10_ns_6_s5",
+    "6": "out/tau10_ns_6_s6",
+    "7": "out/tau10_ns_6_s7",
+    "8": "out/tau10_ns_6_s8",
+    "9": "out/tau10_ns_6_s9"
+   }
+  },
+  {
+   "label": "M4G N=2 6b",
+   "bots": 6,
+   "runs": {
+    "0": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_n2_6b_s0",
+    "1": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_n2_6b_s1",
+    "2": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_n2_6b_s2",
+    "3": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_n2_6b_s3",
+    "4": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_n2_6b_s4",
+    "5": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_n2_6b_s5",
+    "6": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_n2_6b_s6",
+    "7": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_n2_6b_s7",
+    "8": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_n2_6b_s8",
+    "9": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_n2_6b_s9"
+   }
+  },
+  {
+   "label": "M4G 6b",
+   "bots": 6,
+   "runs": {
+    "0": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_6b_s0",
+    "1": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_6b_s1",
+    "2": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_6b_s2",
+    "3": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_6b_s3",
+    "4": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_6b_s4",
+    "5": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_6b_s5",
+    "6": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_6b_s6",
+    "7": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_6b_s7",
+    "8": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_6b_s8",
+    "9": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_6b_s9"
+   }
+  },
+  {
+   "label": "M4G-NS 10b",
+   "bots": 10,
+   "runs": {
+    "0": "out/tau10_ns_10_s0",
+    "1": "out/tau10_ns_10_s1",
+    "2": "out/tau10_ns_10_s2",
+    "3": "out/tau10_ns_10_s3",
+    "4": "out/tau10_ns_10_s4",
+    "5": "out/tau10_ns_10_s5",
+    "6": "out/tau10_ns_10_s6",
+    "7": "out/tau10_ns_10_s7",
+    "8": "out/tau10_ns_10_s8",
+    "9": "out/tau10_ns_10_s9"
+   }
+  },
+  {
+   "label": "M4G N=2 10b",
+   "bots": 10,
+   "runs": {
+    "0": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_n2_10b_s0",
+    "1": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_n2_10b_s1",
+    "2": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_n2_10b_s2",
+    "3": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_n2_10b_s3",
+    "4": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_n2_10b_s4",
+    "5": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_n2_10b_s5",
+    "6": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_n2_10b_s6",
+    "7": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_n2_10b_s7",
+    "8": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_n2_10b_s8",
+    "9": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_n2_10b_s9"
+   }
+  },
+  {
+   "label": "M4G 10b",
+   "bots": 10,
+   "runs": {
+    "0": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_10b_s0",
+    "1": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_10b_s1",
+    "2": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_10b_s2",
+    "3": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_10b_s3",
+    "4": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_10b_s4",
+    "5": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_10b_s5",
+    "6": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_10b_s6",
+    "7": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_10b_s7",
+    "8": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_10b_s8",
+    "9": "experiments/formal/2026-09-15_canon_v1_small_split_limit_fidelity/runs/m4g_10b_s9"
+   }
+  }
+ ],
+ "comparisons": [
+  {
+   "a": "M4G-NS 6b",
+   "b": "M4G N=2 6b"
+  },
+  {
+   "a": "M4G-NS 6b",
+   "b": "M4G 6b"
+  },
+  {
+   "a": "M4G-NS 10b",
+   "b": "M4G N=2 10b"
+  },
+  {
+   "a": "M4G-NS 10b",
+   "b": "M4G 10b"
+  }
+ ]
+}

@@ -1,0 +1,5 @@
+﻿Policy,Bots,Time per decision (s),Total time (s),Decisions,Speed-up vs M4G (total)
+M4G,6,0.2184,210.3,962,1.0×
+HGS-M5,6,0.0061,6.0,979,35.1×
+M4G,10,0.2850,262.2,918,1.0×
+HGS-M5,10,0.0061,5.8,959,45.0×

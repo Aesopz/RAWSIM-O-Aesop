@@ -1,0 +1,517 @@
+{
+ "id": "2026-09-16_small_fixed_vs_dynamic_pricing_m4g",
+ "kind": "formal",
+ "question": "Canon v1 M4G（拆單）下，Dinkelbach 動態定價是否優於事後最佳的固定 λ/μ？",
+ "motivation": "取代第 24/27 頁舊正典資料；昨日誤用 M4G-NS（不拆單，定價無用武之地）。格點錨定 M4G 動態派車 λ 分位（6b P10/P50/P90=2.53/4.29/22.5；10b 2.63/4.12/20.5）；μ 依 M4G 動態 μ/λ 中位（6b 0.7879、10b 0.8339）同步固定；β 不固定；DinkelbachIterations=0 使跳躍不觸發，故不另設跳躍組。動態組沿用 Canon v1 M4G。",
+ "scenario_confirmed_by_user": true,
+ "arms": [
+  {
+   "label": "m4g_dyn_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "Canon/small/m4g.xconf",
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "reuse_from": {
+    "experiment": "2026-09-15_canon_v1_small_split_limit_fidelity",
+    "arm": "m4g_6b"
+   }
+  },
+  {
+   "label": "m4g_fix4p5_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_fix4p5_6b.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "DinkelbachIterations",
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m4g_fix6_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_fix6_6b.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "DinkelbachIterations",
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m4g_fix8_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_fix8_6b.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "DinkelbachIterations",
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m4g_fix11_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_fix11_6b.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "DinkelbachIterations",
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m4g_fix15_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_fix15_6b.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "DinkelbachIterations",
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m4g_fix20_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_fix20_6b.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "DinkelbachIterations",
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m4g_fix28_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_fix28_6b.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "DinkelbachIterations",
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m4g_dyn_10b",
+   "xlayo": "Canon/small/small_10b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "Canon/small/m4g.xconf",
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "reuse_from": {
+    "experiment": "2026-09-15_canon_v1_small_split_limit_fidelity",
+    "arm": "m4g_10b"
+   }
+  },
+  {
+   "label": "m4g_fix4p5_10b",
+   "xlayo": "Canon/small/small_10b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_fix4p5_10b.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "DinkelbachIterations",
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m4g_fix6_10b",
+   "xlayo": "Canon/small/small_10b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_fix6_10b.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "DinkelbachIterations",
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m4g_fix8_10b",
+   "xlayo": "Canon/small/small_10b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_fix8_10b.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "DinkelbachIterations",
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m4g_fix11_10b",
+   "xlayo": "Canon/small/small_10b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_fix11_10b.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "DinkelbachIterations",
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m4g_fix15_10b",
+   "xlayo": "Canon/small/small_10b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_fix15_10b.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "DinkelbachIterations",
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m4g_fix20_10b",
+   "xlayo": "Canon/small/small_10b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_fix20_10b.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "DinkelbachIterations",
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m4g_fix28_10b",
+   "xlayo": "Canon/small/small_10b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_fix28_10b.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "DinkelbachIterations",
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  }
+ ],
+ "comparisons": [
+  {
+   "a": "m4g_dyn_6b",
+   "b": "m4g_fix4p5_6b",
+   "kind": "ablation",
+   "variable": "fixed lambda=4.5, mu=3.5456, no Dinkelbach, no bound jump"
+  },
+  {
+   "a": "m4g_dyn_6b",
+   "b": "m4g_fix6_6b",
+   "kind": "ablation",
+   "variable": "fixed lambda=6, mu=4.7274, no Dinkelbach, no bound jump"
+  },
+  {
+   "a": "m4g_dyn_6b",
+   "b": "m4g_fix8_6b",
+   "kind": "ablation",
+   "variable": "fixed lambda=8, mu=6.3032, no Dinkelbach, no bound jump"
+  },
+  {
+   "a": "m4g_dyn_6b",
+   "b": "m4g_fix11_6b",
+   "kind": "ablation",
+   "variable": "fixed lambda=11, mu=8.6669, no Dinkelbach, no bound jump"
+  },
+  {
+   "a": "m4g_dyn_6b",
+   "b": "m4g_fix15_6b",
+   "kind": "ablation",
+   "variable": "fixed lambda=15, mu=11.8185, no Dinkelbach, no bound jump"
+  },
+  {
+   "a": "m4g_dyn_6b",
+   "b": "m4g_fix20_6b",
+   "kind": "ablation",
+   "variable": "fixed lambda=20, mu=15.758, no Dinkelbach, no bound jump"
+  },
+  {
+   "a": "m4g_dyn_6b",
+   "b": "m4g_fix28_6b",
+   "kind": "ablation",
+   "variable": "fixed lambda=28, mu=22.0612, no Dinkelbach, no bound jump"
+  },
+  {
+   "a": "m4g_dyn_10b",
+   "b": "m4g_fix4p5_10b",
+   "kind": "ablation",
+   "variable": "fixed lambda=4.5, mu=3.7525, no Dinkelbach, no bound jump"
+  },
+  {
+   "a": "m4g_dyn_10b",
+   "b": "m4g_fix6_10b",
+   "kind": "ablation",
+   "variable": "fixed lambda=6, mu=5.0034, no Dinkelbach, no bound jump"
+  },
+  {
+   "a": "m4g_dyn_10b",
+   "b": "m4g_fix8_10b",
+   "kind": "ablation",
+   "variable": "fixed lambda=8, mu=6.6712, no Dinkelbach, no bound jump"
+  },
+  {
+   "a": "m4g_dyn_10b",
+   "b": "m4g_fix11_10b",
+   "kind": "ablation",
+   "variable": "fixed lambda=11, mu=9.1729, no Dinkelbach, no bound jump"
+  },
+  {
+   "a": "m4g_dyn_10b",
+   "b": "m4g_fix15_10b",
+   "kind": "ablation",
+   "variable": "fixed lambda=15, mu=12.5085, no Dinkelbach, no bound jump"
+  },
+  {
+   "a": "m4g_dyn_10b",
+   "b": "m4g_fix20_10b",
+   "kind": "ablation",
+   "variable": "fixed lambda=20, mu=16.678, no Dinkelbach, no bound jump"
+  },
+  {
+   "a": "m4g_dyn_10b",
+   "b": "m4g_fix28_10b",
+   "kind": "ablation",
+   "variable": "fixed lambda=28, mu=23.3492, no Dinkelbach, no bound jump"
+  }
+ ]
+}

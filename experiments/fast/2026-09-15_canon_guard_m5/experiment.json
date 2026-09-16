@@ -1,0 +1,19 @@
+{
+ "id": "2026-09-15_canon_guard_m5",
+ "kind": "fast",
+ "question": "Canon 範本（誠實命名）跑 M5 小規模 seed 0，結果是否與 out/gc_m5_6bot_s0（同內容、舊檔名）逐位相同？並驗證 exp.py 全流程。",
+ "motivation": "exp.py 建立後第一次實跑；同時確認 Canon 範本改名不改變模擬行為。",
+ "scenario_confirmed_by_user": true,
+ "arms": [
+  {
+   "label": "hgs_m5_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "Canon/small/hgs_m5.xconf",
+   "seeds": [
+    0
+   ]
+  }
+ ],
+ "comparisons": []
+}

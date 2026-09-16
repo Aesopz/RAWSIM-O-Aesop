@@ -6,6 +6,8 @@
 
 ---
 
+> 🚨 **跑任何模擬之前，先讀 `docs/EXPERIMENT-HANDBOOK.md`**（實驗執行手冊：三類實驗 fast/dev/formal、`scripts/exp.py` 流程、使用者確認場景、驗證、NOTES 分析、正典改版與資料失效）。**產出任何數據表或圖之前讀 `docs/REPORTING-STANDARD.md`**（正典 M4G／M4G-NS／M5 組態與旗標、指標字典、APA 7th 強制規範）。本文件第 2 節關於長跑批次的舊做法（手寫 `.cmd`＋`Start-Process`）已被 `exp.py run` 取代。
+
 ## 0. 論文脈絡（一句話版）
 
 RMFS 揀貨系統，研究「拆單（order splitting）」能否在 bot 稀缺、station 充裕的壓力情境下，透過提高 pile-on（單趟 pod 到站服務多張單/多件商品）來提升吞吐、降低能耗。核心貢獻是 **SplitM1G**：把 M1G 的 MILP 從「一張單只能整批指派給一個 station」放寬成 unit 級的 `q[o,i,s]` 變數，容許跨站/跨期拆單。細節見 `docs/superpowers/specs/2026-07-04-order-splitting-milp-design.md`。

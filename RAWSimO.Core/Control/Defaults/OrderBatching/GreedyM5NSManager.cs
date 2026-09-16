@@ -1,4 +1,4 @@
-using RAWSimO.Core.Configurations;
+﻿using RAWSimO.Core.Configurations;
 using RAWSimO.Core.Control;
 using RAWSimO.Core.Elements;
 using RAWSimO.Core.Items;
@@ -90,6 +90,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
     /// M5-NS's atom is the whole order, just like M4G-NS's - there is no partial-fulfilment
     /// concept anywhere in this file.
     /// </summary>
+    // ===== 歷史遺跡（2026-09-13 標註）=====
+    // HGS-M5-NS。M4G-NS 的貪婪對照。
+    // 目前仍在用（有 xconf 指向），但不屬於正典四模型（M1G / M4G / M5 / HADGS）。
+    // 刪除會動到列舉與工廠，且失去重跑歷史對照的能力，故保留但不維護。
+    // ====================================
     public class GreedyM5NSManager : M1GManager
     {
         /// <summary>Creates a new instance of this controller.</summary>

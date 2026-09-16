@@ -111,14 +111,24 @@
     <LambdaScale>1</LambdaScale>
     <MuScale>1</MuScale>
     <DeltaScale>1</DeltaScale>
-    <EpsilonScale>0.001</EpsilonScale>
+    <EpsilonScale>0</EpsilonScale>
     <WarmupLines>50</WarmupLines>
     <LambdaFallback>10</LambdaFallback>
     <DeltaFallback>0.05</DeltaFallback>
     <LinesPerOrderFallback>2.4</LinesPerOrderFallback>
     <LambdaFixed>0</LambdaFixed>
     <DeltaFixed>0</DeltaFixed>
+    <PickDistancePricing>true</PickDistancePricing>
+    <IncrementalValuationEnabled>false</IncrementalValuationEnabled>
+    <LambdaEscalations>0</LambdaEscalations>
     <ReleaseParentOnFirstSplit>true</ReleaseParentOnFirstSplit>
+    <UpperBoundJump>true</UpperBoundJump>
+    <UrgentOrderGate>true</UrgentOrderGate>
+    <MarginalDispatchScore>true</MarginalDispatchScore>
+    <NewPodFirstAllocation>true</NewPodFirstAllocation>
+    <LineBoundTau>true</LineBoundTau>
+    <M1GUrgentGate>true</M1GUrgentGate>
+    <DrawsFirstDispatch>true</DrawsFirstDispatch>
     <CandidatePodTopK>10</CandidatePodTopK>
   </OrderBatchingConfig>
   <ReplenishmentBatchingConfig xsi:type="SamePodReplenishmentBatchingConfiguration">

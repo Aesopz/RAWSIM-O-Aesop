@@ -1,0 +1,287 @@
+{
+ "id": "2026-09-15_canon_v1_small_split_limit_fidelity",
+ "kind": "formal",
+ "question": "Canon v1 小規模：限制每張訂單最多拆 N 份（N=2/3/4）相對不設限的 M4G 有何影響？HGS-M5 相對 M4G 損失多少？",
+ "motivation": "教授問拆單次數上限的曲線；M1G 閘門烘入正典（Canon v1）後需重建正式數據；M5 保真度是大規模結果能否代表 M4G 的前提。",
+ "arms": [
+  {
+   "label": "m4g_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "Canon/small/m4g.xconf",
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m5_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "Canon/small/hgs_m5.xconf",
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m4g_n2_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_n2.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "MaxPartsPerOrder"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m4g_n3_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_n3.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "MaxPartsPerOrder"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m4g_n4_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_n4.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "MaxPartsPerOrder"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m4g_10b",
+   "xlayo": "Canon/small/small_10b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "Canon/small/m4g.xconf",
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m5_10b",
+   "xlayo": "Canon/small/small_10b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "Canon/small/hgs_m5.xconf",
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m4g_n2_10b",
+   "xlayo": "Canon/small/small_10b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_n2.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "MaxPartsPerOrder"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m4g_n3_10b",
+   "xlayo": "Canon/small/small_10b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_n3.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "MaxPartsPerOrder"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m4g_n4_10b",
+   "xlayo": "Canon/small/small_10b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_n4.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "MaxPartsPerOrder"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  }
+ ],
+ "comparisons": [
+  {
+   "a": "m4g_6b",
+   "b": "m5_6b",
+   "kind": "fidelity",
+   "variable": "exact MILP (M4G) vs greedy mirror (HGS-M5)"
+  },
+  {
+   "a": "m4g_6b",
+   "b": "m4g_n2_6b",
+   "kind": "ablation",
+   "variable": "MaxPartsPerOrder=2"
+  },
+  {
+   "a": "m4g_6b",
+   "b": "m4g_n3_6b",
+   "kind": "ablation",
+   "variable": "MaxPartsPerOrder=3"
+  },
+  {
+   "a": "m4g_6b",
+   "b": "m4g_n4_6b",
+   "kind": "ablation",
+   "variable": "MaxPartsPerOrder=4"
+  },
+  {
+   "a": "m4g_10b",
+   "b": "m5_10b",
+   "kind": "fidelity",
+   "variable": "exact MILP (M4G) vs greedy mirror (HGS-M5)"
+  },
+  {
+   "a": "m4g_10b",
+   "b": "m4g_n2_10b",
+   "kind": "ablation",
+   "variable": "MaxPartsPerOrder=2"
+  },
+  {
+   "a": "m4g_10b",
+   "b": "m4g_n3_10b",
+   "kind": "ablation",
+   "variable": "MaxPartsPerOrder=3"
+  },
+  {
+   "a": "m4g_10b",
+   "b": "m4g_n4_10b",
+   "kind": "ablation",
+   "variable": "MaxPartsPerOrder=4"
+  }
+ ],
+ "scenario_confirmed_by_user": true,
+ "retro": {
+  "evidence": "Launched 2026-09-15 10:48 by scripts/run_gc_0..6.cmd before exp.py existed. Configs last modified 10:41 (before launch) and verified line-by-line equal to Canon v1 except names and MaxPartsPerOrder. Release RAWSimO.Core.dll built 10:47:50; all results 12:31-17:36; guard 2026-09-15_canon_guard_m5 run at 16:58 with the current DLL reproduced gc_m5_6bot_s0 bit-for-bit, so dll_sha256 is the DLL used.",
+  "launch_scripts": [
+   "scripts/run_gc_0.cmd",
+   "scripts/run_gc_1.cmd",
+   "scripts/run_gc_2.cmd",
+   "scripts/run_gc_3.cmd",
+   "scripts/run_gc_4.cmd",
+   "scripts/run_gc_5.cmd",
+   "scripts/run_gc_6.cmd"
+  ]
+ }
+}

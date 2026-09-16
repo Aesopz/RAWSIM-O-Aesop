@@ -1,0 +1,28 @@
+{
+ "id": "2026-09-16_pkwhole_test",
+ "kind": "fast",
+ "binary": "bin_pkwhole",
+ "question": "開啟 PackingFullWholeOrderFallback 後，1 站 78 箱的 M5 能否退化成整單派車（件數接近 HADGS 6341 而非 2079）？",
+ "motivation": "使用者指出容量滿時 M5 應退化成整單決策而非崩潰；行級貪婪缺整單複合動作，此旗標補上。",
+ "scenario_confirmed_by_user": true,
+ "arms": [
+  {
+   "label": "m5_pk1_whole_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/hgs_m5_k10_pk1_whole.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "PackingStationCount",
+    "PackingBufferCapacity",
+    "PackingFullWholeOrderFallback"
+   ],
+   "seeds": [
+    0
+   ]
+  }
+ ],
+ "comparisons": []
+}

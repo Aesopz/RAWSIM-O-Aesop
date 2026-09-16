@@ -27,6 +27,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
     /// See docs/superpowers/specs (M4G design) and .superpowers/sdd/hgs-m4-report.md for the
     /// scoring derivation and the deliberate simplifications versus the exact MILP.
     /// </summary>
+    // ===== 歷史遺跡（2026-09-13 標註）=====
+    // HGS-M4。M4G 的貪婪版，已被 HGS-M5 取代（M5 修正了每步計分漏扣 lambda*delta 的缺陷）。
+    // 保留原因：歷史對照組。正典不使用；其實驗資料已於 2026-09-13 刪除。
+    // 刪除會動到列舉與工廠，且失去重跑歷史對照的能力，故保留但不維護。
+    // ====================================
     public class GreedyM4GManager : M1GManager
     {
         /// <summary>Creates a new instance of this controller.</summary>

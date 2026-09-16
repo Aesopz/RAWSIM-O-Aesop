@@ -202,6 +202,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             public int ChildCount;
             public int UnitsAssigned;
             public int Dispatched;
+            /// <summary>(PackingFullWholeOrderFallback diagnostics) whole-order candidates enumerated / accepted this epoch.</summary>
+            public int WholeCandidates, WholeAccepted, WholeEntered, WholeNoSlot, WholeParts, WholeNoStock, WholeBoxLimitedOrders;
             /// <summary>Order lines actually bound (fully drawn) this epoch - lambda's full price.</summary>
             public int ClosedLinesThisEpoch;
             /// <summary>Orders whose entire epoch-start residual got bound this epoch - mu's price.</summary>
@@ -212,6 +214,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             /// both, which is why this set is needed to tell them apart.
             /// </summary>
             public HashSet<Pod> DispatchedThisEpoch = new HashSet<Pod>();
+            /// <summary>(NewPodFirstAllocation) Draw from this-epoch pods before any inherited tier.</summary>
+            public bool NewPodFirst;
             /// <summary>(order, stationIndex) pairs already holding a slot in the plan under construction.</summary>
             public HashSet<long> OrderSlotAt = new HashSet<long>();
             /// <summary>
@@ -303,6 +307,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             public M5EpochState CloneForTrial()
             {
                 M5EpochState c = new M5EpochState();
+                c.NewPodFirst = NewPodFirst;
                 c.StationList = StationList;                       // read-only
                 c.PodToBot = new Dictionary<Pod, Bot>(PodToBot);
                 c.FreeSlots = (int[])FreeSlots.Clone();
@@ -430,11 +435,32 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             {
                 DateTime nowU = Instance.SettingConfig.StartTime
                     .AddSeconds(Convert.ToInt32(Instance.Controller.CurrentTime));
-                var od = new HashSet<Order>(pendingOrders.Where(o =>
-                    o.DueTime - (nowU - o.TimePlaced).TotalSeconds < _config.UrgentSlackSec));
                 int freeSlots = Cs.Values.Sum();
-                if (od.Count > 0 && od.Count >= freeSlots)
-                    pendingOrders = od;
+                if (_config.M1GUrgentGate)
+                {
+                    // (M1GUrgentGate) Faithful mirror of M4GManager's M1G-form gate: an urgent order
+                    // counts only if every SKU it still needs is held, by EVERY pod carrying it, in
+                    // sufficient quantity on a pod no bot has claimed; and the gate takes over the
+                    // candidate set only when such orders strictly outnumber all free slots.
+                    var od = new HashSet<Order>(pendingOrders.Where(o =>
+                        o.DueTime - (nowU - o.TimePlaced).TotalSeconds < _config.UrgentSlackSec
+                        && o.RemainingPositions.All(p =>
+                        {
+                            List<Pod> holders;
+                            return piSkuCopy.TryGetValue(p.Key, out holders)
+                                && holders.All(v => v.CountAvailable(p.Key) >= p.Value
+                                    && Instance.ResourceManager.UnusedPods.Contains(v));
+                        })));
+                    if (od.Count > freeSlots)
+                        pendingOrders = od;
+                }
+                else
+                {
+                    var od = new HashSet<Order>(pendingOrders.Where(o =>
+                        o.DueTime - (nowU - o.TimePlaced).TotalSeconds < _config.UrgentSlackSec));
+                    if (od.Count > 0 && od.Count >= freeSlots)
+                        pendingOrders = od;
+                }
             }
             OiSKU = GenerateOiSKUSplit(pendingOrders);
 
@@ -458,6 +484,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             Dictionary<Pod, Bot> podToBot)
         {
             M5EpochState st = new M5EpochState();
+            st.NewPodFirst = _config.NewPodFirstAllocation;
             st.PodToBot = podToBot;
             st.OrdersBySku = new Dictionary<ItemDescription, List<Order>>();
             foreach (var e in residuals)
@@ -576,6 +603,9 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// </summary>
         private static int PodDrawTier(M5EpochState st, Pod pod, OutputStation station)
         {
+            // (NewPodFirstAllocation) Mirrors M4G: pods dispatched this epoch are drained first.
+            if (st.NewPodFirst && st.DispatchedThisEpoch.Contains(pod))
+                return -1;
             Bot bot;
             if (st.PodToBot == null || !st.PodToBot.TryGetValue(pod, out bot) || bot == null)
                 return 2;
@@ -731,6 +761,9 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             /// <summary>(LexSlotFillLeastResidual) Units this order would still be short of after
             /// this move. 0 means the move completes it. Ranking key only - never priced.</summary>
             public int ResidualAfter;
+            /// <summary>(PackingFullWholeOrderFallback) When set, this move draws EVERY listed line of the
+            /// order at StationIndex in one step; Sku/Units describe the first line only.</summary>
+            public List<KeyValuePair<ItemDescription, int>> BundledLines;
         }
 
         /// <summary>One accepted dispatch: pod -> station, carried by bot.</summary>
@@ -755,6 +788,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             public int ValuedOnlyLines;
             /// <summary>Orders likewise completable in the valuation layer only.</summary>
             public int ValuedOnlyOrders;
+            /// <summary>(diagnostic) whole-order fallback counters copied from the plan's working state.</summary>
+            public int WholeCandidates, WholeAccepted, WholeEntered, WholeNoSlot, WholeParts, WholeNoStock, WholeBoxLimitedOrders;
         }
 
         /// <summary>
@@ -824,6 +859,49 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 bool boxAvailable = !needsBox
                     || st.SlotOpeners.Contains(order.ID)
                     || BoxesConsumed(st) < PackingBoxesFree();
+                // (PackingFullWholeOrderFallback) Boxes exhausted and this order has several open
+                // lines: no single line may move (each would create a split parent), so offer the
+                // whole order at any one station that can cover every remaining line this epoch.
+                // The order is served unsplit, needs no box, and the stations keep working - the
+                // greedy analogue of M4G degenerating to whole-order dispatch under the S1a cap.
+                if (needsBox && !boxAvailable && openCount > 1) st.WholeBoxLimitedOrders++;
+                if (_config.PackingFullWholeOrderFallback && needsBox && !boxAvailable && openCount > 1)
+                {
+                    st.WholeEntered++;
+                    for (int s = 0; s < st.StationList.Count; s++)
+                    {
+                        bool holdsSlot = st.OrderSlotAt.Contains(OrderStationKey(order, s));
+                        if (!holdsSlot && st.FreeSlots[s] <= 0) { st.WholeNoSlot++; continue; }
+                        int spentSoFar;
+                        st.PartsThisEpoch.TryGetValue(order.ID, out spentSoFar);
+                        if (PartsUsed(order.ID) + spentSoFar + (holdsSlot ? 0 : 1) >= 2) { st.WholeParts++; continue; }   // would still be a split parent
+                        bool coverable = true;
+                        double rhoTotal = 0.0;
+                        var lines = new List<KeyValuePair<ItemDescription, int>>();
+                        foreach (var line in res)
+                        {
+                            if (line.Value <= 0) continue;
+                            int stock;
+                            if (!st.PerStationAvail[s].TryGetValue(line.Key, out stock) || stock < line.Value) { coverable = false; break; }
+                            int sourced, fromNew;
+                            rhoTotal += RhoAndNewForDraw(st, s, line.Key, line.Value, rho, out sourced, out fromNew);
+                            if (ViolatesPaBound(st, line.Key, fromNew)) { coverable = false; break; }
+                            lines.Add(line);
+                        }
+                        if (!coverable) { st.WholeNoStock++; continue; }
+                        double lamEffW = _config.FaithfulMarginal ? lambda * (1.0 - delta) : lambda;
+                        double muEffW = _config.FaithfulMarginal ? mu * (1.0 - delta) : mu;
+                        var wm = new M5LineMove
+                        {
+                            Order = order, Sku = lines[0].Key, StationIndex = s, Units = lines[0].Value,
+                            CompletesOrder = true, NeedsSlot = !holdsSlot, ResidualAfter = 0, BundledLines = lines,
+                            Delta = -lamEffW * lines.Count - epsilon * residualUnits + rhoTotal - muEffW
+                        };
+                        moves.Add(wm);
+                        st.WholeCandidates++;
+                    }
+                    continue;
+                }
                 foreach (var line in res)
                 {
                     if (line.Value <= 0) continue;
@@ -888,6 +966,19 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         /// </summary>
         private static void ApplyToBooks(M5EpochState st, M5LineMove mv)
         {
+            if (mv.BundledLines != null)
+            {
+                st.WholeAccepted++;
+                // (PackingFullWholeOrderFallback) One slot for the order, then every line in turn.
+                bool first = true;
+                foreach (var line in mv.BundledLines)
+                {
+                    ApplyToBooks(st, new M5LineMove { Order = mv.Order, Sku = line.Key, StationIndex = mv.StationIndex,
+                        Units = line.Value, NeedsSlot = first && mv.NeedsSlot, CompletesOrder = false, ResidualAfter = 0 });
+                    first = false;
+                }
+                return;
+            }
             int fromNew = UnitsFromNewPods(st, mv.StationIndex, mv.Sku, mv.Units);
             if (fromNew > 0)
             {
@@ -1032,6 +1123,68 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         }
 
         /// <summary>
+        /// (DispatchPairTopK, gated) Ranks (pod, free station) PAIRS by the same cheap optimistic
+        /// score ScreenCandidates computes per station - dispatch travel minus lambda*(1+delta) for
+        /// each order line the pod newly makes coverable there - and returns the best K pairs for a
+        /// full trial. ScreenCandidates keeps a pod's best station for ranking but then trials the
+        /// pod at EVERY free station, so the full trials cost K_pods x S; ranking pairs directly
+        /// caps them at K regardless of how many stations have free slots. That matters exactly
+        /// when stations starve (many free slots), which is when the full trials are most numerous.
+        /// Screens all Pa candidates (CandidatePodTopK is not applied first). Survivors are returned
+        /// in the original (pod, station) enumeration order, so ties break as the full loop would.
+        /// </summary>
+        private List<KeyValuePair<Pod, int>> ScreenDispatchPairs(M5EpochState st, HashSet<Pod> paCandidates,
+            HashSet<Pod> alreadyDispatched, double lambda, double delta, int k)
+        {
+            double lineValue = lambda * (1.0 + delta);
+            var ordered = new List<KeyValuePair<Pod, int>>();
+            var scores = new List<double>();
+            foreach (var pod in paCandidates)
+            {
+                if (alreadyDispatched.Contains(pod)) continue;
+                double dBot = double.PositiveInfinity;
+                foreach (var b in st.FreeBots)
+                {
+                    double d = M1GBotPodCost(b, pod);
+                    if (d < dBot) dBot = d;
+                }
+                if (double.IsPositiveInfinity(dBot)) continue;
+                for (int s = 0; s < st.StationList.Count; s++)
+                {
+                    if (st.FreeSlots[s] <= 0) continue;
+                    OutputStation station = st.StationList[s];
+                    double cost = dBot + M1GPodStationCost(pod, station) + PodStationExtraCost(pod, station);
+                    int newlyCoverable = 0;
+                    foreach (var e in st.Avail[pod])
+                    {
+                        List<Order> demanders;
+                        if (e.Value <= 0 || !st.OrdersBySku.TryGetValue(e.Key, out demanders)) continue;
+                        int stock;
+                        st.PerStationAvail[s].TryGetValue(e.Key, out stock);
+                        foreach (var order in demanders)
+                        {
+                            if (st.Committed.Contains(order)) continue;
+                            Dictionary<ItemDescription, int> res;
+                            int need;
+                            if (!st.Residuals.TryGetValue(order, out res)
+                                || !res.TryGetValue(e.Key, out need) || need <= 0) continue;
+                            if (stock < need && stock + e.Value >= need) newlyCoverable++;
+                        }
+                    }
+                    ordered.Add(new KeyValuePair<Pod, int>(pod, s));
+                    scores.Add(cost - lineValue * newlyCoverable);
+                }
+            }
+            if (ordered.Count <= k) return ordered;
+            var keepIdx = new HashSet<int>(Enumerable.Range(0, ordered.Count)
+                .OrderBy(i => scores[i]).Take(k));
+            var survivors = new List<KeyValuePair<Pod, int>>(k);
+            for (int i = 0; i < ordered.Count; i++)          // original order, not score order
+                if (keepIdx.Contains(i)) survivors.Add(ordered[i]);
+            return survivors;
+        }
+
+        /// <summary>
         /// (UpperBoundJump) A provable upper bound on the optimal ratio lambda* = min D/P for this
         /// epoch, or 0 when none can be constructed (no free bot, no free slot, or no candidate pod
         /// that makes any line coverable). Faithful mirror of M4GManager.ComputeLambdaUpperBound.
@@ -1073,6 +1226,13 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             }
             if (demandBySku.Count == 0) { _lastLbFail = 4; return 0.0; }
 
+            // (LineBoundTau) Faithful mirror of M4GManager.ComputeLambdaUpperBound's fix: the
+            // witness pod's own cost ties EvaluateDispatch's strict "dDelta < 0" acceptance test
+            // exactly at the jumped-to lambda (delta = cost - lambda*1 = 0), so BuildPlan rejects
+            // it and the jump does nothing. Priced at cost+tau instead, so the re-evaluated delta
+            // is -tau, strictly negative, and the move is taken.
+            double tau = _config.LineBoundTau ? Math.Max(0.0, _config.LambdaTolerance) : 0.0;
+
             double best = double.PositiveInfinity;
             foreach (var pod in paCandidates)
             {
@@ -1089,7 +1249,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                     if (st.FreeSlots[s] <= 0) continue;
                     OutputStation station = st.StationList[s];
                     double cost = dBot + M1GPodStationCost(pod, station) + PodStationExtraCost(pod, station);
-                    if (cost >= best) continue;                 // cannot improve the incumbent
+                    if (cost + tau >= best) continue;           // cannot improve the incumbent
                     bool closesALine = false;
                     foreach (var e in st.Avail[pod])
                     {
@@ -1102,7 +1262,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                             if (stock < need && stock + have >= need) { closesALine = true; break; }
                         if (closesALine) break;
                     }
-                    if (closesALine) best = cost;
+                    if (closesALine) best = cost + tau;
                 }
             }
             if (double.IsPositiveInfinity(best)) { _lastLbFail = 5; return 0.0; }
@@ -1150,6 +1310,32 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             }
             double baseValuation = -lambda * delta * baseVLines - mu * delta * baseVOrders;
 
+            // (DispatchPairTopK) Trial only the K best-screened (pod, station) pairs.
+            if (_config.DispatchPairTopK > 0)
+            {
+                foreach (var pair in ScreenDispatchPairs(st, paCandidates, alreadyDispatched, lambda, delta,
+                    _config.DispatchPairTopK))
+                {
+                    Pod pod = pair.Key;
+                    int s = pair.Value;
+                    Bot bot = null;
+                    double dBot = double.PositiveInfinity;
+                    foreach (var b in st.FreeBots)
+                    {
+                        double d = M1GBotPodCost(b, pod);
+                        if (d < dBot) { dBot = d; bot = b; }
+                    }
+                    if (bot == null) continue;
+                    double net = DispatchTrialNet(st, pod, s, bot, dBot, lambda, mu, delta, rho, epsilon,
+                        baseUnlocked, baseValuation);
+                    if (net < bestDelta)
+                    {
+                        bestDelta = net; bestPod = pod; bestStation = s; bestBot = bot;
+                    }
+                }
+                return;
+            }
+
             IEnumerable<Pod> candidates = ScreenCandidates(st, paCandidates, alreadyDispatched, lambda, delta);
 
             foreach (var pod in candidates)
@@ -1167,38 +1353,51 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 for (int s = 0; s < st.StationList.Count; s++)
                 {
                     if (st.FreeSlots[s] <= 0) continue;
-                    OutputStation station = st.StationList[s];
-                    double cost = dBot + M1GPodStationCost(pod, station) + PodStationExtraCost(pod, station);
-
-                    // Throwaway books: place the pod, then harvest greedily exactly as the main
-                    // loop would, so the lookahead and the real run agree on what it unlocks.
-                    M5EpochState trial = st.CloneForTrial();
-                    ApplyDispatchToBooks(trial, pod, s, bot);
-                    double unlocked = 0.0;
-                    while (true)
-                    {
-                        var moves = EnumerateLineMoves(trial, lambda, mu, rho, epsilon, delta);
-                        M5LineMove best = SelectDraw(moves, false);
-                        if (best == null) break;
-                        unlocked += best.Delta;
-                        ApplyToBooks(trial, best);
-                    }
-
-                    // Valuation credit this pod adds on top of what was already reachable. This is
-                    // M4G's -lambda*delta*chat / -mu*delta*zhat, and without it a pod that unlocks
-                    // no BOUND line (slots full) would look worthless even though the exact model
-                    // would still pay to fetch it.
-                    int vLines, vOrders;
-                    ValuationSweep(trial, out vLines, out vOrders);
-                    double valuation = -lambda * delta * vLines - mu * delta * vOrders;
-
-                    double net = cost + (unlocked - baseUnlocked) + (valuation - baseValuation);
+                    double net = DispatchTrialNet(st, pod, s, bot, dBot, lambda, mu, delta, rho, epsilon,
+                        baseUnlocked, baseValuation);
                     if (net < bestDelta)
                     {
                         bestDelta = net; bestPod = pod; bestStation = s; bestBot = bot;
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Net objective change of dispatching <paramref name="pod"/> to station <paramref name="s"/>
+        /// with <paramref name="bot"/>, measured against the no-dispatch baseline. Extracted from
+        /// EvaluateDispatch unchanged so the full loop and DispatchPairTopK share one arithmetic.
+        /// </summary>
+        private double DispatchTrialNet(M5EpochState st, Pod pod, int s, Bot bot, double dBot,
+            double lambda, double mu, double delta, double rho, double epsilon,
+            double baseUnlocked, double baseValuation)
+        {
+            OutputStation station = st.StationList[s];
+            double cost = dBot + M1GPodStationCost(pod, station) + PodStationExtraCost(pod, station);
+
+            // Throwaway books: place the pod, then harvest greedily exactly as the main
+            // loop would, so the lookahead and the real run agree on what it unlocks.
+            M5EpochState trial = st.CloneForTrial();
+            ApplyDispatchToBooks(trial, pod, s, bot);
+            double unlocked = 0.0;
+            while (true)
+            {
+                var moves = EnumerateLineMoves(trial, lambda, mu, rho, epsilon, delta);
+                M5LineMove best = SelectDraw(moves, false);
+                if (best == null) break;
+                unlocked += best.Delta;
+                ApplyToBooks(trial, best);
+            }
+
+            // Valuation credit this pod adds on top of what was already reachable. This is
+            // M4G's -lambda*delta*chat / -mu*delta*zhat, and without it a pod that unlocks
+            // no BOUND line (slots full) would look worthless even though the exact model
+            // would still pay to fetch it.
+            int vLines, vOrders;
+            ValuationSweep(trial, out vLines, out vOrders);
+            double valuation = -lambda * delta * vLines - mu * delta * vOrders;
+
+            return cost + (unlocked - baseUnlocked) + (valuation - baseValuation);
         }
 
         /// <summary>
@@ -1290,6 +1489,21 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 var moves = EnumerateLineMoves(st, lambda, mu, rho, epsilon, delta);
                 M5LineMove bestDraw = SelectDraw(moves, true);
 
+                // (DrawsFirstDispatch) Take every improving draw before pricing any dispatch. The
+                // default loop prices dispatch on EVERY iteration, and each pricing re-harvests all
+                // remaining draws once for the baseline and once per (candidate pod, free station)
+                // trial: O(D^2 * K * S) for a decision with D draws. Deferring dispatch until the
+                // draws are exhausted calls EvaluateDispatch once per dispatch (+1), and each trial
+                // then only harvests what the new pod unlocks - MarginalDispatchScore already
+                // scores a dispatch against "all draws taken", so the ordering matches its intent.
+                if (_config.DrawsFirstDispatch && bestDraw != null)
+                {
+                    plan.Draws.Add(bestDraw);
+                    plan.Objective += bestDraw.Delta;
+                    ApplyToBooks(st, bestDraw);
+                    continue;
+                }
+
                 Pod dPod; int dStation; Bot dBot; double dDelta;
                 EvaluateDispatch(st, paCandidates, dispatched, lambda, mu, delta, rho, epsilon,
                     out dPod, out dStation, out dBot, out dDelta);
@@ -1320,6 +1534,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             // -mu*delta*zhat terms of M4G's objective, evaluated on the stock left after binding.
             ValuationSweep(st, out plan.ValuedOnlyLines, out plan.ValuedOnlyOrders);
             plan.Objective += -lambda * delta * plan.ValuedOnlyLines - mu * delta * plan.ValuedOnlyOrders;
+            plan.WholeCandidates = st.WholeCandidates; plan.WholeAccepted = st.WholeAccepted; plan.WholeEntered = st.WholeEntered;
+            plan.WholeNoSlot = st.WholeNoSlot; plan.WholeParts = st.WholeParts; plan.WholeNoStock = st.WholeNoStock; plan.WholeBoxLimitedOrders = st.WholeBoxLimitedOrders;
             return plan;
         }
 
@@ -1449,7 +1665,14 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 {
                     var part = new Dictionary<ItemDescription, int>();
                     foreach (var m in byStation)
+                    {
+                        if (m.BundledLines != null)                       // (PackingFullWholeOrderFallback)
+                        {
+                            foreach (var line in m.BundledLines) part[line.Key] = line.Value;
+                            continue;
+                        }
                         part[m.Sku] = m.Units;
+                    }
                     parts.Add(new KeyValuePair<int, Dictionary<ItemDescription, int>>(byStation.Key, part));
                 }
                 CommitParts(st, byOrder.Key, parts, null);
@@ -1478,7 +1701,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             _decisionLog.WriteLine("decision,time,pendingOrders,stationsWithCap,podsInModel,dispatched,children,"
                 + "fastPath,units,decisionSec,lambda,mu,rho,epsilon,closedLines,completedOrders,"
                 + "lambdaIters,lambdaStart,lambdaEnd,objective,dStar,delta,valuedOnlyLines,valuedOnlyOrders,"
-                + "lbFail,lbValue");
+                + "lbFail,lbValue,wholeCandidates,wholeAccepted,wholeEntered,wholeNoSlot,wholeParts,wholeNoStock,boxLimitedOrders,boxesFree,boxesAlive");
         }
         private void WriteDecisionLog(double time, int pendingOrdersN, int stationsWithCap, int podsInModel,
             M5EpochState st, double decisionSec, double lambda, double mu, double rho, double epsilon,
@@ -1495,7 +1718,9 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 lambdaIters.ToString(), lambdaStart.ToString(), lambdaEnd.ToString(),
                 objective.ToString(), dStar.ToString(), delta.ToString(),
                 valuedOnlyLines.ToString(), valuedOnlyOrders.ToString(),
-                _lastLbFail.ToString(), _lastLbValue.ToString() }));
+                _lastLbFail.ToString(), _lastLbValue.ToString(),
+                st.WholeCandidates.ToString(), st.WholeAccepted.ToString(), st.WholeEntered.ToString(), st.WholeNoSlot.ToString(), st.WholeParts.ToString(), st.WholeNoStock.ToString(), st.WholeBoxLimitedOrders.ToString(),
+                PackingBoxesFree().ToString(), (Instance.PackingBuffer == null ? -1 : Instance.PackingBuffer.AliveParentCount).ToString() }));
         }
 
         /// <summary>Entry point called by the engine whenever a station has a free slot.</summary>
@@ -1609,6 +1834,8 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 lambdaIters++;
             }
 
+            st.WholeCandidates = plan.WholeCandidates; st.WholeAccepted = plan.WholeAccepted; st.WholeEntered = plan.WholeEntered;
+            st.WholeNoSlot = plan.WholeNoSlot; st.WholeParts = plan.WholeParts; st.WholeNoStock = plan.WholeNoStock; st.WholeBoxLimitedOrders = plan.WholeBoxLimitedOrders;
             ApplyPlan(st, plan);
 
             foreach (var symbol in st.Result.NewZiops)

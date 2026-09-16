@@ -1,4 +1,4 @@
-using RAWSimO.Core.Configurations;
+﻿using RAWSimO.Core.Configurations;
 using RAWSimO.Core.Control;
 using RAWSimO.Core.Elements;
 using RAWSimO.Core.Items;
@@ -18,6 +18,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
     /// The original M1GManager stays untouched and serves as the M0 ablation baseline.
     /// See docs/superpowers/specs/2026-07-04-order-splitting-milp-design.md.
     /// </summary>
+    // ===== 歷史遺跡（2026-09-13 標註）=====
+    // SplitM1G。最早的拆單 MILP（Spec 2），已被 M3G → M4G 取代。
+    // 保留原因：Child-Order 資料層的第一個使用者。正典不使用，無 xconf 指向。
+    // 刪除會動到列舉與工廠，且失去重跑歷史對照的能力，故保留但不維護。
+    // ====================================
     public class SplitM1GManager : M1GManager
     {
         /// <summary>

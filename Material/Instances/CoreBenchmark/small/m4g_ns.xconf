@@ -112,15 +112,16 @@
     <DeltaScale>1</DeltaScale>
     <WarmupOrders>50</WarmupOrders>
     <MuFallback>24</MuFallback>
-    <DeltaFallback>0.05</DeltaFallback>
+    <DeltaFallback>0.25</DeltaFallback>
     <MuFixed>0</MuFixed>
     <DeltaFixed>0</DeltaFixed>
     <StratifiedDelta>true</StratifiedDelta>
     <DeltaStratumMinOrders>50</DeltaStratumMinOrders>
     <DinkelbachIterations>5</DinkelbachIterations>
     <DinkelbachTolerance>0.5</DinkelbachTolerance>
-    <DinkelbachEscalations>6</DinkelbachEscalations>
-    <SlotScale>1</SlotScale>
+    <DinkelbachEscalations>0</DinkelbachEscalations>
+    <SlotScale>0</SlotScale>
+    <UpperBoundJump>true</UpperBoundJump>
   </OrderBatchingConfig>
   <ReplenishmentBatchingConfig xsi:type="SamePodReplenishmentBatchingConfiguration">
     <Name />

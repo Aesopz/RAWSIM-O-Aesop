@@ -1,0 +1,117 @@
+{
+ "run_id": "2026-09-16_small_fixed_vs_dynamic_pricing_ns/ns_fix6_10b_s6",
+ "experiment": "2026-09-16_small_fixed_vs_dynamic_pricing_ns",
+ "kind": "formal",
+ "arm": "ns_fix6_10b",
+ "seed": 6,
+ "question": "Canon v1 下，M4G-NS 的動態定價（Dinkelbach）是否優於事後最佳的固定 λ/μ？固定價格在低 λ 區的停擺比例為何？",
+ "motivation": "第 24/27 頁定價論證用舊正典且格點未涵蓋動態 λ 工作區；重做以 M4G-NS（消融鏈一致）、真固定（關閉上界跳躍）、格點錨定動態派車 λ 分位（6b P10/P50/P90=2.59/4.31/7.68；10b 2.86/4.50/8.66）。μ 依動態組 μ/λ 中位比例（6b 1.3653、10b 1.4017）同步固定；β 不固定。另設保留跳躍的三點對照堵『故意讓固定組停擺』。動態組沿用既有 tau10_ns（Canon v1 等價）。",
+ "changed": [
+  "LambdaFixed",
+  "MuFixed",
+  "DinkelbachIterations",
+  "UpperBoundJump"
+ ],
+ "config": {
+  "xlayo": {
+   "source": "Canon/small/small_10b_2p_2r.xlayo",
+   "template": null,
+   "snapshot": "experiments\\formal\\2026-09-16_small_fixed_vs_dynamic_pricing_ns\\runs\\ns_fix6_10b_s6\\config\\small_10b_2p_2r.xlayo",
+   "sha256": "4eaeb3e3b27eec593ac331981d4d0ee8cdbbdf06f1cbb48f9dc81fa583a16914"
+  },
+  "xsett": {
+   "source": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "template": null,
+   "snapshot": "experiments\\formal\\2026-09-16_small_fixed_vs_dynamic_pricing_ns\\runs\\ns_fix6_10b_s6\\config\\small_fill100_mu100_2h_inv70.xsett",
+   "sha256": "1d8c90458b74fb1bcc2a362480ca9bd48582f2823c36ab39e2fa345e38ec6100"
+  },
+  "xconf": {
+   "source": "inputs/m4g_ns_fix6_10b_nojump.xconf",
+   "template": "Canon/small/m4g_ns.xconf",
+   "snapshot": "experiments\\formal\\2026-09-16_small_fixed_vs_dynamic_pricing_ns\\runs\\ns_fix6_10b_s6\\config\\m4g_ns_fix6_10b_nojump.xconf",
+   "sha256": "4ec82af724bfde689315592d82d9ef78381461e5f6536d872ff87eb2873606b6"
+  }
+ },
+ "order_batching_type": "M4GConfiguration",
+ "order_batching_flags": {
+  "TieBreaker": "EarliestDueTime",
+  "FastLane": "true",
+  "LateBeforeMatch": "false",
+  "FastLaneTieBreaker": "EarliestDueTime",
+  "LambdaScale": "1",
+  "MuScale": "1",
+  "DeltaScale": "1",
+  "EpsilonScale": "0",
+  "WarmupLines": "50",
+  "LambdaFallback": "10",
+  "DeltaFallback": "0.05",
+  "LinesPerOrderFallback": "2.4",
+  "LambdaFixed": "6",
+  "DeltaFixed": "0",
+  "PickDistancePricing": "true",
+  "DegenerateToBindingOnly": "false",
+  "ValuationOrderLimit": "0",
+  "UrgentOrderGate": "true",
+  "PodCreditCapEnabled": "false",
+  "PodTierDrawPricingEnabled": "false",
+  "IncrementalValuationEnabled": "false",
+  "SplitOnlyAtPresentPods": "false",
+  "SplitMarginalProbeEnabled": "false",
+  "SplitMarginalProbeEveryNDecisions": "50",
+  "SplitMarginalProbeTimeLimitSec": "10",
+  "ReleaseParentOnFirstSplit": "true",
+  "DinkelbachIterations": "0",
+  "DinkelbachTolerance": "0.5",
+  "DinkelbachEscalations": "0",
+  "ForbidSplitting": "false",
+  "LineAtomicSplitting": "true",
+  "CompactLineModel": "true",
+  "OrderAtomicNoSplit": "true",
+  "OrderAtomicCanonPrices": "true",
+  "NewPodFirstAllocation": "true",
+  "LineBoundTau": "true",
+  "M1GUrgentGate": "true",
+  "LegacyObjective": "false",
+  "UpperBoundJump": "false",
+  "MuFixed": "8.4102"
+ },
+ "scenario": {
+  "hours": 2.0,
+  "pstations": 2,
+  "rstations": 2,
+  "skus": 100,
+  "backlog": 100,
+  "pods": 100,
+  "cells": 120,
+  "cap": "100",
+  "stock": 70.0,
+  "bots": 10
+ },
+ "canon": {
+  "version": 1,
+  "fingerprint": "9890dba8e0a7ec54"
+ },
+ "dll": {
+  "path": "RAWSimO.CLI\\bin\\x64\\Release\\RAWSimO.Core.dll",
+  "sha256": "94a44bdb4844fea74934bfe1d0db3a0c2ea11971cb6fe05084b23dc09159120d",
+  "built": "2026-09-15T10:47:50"
+ },
+ "git": {
+  "head": "06a384206eaea6541733acbf6c81e2fae06e3dcd",
+  "uncommitted_code_diff_sha": "9dc2608b1bc729bc"
+ },
+ "command": [
+  "C:\\Users\\Aesop\\Desktop\\EE-RAWSim-O_PP\\RAWSimO.CLI\\bin\\x64\\Release\\RAWSimO.CLI.exe",
+  "experiments\\formal\\2026-09-16_small_fixed_vs_dynamic_pricing_ns\\runs\\ns_fix6_10b_s6\\config\\small_10b_2p_2r.xlayo",
+  "experiments\\formal\\2026-09-16_small_fixed_vs_dynamic_pricing_ns\\runs\\ns_fix6_10b_s6\\config\\small_fill100_mu100_2h_inv70.xsett",
+  "experiments\\formal\\2026-09-16_small_fixed_vs_dynamic_pricing_ns\\runs\\ns_fix6_10b_s6\\config\\m4g_ns_fix6_10b_nojump.xconf",
+  "experiments\\formal\\2026-09-16_small_fixed_vs_dynamic_pricing_ns\\runs\\ns_fix6_10b_s6",
+  "6"
+ ],
+ "queued": "2026-09-16T00:23:04",
+ "started": "2026-09-16T04:53:21",
+ "finished": "2026-09-16T04:55:21",
+ "exit": 0,
+ "attempt": 1,
+ "dll_at_start_sha256": "94a44bdb4844fea74934bfe1d0db3a0c2ea11971cb6fe05084b23dc09159120d"
+}

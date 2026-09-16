@@ -1,0 +1,506 @@
+{
+ "verified": "2026-09-15T17:45:23",
+ "canon_version": 1,
+ "runs": [
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_6b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_6b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_6b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_6b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_6b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_6b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_6b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_6b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_6b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_6b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m5_6b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m5_6b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m5_6b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m5_6b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m5_6b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m5_6b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m5_6b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m5_6b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m5_6b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m5_6b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n2_6b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n2_6b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n2_6b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n2_6b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n2_6b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n2_6b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n2_6b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n2_6b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n2_6b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n2_6b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n3_6b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n3_6b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n3_6b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n3_6b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n3_6b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n3_6b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n3_6b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n3_6b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n3_6b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n3_6b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n4_6b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n4_6b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n4_6b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n4_6b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n4_6b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n4_6b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n4_6b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n4_6b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n4_6b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n4_6b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_10b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_10b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_10b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_10b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_10b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_10b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_10b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_10b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_10b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_10b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m5_10b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m5_10b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m5_10b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m5_10b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m5_10b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m5_10b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m5_10b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m5_10b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m5_10b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m5_10b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n2_10b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n2_10b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n2_10b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n2_10b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n2_10b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n2_10b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n2_10b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n2_10b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n2_10b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n2_10b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n3_10b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n3_10b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n3_10b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n3_10b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n3_10b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n3_10b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n3_10b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n3_10b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n3_10b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n3_10b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n4_10b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n4_10b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n4_10b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n4_10b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n4_10b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n4_10b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n4_10b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n4_10b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n4_10b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n4_10b_s9",
+   "validity": "valid",
+   "problems": []
+  }
+ ]
+}

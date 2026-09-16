@@ -1,0 +1,104 @@
+{
+ "title": "HGS-M5 Split Limits Relative to HADGS",
+ "scenario_note": "2 h simulated, 10 seeds, 45 robots, 12 pick and 6 replenishment stations, 1000 SKUs, backlog of 200 orders, 1203 pods in 1352 storage cells, pod capacity 500, 70% initial stock.",
+ "arms": [
+  {
+   "label": "HADGS",
+   "bots": 45,
+   "runs": {
+    "0": "out/mp1_hadgs_s0",
+    "1": "out/mp1_hadgs_s1",
+    "2": "out/mp1_hadgs_s2",
+    "3": "out/mp1_hadgs_s3",
+    "4": "out/mp1_hadgs_s4",
+    "5": "out/mp1_hadgs_s5",
+    "6": "out/mp1_hadgs_s6",
+    "7": "out/mp1_hadgs_s7",
+    "8": "out/mp1_hadgs_s8",
+    "9": "out/mp1_hadgs_s9"
+   }
+  },
+  {
+   "label": "HGS-M5 N=2",
+   "bots": 45,
+   "runs": {
+    "0": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n2_45b_s0",
+    "1": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n2_45b_s1",
+    "2": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n2_45b_s2",
+    "3": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n2_45b_s3",
+    "4": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n2_45b_s4",
+    "5": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n2_45b_s5",
+    "6": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n2_45b_s6",
+    "7": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n2_45b_s7",
+    "8": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n2_45b_s8",
+    "9": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n2_45b_s9"
+   }
+  },
+  {
+   "label": "HGS-M5 N=3",
+   "bots": 45,
+   "runs": {
+    "0": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n3_45b_s0",
+    "1": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n3_45b_s1",
+    "2": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n3_45b_s2",
+    "3": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n3_45b_s3",
+    "4": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n3_45b_s4",
+    "5": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n3_45b_s5",
+    "6": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n3_45b_s6",
+    "7": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n3_45b_s7",
+    "8": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n3_45b_s8",
+    "9": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n3_45b_s9"
+   }
+  },
+  {
+   "label": "HGS-M5 N=4",
+   "bots": 45,
+   "runs": {
+    "0": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n4_45b_s0",
+    "1": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n4_45b_s1",
+    "2": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n4_45b_s2",
+    "3": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n4_45b_s3",
+    "4": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n4_45b_s4",
+    "5": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n4_45b_s5",
+    "6": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n4_45b_s6",
+    "7": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n4_45b_s7",
+    "8": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n4_45b_s8",
+    "9": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_n4_45b_s9"
+   }
+  },
+  {
+   "label": "HGS-M5",
+   "bots": 45,
+   "runs": {
+    "0": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_45b_s0",
+    "1": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_45b_s1",
+    "2": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_45b_s2",
+    "3": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_45b_s3",
+    "4": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_45b_s4",
+    "5": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_45b_s5",
+    "6": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_45b_s6",
+    "7": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_45b_s7",
+    "8": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_45b_s8",
+    "9": "experiments/formal/2026-09-15_canon_v1_large_split_limit_m5/runs/m5_45b_s9"
+   }
+  }
+ ],
+ "comparisons": [
+  {
+   "a": "HADGS",
+   "b": "HGS-M5 N=2"
+  },
+  {
+   "a": "HADGS",
+   "b": "HGS-M5 N=3"
+  },
+  {
+   "a": "HADGS",
+   "b": "HGS-M5 N=4"
+  },
+  {
+   "a": "HADGS",
+   "b": "HGS-M5"
+  }
+ ]
+}

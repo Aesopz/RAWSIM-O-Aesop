@@ -136,6 +136,9 @@
     <ForbidSplitting>false</ForbidSplitting>
     <LineAtomicSplitting>true</LineAtomicSplitting>
     <CompactLineModel>true</CompactLineModel>
+    <NewPodFirstAllocation>true</NewPodFirstAllocation>
+    <LineBoundTau>true</LineBoundTau>
+    <M1GUrgentGate>true</M1GUrgentGate>
     <LegacyObjective>false</LegacyObjective>
     <UpperBoundJump>true</UpperBoundJump>
   </OrderBatchingConfig>

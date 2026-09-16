@@ -1,0 +1,57 @@
+{
+ "id": "2026-09-16_pkwhole_small_diag",
+ "kind": "dev",
+ "binary": "bin_pkwhole",
+ "question": "小規模 M5 容量壓到 10 箱（峰值 60）時，整單 fallback 是否被觸發、能否恢復派車？",
+ "motivation": "大規模診斷太慢；用小規模重現容量觸頂並讀 wholeCandidates/wholeAccepted 計數器。",
+ "scenario_confirmed_by_user": true,
+ "arms": [
+  {
+   "label": "m5_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "Canon/small/hgs_m5.xconf",
+   "seeds": [
+    0
+   ],
+   "reuse_from": {
+    "experiment": "2026-09-15_canon_v1_small_split_limit_fidelity",
+    "arm": "m5_6b"
+   }
+  },
+  {
+   "label": "m5_pk10_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/hgs_m5_pk10.xconf",
+   "templates": {
+    "xconf": "Canon/small/hgs_m5.xconf"
+   },
+   "changed": [
+    "PackingStationCount",
+    "PackingBufferCapacity"
+   ],
+   "seeds": [
+    0
+   ]
+  },
+  {
+   "label": "m5_pk10_whole_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/hgs_m5_pk10_whole.xconf",
+   "templates": {
+    "xconf": "Canon/small/hgs_m5.xconf"
+   },
+   "changed": [
+    "PackingStationCount",
+    "PackingBufferCapacity",
+    "PackingFullWholeOrderFallback"
+   ],
+   "seeds": [
+    0
+   ]
+  }
+ ],
+ "comparisons": []
+}

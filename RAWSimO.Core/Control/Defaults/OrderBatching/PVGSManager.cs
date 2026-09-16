@@ -1,4 +1,4 @@
-using RAWSimO.Core.Configurations;
+﻿using RAWSimO.Core.Configurations;
 using RAWSimO.Core.Control;
 using RAWSimO.Core.Elements;
 using RAWSimO.Core.Items;
@@ -17,6 +17,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
     /// split managers - mirrors M1GManager directly, modifies none of them.
     /// See docs/2026-07-07-pvgs-fast-heuristic-discussion.md and the plan's Design Decisions.
     /// </summary>
+    // ===== 歷史遺跡（2026-09-13 標註）=====
+    // PVGS。拆單的快速啟發式原型（2026-07），已被 HGS-M5 取代。
+    // 保留原因：「裸拆會崩潰」這條論證的來源。正典不使用，無 xconf 指向。
+    // 刪除會動到列舉與工廠，且失去重跑歷史對照的能力，故保留但不維護。
+    // ====================================
     public class PVGSManager : M1GManager
     {
         /// <summary>

@@ -1,0 +1,109 @@
+{
+ "run_id": "2026-09-16_m4g_legacy_no_distance/m4g_6b_s6",
+ "experiment": "2026-09-16_m4g_legacy_no_distance",
+ "kind": "formal",
+ "arm": "m4g_6b",
+ "seed": 6,
+ "question": "把距離項從目標式移除（w1=0，限制式不變）後，PS/TA 的表現如何變化？距離定價對揀貨流程是否重要？",
+ "motivation": "回應教授「把距離放進目標式不太對」的質疑：同一可行域、同一組 Jiao 權重，只把 w1 由 1 改 0；主檢定為 Legacy vs Legacy-NoDist，另附對 M4G 的參考比較。",
+ "changed": [],
+ "config": {
+  "xlayo": {
+   "source": "Canon/small/small_6b_2p_2r.xlayo",
+   "template": null,
+   "actually_used": "Material/Instances/CoreBenchmark/small/small_6bot.xlayo",
+   "snapshot": "experiments\\formal\\2026-09-16_m4g_legacy_no_distance\\runs\\m4g_6b_s6\\config\\small_6bot.xlayo",
+   "sha256": "11ed17e117d2c6aa8755d78face298087cd79bcbc61efefbb543023740cf58fe"
+  },
+  "xsett": {
+   "source": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "template": null,
+   "actually_used": "Material/Instances/CoreBenchmark/small/small_o100_mu100_2h_inv70.xsett",
+   "snapshot": "experiments\\formal\\2026-09-16_m4g_legacy_no_distance\\runs\\m4g_6b_s6\\config\\small_o100_mu100_2h_inv70.xsett",
+   "sha256": "3e72252ac3bc3d3fb2258f59599bb07359f4e301ce712bd766f3316f9cfdd832"
+  },
+  "xconf": {
+   "source": "Canon/small/m4g.xconf",
+   "template": null,
+   "actually_used": "Material/Instances/CoreBenchmark/small/m4g.xconf",
+   "snapshot": "experiments\\formal\\2026-09-16_m4g_legacy_no_distance\\runs\\m4g_6b_s6\\config\\m4g.xconf",
+   "sha256": "ee0eec1d5e8fc1089b6af37c5f4525bfbf5048571e7b1c04436f6ac37307fcfe"
+  }
+ },
+ "order_batching_type": "M4GConfiguration",
+ "order_batching_flags": {
+  "TieBreaker": "EarliestDueTime",
+  "FastLane": "true",
+  "LateBeforeMatch": "false",
+  "FastLaneTieBreaker": "EarliestDueTime",
+  "LambdaScale": "1",
+  "MuScale": "1",
+  "DeltaScale": "1",
+  "EpsilonScale": "0",
+  "WarmupLines": "50",
+  "LambdaFallback": "10",
+  "DeltaFallback": "0.05",
+  "LinesPerOrderFallback": "2.4",
+  "LambdaFixed": "0",
+  "DeltaFixed": "0",
+  "PickDistancePricing": "true",
+  "DegenerateToBindingOnly": "false",
+  "ValuationOrderLimit": "0",
+  "UrgentOrderGate": "true",
+  "PodCreditCapEnabled": "false",
+  "PodTierDrawPricingEnabled": "false",
+  "IncrementalValuationEnabled": "false",
+  "SplitOnlyAtPresentPods": "false",
+  "SplitMarginalProbeEnabled": "false",
+  "SplitMarginalProbeEveryNDecisions": "50",
+  "SplitMarginalProbeTimeLimitSec": "10",
+  "ReleaseParentOnFirstSplit": "true",
+  "DinkelbachIterations": "5",
+  "DinkelbachTolerance": "0.5",
+  "DinkelbachEscalations": "0",
+  "ForbidSplitting": "false",
+  "LineAtomicSplitting": "true",
+  "CompactLineModel": "true",
+  "NewPodFirstAllocation": "true",
+  "LineBoundTau": "true",
+  "M1GUrgentGate": "true",
+  "LegacyObjective": "false",
+  "UpperBoundJump": "true"
+ },
+ "scenario": {
+  "hours": 2.0,
+  "pstations": 2,
+  "rstations": 2,
+  "skus": 100,
+  "backlog": 100,
+  "pods": 100,
+  "cells": 120,
+  "cap": "100",
+  "stock": 70.0,
+  "bots": 6
+ },
+ "canon": {
+  "version": 1,
+  "fingerprint": "9890dba8e0a7ec54"
+ },
+ "dll": {
+  "sha256": "94a44bdb4844fea74934bfe1d0db3a0c2ea11971cb6fe05084b23dc09159120d",
+  "note": "retro: see experiment.json retro.evidence"
+ },
+ "git": {
+  "head": "retro",
+  "uncommitted_code_diff_sha": "retro"
+ },
+ "retro": {
+  "reused_from": {
+   "experiment": "2026-09-15_canon_v1_small_split_limit_fidelity",
+   "arm": "m4g_6b"
+  },
+  "linked": "2026-09-16T02:08:47"
+ },
+ "queued": null,
+ "started": null,
+ "finished": "2026-09-15T15:07:35",
+ "exit": 0,
+ "attempt": 1
+}

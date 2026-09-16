@@ -1,0 +1,27 @@
+{
+ "id": "2026-09-16_pkwhole_guard",
+ "kind": "fast",
+ "binary": "bin_pkwhole",
+ "question": "新增 PackingFullWholeOrderFallback（預設 false）後，bin_pkwhole 跑 1 站 78 箱 seed 0 是否與昨晚 Release 結果逐位相同？",
+ "motivation": "守門員：確認新旗標預設不改變行為。",
+ "scenario_confirmed_by_user": true,
+ "arms": [
+  {
+   "label": "m5_pk1_45b_newdll",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/hgs_m5_k10_pk1.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "PackingStationCount",
+    "PackingBufferCapacity"
+   ],
+   "seeds": [
+    0
+   ]
+  }
+ ],
+ "comparisons": []
+}

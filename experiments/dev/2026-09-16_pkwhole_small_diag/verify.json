@@ -1,0 +1,27 @@
+{
+ "verified": "2026-09-16T11:54:55",
+ "canon_version": 1,
+ "runs": [
+  {
+   "run_id": "2026-09-16_pkwhole_small_diag/m5_6b_s0",
+   "validity": "invalid",
+   "problems": [
+    "experiment ran on 2 different DLL builds"
+   ]
+  },
+  {
+   "run_id": "2026-09-16_pkwhole_small_diag/m5_pk10_6b_s0",
+   "validity": "invalid",
+   "problems": [
+    "experiment ran on 2 different DLL builds"
+   ]
+  },
+  {
+   "run_id": "2026-09-16_pkwhole_small_diag/m5_pk10_whole_6b_s0",
+   "validity": "invalid",
+   "problems": [
+    "experiment ran on 2 different DLL builds"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,9 @@
+group,metric,mean_old,mean_new,delta_pct,t,sig,identical_seeds
+M5_6b,items,1419,1419,+0.0,nan,n.s.,5/5
+M5_6b,orders,587.8,587.8,+0.0,nan,n.s.,5/5
+M5_6b,m_per_line,9.322,9.322,+0.0,nan,n.s.,5/5
+M5_6b,EOR,1.183,1.183,+0.0,nan,n.s.,5/5
+M5_6b,pile_on,5.258,5.258,+0.0,nan,n.s.,5/5
+M5_6b,extract_m,2342,2342,+0.0,nan,n.s.,5/5
+M5_6b,turnover_med,914.2,914.2,+0.0,nan,n.s.,5/5
+M5_6b,lateness,558.3,558.3,+0.0,nan,n.s.,5/5

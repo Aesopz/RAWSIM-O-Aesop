@@ -1,0 +1,109 @@
+{
+ "run_id": "2026-09-15_canon_v1_small_split_limit_fidelity/m4g_n3_6b_s5",
+ "experiment": "2026-09-15_canon_v1_small_split_limit_fidelity",
+ "kind": "formal",
+ "arm": "m4g_n3_6b",
+ "seed": 5,
+ "question": "Canon v1 小規模：限制每張訂單最多拆 N 份（N=2/3/4）相對不設限的 M4G 有何影響？HGS-M5 相對 M4G 損失多少？",
+ "motivation": "教授問拆單次數上限的曲線；M1G 閘門烘入正典（Canon v1）後需重建正式數據；M5 保真度是大規模結果能否代表 M4G 的前提。",
+ "changed": [
+  "MaxPartsPerOrder"
+ ],
+ "config": {
+  "xlayo": {
+   "source": "Canon/small/small_6b_2p_2r.xlayo",
+   "template": null,
+   "actually_used": "Material/Instances/CoreBenchmark/small/small_6bot.xlayo",
+   "snapshot": "experiments\\formal\\2026-09-15_canon_v1_small_split_limit_fidelity\\runs\\m4g_n3_6b_s5\\config\\small_6bot.xlayo",
+   "sha256": "11ed17e117d2c6aa8755d78face298087cd79bcbc61efefbb543023740cf58fe"
+  },
+  "xsett": {
+   "source": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "template": null,
+   "actually_used": "Material/Instances/CoreBenchmark/small/small_o100_mu100_2h_inv70.xsett",
+   "snapshot": "experiments\\formal\\2026-09-15_canon_v1_small_split_limit_fidelity\\runs\\m4g_n3_6b_s5\\config\\small_o100_mu100_2h_inv70.xsett",
+   "sha256": "3e72252ac3bc3d3fb2258f59599bb07359f4e301ce712bd766f3316f9cfdd832"
+  },
+  "xconf": {
+   "source": "inputs/m4g_n3.xconf",
+   "template": "Canon/small/m4g.xconf",
+   "actually_used": "Material/Instances/CoreBenchmark/small/m4g_maxparts3.xconf",
+   "snapshot": "experiments\\formal\\2026-09-15_canon_v1_small_split_limit_fidelity\\runs\\m4g_n3_6b_s5\\config\\m4g_maxparts3.xconf",
+   "sha256": "788bcf591522748907ea858926eacf29385c63123f1188519ca0d0f897a867c6"
+  }
+ },
+ "order_batching_type": "M4GConfiguration",
+ "order_batching_flags": {
+  "TieBreaker": "EarliestDueTime",
+  "FastLane": "true",
+  "LateBeforeMatch": "false",
+  "FastLaneTieBreaker": "EarliestDueTime",
+  "LambdaScale": "1",
+  "MuScale": "1",
+  "DeltaScale": "1",
+  "EpsilonScale": "0",
+  "WarmupLines": "50",
+  "LambdaFallback": "10",
+  "DeltaFallback": "0.05",
+  "LinesPerOrderFallback": "2.4",
+  "LambdaFixed": "0",
+  "DeltaFixed": "0",
+  "PickDistancePricing": "true",
+  "DegenerateToBindingOnly": "false",
+  "ValuationOrderLimit": "0",
+  "UrgentOrderGate": "true",
+  "PodCreditCapEnabled": "false",
+  "PodTierDrawPricingEnabled": "false",
+  "IncrementalValuationEnabled": "false",
+  "SplitOnlyAtPresentPods": "false",
+  "SplitMarginalProbeEnabled": "false",
+  "SplitMarginalProbeEveryNDecisions": "50",
+  "SplitMarginalProbeTimeLimitSec": "10",
+  "ReleaseParentOnFirstSplit": "true",
+  "DinkelbachIterations": "5",
+  "DinkelbachTolerance": "0.5",
+  "DinkelbachEscalations": "0",
+  "ForbidSplitting": "false",
+  "LineAtomicSplitting": "true",
+  "CompactLineModel": "true",
+  "NewPodFirstAllocation": "true",
+  "LineBoundTau": "true",
+  "M1GUrgentGate": "true",
+  "MaxPartsPerOrder": "3",
+  "LegacyObjective": "false",
+  "UpperBoundJump": "true"
+ },
+ "scenario": {
+  "hours": 2.0,
+  "pstations": 2,
+  "rstations": 2,
+  "skus": 100,
+  "backlog": 100,
+  "pods": 100,
+  "cells": 120,
+  "cap": "100",
+  "stock": 70.0,
+  "bots": 6
+ },
+ "canon": {
+  "version": 1,
+  "fingerprint": "9890dba8e0a7ec54"
+ },
+ "dll": {
+  "sha256": "94a44bdb4844fea74934bfe1d0db3a0c2ea11971cb6fe05084b23dc09159120d",
+  "note": "retro: see experiment.json retro.evidence"
+ },
+ "git": {
+  "head": "retro",
+  "uncommitted_code_diff_sha": "retro"
+ },
+ "retro": {
+  "legacy_dir": "out/gc_mp3_m4g_6bot_s5",
+  "imported": "2026-09-15T17:45:09"
+ },
+ "queued": null,
+ "started": null,
+ "finished": "2026-09-15T16:49:38",
+ "exit": 0,
+ "attempt": 1
+}

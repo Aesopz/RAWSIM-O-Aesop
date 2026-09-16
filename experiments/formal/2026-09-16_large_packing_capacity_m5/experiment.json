@@ -1,0 +1,126 @@
+{
+ "id": "2026-09-16_large_packing_capacity_m5",
+ "kind": "formal",
+ "question": "大規模 45 bots、12 揀貨站下，配置 1/2/3 個包裝站（每站 78 箱）相對無限制時拆單效益流失多少？需要幾個包裝站才保住效益？",
+ "motivation": "使用者要求的延伸實驗；包裝站數為整數。Canon v1 不設限時同時等待合併的母單峰值 175–201（中位 190）、時間平均 137，故 1 站（78）預期明顯受限、2 站（156）接近時間平均、3 站（234）高於峰值。對照組沿用既有 m5_45b。",
+ "scenario_confirmed_by_user": true,
+ "arms": [
+  {
+   "label": "m5_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "Canon/large/hgs_m5_k10.xconf",
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "reuse_from": {
+    "experiment": "2026-09-15_canon_v1_large_split_limit_m5",
+    "arm": "m5_45b"
+   }
+  },
+  {
+   "label": "m5_pk1_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/hgs_m5_k10_pk1.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "PackingStationCount",
+    "PackingBufferCapacity"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m5_pk2_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/hgs_m5_k10_pk2.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "PackingStationCount",
+    "PackingBufferCapacity"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "label": "m5_pk3_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/hgs_m5_k10_pk3.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "PackingStationCount",
+    "PackingBufferCapacity"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  }
+ ],
+ "comparisons": [
+  {
+   "a": "m5_45b",
+   "b": "m5_pk1_45b",
+   "kind": "ablation",
+   "variable": "PackingStationCount=1 (78 boxes each)"
+  },
+  {
+   "a": "m5_45b",
+   "b": "m5_pk2_45b",
+   "kind": "ablation",
+   "variable": "PackingStationCount=2 (78 boxes each)"
+  },
+  {
+   "a": "m5_45b",
+   "b": "m5_pk3_45b",
+   "kind": "ablation",
+   "variable": "PackingStationCount=3 (78 boxes each)"
+  }
+ ]
+}

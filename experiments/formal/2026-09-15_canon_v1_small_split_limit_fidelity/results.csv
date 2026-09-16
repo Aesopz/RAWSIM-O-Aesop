@@ -1,0 +1,62 @@
+2 h · 10 seeds · 2 Pstations · 2 Rstations · 100 SKUs · 100 backlog · 100 pods / 120 cells · cap 100 · 70% stock
+policy,bots,Items,Lines,Orders,Pile-on,Trips,Trips/Orders,m/Line,EOR(kJ/order),TurnoverMedian(s),StationIdle(%)
+m4g_6b,6b,1419.9,946.1,599.1,5.338,112.3,0.1875,9.37,1.190,830.8,1.45
+m5_6b,6b,1422.2,931.2,584.0,5.231,111.7,0.1913,9.40,1.203,916.9,1.30
+m4g_n2_6b,6b,1294.9,863.0,558.9,5.023,111.4,0.1994,9.58,1.189,783.7,10.13
+m4g_n3_6b,6b,1402.3,934.7,595.4,5.306,112.3,0.1887,9.35,1.177,809.2,2.70
+m4g_n4_6b,6b,1418.1,948.0,599.1,5.402,111.0,0.1853,9.23,1.172,796.4,1.60
+m4g_10b,10b,1428.7,952.2,603.5,5.118,118.0,0.1956,10.35,1.317,787.8,0.86
+m5_10b,10b,1430.3,934.2,588.1,5.081,115.8,0.1970,10.18,1.312,955.2,0.74
+m4g_n2_10b,10b,1305.5,872.3,565.7,4.794,118.1,0.2088,10.47,1.306,796.7,9.40
+m4g_n3_10b,10b,1423.0,948.4,601.5,5.065,118.9,0.1977,10.24,1.309,791.9,1.24
+m4g_n4_10b,10b,1429.1,952.4,604.0,5.104,118.4,0.1960,10.24,1.301,774.1,0.81
+
+paired m5_6b vs m4g_6b (delta% = (mean_b - mean_a)/mean_a; n=10)
+stat,Items,Lines,Orders,Pile-on,Trips,Trips/Orders,m/Line,EOR(kJ/order),TurnoverMedian(s),StationIdle(%)
+pct,+0.16,−1.57,−2.52,−2.00,−0.53,+1.99,+0.30,+1.15,+10.36,−10.64
+p,.485,.005,< .001,.034,.531,.037,.736,.213,.003,.482
+sig,,**,***,*,,*,,,**,
+
+paired m4g_n2_6b vs m4g_6b (delta% = (mean_b - mean_a)/mean_a; n=10)
+stat,Items,Lines,Orders,Pile-on,Trips,Trips/Orders,m/Line,EOR(kJ/order),TurnoverMedian(s),StationIdle(%)
+pct,−8.80,−8.78,−6.71,−5.90,−0.80,+6.32,+2.17,−0.05,−5.67,+596.98
+p,< .001,< .001,< .001,.007,.515,.008,.095,.973,.015,< .001
+sig,***,***,***,**,,**,,,*,***
+
+paired m4g_n3_6b vs m4g_6b (delta% = (mean_b - mean_a)/mean_a; n=10)
+stat,Items,Lines,Orders,Pile-on,Trips,Trips/Orders,m/Line,EOR(kJ/order),TurnoverMedian(s),StationIdle(%)
+pct,−1.24,−1.20,−0.62,−0.59,0.00,+0.60,−0.27,−1.07,−2.60,+86.00
+p,.004,.027,.160,.587,1.000,.585,.767,.242,.242,.003
+sig,**,*,,,,,,,,**
+
+paired m4g_n4_6b vs m4g_6b (delta% = (mean_b - mean_a)/mean_a; n=10)
+stat,Items,Lines,Orders,Pile-on,Trips,Trips/Orders,m/Line,EOR(kJ/order),TurnoverMedian(s),StationIdle(%)
+pct,−0.13,+0.20,0.00,+1.20,−1.16,−1.18,−1.51,−1.44,−4.13,+9.92
+p,.424,.480,1.000,.442,.417,.441,.256,.288,.051,.334
+sig,,,,,,,,,,
+
+paired m5_10b vs m4g_10b (delta% = (mean_b - mean_a)/mean_a; n=10)
+stat,Items,Lines,Orders,Pile-on,Trips,Trips/Orders,m/Line,EOR(kJ/order),TurnoverMedian(s),StationIdle(%)
+pct,+0.11,−1.89,−2.55,−0.72,−1.86,+0.71,−1.60,−0.39,+21.25,−14.07
+p,.078,< .001,< .001,.393,.051,.402,.086,.647,< .001,.037
+sig,,***,***,,,,,,***,*
+
+paired m4g_n2_10b vs m4g_10b (delta% = (mean_b - mean_a)/mean_a; n=10)
+stat,Items,Lines,Orders,Pile-on,Trips,Trips/Orders,m/Line,EOR(kJ/order),TurnoverMedian(s),StationIdle(%)
+pct,−8.62,−8.39,−6.26,−6.32,+0.08,+6.75,+1.14,−0.83,+1.14,+998.47
+p,< .001,< .001,< .001,< .001,.952,.001,.343,.492,.651,< .001
+sig,***,***,***,***,,**,,,,***
+
+paired m4g_n3_10b vs m4g_10b (delta% = (mean_b - mean_a)/mean_a; n=10)
+stat,Items,Lines,Orders,Pile-on,Trips,Trips/Orders,m/Line,EOR(kJ/order),TurnoverMedian(s),StationIdle(%)
+pct,−0.40,−0.40,−0.33,−1.03,+0.76,+1.11,−1.07,−0.63,+0.52,+44.70
+p,.003,.348,.374,.382,.569,.351,.170,.464,.837,.002
+sig,**,,,,,,,,,**
+
+paired m4g_n4_10b vs m4g_10b (delta% = (mean_b - mean_a)/mean_a; n=10)
+stat,Items,Lines,Orders,Pile-on,Trips,Trips/Orders,m/Line,EOR(kJ/order),TurnoverMedian(s),StationIdle(%)
+pct,+0.03,+0.02,+0.08,−0.27,+0.34,+0.25,−1.09,−1.25,−1.74,−5.00
+p,.696,.946,.760,.841,.814,.855,.262,.192,.620,.560
+sig,,,,,,,,,,
+
+excel cross-check: {"status": "passed", "checks": 360, "rel_tol": 1e-09}

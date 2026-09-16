@@ -135,6 +135,56 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             _decisionIndex++;
         }
 
+        /// <summary>
+        /// (IncrementalValuationEnabled) The "orderID_stationID" pairs whose order the pods ALREADY
+        /// committed to that station (Pb, pinned by shi7) can finish on their own - so the valuation
+        /// this decision would collect for them creates nothing and was already paid for earlier.
+        /// Uses the same accessors shi5 does (CountAvailable / Positions) so the test agrees with the
+        /// constraint that actually gates yos.
+        ///
+        /// KNOWN LOOSENESS: tested per order against the aggregate committed stock, without deducting
+        /// units another order already claims, so two orders can both be marked covered by the same
+        /// units. That direction withholds reward rather than granting it.
+        /// </summary>
+        protected HashSet<string> ComputePbCovered(Dictionary<OutputStation, int> Cs,
+            Dictionary<OutputStation, HashSet<Pod>> inboundPods, HashSet<Order> pendingOrders, HashSet<Pod> Pb)
+        {
+            var covered = new HashSet<string>();
+            if (Pb == null || Pb.Count == 0 || pendingOrders == null) return covered;
+            foreach (var station in Cs.Keys)
+            {
+                var agg = new Dictionary<ItemDescription, int>();
+                HashSet<Pod> inbound;
+                if (inboundPods.TryGetValue(station, out inbound))
+                    foreach (var pod in inbound)
+                    {
+                        if (!Pb.Contains(pod)) continue;
+                        foreach (var sku in pod.ItemDescriptionsContained)
+                        {
+                            int a = pod.CountAvailable(sku);
+                            if (a <= 0) continue;
+                            int cur;
+                            agg[sku] = (agg.TryGetValue(sku, out cur) ? cur : 0) + a;
+                        }
+                    }
+                if (agg.Count == 0) continue;
+                foreach (var order in pendingOrders)
+                {
+                    bool all = true;
+                    foreach (var line in order.Positions)
+                    {
+                        int need = line.Value;
+                        if (need <= 0) continue;
+                        int stock;
+                        agg.TryGetValue(line.Key, out stock);
+                        if (stock < need) { all = false; break; }
+                    }
+                    if (all) covered.Add(order.ID.ToString() + "_" + station.ID.ToString());
+                }
+            }
+            return covered;
+        }
+
         protected virtual RAWSimO.Core.Waypoints.Waypoint GetBotReferenceWaypoint(Bot bot)
         {
             if (bot == null)
@@ -244,6 +294,29 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
         {
             double d = EstimateBotPodDistance(robot, pod);
             return _saEnabled ? StarveAwareCost.TravelTime(d, _saNominalSpeed) : d;
+        }
+
+        /// <summary>
+        /// (RobotIdTieBreak) Lexicographic surcharge that makes the lowest robot ID win a tie.
+        /// The objective prices a bot-&gt;pod pair by distance alone, so equally distant robots are
+        /// interchangeable and which one the solver returns is arbitrary - enough to send two
+        /// models that share this objective down different trajectories. tau is far below any real
+        /// distance difference (grid Manhattan distances), so the primary objective is unchanged;
+        /// it only orders solutions that were already tied. Zero when the flag is off.
+        /// </summary>
+        protected double RobotIdSurcharge(Bot robot)
+        {
+            return LexSurcharge(robot.ID);
+        }
+
+        /// <summary>(RobotIdTieBreak) Same lexicographic surcharge for any tied variable class,
+        /// keyed by a stable index. Ties exist in more than one dimension: bot-&gt;pod pairs are
+        /// priced by distance alone, and an xps for a pod that is already in use is priced at zero
+        /// (the UnusedPods filter), so the solver's pick among them is arbitrary in both.</summary>
+        protected double LexSurcharge(double index)
+        {
+            var cfg = Instance.ControllerConfig.OrderBatchingConfig as M1GConfiguration;
+            return (cfg != null && cfg.RobotIdTieBreak) ? 1e-7 * index : 0.0;
         }
 
         /// <summary>pod->station objective coefficient: travel time + starvation delay penalty
@@ -693,7 +766,11 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             List<Symbol> deVarNamedops = variableNames[6];
             double w1 = 1;
             double w2 = -40;
-            double w3 = 1000;
+            // w3 is the idle-slot weight. shi4 is an equality, so this term is algebraically a
+            // reward of w3 per bound order; SlotPenaltyWeight=0 ablates it. Default 1000 = Jiao's
+            // published value, so untouched configs stay bit-identical.
+            var m1gCfgW3 = Instance.ControllerConfig.OrderBatchingConfig as M1GConfiguration;
+            double w3 = m1gCfgW3 != null ? m1gCfgW3.SlotPenaltyWeight : 1000;
             //double w4 = 2;
             VariableCollection<string> variablesBinary = new VariableCollection<string>(wrapper, VariableType.Binary, 0, 1, (string s) => { return s; });
             VariableCollection<string> variablesInteger2 = new VariableCollection<string>(wrapper, VariableType.Integer, 0, 5, (string s) => { return s; });
@@ -702,15 +779,44 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
             PrepareStarveAware(Pods, Cs, Ra);
             // Precompute SA-M1G decision extras (EST + free-flow arrival); no-op in base M1G.
             PrepareDecisionExtras(Pods, Cs, Ra);
+            // (IncrementalValuationEnabled) shi5 lets yos[o,s] open on the stock of pods already
+            // committed to s (shi7 pins their xps to 1), so an order those pods alone can finish
+            // collects w2 at zero distance - every decision, for a completion the earlier decision
+            // already paid for. When on, such a pair earns nothing for the PROMISE (yos gets 0) but
+            // the full price when actually cashed (yaos picks up w2, so bound still totals w3+w2).
+            // Feasible region untouched - coefficients only. Default false keeps M1G bit-identical.
+            HashSet<string> pbCovered = (m1gCfgW3 != null && m1gCfgW3.IncrementalValuationEnabled)
+                ? ComputePbCovered(Cs, inboundPods, pendingOrders, Pb) : null;
+            if (pbCovered == null || pbCovered.Count == 0)
+            {
+                // Flag off: the original expressions, built in the original order (distance, then yos,
+                // then us). Building the valuation term first reorders the solver's columns, which
+                // changes which of several equal optima comes back - measured 1224 -> 1242 items.
             if (Ra.Count() > 0)
-                wrapper.SetObjective((LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * (M1GPodStationCost(v.pod, v.outputstation) + PodStationExtraCost(v.pod, v.outputstation))), wrapper)
+                wrapper.SetObjective((LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * (M1GPodStationCost(v.pod, v.outputstation) + PodStationExtraCost(v.pod, v.outputstation) + LexSurcharge(v.pod.ID + 0.001 * v.outputstation.ID))), wrapper)
                     + LinearExpression.Sum(deVarNameyrp.Where(u => Ra.Contains(u.robot) && Instance.ResourceManager.UnusedPods.Contains(u.pod) && u.pod.Waypoint != null).Select(v => variablesBinary[v.name] *
-                    M1GBotPodCost(v.robot, v.pod)), wrapper)) * w1 + LinearExpression.Sum(deVarNameyos.Select(v => variablesBinary[v.name])) * w2
+                    (M1GBotPodCost(v.robot, v.pod) + RobotIdSurcharge(v.robot))), wrapper)) * w1 + LinearExpression.Sum(deVarNameyos.Select(v => variablesBinary[v.name])) * w2
                     + LinearExpression.Sum(deVarNameus.Select(v => variablesInteger3[v.name])) * w3, OptimizationSense.Minimize);
             else
-                wrapper.SetObjective(LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * (M1GPodStationCost(v.pod, v.outputstation) + PodStationExtraCost(v.pod, v.outputstation))), wrapper) * w1
+                wrapper.SetObjective(LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * (M1GPodStationCost(v.pod, v.outputstation) + PodStationExtraCost(v.pod, v.outputstation) + LexSurcharge(v.pod.ID + 0.001 * v.outputstation.ID))), wrapper) * w1
                     + LinearExpression.Sum(deVarNameyos.Select(v => variablesBinary[v.name])) * w2
                     + LinearExpression.Sum(deVarNameus.Select(v => variablesInteger3[v.name])) * w3, OptimizationSense.Minimize);
+            }
+            else
+            {
+                var cov = pbCovered;
+                LinearExpression distanceTerm = Ra.Count() > 0
+                    ? (LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * (M1GPodStationCost(v.pod, v.outputstation) + PodStationExtraCost(v.pod, v.outputstation) + LexSurcharge(v.pod.ID + 0.001 * v.outputstation.ID))), wrapper)
+                        + LinearExpression.Sum(deVarNameyrp.Where(u => Ra.Contains(u.robot) && Instance.ResourceManager.UnusedPods.Contains(u.pod) && u.pod.Waypoint != null).Select(v => variablesBinary[v.name] *
+                    (M1GBotPodCost(v.robot, v.pod) + RobotIdSurcharge(v.robot))), wrapper))
+                    : LinearExpression.Sum(deVarNamexps.Where(u => Cs.Keys.Contains(u.outputstation) && Instance.ResourceManager.UnusedPods.Contains(u.pod)).Select(v => variablesBinary[v.name] * (M1GPodStationCost(v.pod, v.outputstation) + PodStationExtraCost(v.pod, v.outputstation) + LexSurcharge(v.pod.ID + 0.001 * v.outputstation.ID))), wrapper);
+                LinearExpression valuationTerm =
+                    LinearExpression.Sum(deVarNameyos.Select(v => variablesBinary[v.name]
+                        * (cov.Contains(v.order.ID.ToString() + "_" + v.outputstation.ID.ToString()) ? 0.0 : w2)), wrapper)
+                  + LinearExpression.Sum(deVarNameyaos.Select(v => variablesBinary[v.name]
+                        * (cov.Contains(v.order.ID.ToString() + "_" + v.outputstation.ID.ToString()) ? w2 : 0.0)), wrapper);
+                wrapper.SetObjective(distanceTerm * w1 + valuationTerm + LinearExpression.Sum(deVarNameus.Select(v => variablesInteger3[v.name])) * w3, OptimizationSense.Minimize);
+            }
             foreach (var order in pendingOrders)//每个订单最多只能分配给一个工作站
                 wrapper.AddConstr(LinearExpression.Sum(deVarNameyos.Where(v => v.order.ID == order.ID).Select(v => variablesBinary[v.name])) <= 1, "shi2");
             foreach (var order in pendingOrders)//当订单分配给工作站时，订单一定能够被分配给工作站
@@ -781,6 +887,7 @@ namespace RAWSimO.Core.Control.Defaults.OrderBatching
                 List<Symbol> IsdeVarNameyos = new List<Symbol>();
                 List<Symbol> IsdeVarNameyrp = new List<Symbol>();
                 List<Symbol> IsdeVarNamedops = new List<Symbol>();
+
                 for (int i = 1; i < variableNames.Count + 1; i++)
                 {
                     List<Symbol> variableName = variableNames[i];

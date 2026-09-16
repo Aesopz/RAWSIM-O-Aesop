@@ -1,0 +1,115 @@
+{
+ "run_id": "2026-09-16_small_fixed_vs_dynamic_pricing_m4g/m4g_fix11_6b_s7",
+ "experiment": "2026-09-16_small_fixed_vs_dynamic_pricing_m4g",
+ "kind": "formal",
+ "arm": "m4g_fix11_6b",
+ "seed": 7,
+ "question": "Canon v1 M4G（拆單）下，Dinkelbach 動態定價是否優於事後最佳的固定 λ/μ？",
+ "motivation": "取代第 24/27 頁舊正典資料；昨日誤用 M4G-NS（不拆單，定價無用武之地）。格點錨定 M4G 動態派車 λ 分位（6b P10/P50/P90=2.53/4.29/22.5；10b 2.63/4.12/20.5）；μ 依 M4G 動態 μ/λ 中位（6b 0.7879、10b 0.8339）同步固定；β 不固定；DinkelbachIterations=0 使跳躍不觸發，故不另設跳躍組。動態組沿用 Canon v1 M4G。",
+ "changed": [
+  "LambdaFixed",
+  "MuFixed",
+  "DinkelbachIterations",
+  "UpperBoundJump"
+ ],
+ "config": {
+  "xlayo": {
+   "source": "Canon/small/small_6b_2p_2r.xlayo",
+   "template": null,
+   "snapshot": "experiments\\formal\\2026-09-16_small_fixed_vs_dynamic_pricing_m4g\\runs\\m4g_fix11_6b_s7\\config\\small_6b_2p_2r.xlayo",
+   "sha256": "6910adaad737ff46a5e0f2818bf26aab26772818f97b971eeb7a65aaf21d4dd4"
+  },
+  "xsett": {
+   "source": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "template": null,
+   "snapshot": "experiments\\formal\\2026-09-16_small_fixed_vs_dynamic_pricing_m4g\\runs\\m4g_fix11_6b_s7\\config\\small_fill100_mu100_2h_inv70.xsett",
+   "sha256": "1d8c90458b74fb1bcc2a362480ca9bd48582f2823c36ab39e2fa345e38ec6100"
+  },
+  "xconf": {
+   "source": "inputs/m4g_fix11_6b.xconf",
+   "template": "Canon/small/m4g.xconf",
+   "snapshot": "experiments\\formal\\2026-09-16_small_fixed_vs_dynamic_pricing_m4g\\runs\\m4g_fix11_6b_s7\\config\\m4g_fix11_6b.xconf",
+   "sha256": "ce472ab03e5bcf42447f1970044a2004edd50ad87e4fd5616350157fea2a27b2"
+  }
+ },
+ "order_batching_type": "M4GConfiguration",
+ "order_batching_flags": {
+  "TieBreaker": "EarliestDueTime",
+  "FastLane": "true",
+  "LateBeforeMatch": "false",
+  "FastLaneTieBreaker": "EarliestDueTime",
+  "LambdaScale": "1",
+  "MuScale": "1",
+  "DeltaScale": "1",
+  "EpsilonScale": "0",
+  "WarmupLines": "50",
+  "LambdaFallback": "10",
+  "DeltaFallback": "0.05",
+  "LinesPerOrderFallback": "2.4",
+  "LambdaFixed": "11",
+  "DeltaFixed": "0",
+  "PickDistancePricing": "true",
+  "DegenerateToBindingOnly": "false",
+  "ValuationOrderLimit": "0",
+  "UrgentOrderGate": "true",
+  "PodCreditCapEnabled": "false",
+  "PodTierDrawPricingEnabled": "false",
+  "IncrementalValuationEnabled": "false",
+  "SplitOnlyAtPresentPods": "false",
+  "SplitMarginalProbeEnabled": "false",
+  "SplitMarginalProbeEveryNDecisions": "50",
+  "SplitMarginalProbeTimeLimitSec": "10",
+  "ReleaseParentOnFirstSplit": "true",
+  "DinkelbachIterations": "0",
+  "DinkelbachTolerance": "0.5",
+  "DinkelbachEscalations": "0",
+  "ForbidSplitting": "false",
+  "LineAtomicSplitting": "true",
+  "CompactLineModel": "true",
+  "NewPodFirstAllocation": "true",
+  "LineBoundTau": "true",
+  "M1GUrgentGate": "true",
+  "LegacyObjective": "false",
+  "UpperBoundJump": "false",
+  "MuFixed": "8.6669"
+ },
+ "scenario": {
+  "hours": 2.0,
+  "pstations": 2,
+  "rstations": 2,
+  "skus": 100,
+  "backlog": 100,
+  "pods": 100,
+  "cells": 120,
+  "cap": "100",
+  "stock": 70.0,
+  "bots": 6
+ },
+ "canon": {
+  "version": 1,
+  "fingerprint": "9890dba8e0a7ec54"
+ },
+ "dll": {
+  "path": "RAWSimO.CLI\\bin\\x64\\Release\\RAWSimO.Core.dll",
+  "sha256": "94a44bdb4844fea74934bfe1d0db3a0c2ea11971cb6fe05084b23dc09159120d",
+  "built": "2026-09-15T10:47:50"
+ },
+ "git": {
+  "head": "06a384206eaea6541733acbf6c81e2fae06e3dcd",
+  "uncommitted_code_diff_sha": "5529987f7518b42e"
+ },
+ "command": [
+  "C:\\Users\\Aesop\\Desktop\\EE-RAWSim-O_PP\\RAWSimO.CLI\\bin\\x64\\Release\\RAWSimO.CLI.exe",
+  "experiments\\formal\\2026-09-16_small_fixed_vs_dynamic_pricing_m4g\\runs\\m4g_fix11_6b_s7\\config\\small_6b_2p_2r.xlayo",
+  "experiments\\formal\\2026-09-16_small_fixed_vs_dynamic_pricing_m4g\\runs\\m4g_fix11_6b_s7\\config\\small_fill100_mu100_2h_inv70.xsett",
+  "experiments\\formal\\2026-09-16_small_fixed_vs_dynamic_pricing_m4g\\runs\\m4g_fix11_6b_s7\\config\\m4g_fix11_6b.xconf",
+  "experiments\\formal\\2026-09-16_small_fixed_vs_dynamic_pricing_m4g\\runs\\m4g_fix11_6b_s7",
+  "7"
+ ],
+ "queued": "2026-09-16T09:20:04",
+ "started": "2026-09-16T09:52:33",
+ "finished": "2026-09-16T09:56:06",
+ "exit": 0,
+ "attempt": 1,
+ "dll_at_start_sha256": "94a44bdb4844fea74934bfe1d0db3a0c2ea11971cb6fe05084b23dc09159120d"
+}

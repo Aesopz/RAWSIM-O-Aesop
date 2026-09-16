@@ -1,0 +1,5 @@
+policy,bots,Items,Lines,Orders,Pile-on,Trips,Trips/Order (slide's 'm/line'),m/Line (slide's 'Pod/order'),EOR(kJ/order),TurnoverMedian(s),StationIdle(%)
+M4G-NS,6b,1145,746.2,523.6,3.032,172.6,0.3304,15.1,1.773,432.6,20.51
+M4G,6b,1406,935.4,598.4,5.273,113.6,0.1899,9.519,1.191,813.9,2.435
+M4G-NS,10b,1411,917.2,635,3.261,195.2,0.3075,15.08,1.801,441.5,2.035
+M4G,10b,1429,948.4,600,5.002,120,0.2,10.53,1.337,834.1,0.8467

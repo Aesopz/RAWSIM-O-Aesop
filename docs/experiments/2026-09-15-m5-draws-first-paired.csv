@@ -1,0 +1,16 @@
+group,metric,mean_original,mean_drawsfirst,delta_pct,t,sig,identical_seeds,n
+M5_small_6bot,items,1420,1420,+0.06,1.00,n.s.,9/10,10
+M5_small_6bot,orders,584.4,585,+0.10,1.00,n.s.,9/10,10
+M5_small_6bot,m_per_line,9.458,9.438,-0.20,-1.00,n.s.,9/10,10
+M5_small_6bot,EOR,1.208,1.206,-0.13,-1.00,n.s.,9/10,10
+M5_small_6bot,pile_on,5.176,5.192,+0.32,1.00,n.s.,9/10,10
+M5_small_6bot,turnover_med,905.2,907.4,+0.24,1.00,n.s.,9/10,10
+M5_small_6bot,solve_sec,21.93,5.341,-75.65,-15.28,***,9/10,10
+M5_small_10bot,items,1430,1430,+0.01,0.43,n.s.,5/10,10
+M5_small_10bot,orders,588.8,587.5,-0.22,-0.90,n.s.,5/10,10
+M5_small_10bot,m_per_line,10.28,10.23,-0.44,-1.18,n.s.,5/10,10
+M5_small_10bot,EOR,1.317,1.315,-0.17,-0.57,n.s.,5/10,10
+M5_small_10bot,pile_on,5.066,5.105,+0.77,1.33,n.s.,5/10,10
+M5_small_10bot,turnover_med,968.3,946.2,-2.28,-1.48,n.s.,5/10,10
+M5_small_10bot,solve_sec,28.7,5.301,-81.53,-19.28,***,5/10,10
+M5_large_N4,pending,,,,,,,0

@@ -1,0 +1,689 @@
+<title>拆單代價與定價邊界</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#E9EDF0; --surface:#FFFFFF; --raise:#F4F7F9;
+  --ink:#0F1519; --body:#26313A; --muted:#55636E;
+  --rule:#CBD5DC; --rule-soft:#E1E8ED;
+  --accent:#0D6B6B; --accent-soft:#D7E8E6;
+  --good:#1B6B3A; --bad:#A32020; --flat:#7B8792;
+  --shadow:0 1px 2px rgba(15,21,25,.06),0 8px 24px rgba(15,21,25,.05);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0E1317; --surface:#161D23; --raise:#1B242B;
+    --ink:#EDF2F5; --body:#C3CED6; --muted:#8A98A3;
+    --rule:#2C383F; --rule-soft:#222C33;
+    --accent:#4FB3AC; --accent-soft:#14322F;
+    --good:#5FBF85; --bad:#E4726B; --flat:#7B8792;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0E1317; --surface:#161D23; --raise:#1B242B;
+  --ink:#EDF2F5; --body:#C3CED6; --muted:#8A98A3;
+  --rule:#2C383F; --rule-soft:#222C33;
+  --accent:#4FB3AC; --accent-soft:#14322F;
+  --good:#5FBF85; --bad:#E4726B; --flat:#7B8792;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3);
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--ground); color:var(--body);
+  font-family:"Source Serif 4",Georgia,"Songti TC",serif;
+  font-size:16.5px; line-height:1.65;
+  padding-block:0; padding-left:20px; padding-right:20px;
+}
+.wrap{max-width:1000px;margin:0 auto;padding-block:48px 80px}
+
+h1,h2,h3,.eyebrow,.num,th,.tag{font-family:Archivo,"Noto Sans TC",system-ui,sans-serif}
+.mono,td.n,th.n,.stat,.tval{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+
+/* ---------- masthead ---------- */
+.mast{border-top:3px solid var(--ink);padding-top:18px;margin-bottom:40px}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+h1{font-size:clamp(30px,5.4vw,48px);line-height:1.08;font-weight:700;letter-spacing:-.02em;
+   color:var(--ink);margin:.28em 0 .3em;text-wrap:balance}
+.dek{font-size:19px;color:var(--muted);max-width:62ch;margin:0 0 22px}
+.spec{display:flex;flex-wrap:wrap;gap:0 26px;border-top:1px solid var(--rule);
+      border-bottom:1px solid var(--rule);padding:12px 0;font-size:12.5px}
+.spec div{display:flex;gap:7px;align-items:baseline}
+.spec span{color:var(--muted);font-family:Archivo,sans-serif;font-size:10.5px;
+           letter-spacing:.09em;text-transform:uppercase}
+.spec b{font-family:"IBM Plex Mono",monospace;font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
+
+/* ---------- headline findings ---------- */
+.finds{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:1px;
+       background:var(--rule-soft);border:1px solid var(--rule-soft);margin:34px 0 56px}
+.find{background:var(--surface);padding:20px 18px 18px}
+.find .stat{font-size:29px;font-weight:600;color:var(--ink);line-height:1;letter-spacing:-.02em}
+.find .stat em{font-style:normal;font-size:15px;color:var(--muted);margin-left:3px}
+.find p{margin:9px 0 0;font-size:14px;line-height:1.5}
+.find .tag{display:inline-block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+           color:var(--accent);font-weight:600;margin-bottom:11px}
+
+/* ---------- dockets ---------- */
+.docket{background:var(--surface);border:1px solid var(--rule-soft);border-radius:3px;
+        box-shadow:var(--shadow);margin:0 0 34px;overflow:hidden}
+.dhead{padding:22px 26px 18px;border-bottom:1px solid var(--rule-soft);
+       display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
+.dvar{flex:0 0 auto;background:var(--accent-soft);color:var(--accent);border-radius:2px;
+      padding:7px 11px;font-family:"IBM Plex Mono",monospace;font-size:12.5px;font-weight:600;
+      letter-spacing:.02em;white-space:nowrap}
+.dtitle{flex:1 1 320px;min-width:0}
+.dtitle h2{font-size:22px;font-weight:600;color:var(--ink);margin:0 0 5px;letter-spacing:-.01em}
+.dtitle p{margin:0;font-size:14.5px;color:var(--muted)}
+.dbody{padding:22px 26px 26px}
+.dbody>*:first-child{margin-top:0}
+h3{font-size:11px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;
+   color:var(--muted);margin:30px 0 11px;padding-bottom:6px;border-bottom:1px solid var(--rule-soft)}
+p{margin:0 0 13px}
+.dbody p:last-child{margin-bottom:0}
+
+/* ---------- tables ---------- */
+.scroll{overflow-x:auto;margin:0 0 14px;border:1px solid var(--rule-soft);border-radius:2px}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:520px}
+th,td{padding:7px 11px;text-align:left;border-bottom:1px solid var(--rule-soft);white-space:nowrap}
+thead th{background:var(--raise);font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;
+         font-weight:600;color:var(--muted);position:sticky;top:0}
+th.n,td.n{text-align:right}
+tbody tr:last-child td{border-bottom:none}
+tr.hi td{background:var(--accent-soft)}
+tr.rule-top td{border-top:2px solid var(--rule)}
+td.lab{font-family:Archivo,sans-serif;font-weight:500;color:var(--ink);font-size:12.5px}
+.up{color:var(--bad)} .down{color:var(--good)} .ns{color:var(--flat)}
+.sig::after{content:"*";font-weight:700;margin-left:1px}
+caption{caption-side:bottom;text-align:left;font-size:12px;color:var(--muted);padding:9px 11px;line-height:1.5}
+
+/* ---------- verdict blocks ---------- */
+.verdict{border-left:3px solid var(--accent);background:var(--raise);padding:14px 18px;margin:0 0 13px;font-size:14.5px}
+.verdict:last-child{margin-bottom:0}
+.caution{border-left-color:var(--bad)}
+.verdict b{color:var(--ink)}
+.verdict .tag{display:block;font-size:10px;letter-spacing:.11em;text-transform:uppercase;
+              color:var(--accent);font-weight:600;margin-bottom:6px}
+.caution .tag{color:var(--bad)}
+ul{margin:0 0 13px;padding-left:20px}
+li{margin-bottom:7px}
+li:last-child{margin-bottom:0}
+code{font-family:"IBM Plex Mono",monospace;font-size:.88em;background:var(--raise);
+     padding:1px 5px;border-radius:2px;color:var(--ink);white-space:nowrap}
+
+/* ---------- figures ---------- */
+figure{margin:0 0 18px;background:var(--raise);border:1px solid var(--rule-soft);
+       border-radius:2px;padding:18px 16px 12px}
+figure svg{display:block;width:100%;height:auto;max-width:100%}
+figcaption{font-size:12.5px;color:var(--muted);margin-top:10px;line-height:1.55}
+.ftitle{font-family:Archivo,sans-serif;font-size:12px;font-weight:600;letter-spacing:.08em;
+        text-transform:uppercase;color:var(--muted);margin:0 0 12px}
+svg text{font-family:"IBM Plex Mono",monospace;fill:var(--muted)}
+svg .axlab{font-family:Archivo,sans-serif;font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+svg .val{fill:var(--ink);font-weight:600}
+
+/* ---------- appendix ---------- */
+.appendix{border-top:3px solid var(--ink);margin-top:56px;padding-top:20px}
+.appendix h2{font-size:20px;color:var(--ink);margin:0 0 6px;font-weight:600}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:26px;margin-top:22px}
+.cols h3{margin-top:0}
+footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--rule);
+       font-size:12px;color:var(--muted);display:flex;justify-content:space-between;
+       flex-wrap:wrap;gap:10px}
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <div class="eyebrow">2026-09-13 · 跑批判讀 · small case</div>
+  <h1>拆單代價與定價邊界</h1>
+  <p class="dek">一夜四組模擬的證據盤點：每組要回答什麼問題、資料說了什麼、
+     以及哪些話不能說。全部 5 seeds、配對檢定、跑完後逐格核對控制器代碼。</p>
+  <div class="spec">
+    <div><span>Layout</span><b>small · 6 bots · 2 pick · 2 repl</b></div>
+    <div><span>時長</span><b>7200 s</b></div>
+    <div><span>起始庫存</span><b>70 %</b></div>
+    <div><span>訂單流</span><b>Fill · OrderCount 100</b></div>
+    <div><span>Seeds</span><b>0–4</b></div>
+    <div><span>檢定</span><b>paired t · df=4 · |t|&gt;2.776</b></div>
+  </div>
+</header>
+
+<section class="finds">
+  <div class="find">
+    <span class="tag">拆單份數</span>
+    <div class="stat">N = 3<em> 才是有效上限</em></div>
+    <p>N=4 與 N=3 與無上限統計上等價（四項全 n.s.）。模型從未真正拆到 3 份以上。</p>
+  </div>
+  <div class="find">
+    <span class="tag">定價邊界</span>
+    <div class="stat">10 bots<em> 是門檻</em></div>
+    <div></div>
+    <p>6 與 8 bots 定價全無效果；10 起效率顯著改善，12 達 −20.6%。吞吐四個規模都持平。</p>
+  </div>
+  <div class="find">
+    <span class="tag">循序 vs 聯合</span>
+    <div class="stat">5.7 ×<em> 尾端等貨</em></div>
+    <p>循序基準最長等貨 1202 s，聯合最佳化 209 s。5 seeds 兩組分布完全不重疊。</p>
+  </div>
+  <div class="find">
+    <span class="tag">拆單淨效果</span>
+    <div class="stat">−28.6 %<em> EOR</em></div>
+    <p>同一支不拆單對照組換成拆單：件數 +13.4%、pile-on +60.9%、週期 +132%。</p>
+  </div>
+</section>
+
+<!-- ============ DOCKET 1 : N ============ -->
+<article class="docket">
+  <div class="dhead">
+    <div class="dvar">MaxPartsPerOrder</div>
+    <div class="dtitle">
+      <h2>一張訂單最多能拆成幾份？</h2>
+      <p>把拆單份數上限從無限逐步收緊到 2，看模型在哪一格開始付代價。</p>
+    </div>
+  </div>
+  <div class="dbody">
+
+    <h3>這組要回答的問題</h3>
+    <p>口試最容易被問的一句話是「你的模型會不會把一張訂單拆得到處都是」。
+       這組實驗用一個硬性上限去逼問模型：如果限制它最多只能拆 N 份，它會不會變差？
+       如果 N 很大時完全不變差，就代表它本來就沒拆那麼多——限制式是冗餘的，
+       而冗餘正是我們要的答案。</p>
+
+    <div class="scroll">
+      <table>
+        <caption>小規模 6 bots · 5 seeds 平均。最右三欄為對「N=∞ 正典」的配對檢定，<span class="sig"></span> 表 |t| &gt; 2.776。</caption>
+        <thead><tr>
+          <th>組態</th><th class="n">件數</th><th class="n">行數</th><th class="n">訂單</th>
+          <th class="n">需求件數</th><th class="n">總距離</th><th class="n">pile-on</th>
+          <th class="n">EOR</th><th class="n">週期中位</th>
+          <th class="n">件數 Δ%</th><th class="n">距離 Δ%</th>
+        </tr></thead>
+        <tbody>
+          <tr class="hi"><td class="lab">N = ∞（正典）</td><td class="n">1406.4</td><td class="n">937.0</td><td class="n">599.6</td>
+            <td class="n">1589.6</td><td class="n">8899</td><td class="n">5.31</td><td class="n">1.187</td><td class="n">808.5</td>
+            <td class="n ns">—</td><td class="n ns">—</td></tr>
+          <tr><td class="lab">N = 4</td><td class="n">1401.4</td><td class="n">931.6</td><td class="n">596.0</td>
+            <td class="n">1577.0</td><td class="n">8793</td><td class="n">5.28</td><td class="n">1.187</td><td class="n">811.8</td>
+            <td class="n ns">−0.36</td><td class="n ns">−1.19</td></tr>
+          <tr><td class="lab">N = 3</td><td class="n">1397.0</td><td class="n">926.6</td><td class="n">594.2</td>
+            <td class="n">1582.2</td><td class="n">9027</td><td class="n">5.18</td><td class="n">1.220</td><td class="n">827.6</td>
+            <td class="n ns">−0.67</td><td class="n ns">+1.44</td></tr>
+          <tr><td class="lab">N = 2</td><td class="n">1248.8</td><td class="n">832.0</td><td class="n">539.8</td>
+            <td class="n">1471.6</td><td class="n">8354</td><td class="n">4.81</td><td class="n">1.240</td><td class="n">801.6</td>
+            <td class="n down sig">−11.21</td><td class="n down sig">−6.12</td></tr>
+          <tr class="rule-top"><td class="lab">不拆單對照</td><td class="n">1240.0</td><td class="n">811.0</td><td class="n">575.6</td>
+            <td class="n">1406.0</td><td class="n">11767</td><td class="n">3.30</td><td class="n">1.663</td><td class="n">348.2</td>
+            <td class="n">−11.83</td><td class="n up">+32.23</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <figure>
+      <p class="ftitle">N=2 與「不拆單」件數掉得一樣多，但距離走相反方向</p>
+      <svg viewBox="0 0 640 250" role="img" aria-label="長條圖：N=4、N=3、N=2 與不拆單對照，相對正典的件數與距離變化百分比">
+        <!-- zero line -->
+        <line x1="70" y1="120" x2="610" y2="120" stroke="var(--rule)" stroke-width="1"/>
+        <text x="62" y="124" text-anchor="end" font-size="10">0</text>
+        <text x="62" y="54" text-anchor="end" font-size="10">+30</text>
+        <text x="62" y="194" text-anchor="end" font-size="10">−30</text>
+        <line x1="70" y1="50" x2="610" y2="50" stroke="var(--rule-soft)" stroke-width="1"/>
+        <line x1="70" y1="190" x2="610" y2="190" stroke="var(--rule-soft)" stroke-width="1"/>
+        <text x="70" y="26" class="axlab">相對 N=∞ 正典的變化（%）</text>
+
+        <!-- N=4 : items -0.36 dist -1.19 -->
+        <rect x="105" y="120" width="26" height="1.0" fill="var(--accent)"/>
+        <rect x="135" y="120" width="26" height="2.8" fill="var(--muted)" opacity=".55"/>
+        <text x="146" y="222" text-anchor="middle" font-size="11" class="val">N = 4</text>
+        <text x="146" y="238" text-anchor="middle" font-size="9.5">等價</text>
+
+        <!-- N=3 : items -0.67 dist +1.44 -->
+        <rect x="245" y="120" width="26" height="1.6" fill="var(--accent)"/>
+        <rect x="275" y="116.6" width="26" height="3.4" fill="var(--muted)" opacity=".55"/>
+        <text x="286" y="222" text-anchor="middle" font-size="11" class="val">N = 3</text>
+        <text x="286" y="238" text-anchor="middle" font-size="9.5">等價</text>
+
+        <!-- N=2 : items -11.21 dist -6.12 -->
+        <rect x="385" y="120" width="26" height="26.2" fill="var(--accent)"/>
+        <rect x="415" y="120" width="26" height="14.3" fill="var(--muted)" opacity=".55"/>
+        <text x="426" y="222" text-anchor="middle" font-size="11" class="val">N = 2</text>
+        <text x="426" y="238" text-anchor="middle" font-size="9.5">兩者同向下降</text>
+
+        <!-- NS : items -11.83 dist +32.23 -->
+        <rect x="525" y="120" width="26" height="27.6" fill="var(--accent)"/>
+        <rect x="555" y="44.8" width="26" height="75.2" fill="var(--muted)" opacity=".55"/>
+        <text x="566" y="222" text-anchor="middle" font-size="11" class="val">不拆單</text>
+        <text x="566" y="238" text-anchor="middle" font-size="9.5">距離反向暴增</text>
+
+        <!-- legend -->
+        <rect x="430" y="34" width="10" height="10" fill="var(--accent)"/>
+        <text x="445" y="43" font-size="10">件數</text>
+        <rect x="492" y="34" width="10" height="10" fill="var(--muted)" opacity=".55"/>
+        <text x="507" y="43" font-size="10">總距離</text>
+      </svg>
+      <figcaption>兩根柱子同向往下 = 系統只是「少做事」；件數往下而距離往上 = 系統「用更貴的方式做事」。
+        N=2 屬於前者，不拆單屬於後者。這是判定 N 咬合機制的關鍵對照。</figcaption>
+    </figure>
+
+    <h3>資料證明了什麼</h3>
+    <div class="verdict">
+      <span class="tag">可以主張</span>
+      <b>正典的有效拆單份數上限是 3。</b>
+      N=4 與 N=3 在件數、訂單、距離、週期四項全部不顯著，效應量都在 1% 以內。
+      把上限收到 3 對模型沒有任何可測量的影響，代表模型本來就極少拆超過 3 份。
+      面對「拆單會不會失控」的質疑，這是直接的實證答案，而且不需要在模型裡真的加這條限制式。
+    </div>
+    <div class="verdict">
+      <span class="tag">可以主張</span>
+      <b>N=2 的退化是「推遲整張訂單」，不是「退化成不拆單」。</b>
+      件數 −11.21% 的同時總距離也 −6.12%，兩者同向。
+      若系統改採一次做完，必須等單一站台湊齊整張單的 SKU，pod 趟次會惡化、距離應該上升。
+      距離跟著件數一起降，只可能是系統選擇不碰這些訂單。pile-on 從 5.31 掉到 4.81 也支持這個讀法
+      （若改成整單做完，pile-on 應該上升）。
+    </div>
+    <div class="verdict caution">
+      <span class="tag">不可宣稱</span>
+      <b>不要說「限制拆單份數可以改善週期」。</b>
+      N=2 的週期中位 801.6 s 看起來比正典的 808.5 s 好，但這是存活者偏差：
+      系統少做了 11% 的件數，留下完成的是比較容易的訂單。
+      <b>報週期一律要與件數並列</b>，否則這個數字會被讀成正面效果。
+    </div>
+
+  </div>
+</article>
+
+<!-- ============ DOCKET 2 : FLEET ============ -->
+<article class="docket">
+  <div class="dhead">
+    <div class="dvar">BotCount × 定價方式</div>
+    <div class="dtitle">
+      <h2>自我校準定價要多少機器人才看得出價值？</h2>
+      <p>固定價（μ 釘死 40）對上量測價（Dinkelbach 自我校準），在 6 / 8 / 10 / 12 bots 各跑一次。</p>
+    </div>
+  </div>
+  <div class="dbody">
+
+    <h3>這組要回答的問題</h3>
+    <p>先前在小規模 6 bots 上，定價的效果一直是不顯著的，這讓「自我校準定價」這項貢獻很難講。
+       假說是：定價管的是「這一趟值不值得跑」，而當機器人稀缺到每一趟都非跑不可時，
+       這個判斷根本沒有發揮空間。若假說成立，效果應該隨機隊餘裕單調放大。
+       兩臂共用同一個 manager（<code>obMPy</code>）與同一組限制式，<b>唯一差異是定價方式</b>。</p>
+
+    <figure>
+      <p class="ftitle">每行公尺數的變化：固定價 → 量測價</p>
+      <svg viewBox="0 0 640 290" role="img" aria-label="折線圖：每行公尺數相對變化隨機隊規模由 +1.5% 降至 −20.6%，於 8 與 10 bots 之間穿越零線">
+        <!-- gridlines -->
+        <line x1="92" y1="66.2" x2="592" y2="66.2" stroke="var(--rule)" stroke-width="1.2"/>
+        <line x1="92" y1="30" x2="592" y2="30" stroke="var(--rule-soft)"/>
+        <line x1="92" y1="138.6" x2="592" y2="138.6" stroke="var(--rule-soft)"/>
+        <line x1="92" y1="211.0" x2="592" y2="211.0" stroke="var(--rule-soft)"/>
+        <text x="84" y="34" text-anchor="end" font-size="10">+5%</text>
+        <text x="84" y="70" text-anchor="end" font-size="10">0</text>
+        <text x="84" y="142" text-anchor="end" font-size="10">−10%</text>
+        <text x="84" y="215" text-anchor="end" font-size="10">−20%</text>
+        <text x="92" y="16" class="axlab">m / 行 的變化（負值 = 量測價較省）</text>
+
+        <!-- n.s. region shading -->
+        <rect x="92" y="24" width="208" height="48" fill="var(--flat)" opacity=".10"/>
+        <text x="196" y="90" text-anchor="middle" font-size="10" fill="var(--flat)">效果不顯著</text>
+
+        <!-- line -->
+        <polyline points="130,55.3 250,58.7 370,115.3 490,215.2"
+                  fill="none" stroke="var(--accent)" stroke-width="2.5"
+                  stroke-linejoin="round" stroke-linecap="round"/>
+        <!-- points -->
+        <circle cx="130" cy="55.3" r="5" fill="var(--surface)" stroke="var(--flat)" stroke-width="2.5"/>
+        <circle cx="250" cy="58.7" r="5" fill="var(--surface)" stroke="var(--flat)" stroke-width="2.5"/>
+        <circle cx="370" cy="115.3" r="5.5" fill="var(--accent)"/>
+        <circle cx="490" cy="215.2" r="5.5" fill="var(--accent)"/>
+        <!-- value labels -->
+        <text x="130" y="44" text-anchor="middle" font-size="11" class="val">+1.50</text>
+        <text x="250" y="47" text-anchor="middle" font-size="11" class="val">+1.04</text>
+        <text x="370" y="106" text-anchor="middle" font-size="11" class="val">−6.78*</text>
+        <text x="490" y="206" text-anchor="middle" font-size="11" class="val">−20.57*</text>
+        <!-- x axis -->
+        <line x1="92" y1="248" x2="540" y2="248" stroke="var(--rule)"/>
+        <text x="130" y="264" text-anchor="middle" font-size="11" class="val">6</text>
+        <text x="250" y="264" text-anchor="middle" font-size="11" class="val">8</text>
+        <text x="370" y="264" text-anchor="middle" font-size="11" class="val">10</text>
+        <text x="490" y="264" text-anchor="middle" font-size="11" class="val">12</text>
+        <text x="310" y="282" text-anchor="middle" class="axlab">機隊規模（bots）</text>
+      </svg>
+      <figcaption>零線穿越點落在 8 與 12 bots 之間。空心點 = 不顯著，實心點 = |t| &gt; 2.776。
+        件數在四個規模全部持平，所以這條曲線描述的是效率而非吞吐。</figcaption>
+    </figure>
+
+    <div class="scroll">
+      <table>
+        <caption>每格 5 seeds 配對檢定。機隊規模以 <code>footprint.csv</code> 第 17 欄逐格驗證，非依賴目錄名。</caption>
+        <thead><tr>
+          <th>機隊</th>
+          <th class="n">m/行 固定</th><th class="n">m/行 量測</th><th class="n">Δ%</th>
+          <th class="n">距離 固定</th><th class="n">距離 量測</th><th class="n">Δ%</th>
+          <th class="n">件數 Δ%</th><th class="n">EOR Δ%</th>
+        </tr></thead>
+        <tbody>
+          <tr><td class="lab">6 bots</td><td class="n">14.30</td><td class="n">14.51</td><td class="n ns">+1.50</td>
+            <td class="n">11586</td><td class="n">11767</td><td class="n ns">+1.56</td>
+            <td class="n ns">−0.51</td><td class="n ns">+1.79</td></tr>
+          <tr><td class="lab">8 bots</td><td class="n">14.98</td><td class="n">15.13</td><td class="n ns">+1.04</td>
+            <td class="n">13680</td><td class="n">13487</td><td class="n ns">−1.40</td>
+            <td class="n ns">−1.85</td><td class="n ns">+0.76</td></tr>
+          <tr class="hi"><td class="lab">10 bots</td><td class="n">16.90</td><td class="n">15.75</td><td class="n down sig">−6.78</td>
+            <td class="n">15551</td><td class="n">14597</td><td class="n down sig">−6.14</td>
+            <td class="n ns">+0.31</td><td class="n down sig">−6.99</td></tr>
+          <tr class="hi"><td class="lab">12 bots</td><td class="n">20.43</td><td class="n">16.23</td><td class="n down sig">−20.57</td>
+            <td class="n">19028</td><td class="n">15114</td><td class="n down sig">−20.57</td>
+            <td class="n ns">+0.15</td><td class="n down sig">−20.50</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>資料證明了什麼</h3>
+    <div class="verdict">
+      <span class="tag">可以主張</span>
+      <b>自我校準定價的價值隨機隊餘裕放大，而放大的機制是「它防止固定門檻在資源寬鬆時失效」。</b>
+      關鍵不在百分比而在絕對值走向：固定價臂的總距離從 6 bots 的 11586 一路漲到 12 bots 的 <b>19028（+64%）</b>，
+      量測價臂只從 11767 漲到 15114（+28.6%）。<b>擴大的差距主要來自固定價變差，不是量測價變好。</b>
+      機制上完全說得通——「一趟行走值不值 40 公尺」是個絕對門檻，與有幾台車無關；
+      車一多，閒置車輛增加，但門檻不會跟著收緊，於是系統開始派出一堆勉強過門檻的低價值趟次。
+      Dinkelbach 的門檻則隨當前最優比值自動收緊，不會被閒置車輛誘導。
+    </div>
+    <div class="verdict">
+      <span class="tag">可以主張</span>
+      <b>12 bots 時定價還縮短了完成週期 15.6%。</b>
+      這條在 6 與 10 bots 都沒出現。低價值趟次會佔住走道與機器人，排擠真正該做的工作；
+      車夠多時這種排擠才大到能在週期上顯形。這是「定價的價值不只是省距離」的第二條獨立證據。
+    </div>
+    <div class="verdict caution">
+      <span class="tag">不可宣稱</span>
+      <b>不要說定價提升吞吐。</b>
+      件數在四個規模全部不顯著（−1.85% 到 +0.31%）。
+      12 bots 的件數 +0.15% 雖然 t=+2.56 接近臨界，但效應量只有 0.15%——
+      t 大是因為 5 個 seed 方向一致且變異極小，不是因為效應大。<b>必須報效應量，不能只報顯著性。</b>
+    </div>
+    <div class="verdict caution">
+      <span class="tag">邊界</span>
+      <b>門檻位置是這個 layout 的性質，不是普適常數。</b>
+      小規模 layout 是 2 揀貨站 × 容量 6 = 12 個槽位；機隊到 10–12 台時車不再是瓶頸、槽位才是，
+      這時「該不該多派一趟」才第一次成為真問題。換 layout 門檻會移動，
+      正確的敘述是<b>「定價需要資源餘裕」</b>，而不是「需要 10 台以上」。
+    </div>
+
+  </div>
+</article>
+
+<!-- ============ DOCKET 3 : FIVE ARMS ============ -->
+<article class="docket">
+  <div class="dhead">
+    <div class="dvar">OB 控制器 × 5</div>
+    <div class="dtitle">
+      <h2>訂單會不會長期佔住揀貨站的槽位？</h2>
+      <p>循序基準、M1G、兩個不拆單變體、M4G 拆單正典——五條決策規則的槽位與供給等待對照。</p>
+    </div>
+  </div>
+  <div class="dbody">
+
+    <h3>這組要回答的問題</h3>
+    <p>教授的質疑是：訂單被配進槽位後若遲遲等不到貨架，就會堵住後續訂單。
+       過去沒辦法回答，因為既有指標都答不了這題——<code>StatMedianTurnoverTime</code> 含下游合併等待、
+       <code>CapacityInUse</code> 只有瞬時值沒有歷史。因此新增了兩組統計量：
+       <b>槽位佔用時間</b>（配入 → 該訂單完成釋放）與 <b>首次揀取等待</b>（配入 → 第一件貨被揀走，
+       即等載著它的貨架抵達）。五個臂共用同一 layout、xsett、路徑規劃與任務配置。</p>
+
+    <div class="scroll">
+      <table>
+        <caption>5 seeds 平均。<code>sequ_whcan.xconf</code> 與 <code>m1g.xconf</code> 只差一行（OB 控制器類型），是單變數對照。</caption>
+        <thead><tr>
+          <th>決策規則</th><th class="n">件數</th><th class="n">訂單</th><th class="n">總距離</th>
+          <th class="n">pile-on</th><th class="n">EOR</th>
+          <th class="n">槽位中位</th><th class="n">等貨中位</th><th class="n">等貨 Q3</th>
+          <th class="n">等貨最長</th><th class="n">釋放數</th>
+        </tr></thead>
+        <tbody>
+          <tr class="hi"><td class="lab">SQ 循序基準</td><td class="n">1364.0</td><td class="n">530.8</td><td class="n">15257</td>
+            <td class="n">2.20</td><td class="n">2.378</td>
+            <td class="n">104.1</td><td class="n">55.6</td><td class="n">79.7</td>
+            <td class="n up">1202.0</td><td class="n">531</td></tr>
+          <tr><td class="lab">S0 M1G</td><td class="n">1238.4</td><td class="n">574.8</td><td class="n">11915</td>
+            <td class="n">3.25</td><td class="n">1.696</td>
+            <td class="n">101.3</td><td class="n">67.9</td><td class="n">91.2</td>
+            <td class="n">209.1</td><td class="n">575</td></tr>
+          <tr><td class="lab">S1 不拆單 · M1G 目標式</td><td class="n">1246.4</td><td class="n">576.4</td><td class="n">11586</td>
+            <td class="n">3.40</td><td class="n">1.634</td>
+            <td class="n">105.7</td><td class="n">70.2</td><td class="n">94.6</td>
+            <td class="n">233.8</td><td class="n">576</td></tr>
+          <tr><td class="lab">S2 不拆單 · μ 定價</td><td class="n">1240.0</td><td class="n">575.6</td><td class="n">11767</td>
+            <td class="n">3.30</td><td class="n">1.663</td>
+            <td class="n">100.7</td><td class="n">68.0</td><td class="n">90.6</td>
+            <td class="n">189.7</td><td class="n">576</td></tr>
+          <tr class="rule-top"><td class="lab">S3 M4G 拆單正典</td><td class="n">1406.4</td><td class="n">599.6</td><td class="n">8899</td>
+            <td class="n">5.31</td><td class="n">1.187</td>
+            <td class="n">90.3</td><td class="n">71.8</td><td class="n">87.8</td>
+            <td class="n">206.6</td><td class="n">899</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <figure>
+      <p class="ftitle">最長等貨時間 · 逐 seed · 兩組分布完全不重疊</p>
+      <svg viewBox="0 0 640 230" role="img" aria-label="點圖：循序基準五個 seed 的最長等貨時間介於 718 至 1725 秒，四個聯合最佳化臂全部落在 160 至 288 秒">
+        <!-- axis -->
+        <line x1="150" y1="186" x2="612" y2="186" stroke="var(--rule)"/>
+        <text x="150" y="204" text-anchor="middle" font-size="10">0</text>
+        <text x="265" y="204" text-anchor="middle" font-size="10">500</text>
+        <text x="380" y="204" text-anchor="middle" font-size="10">1000</text>
+        <text x="495" y="204" text-anchor="middle" font-size="10">1500</text>
+        <text x="381" y="222" text-anchor="middle" class="axlab">最長等貨時間（秒）</text>
+        <line x1="265" y1="30" x2="265" y2="186" stroke="var(--rule-soft)"/>
+        <line x1="380" y1="30" x2="380" y2="186" stroke="var(--rule-soft)"/>
+        <line x1="495" y1="30" x2="495" y2="186" stroke="var(--rule-soft)"/>
+
+        <!-- SQ row : 1725 718 1187 929 1452  => x =150+v*0.23 -->
+        <text x="142" y="44" text-anchor="end" font-size="11" class="val">SQ 循序</text>
+        <circle cx="546.8" cy="40" r="5" fill="var(--bad)"/>
+        <circle cx="315.1" cy="40" r="5" fill="var(--bad)"/>
+        <circle cx="423.0" cy="40" r="5" fill="var(--bad)"/>
+        <circle cx="363.7" cy="40" r="5" fill="var(--bad)"/>
+        <circle cx="484.0" cy="40" r="5" fill="var(--bad)"/>
+
+        <text x="142" y="74" text-anchor="end" font-size="11">S0 M1G</text>
+        <circle cx="190.9" cy="70" r="4.5" fill="var(--accent)"/><circle cx="199.2" cy="70" r="4.5" fill="var(--accent)"/>
+        <circle cx="197.8" cy="70" r="4.5" fill="var(--accent)"/><circle cx="209.8" cy="70" r="4.5" fill="var(--accent)"/>
+        <circle cx="192.6" cy="70" r="4.5" fill="var(--accent)"/>
+
+        <text x="142" y="102" text-anchor="end" font-size="11">S1 不拆單</text>
+        <circle cx="193.9" cy="98" r="4.5" fill="var(--accent)"/><circle cx="205.2" cy="98" r="4.5" fill="var(--accent)"/>
+        <circle cx="193.9" cy="98" r="4.5" fill="var(--accent)"/><circle cx="209.3" cy="98" r="4.5" fill="var(--accent)"/>
+        <circle cx="216.2" cy="98" r="4.5" fill="var(--accent)"/>
+
+        <text x="142" y="130" text-anchor="end" font-size="11">S2 μ 定價</text>
+        <circle cx="193.9" cy="126" r="4.5" fill="var(--accent)"/><circle cx="196.7" cy="126" r="4.5" fill="var(--accent)"/>
+        <circle cx="192.3" cy="126" r="4.5" fill="var(--accent)"/><circle cx="196.0" cy="126" r="4.5" fill="var(--accent)"/>
+        <circle cx="189.1" cy="126" r="4.5" fill="var(--accent)"/>
+
+        <text x="142" y="158" text-anchor="end" font-size="11">S3 拆單</text>
+        <circle cx="198.5" cy="154" r="4.5" fill="var(--accent)"/><circle cx="205.4" cy="154" r="4.5" fill="var(--accent)"/>
+        <circle cx="186.8" cy="154" r="4.5" fill="var(--accent)"/><circle cx="198.5" cy="154" r="4.5" fill="var(--accent)"/>
+        <circle cx="198.5" cy="154" r="4.5" fill="var(--accent)"/>
+
+        <!-- separation bracket -->
+        <line x1="290" y1="30" x2="290" y2="172" stroke="var(--flat)" stroke-dasharray="3 3"/>
+        <text x="283" y="30" font-size="9.5" fill="var(--flat)" text-anchor="end">聯合 ≤ 288 s</text>
+        <text x="297" y="30" font-size="9.5" fill="var(--flat)">循序 ≥ 718 s</text>
+      </svg>
+      <figcaption>循序基準最短的一場（718 s）仍是四個聯合臂最長一場（288 s）的 2.5 倍。
+        20 個聯合臂場次全部落在 160–288 s 之間，零例外。</figcaption>
+    </figure>
+
+    <h3>資料證明了什麼</h3>
+    <div class="verdict">
+      <span class="tag">可以主張</span>
+      <b>教授擔心的病理真實存在，但只存在於循序基準。</b>
+      循序最長等貨 1202 s（逐 seed 718–1725），四個聯合臂 160–288 s，兩組分布完全不重疊——
+      這比任何 t 檢定都強。機制清楚：循序先做訂單指派、再選貨架，配單當下不知道貨架供不供得上，
+      因此可能把訂單配進一個沒有貨架能服務的站台，形成孤兒訂單。
+      聯合最佳化把兩者一起解，而且 <code>V4g</code> 限制式
+      （<code>M4GManager.cs:1459</code>）<b>結構上禁止</b>「有不可覆蓋殘餘行的訂單」領取完成獎勵——
+      孤兒訂單產生不出來。
+    </div>
+    <div class="verdict">
+      <span class="tag">可以主張</span>
+      <b>揀貨站沒有被堵住。</b>槽位佔用中位落在 90–106 s，五個臂之間差異很小，
+      而其中大部分是等貨架（等貨中位 56–72 s），真正的傳輸只有 16–22 s
+      （每件 10 s × 每槽位 1.57–2.16 件）。<b>槽位主要被「等供給」佔住，不是被揀貨佔住</b>——
+      這正是 OA–PS–TA 聯合決策要解決的問題。
+    </div>
+    <div class="verdict caution">
+      <span class="tag">必須一起報</span>
+      <b>循序「不是整體較差，是尾端失控」。</b>
+      它的等貨 Q3 是 79.7 s，<b>反而比四個聯合臂都低</b>（87.8–94.6）。
+      四分之三的訂單表現不差甚至更好，壞的是剩下的尾巴。
+      只報最長值會被指出與 Q3 矛盾。
+    </div>
+    <div class="verdict caution">
+      <span class="tag">必須一起報</span>
+      <b>循序的件數最高但訂單最低。</b>件數 1364（+10.1% vs M1G）、訂單 531（−7.7%）、距離 +28.1%。
+      每張訂單平均揀 2.57 件 vs M1G 的 2.15——它把資源花在容易的、單張多件的訂單上，難收的卡在尾巴。
+      只報件數會得到相反結論。
+    </div>
+    <div class="verdict caution">
+      <span class="tag">口徑警告</span>
+      <code>PodMatchingOrderBatchingConfiguration</code> 是 RAWSimO 內建的啟發式，
+      <b>不是 Jiao 的 SEQU</b>。這是「我方實測的循序基準」，不可引用 Jiao 的 12.41%。
+    </div>
+
+    <h3>順帶得到的拆單淨效果（S2 → S3）</h3>
+    <p>S2 與 S3 的定價方式相同，唯一差異是容不容許拆單，所以這一對是拆單效應的乾淨量化：
+       件數 <b>+13.4%</b>、行數 +15.5%、pile-on <b>+60.9%</b>（3.30 → 5.31）、
+       總距離 <b>−24.4%</b>、EOR <b>−28.6%</b>。
+       代價全部落在週期：348 s → 808 s（<b>+132%</b>），而槽位佔用中位反而<b>下降</b>（100.7 → 90.3 s），
+       釋放次數則從 576 增至 899。拆單讓每次佔用更短但次數更多，總槽位使用量仍上升約 39%，兩者都要報。</p>
+
+  </div>
+</article>
+
+<!-- ============ DOCKET 4 : BRIDGE ============ -->
+<article class="docket">
+  <div class="dhead">
+    <div class="dvar">exact vs greedy</div>
+    <div class="dtitle">
+      <h2>大規模要用的貪婪版，跟 exact 差多少？</h2>
+      <p>M4G 與 HGS-M5 在同一個小案例上對跑，用今天的 binary 建立可比的橋接點。</p>
+    </div>
+  </div>
+  <div class="dbody">
+
+    <h3>這組要回答的問題</h3>
+    <p>論文的分工是「理論研究用小規模 M4G、大規模分析用 M5」。
+       這個分工成立的前提是兩者在同一個案例上表現相近，否則大規模的結論無法回推到模型本身。
+       這一格就是那個橋接點。<b>之所以必須重跑而不能引用舊數據</b>：
+       今天的 binary 含 <code>TimeStampSubmit</code> 修正與包裝緩衝欄位，與 09-06 那批不是同一個執行檔。</p>
+
+    <div class="scroll">
+      <table>
+        <caption>5 seeds 配對檢定。控制器代碼經 footprint 驗證為 <code>M4G</code> 與 <code>OBGREEDYM5</code>。</caption>
+        <thead><tr><th>指標</th><th class="n">M4G exact</th><th class="n">HGS-M5</th><th class="n">Δ%</th><th class="n">t</th><th>判定</th></tr></thead>
+        <tbody>
+          <tr><td class="lab">件數</td><td class="n">1406.4</td><td class="n">1418.6</td><td class="n">+0.87</td><td class="n tval">+3.13</td><td>顯著</td></tr>
+          <tr><td class="lab">行數</td><td class="n">937.0</td><td class="n">928.0</td><td class="n">−0.96</td><td class="n tval">−3.91</td><td>顯著</td></tr>
+          <tr><td class="lab">訂單</td><td class="n">599.6</td><td class="n">587.8</td><td class="n ns">−1.97</td><td class="n tval">−2.40</td><td>n.s.</td></tr>
+          <tr><td class="lab">總距離</td><td class="n">8899</td><td class="n">8649</td><td class="n ns">−2.81</td><td class="n tval">−2.12</td><td>n.s.</td></tr>
+          <tr><td class="lab">pile-on</td><td class="n">5.31</td><td class="n">5.26</td><td class="n ns">−0.94</td><td class="n tval">—</td><td>n.s.</td></tr>
+          <tr><td class="lab">EOR</td><td class="n">1.187</td><td class="n">1.183</td><td class="n ns">−0.34</td><td class="n tval">—</td><td>n.s.</td></tr>
+          <tr class="hi"><td class="lab">週期中位</td><td class="n">808.5</td><td class="n">914.2</td><td class="n up sig">+13.07</td><td class="n tval">+3.32</td><td>顯著</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>資料證明了什麼</h3>
+    <div class="verdict">
+      <span class="tag">可以主張</span>
+      <b>橋接成立：貪婪在吞吐與能耗上沒有可測量的損失。</b>
+      件數、距離、pile-on、EOR 全部落在 3% 以內，其中距離、pile-on、EOR 不顯著。
+      這支持「大規模用 M5 得到的結論可以回推到模型本身」。
+    </div>
+    <div class="verdict caution">
+      <span class="tag">必須揭露</span>
+      <b>貪婪的代價落在週期：+13.1%（t=+3.32）。</b>
+      這是本次新測到的差異，過去的對照沒有報。
+      合理的敘述是「M5 用週期換速度」，而不是「M5 與 M4G 等價」。
+    </div>
+    <div class="verdict caution">
+      <span class="tag">不可混用</span>
+      <b>這批數字與記憶中 2026-09-06 那批（件數 −0.04%、行數 −2.19%）方向一致但量級不同。</b>
+      兩批跑在不同的 binary 上，<b>不可混用或交叉引用</b>。
+      引用任何 M4G/M5 比較數字前先確認日期與執行檔版本。
+      本次件數是 M5 略勝且顯著，與舊數據的「持平」不是同一句話。
+    </div>
+
+  </div>
+</article>
+
+<!-- ============ APPENDIX ============ -->
+<section class="appendix">
+  <h2>方法與此次跑批的品質紀錄</h2>
+  <p class="dek" style="font-size:15.5px;margin-bottom:0">
+    以下是讓上面每張表可被信任的依據，以及過程中發現並修掉的三個判讀陷阱。</p>
+
+  <div class="cols">
+    <div>
+      <h3>逐格驗證控制器</h3>
+      <p>輸出目錄名由 <code>NameLayout−xsett Name−xconf Name−seed</code> 組成，而這三段目前全部失準
+         （M4G 家族的 <code>&lt;Name&gt;</code> 全寫著 <code>m1g</code>、四個 layout 撞名、xsett 謊報 4 小時）。
+         因此每一格都改用 <code>footprint.csv</code> 反查：第 11 欄是真正的 OB 控制器代碼，
+         第 17 欄是 <code>BotCount</code>，第 15 欄是模擬秒數。
+         16 格全部與預期相符，且 <code>SimulationDuration</code> 確認為 <b>7200</b>，
+         證實目錄名雖寫 <code>4h</code> 實際就是 2 小時。</p>
+    </div>
+    <div>
+      <h3>陷阱一：無聲少算一個 seed</h3>
+      <p><code>fc12_S2</code> 的 seed 1 跑到 93.4%（t≈6725 s）被外部終止，
+         沒有寫出 <code>statistics.txt</code>。彙總腳本原本會安靜跳過它，
+         12 bots 那格就會用 4 個 seed 計算而沒人發現。
+         已補跑該場（結果與其餘四場同向，t 值反而更強），
+         並在腳本加入守衛：目錄存在但無統計檔時出聲。
+         區分「還在跑」與「已死亡」的判準是 <code>output.log</code> 的新鮮度（正常每 5 秒更新）。</p>
+    </div>
+    <div>
+      <h3>陷阱二：欄位名稱憑記憶</h3>
+      <p>槽位統計實際叫 <code>StatMedianSlotOccupancy</code> 而非
+         <code>StatSlotOccupancyMedian</code>；能耗是 <code>StatEnergyTotalKJ</code>；
+         pile-on 與 EOR 在 <code>KPI Summary</code> 區塊叫 <code>KPI_PO</code> / <code>KPI_EOR</code>。
+         猜錯時讀出來是 <code>None</code> 而不是報錯，整欄會靜靜變成空白。
+         指標定義的權威位置是 <code>InstanceStatistics.cs</code> 的 KPI Summary block。</p>
+    </div>
+    <div>
+      <h3>陷阱三：前綴與內容無強制關聯</h3>
+      <p>N 劑量反應的三格實際前綴是 <code>on_B_n{2,3,4}</code>，
+         而 <code>on_A_n4_s0</code> 只是單場探路。一度誤判成「N=4 只跑了 1 seed」。
+         根因與目錄名失準相同：前綴由跑批腳本人工命名。
+         改名完成後（<code>docs/naming-standard.md</code>），
+         目錄名自己就會說出它是哪個臂，這類錯誤會結構性消失。</p>
+    </div>
+  </div>
+
+  <h3 style="margin-top:34px">刻意排除的組態</h3>
+  <p><b>N=1 已從這組實驗移除。</b>它造成自傷式的飢餓連鎖：決策在 t=5948 就停止，
+     <code>ItemsOrdered</code> 717 對 1598、<code>BundlesPlaced</code> 48 對 161，件數僅 615。
+     N=1 連「一張單一次做完」的退路都不保證存在，退化是雪崩而非平滑。
+     依本專案的既定準則，<b>自造的死鎖與崩潰不是發現</b>——它反映的是我們參數設定的性質，
+     不是被研究系統的性質，因此不列入劑量反應曲線。
+     診斷紀錄保留在 <code>out/on_A_n1_s0</code>。</p>
+
+  <h3 style="margin-top:30px">資料位置</h3>
+  <p class="mono" style="font-size:13px;line-height:2">
+    N 劑量反應　　<code>out/on_B_n{2,3,4}_s{0..4}</code>　對照 <code>out/ch4_P3_s*</code>、<code>out/nc_S2_s*</code><br>
+    機隊曲線　　　<code>out/so_S{1,2}_s*</code>（6）<code>fc8_S{1,2}_s*</code>（8）<code>b10_S{1,2}_s*</code>（10）<code>fc12_S{1,2}_s*</code>（12）<br>
+    五臂對照　　　<code>out/so_{SQ,S0,S1,S2,S3}_s{0..4}</code><br>
+    橋接格　　　　<code>out/br_{M4,M5}_s{0..4}</code>
+  </p>
+</section>
+
+<footer>
+  <span>EE-RAWSim-O_PP · branch <span class="mono">continuous-dispatch</span></span>
+  <span class="mono">2026-09-13</span>
+</footer>
+
+</div>
