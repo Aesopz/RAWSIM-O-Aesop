@@ -247,20 +247,22 @@ Note. 2 h, 10 seeds, 2 pick stations, ...       ← Note. 斜體，精簡
 
 表格外可補充指標方向：Items、Lines、Orders、Pile-on、Trips 通常以增加為正向；Trips/Orders、m/Line、EOR、Turnover 與 Station idle 通常以降低為正向。但表格中的正負號只表示數值變化，不直接寫成好／差。
 
-### 4.2 圖
+### 4.2 圖（F 規則，2026-09-17 使用者定案版）
 
-沿用 `docs/defense material/figures/apa.py`：`apply_style()`、`furniture()`、`save()`。
+沿用 `docs/defense material/figures/apa.py`：`apply_style()`、`furniture()`、`place_labels()`、`errorbar_segments()`、`check_axes()`、`save()`。**每一條都是硬規，出圖後必須用 Read 看圖逐條核對，不能只信程式跑完。**
 
-1. 圖號粗體（**Figure 1**）、標題斜體 Title Case，放圖上方。**圖上不放 Note**（使用者 2026-09-16 定案：Note 在圖上會被裁切；Note 文字以純文字另附，由使用者後製）。要強調的重點在回覆裡建議，不寫進圖。
-2. 圖內只用 sans serif（Arial），8～14 pt。
-3. **無格線、無 3D、無陰影、無裝飾**；只留左、下軸線，刻度朝外。
-4. 必須能灰階閱讀：系列用 marker 形狀、線型、填色區分，不只靠顏色。
-5. 軸標籤英文附單位：`Items handled`、`Turnover time (s)`。
-6. 誤差線要在 Note 說明是 SD、SE 還是 95% CI。
-7. 圖例無外框，放在不遮資料的位置；系列少時直接標在線尾。
-8. **圖內禁止**：中文、emoji、內部代號、檔名、未定義縮寫、判讀文字（"better"、"collapse"）。
-9. 輸出 PNG（300 dpi）＋PDF（字型內嵌 `pdf.fonttype=42`）。
-10. **圖內任何元素不得互相重疊**（使用者 2026-09-16 定案）：資料標籤不得壓到誤差線、marker、其他標籤；圖例不得壓到任何資料或誤差線（多面板時圖例放到面板外、標題下方 `fig.legend`）。點標籤一律用 `apa.place_labels(ax, points, obstacles)`（`apa.errorbar_segments` 產生障礙物），它會自動找無碰撞的位置、必要時加灰色引線；幾乎重合的點共用一個標籤。**出圖後必須用 Read 看圖檢查**，不能只信程式跑完。
+| # | 規則 | 落實方式 |
+|---|---|---|
+| F1 | **APA 7th**：圖號粗體（**Figure 1**）、標題斜體 Title Case 置於圖上；sans serif（Arial）8–14 pt；無格線、無 3D、無陰影、無裝飾；只留左、下軸線，刻度朝外；可灰階閱讀（marker 形狀／線型／填色區分，不只靠顏色）；軸標籤英文附單位。 | `apa.apply_style()`＋`apa.furniture()` |
+| F2 | **確定性工具**：一律用 matplotlib（或同等可重跑的程式）從 `stats.json`／CSV 產圖；禁止手繪、截圖拼貼、Excel 手調、AI 生圖。同一輸入必須產出同一張圖。 | 圖腳本進 `scripts/`，輸入路徑寫在腳本內 |
+| F3 | **元件互不阻擋**：資料標籤不得壓到誤差線、marker、其他標籤、軸刻度；圖例不得壓到任何資料。 | 點標籤一律 `apa.place_labels(ax, points, obstacles)`（`errorbar_segments` 產生障礙物）；幾乎重合的點共用一個標籤 |
+| F4 | **圖例放空曠區**：先量各角落／面板外的空白，圖例放最大空白處；多面板用 `fig.legend` 放到面板外（標題列右側或圖底）。圖例無外框。 | 出圖後看圖確認 |
+| F5 | **Note 精簡**：圖上原則不放 Note；**若必要**（誤差線定義、星號意義）允許一至兩句英文 `Note.`，字少、不裁切、不與任何元素重疊。要強調的重點在回覆裡建議，不寫進圖。 | `apa.furniture(..., note="…")` 只在必要時傳；否則 `note=None` |
+| F6 | **尺度可辨識、資料點落位正確**：資料點必須落在刻度對應的位置（y=10 的點不得看起來在 9 或 11）。禁止 matplotlib 的 offset text（`+1e4`）與科學記號偏移；禁止雙 y 軸；禁止手動平移資料；刻度密度要能讀出數值（相鄰刻度差為 1／2／5×10ⁿ）。 | `apa.check_axes(fig)` 會關掉 offset、確認所有資料在軸範圍內並回報刻度步距；出圖後挑一個已知數值的點對刻度核對 |
+| F7 | **不留無用空白**：`ax.margins ≤ 0.10`；`save()` 用 `bbox_inches="tight"`；不為了塞圖例或標籤而放大軸範圖；不留空子圖。 | `apa.save()` 已內建 tight bbox |
+| F8 | **圖內禁止**：中文、emoji、內部代號（gc_、s0、檔名、旗標名）、未定義縮寫、判讀文字（"better"、"collapse"）。 | 看圖核對 |
+| F9 | **輸出**：PNG（≥300 dpi）＋PDF（`pdf.fonttype=42` 字型內嵌），存在實驗夾 `figures/`，並複製到 `docs/experiments/<主題>/figures/`。 | `apa.save()` |
+| F10 | **資料時效標記**：每張圖必附 `<檔名>.provenance.json`（實驗 id、run id、正典版本、產圖日期、來源檔）。當來源 run 被標為 `superseded`、或正典版本已升，`scripts/fig_stale_check.py` 會在圖旁寫 `STALE.md` 並列出原因；**過期圖不得再交付**，要重跑圖腳本或在交付時明說「此圖依 Canon vN，已過期」。 | `apa.save(fig, path, provenance=…)`；`python scripts/fig_stale_check.py` |
 
 ### 4.3 註解語言原則
 

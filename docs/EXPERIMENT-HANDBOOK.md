@@ -416,6 +416,8 @@ Canon/
 
 > 完整指標字典（statistics.txt／kpi_report.csv 全部欄位）與 **APA 7th 表格／圖規範**見 `docs/REPORTING-STANDARD.md`。交給使用者的表與圖一律服從 APA 7th：三線表、英文表頭、表內無 emoji／中文／內部代號／判讀字，註解精簡英文放 `Note.`。
 
+> **圖（REPORTING-STANDARD 4.2 F1–F10）**：matplotlib 腳本進 `scripts/`，`apa.save(fig, path, provenance=…)` 會自動檢查刻度／資料落位／空白並寫 `*.provenance.json`；標籤用 `apa.place_labels`；圖例放最大空白處；Note 只在必要時一至兩句。**正典升版或任一來源 run 被標 superseded 後，跑 `python scripts/fig_stale_check.py`——被標 `STALE.md` 的圖不得交付**，重跑圖腳本即可清除。出圖後用 Read 看圖逐條核對。
+
 ### 7.1 固定 12 欄（順序不可變）
 
 ```

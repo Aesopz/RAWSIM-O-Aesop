@@ -896,6 +896,8 @@ def cmd_stale_check(only=None):
     touched = sorted({u["run_id"].split("/")[0] for u in updates})
     print("stale-check (Canon v%s): %d runs superseded%s" % (cv["version"], len(updates),
                                                              (" in " + ", ".join(touched)) if touched else ""))
+    if updates:
+        print("figures built from these runs may now be stale: run  python scripts/fig_stale_check.py")
 
 def cmd_supersede(exp_id, reason):
     rows = [r for r in registry_rows() if r["experiment"] == exp_id]

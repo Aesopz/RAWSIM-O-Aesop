@@ -57,9 +57,70 @@ def furniture(fig, number, title, note=None, top=0.955, gap=0.042, note_y=0.055,
     if note:
         fig.text(x, note_y, r"$\it{Note.}$ " + note, fontsize=9, va="top", linespacing=1.45)
 
-def save(fig, path_png):
-    fig.savefig(path_png, dpi=600)
-    fig.savefig(path_png[:-4] + ".pdf")
+def check_axes(fig, max_margin=0.10):
+    """F6/F7 guard. For every axes: disable offset text / scientific offset (the usual reason a
+    point at y=10 'reads' as 11), verify every plotted datum lies inside the axis limits, and
+    report the tick step so the reader can confirm ticks are 1/2/5 x 10^n. Raises on violations."""
+    import numpy as _np
+    problems, report = [], []
+    for ax in fig.axes:
+        if not ax.get_visible() or ax.get_legend_handles_labels() == ([], []) and not ax.lines and not ax.collections and not ax.patches:
+            continue
+        try:
+            ax.ticklabel_format(useOffset=False, style="plain")
+        except Exception:
+            pass                      # categorical axes have no ScalarFormatter
+        xl, yl = ax.get_xlim(), ax.get_ylim()
+        xs, ys = [], []
+        for ln in ax.lines:
+            x, y = ln.get_xdata(orig=False), ln.get_ydata(orig=False)
+            xs += list(_np.atleast_1d(x)); ys += list(_np.atleast_1d(y))
+        from matplotlib.collections import PathCollection as _PC, LineCollection as _LC
+        for c in ax.collections:
+            if isinstance(c, _PC):                       # scatter points
+                off = c.get_offsets()
+                if len(off): xs += list(off[:, 0]); ys += list(off[:, 1])
+            elif isinstance(c, _LC):                     # error-bar arms
+                for seg in c.get_segments():
+                    xs += list(seg[:, 0]); ys += list(seg[:, 1])
+        for pt in ax.patches:
+            bb = pt.get_bbox() if hasattr(pt, "get_bbox") else None
+            if bb is not None: xs += [bb.x0, bb.x1]; ys += [bb.y0, bb.y1]
+        xs = [v for v in xs if _np.isfinite(v)]; ys = [v for v in ys if _np.isfinite(v)]
+        if xs and (min(xs) < min(xl) or max(xs) > max(xl)): problems.append("%s: data x in [%g, %g] outside limits [%g, %g]" % (ax.get_title() or "axes", min(xs), max(xs), xl[0], xl[1]))
+        if ys and (min(ys) < min(yl) or max(ys) > max(yl)): problems.append("%s: data y in [%g, %g] outside limits [%g, %g]" % (ax.get_title() or "axes", min(ys), max(ys), yl[0], yl[1]))
+        from matplotlib.ticker import FixedLocator as _FL
+        for name, axis, ticks in (("x", ax.xaxis, ax.get_xticks()), ("y", ax.yaxis, ax.get_yticks())):
+            if isinstance(axis.get_major_locator(), _FL):
+                continue                 # categorical axis (bar rows etc.): labels, not a scale
+            t = sorted(v for v in ticks if (xl if name == "x" else yl)[0] <= v <= (xl if name == "x" else yl)[1])
+            if len(t) >= 2:
+                step = _np.abs(_np.diff(t))
+                if not _np.allclose(step, step[0]): problems.append("%s: uneven %s ticks" % (ax.get_title() or "axes", name))
+                mant = step[0] / 10 ** _np.floor(_np.log10(step[0]))
+                if not any(_np.isclose(mant, m) for m in (1, 2, 2.5, 5)):
+                    problems.append("%s: %s tick step %g is not 1/2/5x10^n" % (ax.get_title() or "axes", name, step[0]))
+                report.append("%s %s-step %g" % (ax.get_title() or "axes", name, step[0]))
+        mx, my = ax.margins()
+        if mx > max_margin + 1e-9 or my > max_margin + 1e-9:
+            problems.append("%s: margins %.2f/%.2f exceed %.2f" % (ax.get_title() or "axes", mx, my, max_margin))
+    if problems:
+        raise AssertionError("check_axes: " + "; ".join(problems))
+    return report
+
+
+def save(fig, path_png, provenance=None):
+    """F9 output + F10 provenance sidecar. `provenance` = dict(experiment=, runs=[run ids],
+    canon_version=, sources=[files]); the sidecar lets scripts/fig_stale_check.py flag the figure
+    once any listed run is superseded or the Canon version moves."""
+    import json as _json, io as _io, datetime as _dt
+    check_axes(fig)
+    fig.savefig(path_png, dpi=600, bbox_inches="tight", pad_inches=0.05)
+    fig.savefig(path_png[:-4] + ".pdf", bbox_inches="tight", pad_inches=0.05)
+    if provenance is not None:
+        prov = dict(provenance); prov.setdefault("generated", _dt.datetime.now().isoformat(timespec="seconds"))
+        prov["figure"] = path_png
+        _io.open(path_png + ".provenance.json", "w", encoding="utf-8").write(_json.dumps(prov, ensure_ascii=False, indent=1))
     return path_png
 
 

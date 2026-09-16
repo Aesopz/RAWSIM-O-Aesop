@@ -24,6 +24,10 @@ d = E.exp_dir(eid)
 S = json.load(io.open(os.path.join(d, "stats.json"), encoding="utf-8"))
 ex = E.load_exp(eid)
 apa.apply_style(base=10)
+# F10 provenance: every run this figure is built from
+PROV = {"experiment": eid, "canon_version": E.current_canon_version_checked()["version"],
+        "runs": sorted(r["run_id"] for r in E.registry_rows() if r["experiment"] == eid and r["validity"] == "valid"),
+        "sources": [os.path.relpath(os.path.join(d, "stats.json"), E.ROOT)]}
 
 def arms_for(bots):
     dyn = "m4g_dyn_%db" % bots
@@ -89,7 +93,7 @@ h = [plt.Line2D([], [], marker="o", ls="", color=apa.BLACK, label="Fixed exchang
 # figure-level legend in the empty top-right corner beside the title block
 fig.legend(handles=h, loc="upper right", bbox_to_anchor=(0.985, 0.985), ncol=1, fontsize=8, frameon=False)
 apa.furniture(fig, 1, "Total Travel Distance as a Function of Items Handled Under Fixed and Dynamic Exchange Rates", note=None, top=0.97, gap=0.05)
-apa.save(fig, os.path.join(out, "fig1_distance_vs_items.png"))
+apa.save(fig, os.path.join(out, "fig1_distance_vs_items.png"), provenance=PROV)
 plt.close(fig)
 
 # ---------------------------------------------------------------- Figure 2
@@ -124,6 +128,6 @@ for r, bots in enumerate((6, 10)):
         if r == 1: ax.set_xlabel("Difference from dynamic (pp)" if key == "StationIdle(%)" else "Difference from dynamic (%)", fontsize=8)
         ax.tick_params(labelsize=7)
 apa.furniture(fig, 2, "Fixed Exchange Rates Compared With Dynamic Pricing on Seven Measures", note=None, top=0.975, gap=0.04)
-apa.save(fig, os.path.join(out, "fig2_delta_by_measure.png"))
+apa.save(fig, os.path.join(out, "fig2_delta_by_measure.png"), provenance=PROV)
 plt.close(fig)
 print("figures ->", out)
