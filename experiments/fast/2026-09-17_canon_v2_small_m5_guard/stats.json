@@ -1,0 +1,257 @@
+{
+ "generated": "2026-09-17T00:28:23",
+ "definitions": {
+  "pct": "(mean_b - mean_a) / mean_a * 100",
+  "delta": "b - a paired by seed",
+  "test": "scipy.stats.ttest_rel, two-tailed",
+  "ci": "95% t interval",
+  "dz": "mean(delta) / sd(delta)",
+  "rounding": "presentation only, half-up"
+ },
+ "descriptives": {
+  "m5_6b": {
+   "Items": {
+    "n": 1,
+    "mean": 1425.0,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 1425.0,
+    "max": 1425.0
+   },
+   "Lines": {
+    "n": 1,
+    "mean": 928.0,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 928.0,
+    "max": 928.0
+   },
+   "Orders": {
+    "n": 1,
+    "mean": 601.0,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 601.0,
+    "max": 601.0
+   },
+   "Pile-on": {
+    "n": 1,
+    "mean": 5.271929824561403,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 5.271929824561403,
+    "max": 5.271929824561403
+   },
+   "Trips": {
+    "n": 1,
+    "mean": 114.0,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 114.0,
+    "max": 114.0
+   },
+   "Trips/Orders": {
+    "n": 1,
+    "mean": 0.1896838602329451,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 0.1896838602329451,
+    "max": 0.1896838602329451
+   },
+   "m/Line": {
+    "n": 1,
+    "mean": 9.561335005416606,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 9.561335005416606,
+    "max": 9.561335005416606
+   },
+   "EOR(kJ/order)": {
+    "n": 1,
+    "mean": 1.17965693663375,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 1.17965693663375,
+    "max": 1.17965693663375
+   },
+   "TurnoverMedian(s)": {
+    "n": 1,
+    "mean": 903.688888888252,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 903.688888888252,
+    "max": 903.688888888252
+   },
+   "StationIdle(%)": {
+    "n": 1,
+    "mean": 1.1462962964437298,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 1.1462962964437298,
+    "max": 1.1462962964437298
+   }
+  },
+  "m5_10b": {
+   "Items": {
+    "n": 1,
+    "mean": 1430.0,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 1430.0,
+    "max": 1430.0
+   },
+   "Lines": {
+    "n": 1,
+    "mean": 923.0,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 923.0,
+    "max": 923.0
+   },
+   "Orders": {
+    "n": 1,
+    "mean": 591.0,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 591.0,
+    "max": 591.0
+   },
+   "Pile-on": {
+    "n": 1,
+    "mean": 4.884297520661157,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 4.884297520661157,
+    "max": 4.884297520661157
+   },
+   "Trips": {
+    "n": 1,
+    "mean": 121.0,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 121.0,
+    "max": 121.0
+   },
+   "Trips/Orders": {
+    "n": 1,
+    "mean": 0.20473773265651438,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 0.20473773265651438,
+    "max": 0.20473773265651438
+   },
+   "m/Line": {
+    "n": 1,
+    "mean": 10.642602586658764,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 10.642602586658764,
+    "max": 10.642602586658764
+   },
+   "EOR(kJ/order)": {
+    "n": 1,
+    "mean": 1.33933479936832,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 1.33933479936832,
+    "max": 1.33933479936832
+   },
+   "TurnoverMedian(s)": {
+    "n": 1,
+    "mean": 867.066666671793,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 867.066666671793,
+    "max": 867.066666671793
+   },
+   "StationIdle(%)": {
+    "n": 1,
+    "mean": 0.7654320989126716,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 0.7654320989126716,
+    "max": 0.7654320989126716
+   }
+  }
+ },
+ "paired": {},
+ "per_seed": {
+  "m5_6b": {
+   "0": {
+    "Items": 1425.0,
+    "Lines": 928.0,
+    "Orders": 601.0,
+    "Pile-on": 5.271929824561403,
+    "Trips": 114.0,
+    "Trips/Orders": 0.1896838602329451,
+    "m/Line": 9.561335005416606,
+    "EOR(kJ/order)": 1.17965693663375,
+    "TurnoverMedian(s)": 903.688888888252,
+    "StationIdle(%)": 1.1462962964437298,
+    "_hours": 2.0,
+    "_source": "experiments\\fast\\2026-09-17_canon_v2_small_m5_guard\\runs\\m5_6b_s0\\small_6b_2p_2r-small_fill100_mu100_2h_inv70-hgs_m5-0\\statistics.txt"
+   }
+  },
+  "m5_10b": {
+   "0": {
+    "Items": 1430.0,
+    "Lines": 923.0,
+    "Orders": 591.0,
+    "Pile-on": 4.884297520661157,
+    "Trips": 121.0,
+    "Trips/Orders": 0.20473773265651438,
+    "m/Line": 10.642602586658764,
+    "EOR(kJ/order)": 1.33933479936832,
+    "TurnoverMedian(s)": 867.066666671793,
+    "StationIdle(%)": 0.7654320989126716,
+    "_hours": 2.0,
+    "_source": "experiments\\fast\\2026-09-17_canon_v2_small_m5_guard\\runs\\m5_10b_s0\\small_10b_2p_2r-small_fill100_mu100_2h_inv70-hgs_m5-0\\statistics.txt"
+   }
+  }
+ },
+ "excel_check": {
+  "status": "passed",
+  "checks": 20,
+  "rel_tol": 1e-09
+ }
+}

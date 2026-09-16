@@ -1,0 +1,28 @@
+{
+ "id": "2026-09-17_canon_v2_small_m5_guard",
+ "kind": "fast",
+ "question": "Canon v2 建置下小規模 M5（N、包裝皆無上限）是否與 v1 run 逐位相同？",
+ "motivation": "還原 canon_v1_small_split_limit_fidelity 的 20 個 M5 run（heuristic validation 數據）；fallback 在預算不綁定時不應觸發。",
+ "scenario_confirmed_by_user": true,
+ "arms": [
+  {
+   "label": "m5_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "Canon/small/hgs_m5.xconf",
+   "seeds": [
+    0
+   ]
+  },
+  {
+   "label": "m5_10b",
+   "xlayo": "Canon/small/small_10b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "Canon/small/hgs_m5.xconf",
+   "seeds": [
+    0
+   ]
+  }
+ ],
+ "comparisons": []
+}

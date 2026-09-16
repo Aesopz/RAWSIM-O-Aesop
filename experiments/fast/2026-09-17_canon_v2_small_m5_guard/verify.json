@@ -1,0 +1,16 @@
+{
+ "verified": "2026-09-17T00:27:17",
+ "canon_version": 2,
+ "runs": [
+  {
+   "run_id": "2026-09-17_canon_v2_small_m5_guard/m5_6b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-17_canon_v2_small_m5_guard/m5_10b_s0",
+   "validity": "valid",
+   "problems": []
+  }
+ ]
+}
