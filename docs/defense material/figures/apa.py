@@ -51,9 +51,15 @@ def apply_style(base=10):
     })
 
 def furniture(fig, number, title, note=None, top=0.955, gap=0.042, note_y=0.055, x=0.012):
-    """Figure number (bold), title (italic, title case), and an optional Note block."""
-    fig.text(x, top, "Figure %s" % number, fontsize=10, fontweight="bold", va="top")
-    fig.text(x, top - gap, title, fontsize=10, fontstyle="italic", va="top")
+    """Title (italic, title case) and an optional Note block. `number=None` (the default for
+    slide figures, F11) omits the "Figure N" label: numbering belongs to the document that places
+    the figure, not to the image. Pass a number only when the user asks for one."""
+    if number is not None:
+        fig.text(x, top, "Figure %s" % number, fontsize=10, fontweight="bold", va="top")
+        top -= gap
+    if len(title.split()) > 10:
+        raise AssertionError("F11: figure title must be a short topic name (<= 10 words), got %d words" % len(title.split()))
+    fig.text(x, top, title, fontsize=10, fontstyle="italic", va="top")
     if note:
         fig.text(x, note_y, r"$\it{Note.}$ " + note, fontsize=9, va="top", linespacing=1.45)
 

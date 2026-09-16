@@ -51,7 +51,7 @@ def ci95(x):
 
 # ---------------------------------------------------------------- Figure 1
 fig, axes = plt.subplots(1, 2, figsize=(10.5, 4.6), sharey=False)
-plt.subplots_adjust(top=0.82, bottom=0.11, left=0.08, right=0.98, wspace=0.28)
+plt.subplots_adjust(top=0.88, bottom=0.11, left=0.08, right=0.98, wspace=0.28)
 for ax, bots in zip(axes, (6, 10)):
     dyn, fixed = arms_for(bots)
     # Markers first; labels are placed afterwards by apa.place_labels so nothing overlaps
@@ -91,8 +91,8 @@ for ax, bots in zip(axes, (6, 10)):
 h = [plt.Line2D([], [], marker="o", ls="", color=apa.BLACK, label="Fixed exchange rate"),
      plt.Line2D([], [], marker="D", ls="", mfc="white", mec=apa.BLACK, label="Dynamic exchange rate")]
 # figure-level legend in the empty top-right corner beside the title block
-fig.legend(handles=h, loc="upper right", bbox_to_anchor=(0.985, 0.985), ncol=1, fontsize=8, frameon=False)
-apa.furniture(fig, 1, "Total Travel Distance as a Function of Items Handled Under Fixed and Dynamic Exchange Rates", note=None, top=0.97, gap=0.05)
+fig.legend(handles=h, loc="upper right", bbox_to_anchor=(0.985, 0.99), ncol=1, fontsize=8, frameon=False)
+apa.furniture(fig, None, "Fixed vs. Dynamic Exchange Rate: Travel Distance and Throughput", note=None, top=0.985)
 apa.save(fig, os.path.join(out, "fig1_distance_vs_items.png"), provenance=PROV)
 plt.close(fig)
 
@@ -101,7 +101,7 @@ measures = [("Items", "Items handled", 1), ("m/Line", "Distance per line", 1), (
             ("EOR(kJ/order)", "Energy per order", 1), ("Trips", "Pod trips", 1), ("TurnoverMedian(s)", "Turnover time (median)", 1),
             ("StationIdle(%)", "Station idle", 1)]
 fig, axes = plt.subplots(2, len(measures), figsize=(13.5, 5.6))
-plt.subplots_adjust(top=0.84, bottom=0.10, left=0.06, right=0.99, wspace=0.55, hspace=0.55)
+plt.subplots_adjust(top=0.90, bottom=0.10, left=0.06, right=0.99, wspace=0.55, hspace=0.55)
 for r, bots in enumerate((6, 10)):
     dyn, fixed = arms_for(bots)
     lams = [lam_of(l) for l in fixed]
@@ -127,7 +127,7 @@ for r, bots in enumerate((6, 10)):
         if c == 0: ax.set_ylabel("Fixed λ  (%d robots)" % bots, fontsize=8)
         if r == 1: ax.set_xlabel("Difference from dynamic (pp)" if key == "StationIdle(%)" else "Difference from dynamic (%)", fontsize=8)
         ax.tick_params(labelsize=7)
-apa.furniture(fig, 2, "Fixed Exchange Rates Compared With Dynamic Pricing on Seven Measures", note=None, top=0.975, gap=0.04)
+apa.furniture(fig, None, "Fixed vs. Dynamic Exchange Rate: Seven Measures", note=None, top=0.985)
 apa.save(fig, os.path.join(out, "fig2_delta_by_measure.png"), provenance=PROV)
 plt.close(fig)
 print("figures ->", out)
