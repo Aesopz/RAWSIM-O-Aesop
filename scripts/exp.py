@@ -840,6 +840,7 @@ def write_notes(exp, results_text):
 
 
 # ================================================================ staleness
+CANON_EQUIV_TAG = "canon-equivalent"   # registry note token: 'canon-equivalent(v2, guard <exp>)'
 def cmd_stale_check(only=None):
     """A run is superseded when its config snapshot differs from the CURRENT Canon anywhere
     other than the internal name and the variables the experiment declared it changed."""
@@ -850,6 +851,10 @@ def cmd_stale_check(only=None):
         if only and r["experiment"] != only:
             continue
         if r["validity"] not in ("valid", "unverified"):
+            continue
+        # A run proven bit-identical under the current Canon (guard experiment named in the note)
+        # is exempt: its snapshot legitimately predates the Canon bump.
+        if CANON_EQUIV_TAG in r["note"]:
             continue
         by_exp.setdefault(r["experiment"], []).append(r)
     for exp_id, exp_rows in sorted(by_exp.items()):
