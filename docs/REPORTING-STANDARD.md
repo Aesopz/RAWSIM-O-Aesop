@@ -251,7 +251,7 @@ Note. 2 h, 10 seeds, 2 pick stations, ...       ← Note. 斜體，精簡
 
 沿用 `docs/defense material/figures/apa.py`：`apply_style()`、`furniture()`、`save()`。
 
-1. 圖號粗體（**Figure 1**）、標題斜體 Title Case，放圖上方；Note 放圖下方。
+1. 圖號粗體（**Figure 1**）、標題斜體 Title Case，放圖上方。**圖上不放 Note**（使用者 2026-09-16 定案：Note 在圖上會被裁切；Note 文字以純文字另附，由使用者後製）。要強調的重點在回覆裡建議，不寫進圖。
 2. 圖內只用 sans serif（Arial），8～14 pt。
 3. **無格線、無 3D、無陰影、無裝飾**；只留左、下軸線，刻度朝外。
 4. 必須能灰階閱讀：系列用 marker 形狀、線型、填色區分，不只靠顏色。
@@ -260,6 +260,7 @@ Note. 2 h, 10 seeds, 2 pick stations, ...       ← Note. 斜體，精簡
 7. 圖例無外框，放在不遮資料的位置；系列少時直接標在線尾。
 8. **圖內禁止**：中文、emoji、內部代號、檔名、未定義縮寫、判讀文字（"better"、"collapse"）。
 9. 輸出 PNG（300 dpi）＋PDF（字型內嵌 `pdf.fonttype=42`）。
+10. **圖內任何元素不得互相重疊**（使用者 2026-09-16 定案）：資料標籤不得壓到誤差線、marker、其他標籤；圖例不得壓到任何資料或誤差線（多面板時圖例放到面板外、標題下方 `fig.legend`）。點標籤一律用 `apa.place_labels(ax, points, obstacles)`（`apa.errorbar_segments` 產生障礙物），它會自動找無碰撞的位置、必要時加灰色引線；幾乎重合的點共用一個標籤。**出圖後必須用 Read 看圖檢查**，不能只信程式跑完。
 
 ### 4.3 註解語言原則
 

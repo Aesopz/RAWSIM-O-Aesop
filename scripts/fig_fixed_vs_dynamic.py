@@ -47,34 +47,48 @@ def ci95(x):
 
 # ---------------------------------------------------------------- Figure 1
 fig, axes = plt.subplots(1, 2, figsize=(10.5, 4.6), sharey=False)
-plt.subplots_adjust(top=0.80, bottom=0.14, left=0.08, right=0.98, wspace=0.28)
+plt.subplots_adjust(top=0.82, bottom=0.11, left=0.08, right=0.98, wspace=0.28)
 for ax, bots in zip(axes, (6, 10)):
     dyn, fixed = arms_for(bots)
-    # Labels: the high-lambda cluster (>= 11) overlaps, so those are listed once beside the cluster.
-    cluster = [lab for lab in fixed if lam_of(lab) >= 11]
+    # Markers first; labels are placed afterwards by apa.place_labels so nothing overlaps
+    # (error bars, markers, legend, other labels).  Near-coincident markers share one label.
+    pts = {lab: (per_seed(lab, "Items").mean(), total_distance(lab).mean()) for lab in fixed}
+    xs = [p[0] for p in pts.values()]; ys = [p[1] for p in pts.values()]
+    sx, sy = (max(xs) - min(xs)) or 1, (max(ys) - min(ys)) or 1
+    groups = []
+    for lab in fixed:
+        for g in groups:
+            if any(abs(pts[lab][0] - pts[o][0]) / sx < 0.03 and abs(pts[lab][1] - pts[o][1]) / sy < 0.06 for o in g):
+                g.append(lab); break
+        else:
+            groups.append([lab])
+    obstacles = []
     for lab in fixed:
         x, y = per_seed(lab, "Items"), total_distance(lab)
         ax.errorbar(x.mean(), y.mean(), xerr=ci95(x), yerr=ci95(y), fmt="o", color=apa.BLACK, ms=5,
                     ecolor=apa.GREY, elinewidth=0.8, capsize=2, zorder=3)
-        if lab not in cluster:
-            ax.annotate("λ = %g" % lam_of(lab), (x.mean(), y.mean()), textcoords="offset points", xytext=(6, -3), fontsize=8)
-    if cluster:
-        cx = np.mean([per_seed(l, "Items").mean() for l in cluster]); cy = np.mean([total_distance(l).mean() for l in cluster])
-        ax.annotate("λ = " + ", ".join("%g" % lam_of(l) for l in cluster), (cx, cy), textcoords="offset points",
-                    xytext=(-8, 14), fontsize=8, ha="right", arrowprops=dict(arrowstyle="-", color=apa.GREY, lw=0.6))
     x, y = per_seed(dyn, "Items"), total_distance(dyn)
     ax.errorbar(x.mean(), y.mean(), xerr=ci95(x), yerr=ci95(y), fmt="D", mfc="white", mec=apa.BLACK, color=apa.BLACK,
                 ms=7, ecolor=apa.BLACK, elinewidth=0.8, capsize=2, zorder=4)
     ax.set_xlabel("Items handled")
     ax.set_ylabel("Total travel distance (m)")
     ax.set_title("%d robots" % bots, fontsize=10, loc="left")
-    ax.plot([], [], "o", color=apa.BLACK, label="Fixed exchange rate")
-    ax.plot([], [], "D", mfc="white", mec=apa.BLACK, label="Dynamic exchange rate")
-    ax.legend(loc="lower left", fontsize=8)
-apa.furniture(fig, 1, "Total Travel Distance as a Function of Items Handled Under Fixed and Dynamic Exchange Rates",
-              note="Error bars are 95% confidence intervals across 10 seeds. Fixed rates hold λ and μ constant with no "
-                   "Dinkelbach iteration and no upper-bound jump; at λ = 4.5 several seeds stall, hence the wide interval. "
-                   "Small instance, Canon v1.", top=0.97, gap=0.05, note_y=0.045)
+    ax.margins(x=0.10, y=0.10)
+    fig.canvas.draw()
+    for lab in fixed + [dyn]:
+        xx, yy = per_seed(lab, "Items"), total_distance(lab)
+        obstacles += apa.errorbar_segments(ax, xx.mean(), yy.mean(), ci95(xx), ci95(yy))
+    labels = []
+    for g in groups:
+        cx = np.mean([pts[l][0] for l in g]); cy = np.mean([pts[l][1] for l in g])
+        labels.append((cx, cy, "λ = " + ", ".join("%g" % lam_of(l) for l in g)))
+    apa.place_labels(ax, labels, obstacles)
+# one legend for both panels, outside the data area
+h = [plt.Line2D([], [], marker="o", ls="", color=apa.BLACK, label="Fixed exchange rate"),
+     plt.Line2D([], [], marker="D", ls="", mfc="white", mec=apa.BLACK, label="Dynamic exchange rate")]
+# figure-level legend in the empty top-right corner beside the title block
+fig.legend(handles=h, loc="upper right", bbox_to_anchor=(0.985, 0.985), ncol=1, fontsize=8, frameon=False)
+apa.furniture(fig, 1, "Total Travel Distance as a Function of Items Handled Under Fixed and Dynamic Exchange Rates", note=None, top=0.97, gap=0.05)
 apa.save(fig, os.path.join(out, "fig1_distance_vs_items.png"))
 plt.close(fig)
 
@@ -83,7 +97,7 @@ measures = [("Items", "Items handled", 1), ("m/Line", "Distance per line", 1), (
             ("EOR(kJ/order)", "Energy per order", 1), ("Trips", "Pod trips", 1), ("TurnoverMedian(s)", "Turnover time (median)", 1),
             ("StationIdle(%)", "Station idle", 1)]
 fig, axes = plt.subplots(2, len(measures), figsize=(13.5, 5.6))
-plt.subplots_adjust(top=0.82, bottom=0.12, left=0.06, right=0.99, wspace=0.55, hspace=0.55)
+plt.subplots_adjust(top=0.84, bottom=0.10, left=0.06, right=0.99, wspace=0.55, hspace=0.55)
 for r, bots in enumerate((6, 10)):
     dyn, fixed = arms_for(bots)
     lams = [lam_of(l) for l in fixed]
@@ -109,10 +123,7 @@ for r, bots in enumerate((6, 10)):
         if c == 0: ax.set_ylabel("Fixed λ  (%d robots)" % bots, fontsize=8)
         if r == 1: ax.set_xlabel("Difference from dynamic (pp)" if key == "StationIdle(%)" else "Difference from dynamic (%)", fontsize=8)
         ax.tick_params(labelsize=7)
-apa.furniture(fig, 2, "Fixed Exchange Rates Compared With Dynamic Pricing on Seven Measures",
-              note="Bars show (fixed − dynamic) / dynamic × 100, paired by seed (n = 10). *p < .05. **p < .01. ***p < .001 "
-                   "(two-tailed paired t tests). Station idle is reported in percentage points. Hatched bars: turnover, where lower is better for the fixed rate. Small instance, Canon v1.",
-              top=0.975, gap=0.04, note_y=0.04)
+apa.furniture(fig, 2, "Fixed Exchange Rates Compared With Dynamic Pricing on Seven Measures", note=None, top=0.975, gap=0.04)
 apa.save(fig, os.path.join(out, "fig2_delta_by_measure.png"))
 plt.close(fig)
 print("figures ->", out)
