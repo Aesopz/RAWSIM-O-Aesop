@@ -1,0 +1,121 @@
+{
+ "id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs",
+ "kind": "formal",
+ "question": "大規模純貪婪 HGS-M5（無價格）對 HADGS 與 HGS-M5-λ 的 10 seeds 配對對照",
+ "motivation": "報告主線改為純貪婪 HGS-M5（大道至簡）；需要它對 HADGS 的正式數字，以及對 HGS-M5-λ 的差距（價格值多少）。seed 0 fast 顯示 +23.5% 件 vs HADGS、−3.2% vs λ 版。",
+ "scenario_confirmed_by_user": true,
+ "arms": [
+  {
+   "label": "m5_pure_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/m5_pure_45b.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "LambdaIterations",
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "display": "HGS-M5"
+  },
+  {
+   "label": "m5_lambda_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "Canon/large/hgs_m5_k10.xconf",
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "reuse_from": {
+    "experiment": "2026-09-16_canon_v2_large_split_limit_m5",
+    "arm": "m5_45b"
+   },
+   "display": "HGS-M5-λ"
+  },
+  {
+   "label": "hadgs_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "Canon/large/hadgs_aligned.xconf",
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "reuse_from": {
+    "legacy": {
+     "0": "out/mp1_hadgs_s0",
+     "1": "out/mp1_hadgs_s1",
+     "2": "out/mp1_hadgs_s2",
+     "3": "out/mp1_hadgs_s3",
+     "4": "out/mp1_hadgs_s4",
+     "5": "out/mp1_hadgs_s5",
+     "6": "out/mp1_hadgs_s6",
+     "7": "out/mp1_hadgs_s7",
+     "8": "out/mp1_hadgs_s8",
+     "9": "out/mp1_hadgs_s9"
+    }
+   },
+   "display": "HADGS"
+  }
+ ],
+ "comparisons": [
+  {
+   "a": "hadgs_45b",
+   "b": "m5_pure_45b",
+   "kind": "benchmark",
+   "variable": "policy: HADGS -> HGS-M5 (pure greedy, splitting)"
+  },
+  {
+   "a": "m5_pure_45b",
+   "b": "m5_lambda_45b",
+   "kind": "ablation",
+   "variable": "add Dinkelbach price (lambda, mu, beta) + bound jump"
+  },
+  {
+   "a": "hadgs_45b",
+   "b": "m5_lambda_45b",
+   "kind": "benchmark",
+   "variable": "policy: HADGS -> HGS-M5-λ"
+  }
+ ],
+ "equivalent_dlls": {
+  "guard": "2026-09-16_pkwhole_final",
+  "sha256": [
+   "94a44bdb4844fea74934bfe1d0db3a0c2ea11971cb6fe05084b23dc09159120d",
+   "2b11c291972a376685b86cf4f825087ac7794cc384f024a138e7fbbc4c76b676"
+  ],
+  "note": "v1 Release vs v2 Release: differ only by PackingFullWholeOrderFallback, which is inert when no budget binds; guard pk1_flagoff bit-identical to v1 output"
+ }
+}

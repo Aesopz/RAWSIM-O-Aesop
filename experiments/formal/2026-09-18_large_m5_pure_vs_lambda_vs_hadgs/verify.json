@@ -1,0 +1,156 @@
+{
+ "verified": "2026-09-18T02:11:05",
+ "canon_version": 2,
+ "runs": [
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/m5_pure_45b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/m5_pure_45b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/m5_pure_45b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/m5_pure_45b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/m5_pure_45b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/m5_pure_45b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/m5_pure_45b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/m5_pure_45b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/m5_pure_45b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/m5_pure_45b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/m5_lambda_45b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/m5_lambda_45b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/m5_lambda_45b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/m5_lambda_45b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/m5_lambda_45b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/m5_lambda_45b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/m5_lambda_45b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/m5_lambda_45b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/m5_lambda_45b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/m5_lambda_45b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/hadgs_45b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/hadgs_45b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/hadgs_45b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/hadgs_45b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/hadgs_45b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/hadgs_45b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/hadgs_45b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/hadgs_45b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/hadgs_45b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/hadgs_45b_s9",
+   "validity": "valid",
+   "problems": []
+  }
+ ]
+}

@@ -711,12 +711,17 @@ def cmd_verify(exp_id):
             for m, fails, _, _ in results:
                 fails.append("experiment ran on %d different DLL builds" % len(dll_shas))
     updates, report = [], []
+    prior_notes = {r["run_id"]: r["note"] for r in registry_rows()}
     for m, fails, hours, controller in results:
         validity = "valid" if not fails else "invalid"
         report.append({"run_id": m["run_id"], "validity": validity, "problems": fails})
         if "never launched" not in fails:
+            # keep a canon-equivalence proof (or any reuse provenance) that earlier steps recorded
+            keep = prior_notes.get(m["run_id"], "")
+            keep = keep if (CANON_EQUIV_TAG in keep or keep.startswith("reused from")) else ""
+            note = "; ".join([x for x in [keep, "; ".join(fails)] if x])
             updates.append({"run_id": m["run_id"], "hours": "%.3f" % hours if hours else "", "controller": controller or "",
-                            "validity": validity, "note": "; ".join(fails)})
+                            "validity": validity, "note": note})
         print("%-55s %s %s" % (m["run_id"], validity, "; ".join(fails)))
     if updates:
         registry_upsert(updates)
