@@ -7,7 +7,7 @@ Figure B  Dynamic pricing compared with each fixed exchange rate: horizontal bar
           delta% = (fixed - dynamic)/dynamic on seven measures. One figure per fleet size.
 All numbers come from the experiment's stats.json (scipy + Excel cross-checked).
 
-usage: python scripts/fig_fixed_vs_dynamic.py <experiment_id> <out_dir>
+usage: python scripts/fig_fixed_vs_dynamic.py <experiment_id> <out_dir> [arm_prefix=m4g] [fleets=6,10]
 """
 import sys, os, io, json, re, math
 import numpy as np
@@ -19,6 +19,8 @@ from scipy import stats as sps
 import exp as E
 
 eid, out = sys.argv[1], sys.argv[2]
+PREFIX = sys.argv[3] if len(sys.argv) > 3 else "m4g"          # arm label prefix: m4g_dyn_6b / m5_dyn_45b
+FLEETS = [int(b) for b in sys.argv[4].split(",")] if len(sys.argv) > 4 else [6, 10]
 os.makedirs(out, exist_ok=True)
 d = E.exp_dir(eid)
 S = json.load(io.open(os.path.join(d, "stats.json"), encoding="utf-8"))
@@ -30,7 +32,7 @@ PROV = {"experiment": eid, "canon_version": E.current_canon_version_checked()["v
         "sources": [os.path.relpath(os.path.join(d, "stats.json"), E.ROOT)]}
 
 def arms_for(bots):
-    dyn = "m4g_dyn_%db" % bots
+    dyn = "%s_dyn_%db" % (PREFIX, bots)
     fixed = sorted([a["label"] for a in ex["arms"] if a["label"].endswith("_%db" % bots) and "fix" in a["label"]],
                    key=lambda l: float(re.search(r"fix([0-9p]+)_", l).group(1).replace("p", ".")))
     return dyn, fixed
@@ -50,7 +52,7 @@ def ci95(x):
     return sps.t.ppf(0.975, n - 1) * x.std(ddof=1) / math.sqrt(n)
 
 # ---------------------------------------------------------------- Figure A: distance vs items, one figure per fleet
-for bots in (6, 10):
+for bots in FLEETS:
     dyn, fixed = arms_for(bots)
     fig, ax = plt.subplots(figsize=(5.6, 4.6))
     plt.subplots_adjust(top=0.90, bottom=0.12, left=0.15, right=0.97)
@@ -60,7 +62,7 @@ for bots in (6, 10):
     groups = []
     for lab in fixed:
         for g in groups:
-            if any(abs(pts[lab][0] - pts[o][0]) / sx < 0.03 and abs(pts[lab][1] - pts[o][1]) / sy < 0.06 for o in g):
+            if any(abs(pts[lab][0] - pts[o][0]) / sx < 0.04 and abs(pts[lab][1] - pts[o][1]) / sy < 0.15 for o in g):
                 g.append(lab); break
         else:
             groups.append([lab])
@@ -96,7 +98,7 @@ for bots in (6, 10):
 measures = [("Items", "Items handled", 1), ("m/Line", "Distance per line", 1), ("Pile-on", "Pile-on", 1),
             ("EOR(kJ/order)", "Energy per order", 1), ("Trips", "Pod trips", 1), ("TurnoverMedian(s)", "Turnover time (median)", 1),
             ("StationIdle(%)", "Station idle", 1)]
-for bots in (6, 10):
+for bots in FLEETS:
     dyn, fixed = arms_for(bots)
     lams = [lam_of(l) for l in fixed]
     fig, axes = plt.subplots(1, len(measures), figsize=(13.5, 3.2))

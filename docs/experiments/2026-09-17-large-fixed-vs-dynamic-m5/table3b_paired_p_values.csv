@@ -1,0 +1,7 @@
+﻿Policy,Reference,Bots,Items,Lines,Orders,Pile-on,Trips,Trips/order,m/line,EOR (kJ/order),Turnover (s),Station idle (%)
+HGS-M5 fixed λ=4,HGS-M5 (dynamic),45,< .001,< .001,< .001,< .001,< .001,< .001,.019,.088,.274,< .001
+HGS-M5 fixed λ=6,HGS-M5 (dynamic),45,< .001,< .001,< .001,< .001,< .001,< .001,< .001,< .001,.037,< .001
+HGS-M5 fixed λ=8,HGS-M5 (dynamic),45,< .001,< .001,< .001,< .001,< .001,< .001,< .001,< .001,.003,< .001
+HGS-M5 fixed λ=13,HGS-M5 (dynamic),45,.001,.053,.211,< .001,< .001,< .001,.006,.096,.145,.001
+HGS-M5 fixed λ=20,HGS-M5 (dynamic),45,< .001,.006,.099,< .001,< .001,< .001,.038,.530,.627,< .001
+HGS-M5 fixed λ=45,HGS-M5 (dynamic),45,.019,.314,.157,< .001,< .001,< .001,.451,.063,.088,.023

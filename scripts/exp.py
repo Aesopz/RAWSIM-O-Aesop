@@ -507,7 +507,9 @@ def link_reused_arm(exp, arm, cv, dll_sha, head, dirty):
                      "canon_version": str(cv["version"]), "dll_sha": m["dll"]["sha256"][:16], "git_head": str(m["git"]["head"])[:12],
                      "git_dirty_hash": str(m["git"]["uncommitted_code_diff_sha"]), "queued": "", "started": "", "finished": m.get("finished", ""),
                      "exit": "0", "hours": "", "controller": "", "status": "finished", "validity": "unverified",
-                     "note": "reused from " + json.dumps(src, ensure_ascii=False)})
+                     # inherit a canon-equivalence proof from the source row so stale-check keeps honouring it
+                     "note": "reused from " + json.dumps(src, ensure_ascii=False)
+                             + (("; " + srow["note"]) if "experiment" in src and CANON_EQUIV_TAG in (srow.get("note") or "") else "")})
     if rows:
         registry_upsert(rows)
         print("linked %d reused runs for arm %s" % (len(rows), arm["label"]))

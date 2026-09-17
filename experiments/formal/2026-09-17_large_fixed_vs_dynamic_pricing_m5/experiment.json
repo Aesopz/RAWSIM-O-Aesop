@@ -1,0 +1,246 @@
+{
+ "id": "2026-09-17_large_fixed_vs_dynamic_pricing_m5",
+ "kind": "formal",
+ "question": "大規模（45 台）HGS-M5 下，Dinkelbach 動態定價是否優於事後最佳的固定 λ/μ？",
+ "motivation": "S1 的大規模對應版。格點錨定 Canon v2 M5 動態組 4,483 次派車決策的 λ_end 分位（P10 4.3／P25 6.4／P50 8.3／P75 12.7／P90 45.5）；μ 依動態 μ/λ 中位 1.6208 同步固定；β 不固定；LambdaIterations=0、UpperBoundJump=false。動態組沿用 2026-09-16_canon_v2_large_split_limit_m5/m5_45b。",
+ "scenario_confirmed_by_user": true,
+ "arms": [
+  {
+   "label": "m5_dyn_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "Canon/large/hgs_m5_k10.xconf",
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "reuse_from": {
+    "experiment": "2026-09-16_canon_v2_large_split_limit_m5",
+    "arm": "m5_45b"
+   },
+   "display": "HGS-M5 (dynamic)"
+  },
+  {
+   "label": "m5_fix4_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/m5_fix4_45b.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "LambdaIterations",
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "display": "HGS-M5 fixed λ=4"
+  },
+  {
+   "label": "m5_fix6_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/m5_fix6_45b.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "LambdaIterations",
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "display": "HGS-M5 fixed λ=6"
+  },
+  {
+   "label": "m5_fix8_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/m5_fix8_45b.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "LambdaIterations",
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "display": "HGS-M5 fixed λ=8"
+  },
+  {
+   "label": "m5_fix13_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/m5_fix13_45b.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "LambdaIterations",
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "display": "HGS-M5 fixed λ=13"
+  },
+  {
+   "label": "m5_fix20_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/m5_fix20_45b.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "LambdaIterations",
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "display": "HGS-M5 fixed λ=20"
+  },
+  {
+   "label": "m5_fix45_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/m5_fix45_45b.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "LambdaIterations",
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "display": "HGS-M5 fixed λ=45"
+  }
+ ],
+ "comparisons": [
+  {
+   "a": "m5_dyn_45b",
+   "b": "m5_fix4_45b",
+   "kind": "ablation",
+   "variable": "fixed lambda=4, mu=6.4832, no lambda iteration, no bound jump"
+  },
+  {
+   "a": "m5_dyn_45b",
+   "b": "m5_fix6_45b",
+   "kind": "ablation",
+   "variable": "fixed lambda=6, mu=9.7248, no lambda iteration, no bound jump"
+  },
+  {
+   "a": "m5_dyn_45b",
+   "b": "m5_fix8_45b",
+   "kind": "ablation",
+   "variable": "fixed lambda=8, mu=12.9664, no lambda iteration, no bound jump"
+  },
+  {
+   "a": "m5_dyn_45b",
+   "b": "m5_fix13_45b",
+   "kind": "ablation",
+   "variable": "fixed lambda=13, mu=21.0704, no lambda iteration, no bound jump"
+  },
+  {
+   "a": "m5_dyn_45b",
+   "b": "m5_fix20_45b",
+   "kind": "ablation",
+   "variable": "fixed lambda=20, mu=32.416, no lambda iteration, no bound jump"
+  },
+  {
+   "a": "m5_dyn_45b",
+   "b": "m5_fix45_45b",
+   "kind": "ablation",
+   "variable": "fixed lambda=45, mu=72.936, no lambda iteration, no bound jump"
+  }
+ ],
+ "equivalent_dlls": {
+  "guard": "2026-09-16_pkwhole_final",
+  "sha256": [
+   "94a44bdb4844fea74934bfe1d0db3a0c2ea11971cb6fe05084b23dc09159120d",
+   "2b11c291972a376685b86cf4f825087ac7794cc384f024a138e7fbbc4c76b676"
+  ],
+  "note": "v1 Release vs v2 Release: differ only by PackingFullWholeOrderFallback, which is inert when no budget binds; guard pk1_flagoff bit-identical to v1 output"
+ }
+}

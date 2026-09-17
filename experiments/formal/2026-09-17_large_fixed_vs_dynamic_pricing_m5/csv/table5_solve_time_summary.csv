@@ -1,0 +1,8 @@
+﻿Policy,Bots,Time per decision (s),Total time (s),Decisions
+HGS-M5 (dynamic),45,0.0655,359.3,5467
+HGS-M5 fixed λ=4,45,0.0652,554.0,8493
+HGS-M5 fixed λ=6,45,0.0639,517.9,8102
+HGS-M5 fixed λ=8,45,0.0627,472.3,7532
+HGS-M5 fixed λ=13,45,0.0533,355.7,6674
+HGS-M5 fixed λ=20,45,0.0533,301.7,5652
+HGS-M5 fixed λ=45,45,0.0519,267.0,5146

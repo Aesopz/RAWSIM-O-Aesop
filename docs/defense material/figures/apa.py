@@ -182,7 +182,7 @@ def place_labels(ax, points, obstacles=(), fontsize=8, leader=True):
                             arrowprops=dict(arrowstyle="-", color=GREY, lw=0.6))
             best = (t, t.get_window_extent(rend), 999)
         t, bb, r = best
-        if leader and r > 14:
+        if leader and r >= 14:
             t.arrow_patch = None
             t.set_position(t.get_position())
             t.arrowprops = dict(arrowstyle="-", color=GREY, lw=0.6)
