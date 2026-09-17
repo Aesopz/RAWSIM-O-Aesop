@@ -73,11 +73,11 @@ for c in (38.5, 31.5, 19.0, 6.8):
 diamond(43, 38.5, 12, 4.4, "λ̄ > λ ?", fs=8.5)
 arrow((31, 38.5), (37, 38.5), color=ORANGE); label(33.5, 39.3, "yes")
 elbow([(43, 40.7), (43, 50.5), (36.6, 50.5)], color=ORANGE); label(44.2, 45.5, "yes\nλ ← λ̄", ha="left", fs=7.5)
-label(43.8, 35.6, "no", GREY, ha="left"); label(43, 34.0, "Stop: no feasible" + chr(10) + "non-empty plan", ORANGE, fs=7, bold=True)
+label(43.8, 35.6, "no", GREY, ha="left"); label(46.5, 33.3, "Stop: no feasible" + chr(10) + "non-empty plan", ORANGE, fs=7, bold=True, ha="right")
 # other stops
-label(33.5, 32.3, "yes", ha="left"); label(40, 32.3, "Stop\nbreak-even", ORANGE, ha="left", va="center", fs=8, bold=True)
-label(33.5, 19.8, "yes", ha="left"); label(40, 19.4, "Stop\nD* = 0, no dispatch", ORANGE, ha="left", va="center", fs=8, bold=True)
-label(33.5, 7.6, "yes", ha="left"); label(40, 7.2, "Stop\nkeep previous plan", ORANGE, ha="left", va="center", fs=8, bold=True)
+label(32.0, 32.3, "yes", ha="left"); label(35.0, 29.6, "Stop: break-even", ORANGE, ha="left", va="center", fs=8, bold=True)
+label(32.0, 19.8, "yes", ha="left"); label(35.0, 17.2, "Stop: D* = 0, no dispatch", ORANGE, ha="left", va="center", fs=8, bold=True)
+label(32.0, 7.6, "yes", ha="left"); label(35.0, 5.0, "Stop: keep previous plan", ORANGE, ha="left", va="center", fs=8, bold=True)
 # adopt & loop back
 elbow([(X, 4.3), (X, 2.2), (1.8, 2.2), (1.8, 50.5), (3.5, 50.5)])
 label(2.8, 1.0, "No → adopt λ ← λ_next, re-run BuildPlan (cap 5)", GREY, ha="left", fs=7.5)
