@@ -1,0 +1,256 @@
+{
+ "id": "2026-09-18_large_pure_m5_split_limit_and_packing",
+ "kind": "formal",
+ "question": "純貪婪 HGS-M5 下，拆分份數 N∈{2,3,4} 與包裝站數 {1,2,3} 對吞吐與效率的影響（鏡像 C9／C10，使主線與附錄同一政策）",
+ "motivation": "主線改為純貪婪 HGS-M5 後，C9（包裝站 1/2/3）與 C10（N=2/3/4）仍為 HGS-M5-λ 資料，政策不一致。以純貪婪重跑兩組掃描；無上限基準沿用 2026-09-18_large_m5_pure_vs_lambda_vs_hadgs/m5_pure_45b。預算綁定時 Canon v2 整單 fallback 會啟動（純貪婪版保留）。",
+ "scenario_confirmed_by_user": true,
+ "arms": [
+  {
+   "label": "m5_pure_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/m5_pure_45b.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "LambdaIterations",
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "reuse_from": {
+    "experiment": "2026-09-18_large_m5_pure_vs_lambda_vs_hadgs",
+    "arm": "m5_pure_45b"
+   },
+   "display": "HGS-M5 (unlimited)"
+  },
+  {
+   "label": "m5_pure_n2_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/m5_pure_n2_45b.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "LambdaIterations",
+    "UpperBoundJump",
+    "MaxPartsPerOrder"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "display": "HGS-M5, N=2"
+  },
+  {
+   "label": "m5_pure_n3_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/m5_pure_n3_45b.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "LambdaIterations",
+    "UpperBoundJump",
+    "MaxPartsPerOrder"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "display": "HGS-M5, N=3"
+  },
+  {
+   "label": "m5_pure_n4_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/m5_pure_n4_45b.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "LambdaIterations",
+    "UpperBoundJump",
+    "MaxPartsPerOrder"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "display": "HGS-M5, N=4"
+  },
+  {
+   "label": "m5_pure_pk1_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/m5_pure_pk1_45b.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "LambdaIterations",
+    "UpperBoundJump",
+    "PackingStationCount",
+    "PackingBufferCapacity"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "display": "HGS-M5, 1 packing station"
+  },
+  {
+   "label": "m5_pure_pk2_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/m5_pure_pk2_45b.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "LambdaIterations",
+    "UpperBoundJump",
+    "PackingStationCount",
+    "PackingBufferCapacity"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "display": "HGS-M5, 2 packing stations"
+  },
+  {
+   "label": "m5_pure_pk3_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/m5_pure_pk3_45b.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "LambdaIterations",
+    "UpperBoundJump",
+    "PackingStationCount",
+    "PackingBufferCapacity"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "display": "HGS-M5, 3 packing stations"
+  }
+ ],
+ "comparisons": [
+  {
+   "a": "m5_pure_45b",
+   "b": "m5_pure_n2_45b",
+   "kind": "sensitivity",
+   "variable": "MaxPartsPerOrder=2"
+  },
+  {
+   "a": "m5_pure_45b",
+   "b": "m5_pure_n3_45b",
+   "kind": "sensitivity",
+   "variable": "MaxPartsPerOrder=3"
+  },
+  {
+   "a": "m5_pure_45b",
+   "b": "m5_pure_n4_45b",
+   "kind": "sensitivity",
+   "variable": "MaxPartsPerOrder=4"
+  },
+  {
+   "a": "m5_pure_45b",
+   "b": "m5_pure_pk1_45b",
+   "kind": "sensitivity",
+   "variable": "PackingStationCount=1, capacity 78"
+  },
+  {
+   "a": "m5_pure_45b",
+   "b": "m5_pure_pk2_45b",
+   "kind": "sensitivity",
+   "variable": "PackingStationCount=2, capacity 78"
+  },
+  {
+   "a": "m5_pure_45b",
+   "b": "m5_pure_pk3_45b",
+   "kind": "sensitivity",
+   "variable": "PackingStationCount=3, capacity 78"
+  }
+ ]
+}

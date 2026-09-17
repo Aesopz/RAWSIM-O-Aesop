@@ -66,6 +66,15 @@
 - 所有寫到「動態優於固定」的頁面（原第 24／27 頁及結論頁）主詞改為 M4G；M5 只講免調參與不崩潰。
 - 備用頁：大規模 `m5_figA_distance_vs_items_45b.png` ＋三個排除（無跳躍 −24%、迭代 5→20 逐位相同、60 台差距擴大）。
 
+### 1.7 ⚠️ 主線換人後的必做頁（2026-09-18 加入，資料與圖已齊）
+主線政策＝**純貪婪 HGS-M5**（無價格）；HGS-M5-λ 只在 future work 出現。以下每頁都有 10 seeds 資料與 APA 圖（無編號、主題式標題）：
+1. **大規模主結果**：HGS-M5 vs HADGS —— 件數 +28.6%***、m/line −47.8%***、EOR −49.1%***、閒置 26.7→5.7%。資料 `docs/experiments/2026-09-18-large-m5-pure-vs-lambda-vs-hadgs/`。取代舊「M5 vs HADGS +31%」頁；舊頁所有數字改用此表。
+2. **拆分份數 N 敏感度**（純貪婪）：`docs/experiments/2026-09-18-large-pure-m5-split-limit-and-packing/figures/fig_n_sensitivity.png` —— 件數 N=2 −2.2%***、N≥3 n.s.；m/line N=2 +27%***。取代 v2 λ 版的 N 曲線。
+3. **包裝站數敏感度**（純貪婪）：同夾 `fig_pk_sensitivity.png` —— 件數 1 站 −1.5%***；m/line 1 站 +45%***、2 站 +7.6%***、3 站＝無上限。取代 v2 λ 版的包裝站頁。
+4. **M5 運作流程頁（p27）**：用純貪婪版流程——拿掉外圈 λ 迭代與跳躍，保留 ①draw ②dispatch ③fallback；`scripts/slide_p27_hgs_m5.py` 需改參數重出（或用 `docs/2026-09-18-m5-pure-greedy-explained.html` §3 重畫）。
+5. **Future work 頁**：Dinkelbach 融合（HGS-M5-λ）：+2.1% 件、−5.2% m/line、−8.6% EOR；定價優勢屬 M4G（§1.6 那頁併入或相鄰）。
+6. 全份檢查：所有「HGS-M5」字樣 → 若指含價格版改為「HGS-M5-λ」（09-18 前的表都是 λ 版）。
+
 ## 2. 模擬：建議明天啟動的批次（依優先序）
 
 全部走 `exp.py`：`new → plan → 列參數表給使用者確認 → run`。**未確認不啟動。**

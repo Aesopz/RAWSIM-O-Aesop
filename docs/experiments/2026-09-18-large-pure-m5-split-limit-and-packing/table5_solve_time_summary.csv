@@ -1,0 +1,8 @@
+﻿Policy,Bots,Time per decision (s),Total time (s),Decisions
+HGS-M5 (unlimited),45,0.0592,299.0,5050
+"HGS-M5, N=2",45,0.0713,384.6,5395
+"HGS-M5, N=3",45,0.0674,336.1,4988
+"HGS-M5, N=4",45,0.0680,343.2,5044
+"HGS-M5, 1 packing station",45,0.0667,377.5,5653
+"HGS-M5, 2 packing stations",45,0.0692,336.6,4866
+"HGS-M5, 3 packing stations",45,0.0668,337.5,5050

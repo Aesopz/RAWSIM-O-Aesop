@@ -1,0 +1,7 @@
+﻿Policy,Reference,Bots,Items,Lines,Orders,Pile-on,Trips,Trips/order,m/line,EOR (kJ/order),Turnover (s),Station idle (%)
+"HGS-M5, N=2",HGS-M5 (unlimited),45,< .001,< .001,.068,< .001,< .001,< .001,< .001,< .001,< .001,< .001
+"HGS-M5, N=3",HGS-M5 (unlimited),45,.797,.479,.968,< .001,< .001,< .001,< .001,.004,.285,.836
+"HGS-M5, N=4",HGS-M5 (unlimited),45,.336,.488,.871,.929,.849,.935,.882,.472,.743,.432
+"HGS-M5, 1 packing station",HGS-M5 (unlimited),45,< .001,< .001,.002,< .001,< .001,< .001,< .001,< .001,< .001,< .001
+"HGS-M5, 2 packing stations",HGS-M5 (unlimited),45,.248,.360,.009,< .001,< .001,< .001,< .001,< .001,< .001,.234
+"HGS-M5, 3 packing stations",HGS-M5 (unlimited),45,,,,,,,,,,

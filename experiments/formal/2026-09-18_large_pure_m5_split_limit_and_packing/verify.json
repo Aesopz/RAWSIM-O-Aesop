@@ -1,0 +1,356 @@
+{
+ "verified": "2026-09-18T04:10:30",
+ "canon_version": 2,
+ "runs": [
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_45b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_45b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_45b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_45b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_45b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_45b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_45b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_45b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_45b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_45b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n2_45b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n2_45b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n2_45b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n2_45b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n2_45b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n2_45b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n2_45b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n2_45b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n2_45b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n2_45b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n3_45b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n3_45b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n3_45b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n3_45b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n3_45b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n3_45b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n3_45b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n3_45b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n3_45b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n3_45b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n4_45b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n4_45b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n4_45b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n4_45b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n4_45b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n4_45b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n4_45b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n4_45b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n4_45b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_n4_45b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk1_45b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk1_45b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk1_45b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk1_45b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk1_45b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk1_45b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk1_45b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk1_45b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk1_45b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk1_45b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk2_45b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk2_45b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk2_45b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk2_45b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk2_45b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk2_45b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk2_45b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk2_45b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk2_45b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk2_45b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk3_45b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk3_45b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk3_45b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk3_45b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk3_45b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk3_45b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk3_45b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk3_45b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk3_45b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_large_pure_m5_split_limit_and_packing/m5_pure_pk3_45b_s9",
+   "validity": "valid",
+   "problems": []
+  }
+ ]
+}
