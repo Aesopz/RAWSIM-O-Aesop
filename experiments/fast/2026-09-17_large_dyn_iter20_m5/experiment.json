@@ -1,0 +1,26 @@
+{
+ "id": "2026-09-17_large_dyn_iter20_m5",
+ "kind": "fast",
+ "question": "大規模動態 M5 將 λ 迭代上限 5→20，結果是否改變？（貪婪／收斂是否為落後常數的槓桿）",
+ "motivation": "若 20 次迭代與 5 次結果相同，則貪婪內圈的收斂不保證不是大規模落後固定 λ=13 的原因；差距歸因於比值目標式＋λ̄ 跳躍的結構。對照：formal m5_dyn_45b seed 0（5 次）。",
+ "scenario_confirmed_by_user": true,
+ "arms": [
+  {
+   "label": "m5_iter20_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/m5_iter20_45b.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "LambdaIterations"
+   ],
+   "seeds": [
+    0
+   ],
+   "display": "HGS-M5 dynamic, 20 lambda iterations"
+  }
+ ],
+ "comparisons": []
+}

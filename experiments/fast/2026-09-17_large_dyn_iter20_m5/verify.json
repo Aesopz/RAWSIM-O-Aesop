@@ -1,0 +1,11 @@
+{
+ "verified": "2026-09-17T23:21:12",
+ "canon_version": 2,
+ "runs": [
+  {
+   "run_id": "2026-09-17_large_dyn_iter20_m5/m5_iter20_45b_s0",
+   "validity": "valid",
+   "problems": []
+  }
+ ]
+}
