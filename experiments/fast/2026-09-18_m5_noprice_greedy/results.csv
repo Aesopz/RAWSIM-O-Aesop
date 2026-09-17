@@ -1,0 +1,7 @@
+WARNING: arms differ in scenario beyond bots; scenario line shows the first arm
+2 h · 1 seeds · 2 Pstations · 2 Rstations · 100 SKUs · 100 backlog · 100 pods / 120 cells · cap 100 · 70% stock
+policy,bots,Items,Lines,Orders,Pile-on,Trips,Trips/Orders,m/Line,EOR(kJ/order),TurnoverMedian(s),StationIdle(%)
+m5_noprice_6b,6b,1418.0,930.0,615.0,5.913,104.0,0.1691,9.66,1.157,825.8,1.59
+m5_noprice_45b,45b,8061.0,5265.0,3343.0,8.316,402.0,0.1203,21.98,3.965,396.5,6.74
+
+excel cross-check: {"status": "passed", "checks": 20, "rel_tol": 1e-09}

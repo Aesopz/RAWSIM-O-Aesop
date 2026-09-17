@@ -1,0 +1,16 @@
+{
+ "verified": "2026-09-18T01:32:26",
+ "canon_version": 2,
+ "runs": [
+  {
+   "run_id": "2026-09-18_m5_noprice_greedy/m5_noprice_6b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_m5_noprice_greedy/m5_noprice_45b_s0",
+   "validity": "valid",
+   "problems": []
+  }
+ ]
+}

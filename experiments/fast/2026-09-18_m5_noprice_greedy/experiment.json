@@ -1,0 +1,48 @@
+{
+ "id": "2026-09-18_m5_noprice_greedy",
+ "kind": "fast",
+ "question": "拿掉價格的純貪婪拆單（λ→∞，距離只當平手）表現如何？M5 贏 HADGS 是因為拆單還是因為定價？",
+ "motivation": "使用者假設 M5 贏 HADGS 主因是拆單而非定價。以 LambdaFixed=10000（距離權重≈0，對應 M4G-WS₀）做『有拆單無價格』的貪婪；小 6b 對照動態／固定 9，大 45b 對照動態／固定 13／HADGS。1 seed 探風向。",
+ "scenario_confirmed_by_user": true,
+ "arms": [
+  {
+   "label": "m5_noprice_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m5_noprice_6b.xconf",
+   "templates": {
+    "xconf": "Canon/small/hgs_m5.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "LambdaIterations",
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0
+   ],
+   "display": "HGS-M5 no price (λ→∞)"
+  },
+  {
+   "label": "m5_noprice_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/m5_noprice_45b.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "LambdaIterations",
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0
+   ],
+   "display": "HGS-M5 no price (λ→∞)"
+  }
+ ],
+ "comparisons": []
+}
