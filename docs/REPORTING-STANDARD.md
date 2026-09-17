@@ -71,8 +71,13 @@ HGS-M5 大規模 ＝ HGS-M5 ＋ CandidatePodTopK=10                       ← �
 | M4G-NS | 比值目標式，整單承諾（no split） | `OrderAtomicNoSplit`＋`OrderAtomicCanonPrices` |
 | M4G-WS | Jiao 加權和目標式 α=(1,−40,1000)，M4G 可行域 | `LegacyObjective`＋`LegacyIdleSlotWeight=1000`＋`LegacyRewardValuation` |
 | M4G-WS₀ | 同上，距離權重 w₁=0 | 加 `LegacyDistanceWeight=0` |
-| HGS-M5 | M4G 的貪婪鏡像 | `GreedyM5Configuration` |
+| HGS-M5 | **純貪婪**（2026-09-18 定案）：線級 draw／邊際 dispatch／整單 fallback，**無價格**、無 λ 迭代、無跳躍；報告主線 | `GreedyM5Configuration`＋`LambdaFixed=10000`＋`MuFixed=16208`＋`LambdaIterations=0`＋`UpperBoundJump=false` |
+| HGS-M5-λ | 同結構＋Dinkelbach 自校準價格（λ、μ、β）＋上界跳躍；Canon v2 原組態；future work | `GreedyM5Configuration`（正典原樣） |
+| HGS-M5-λ̄ | 同結構＋固定常數 λ（消融） | `LambdaFixed=λ`＋`MuFixed=κλ`＋`LambdaIterations=0`＋`UpperBoundJump=false` |
 | HADGS | 大規模啟發式基準 | `HADGSConfiguration` |
+
+
+> **命名分界（2026-09-18）**：本日之前產出的所有 CSV／圖／NOTES 中的「HGS-M5」皆指 **HGS-M5-λ**（含 M5 vs HADGS +31%、N 掃描、包裝站、保真度）。舊檔不回頭改名；新產出一律依上表。純貪婪 HGS-M5 目前僅 seed 0（`2026-09-18_m5_noprice_greedy`），作主線前需補 10 seeds 正式對照。
 
 規則：書面名稱描述**它是什麼**（目標式形式、承諾單位），不用程式旗標名；「Legacy」「NoDist」等旗標字樣不得出現在表格、圖或內文。arm label 與實驗 id 可保留程式名，呈現層一律換成書面名（`csv_bundle.py` 的 label map 負責）。
 
