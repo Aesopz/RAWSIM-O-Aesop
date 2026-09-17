@@ -73,8 +73,7 @@ for c in (38.5, 31.5, 19.0, 6.8):
 diamond(43, 38.5, 12, 4.4, "λ̄ > λ ?", fs=8.5)
 arrow((31, 38.5), (37, 38.5), color=ORANGE); label(33.5, 39.3, "yes")
 elbow([(43, 40.7), (43, 50.5), (36.6, 50.5)], color=ORANGE); label(44.2, 45.5, "yes\nλ ← λ̄", ha="left", fs=7.5)
-label(43.8, 35.6, "no", GREY, ha="left"); label(43, 34.0, "Stop: no feasible
-non-empty plan", ORANGE, fs=7, bold=True)
+label(43.8, 35.6, "no", GREY, ha="left"); label(43, 34.0, "Stop: no feasible" + chr(10) + "non-empty plan", ORANGE, fs=7, bold=True)
 # other stops
 label(33.5, 32.3, "yes", ha="left"); label(40, 32.3, "Stop\nbreak-even", ORANGE, ha="left", va="center", fs=8, bold=True)
 label(33.5, 19.8, "yes", ha="left"); label(40, 19.4, "Stop\nD* = 0, no dispatch", ORANGE, ha="left", va="center", fs=8, bold=True)
