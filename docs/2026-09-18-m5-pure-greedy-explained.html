@@ -50,7 +50,7 @@ kbd{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--card);bor
 <h1>HGS-M5 純貪婪版：它怎麼運作</h1>
 <p class="dek">一個不需要價格、不需要 Dinkelbach、不需要任何理論保證的線上拆單貪婪法。每個決策只做一件事：反覆拿「現在最值錢的一步」，直到沒有值錢的步為止。</p>
 <div class="box val"><p><strong>一句話</strong>：站上有貨能撿就先撿（一次撿一整條線）；撿完了，若有空車而且某個貨架到站後能立刻多撿到東西，就派最多能撿的那個；距離只在平手時看。拆單不是一個步驟，是這個過程的副產品。</p></div>
-<div class="box warn"><p><strong>狀態</strong>：本頁描述的是 <code>LambdaFixed=10000</code>（λ→∞）、<code>LambdaIterations=0</code>、<code>UpperBoundJump=false</code> 的組態（實驗 <code>2026-09-18_m5_noprice_greedy</code>，seed 0）。正典 M5（Canon v2）仍是含 Dinkelbach 價格的版本。若要以純貪婪版作為報告主線，需補跑 10 seeds 的 M5-pure vs HADGS 正式對照（約 80 分鐘）。</p></div>
+<div class="box warn"><p><strong>狀態</strong>：本頁描述 <code>LambdaFixed=10000</code>（λ→∞）、<code>LambdaIterations=0</code>、<code>UpperBoundJump=false</code> 的組態。書面名 <strong>HGS-M5</strong>（純貪婪）；含 Dinkelbach 價格的 Canon v2 組態改稱 <strong>HGS-M5-λ</strong>（REPORTING-STANDARD 1.6）。正式對照 <code>2026-09-18_large_m5_pure_vs_lambda_vs_hadgs</code>（10 seeds）已完成，見 §7。</p></div>
 </header>
 
 <section>
@@ -138,23 +138,26 @@ o₂ 在 A 撿 x；o₃ 在 B 撿 z（等 p₁ 到）；車去取 p₁ 送 B。<
 
 <section>
 <h2><span class="n">7</span>它做得怎樣</h2>
-<p>大規模（45 台、12 站、2 h、seed 0）：</p>
-<table><thead><tr><th>政策</th><th>Items</th><th>Orders</th><th>Pile-on</th><th>Trips</th><th>m/line</th><th>EOR (kJ/order)</th><th>Station idle</th></tr></thead><tbody>
-<tr><td>HADGS</td><td>6,528</td><td>2,917</td><td>2.38</td><td>1,224</td><td>39.27</td><td>7.40</td><td>24.5%</td></tr>
-<tr><td><b>M5 純貪婪</b></td><td><b>8,061</b></td><td><b>3,343</b></td><td><b>8.32</b></td><td><b>402</b></td><td><b>21.98</b></td><td><b>3.97</b></td><td><b>6.7%</b></td></tr>
-<tr><td>M5 固定 λ=13</td><td>8,337</td><td>3,450</td><td>7.90</td><td>437</td><td>20.27</td><td>3.53</td><td>3.6%</td></tr>
-<tr><td>M5 動態（Dinkelbach）</td><td>8,328</td><td>3,409</td><td>7.48</td><td>456</td><td>20.78</td><td>3.62</td><td>3.7%</td></tr>
+<p>大規模（45 台、12 站、2 h、<b>10 seeds</b>，雙尾配對 <i>t</i>；<code>2026-09-18_large_m5_pure_vs_lambda_vs_hadgs</code>）：</p>
+<table><thead><tr><th>Policy</th><th>Items</th><th>Orders</th><th>Pile-on</th><th>Trips</th><th>m/line</th><th>EOR (kJ/order)</th><th>Turnover (s)</th><th>Station idle</th></tr></thead><tbody>
+<tr><td>HADGS</td><td>6,341</td><td>2,789</td><td>2.28</td><td>1,226</td><td>41.28</td><td>7.74</td><td>177</td><td>26.7%</td></tr>
+<tr><td><b>HGS-M5（純貪婪）</b></td><td><b>8,151</b></td><td><b>3,323</b></td><td><b>8.36</b></td><td><b>398</b></td><td><b>21.57</b></td><td><b>3.94</b></td><td><b>399</b></td><td><b>5.7%</b></td></tr>
+<tr><td>HGS-M5-λ（Dinkelbach）</td><td>8,318</td><td>3,385</td><td>7.63</td><td>444</td><td>20.45</td><td>3.60</td><td>395</td><td>3.8%</td></tr>
 </tbody></table>
-<p>純貪婪 vs HADGS：件數 <span class="valc">+23.5%</span>、趟次 −67%、每線距離 −44%、每單能耗 −46%。小規模（6 台）四個版本件數差 &lt;0.6%。</p>
-<p><b>它為什麼贏 HADGS</b>：HADGS 一張單只能整批給一個站，且以「能完成幾張單」選貨架，一趟貨架到站平均只服務 2.4 張單。純貪婪 M5 以線為單位：一趟貨架到站可以服務多張單的部分線（pile-on 8.3），站上存量先撿光才叫新貨架，趟次少三分之二。<strong>贏的是結構，不是價格。</strong></p>
+<table><thead><tr><th>配對差</th><th>Items</th><th>Pile-on</th><th>Trips</th><th>m/line</th><th>EOR</th><th>Turnover</th><th>Idle</th></tr></thead><tbody>
+<tr><td>HADGS → HGS-M5</td><td><b>+28.6%***</b></td><td>+268%***</td><td>−67.6%***</td><td><b>−47.8%***</b></td><td><b>−49.1%***</b></td><td>+126%***</td><td>−78.6%***</td></tr>
+<tr><td>HGS-M5 → HGS-M5-λ</td><td>+2.1%***</td><td>−8.8%***</td><td>+11.7%***</td><td>−5.2%***</td><td>−8.6%***</td><td>−1.0 n.s.</td><td>−33.7%***</td></tr>
+</tbody></table>
+<p>純貪婪 vs HADGS：件數 <span class="valc">+28.6%</span>、趟次 −68%、每線距離 −48%、每單能耗 −49%。加上價格再得 +2.1% 件、−5% 距離、−9% 能耗。<b>HADGS→HGS-M5-λ 的 +31.2% 中，28.6 個百分點是結構，2.6 個百分點是價格。</b>小規模（6 台）四個版本件數差 &lt;0.6%。</p>
+<p><b>它為什麼贏 HADGS</b>：HADGS 一張單只能整批給一個站，且以「能完成幾張單」選貨架，一趟貨架到站平均只服務 2.3 張單。純貪婪 M5 以線為單位：一趟貨架到站可以服務多張單的部分線（pile-on 8.4），站上存量先撿光才叫新貨架，趟次少三分之二。<strong>贏的是結構，不是價格。</strong>代價：turnover +126%（母單等合併）、閒置 5.7%（沒有「不值得派」的概念，偶派遠貨架）。</p>
 </section>
 
 <section>
 <h2><span class="n">8</span>Future work：把價格加回來（Dinkelbach 融合）</h2>
 <p>純貪婪版沒有「不值得派」的概念。加一個價格 λ（公尺／線）就有了：dispatch 分數變成 <span class="cost">距離</span> − λ × <span class="valc">解鎖線當量</span>，只有解鎖值得那段距離才派。λ 從哪來是問題所在：</p>
 <ul>
-<li><b>固定常數</b>：要事先掃描；本佈局大規模最佳 λ≈13，可得件數 +3.4%、m/line −7.8%、EOR −11%（相對純貪婪，seed 0）。換佈局要重掃。</li>
-<li><b>Dinkelbach 自校準</b>（正典 M5 的做法）：以上一計畫實際達成的公尺／線當下一輪價格，最多 5 輪，加上「沒東西划算時把 λ 抬到最便宜可關線趟次成本」的補價規則。免調參，件數 +3.3%、m/line −5.8%、EOR −9.4%（相對純貪婪）；與最佳常數件數持平、效率輸 1–3%。</li>
+<li><b>固定常數</b>（HGS-M5-λ̄）：要事先掃描；本佈局大規模最佳 λ≈13。換佈局要重掃。</li>
+<li><b>Dinkelbach 自校準</b>（HGS-M5-λ）：以上一計畫實際達成的公尺／線當下一輪價格，最多 5 輪，加上「沒東西划算時把 λ 抬到最便宜可關線趟次成本」的補價規則。免調參，10 seeds：件數 +2.1%、m/line −5.2%、EOR −8.6%（相對純貪婪）；與最佳常數件數持平、效率輸 1–3%。</li>
 </ul>
 <p>已知的事實與未解的問題（詳見 <code>docs/defense material/2026-09-18-pricing-advantage-belongs-to-m4g/</code>）：</p>
 <ul>
@@ -162,7 +165,7 @@ o₂ 在 A 撿 x；o₃ 在 B 撿 z（等 p₁ 到）；車去取 p₁ 送 B。<
 <li>貪婪下 Dinkelbach 不再有最優性與超線性收斂；剩下的是「比值單調改善、有限步終止、終止比值為最優比值上界」。迭代上限 5→20 結果逐位相同。</li>
 <li>補價規則（上界跳躍）在兩個規模都不可省略（關掉 −24%），但在站台飽和時它是多派車的來源（27% 派車決策、32% 新趟距離）。以<strong>站台飢餓</strong>而非「有空車」為觸發條件，是最直接的改進方向。</li>
 </ul>
-<p>換句話說：純貪婪 M5 已經拿到 M5 對 HADGS 增益的四分之三；價格是剩下的四分之一，而「怎麼定價」在貪婪求解器上仍是開放問題。</p>
+<p>換句話說：純貪婪 HGS-M5 已拿到對 HADGS 增益的 28.6／31.2；價格只值 2.6 個百分點，而「怎麼在貪婪求解器上定價」仍是開放問題。</p>
 </section>
 
 <section>
