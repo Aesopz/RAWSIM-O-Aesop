@@ -59,6 +59,13 @@
 
 ---
 
+
+### 1.6 ⚠️ 新增必做頁（2026-09-18 加入）：定價優勢屬於 M4G，M5 未繼承
+- 素材：`docs/defense material/2026-09-18-pricing-advantage-belongs-to-m4g/`（README 有投影片建議與口試問答）。
+- 一頁兩欄：左 `m4g_figA_distance_vs_items_10b.png`、右 `m5_figA_distance_vs_items_10b.png`；標題 *Dynamic vs. Fixed Exchange Rate: Exact Model vs. Greedy Heuristic*。
+- 所有寫到「動態優於固定」的頁面（原第 24／27 頁及結論頁）主詞改為 M4G；M5 只講免調參與不崩潰。
+- 備用頁：大規模 `m5_figA_distance_vs_items_45b.png` ＋三個排除（無跳躍 −24%、迭代 5→20 逐位相同、60 台差距擴大）。
+
 ## 2. 模擬：建議明天啟動的批次（依優先序）
 
 全部走 `exp.py`：`new → plan → 列參數表給使用者確認 → run`。**未確認不啟動。**
