@@ -1,0 +1,6 @@
+2 h · 1 seeds · 12 Pstations · 6 Rstations · 1000 SKUs · 200 backlog · 1203 pods / 1352 cells · cap 500 · 70% stock
+policy,bots,Items,Lines,Orders,Pile-on,Trips,Trips/Orders,m/Line,EOR(kJ/order),TurnoverMedian(s),StationIdle(%)
+m5_dyn_60b,60b,8318.0,5402.0,3436.0,7.373,466.0,0.1356,20.20,3.428,382.6,3.78
+m5_fix13_60b,60b,8343.0,5396.0,3404.0,8.066,422.0,0.1240,19.30,3.405,369.9,3.52
+
+excel cross-check: {"status": "passed", "checks": 20, "rel_tol": 1e-09}

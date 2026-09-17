@@ -1,0 +1,47 @@
+{
+ "id": "2026-09-17_large_60b_dyn_vs_fix13_m5",
+ "kind": "fast",
+ "question": "60 台（5 bots/station）大規模：動態 vs 固定 λ=13，機器人更充裕時定價的效率空間是否出現？",
+ "motivation": "小規模 6→10 台顯示機器人越充裕、動態的效率優勢越大（距離 16%→41%）；大規模 45 台（3.75/站）未見此效應。以 60 台（5/站，與小規模 10b 同比）1 seed 探風向。μ 沿用 45 台動態 μ/λ 中位 1.6208。",
+ "scenario_confirmed_by_user": true,
+ "arms": [
+  {
+   "label": "m5_dyn_60b",
+   "xlayo": "inputs/large_60b_12p_6r.xlayo",
+   "templates": {
+    "xlayo": "Canon/large/large_45b_12p_6r.xlayo"
+   },
+   "changed": [
+    "BotCount"
+   ],
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "Canon/large/hgs_m5_k10.xconf",
+   "seeds": [
+    0
+   ],
+   "display": "HGS-M5 (dynamic), 60 robots"
+  },
+  {
+   "label": "m5_fix13_60b",
+   "xlayo": "inputs/large_60b_12p_6r.xlayo",
+   "templates": {
+    "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "BotCount",
+    "LambdaFixed",
+    "MuFixed",
+    "LambdaIterations",
+    "UpperBoundJump"
+   ],
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/m5_fix13_60b.xconf",
+   "seeds": [
+    0
+   ],
+   "display": "HGS-M5 fixed λ=13, 60 robots"
+  }
+ ],
+ "comparisons": []
+}

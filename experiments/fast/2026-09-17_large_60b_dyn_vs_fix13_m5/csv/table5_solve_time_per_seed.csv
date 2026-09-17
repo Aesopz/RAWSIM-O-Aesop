@@ -1,0 +1,3 @@
+﻿Policy,Bots,Seed,Order batching time per decision (s),Order batching time total (s),Decisions
+"HGS-M5 (dynamic), 60 robots",60,0,0.0465,244.6,5262
+"HGS-M5 fixed λ=13, 60 robots",60,0,0.0457,305.5,6685
