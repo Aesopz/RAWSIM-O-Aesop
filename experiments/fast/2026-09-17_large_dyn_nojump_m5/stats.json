@@ -1,0 +1,139 @@
+{
+ "generated": "2026-09-17T20:51:07",
+ "definitions": {
+  "pct": "(mean_b - mean_a) / mean_a * 100",
+  "delta": "b - a paired by seed",
+  "test": "scipy.stats.ttest_rel, two-tailed",
+  "ci": "95% t interval",
+  "dz": "mean(delta) / sd(delta)",
+  "rounding": "presentation only, half-up"
+ },
+ "descriptives": {
+  "m5_nojump_45b": {
+   "Items": {
+    "n": 1,
+    "mean": 6342.0,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 6342.0,
+    "max": 6342.0
+   },
+   "Lines": {
+    "n": 1,
+    "mean": 4113.0,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 4113.0,
+    "max": 4113.0
+   },
+   "Orders": {
+    "n": 1,
+    "mean": 2594.0,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 2594.0,
+    "max": 2594.0
+   },
+   "Pile-on": {
+    "n": 1,
+    "mean": 7.411428571428571,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 7.411428571428571,
+    "max": 7.411428571428571
+   },
+   "Trips": {
+    "n": 1,
+    "mean": 350.0,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 350.0,
+    "max": 350.0
+   },
+   "Trips/Orders": {
+    "n": 1,
+    "mean": 0.13492675404780263,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 0.13492675404780263,
+    "max": 0.13492675404780263
+   },
+   "m/Line": {
+    "n": 1,
+    "mean": 20.66387442361449,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 20.66387442361449,
+    "max": 20.66387442361449
+   },
+   "EOR(kJ/order)": {
+    "n": 1,
+    "mean": 3.70232313884131,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 3.70232313884131,
+    "max": 3.70232313884131
+   },
+   "TurnoverMedian(s)": {
+    "n": 1,
+    "mean": 401.157676793461,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 401.157676793461,
+    "max": 401.157676793461
+   },
+   "StationIdle(%)": {
+    "n": 1,
+    "mean": 26.622005321707814,
+    "sd": NaN,
+    "se": NaN,
+    "ci_low": NaN,
+    "ci_high": NaN,
+    "min": 26.622005321707814,
+    "max": 26.622005321707814
+   }
+  }
+ },
+ "paired": {},
+ "per_seed": {
+  "m5_nojump_45b": {
+   "0": {
+    "Items": 6342.0,
+    "Lines": 4113.0,
+    "Orders": 2594.0,
+    "Pile-on": 7.411428571428571,
+    "Trips": 350.0,
+    "Trips/Orders": 0.13492675404780263,
+    "m/Line": 20.66387442361449,
+    "EOR(kJ/order)": 3.70232313884131,
+    "TurnoverMedian(s)": 401.157676793461,
+    "StationIdle(%)": 26.622005321707814,
+    "_hours": 2.0,
+    "_source": "experiments\\fast\\2026-09-17_large_dyn_nojump_m5\\runs\\m5_nojump_45b_s0\\large_45b_12p_6r-large_fill200_mu1000_2h_inv70-m5_nojump_45b-0\\statistics.txt"
+   }
+  }
+ },
+ "excel_check": {
+  "status": "passed",
+  "checks": 10,
+  "rel_tol": 1e-09
+ }
+}

@@ -106,4 +106,6 @@ excel cross-check: {"status": "passed", "checks": 260, "rel_tol": 1e-09}
 
 **可信度**：動態組沿用 canon v2 m5_45b（guard 證明逐位相同）；固定組 60 場新跑；同 DLL 語意；excel 交叉驗證通過。
 
+**補充（fast 2026-09-17_large_dyn_nojump_m5）**：關閉 UpperBoundJump 後件數 −24%、閒置 +23 pp，故差距不是跳躍過度派車，而是 λ* 偏保守需離散補價 vs 常數中價平順派車。
+
 **下一步**：口試投影片大規模定價頁用 figA/figB_45b；文字用上面的措辭。

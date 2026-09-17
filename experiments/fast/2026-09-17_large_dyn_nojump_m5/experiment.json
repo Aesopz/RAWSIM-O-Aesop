@@ -1,0 +1,26 @@
+{
+ "id": "2026-09-17_large_dyn_nojump_m5",
+ "kind": "fast",
+ "question": "大規模動態 M5 關掉 UpperBoundJump，能否追平事後最佳常數 λ=13？",
+ "motivation": "檢驗大規模動態落後 λ=13/20 <1% 是否來自 λ̄ 跳躍（27% 派車決策、32% 新趟距離發生在 λ̄≈42）。單 seed 探風向；動態與 λ=13 的 seed 0 已存在可直接對照。",
+ "scenario_confirmed_by_user": true,
+ "arms": [
+  {
+   "label": "m5_nojump_45b",
+   "xlayo": "Canon/large/large_45b_12p_6r.xlayo",
+   "xsett": "Canon/large/large_fill200_mu1000_2h_inv70.xsett",
+   "xconf": "inputs/m5_nojump_45b.xconf",
+   "templates": {
+    "xconf": "Canon/large/hgs_m5_k10.xconf"
+   },
+   "changed": [
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0
+   ],
+   "display": "HGS-M5 dynamic, no bound jump"
+  }
+ ],
+ "comparisons": []
+}
