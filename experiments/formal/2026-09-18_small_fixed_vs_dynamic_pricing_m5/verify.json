@@ -1,0 +1,806 @@
+{
+ "verified": "2026-09-18T01:04:49",
+ "canon_version": 2,
+ "runs": [
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_dyn_6b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_dyn_6b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_dyn_6b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_dyn_6b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_dyn_6b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_dyn_6b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_dyn_6b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_dyn_6b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_dyn_6b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_dyn_6b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix3_6b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix3_6b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix3_6b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix3_6b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix3_6b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix3_6b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix3_6b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix3_6b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix3_6b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix3_6b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix4_6b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix4_6b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix4_6b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix4_6b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix4_6b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix4_6b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix4_6b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix4_6b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix4_6b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix4_6b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix5_6b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix5_6b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix5_6b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix5_6b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix5_6b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix5_6b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix5_6b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix5_6b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix5_6b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix5_6b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix9_6b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix9_6b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix9_6b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix9_6b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix9_6b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix9_6b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix9_6b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix9_6b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix9_6b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix9_6b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix14_6b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix14_6b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix14_6b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix14_6b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix14_6b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix14_6b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix14_6b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix14_6b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix14_6b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix14_6b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix18_6b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix18_6b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix18_6b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix18_6b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix18_6b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix18_6b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix18_6b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix18_6b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix18_6b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix18_6b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix22_6b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix22_6b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix22_6b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix22_6b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix22_6b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix22_6b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix22_6b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix22_6b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix22_6b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix22_6b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_dyn_10b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_dyn_10b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_dyn_10b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_dyn_10b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_dyn_10b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_dyn_10b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_dyn_10b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_dyn_10b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_dyn_10b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_dyn_10b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix3_10b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix3_10b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix3_10b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix3_10b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix3_10b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix3_10b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix3_10b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix3_10b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix3_10b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix3_10b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix4_10b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix4_10b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix4_10b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix4_10b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix4_10b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix4_10b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix4_10b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix4_10b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix4_10b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix4_10b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix5_10b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix5_10b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix5_10b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix5_10b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix5_10b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix5_10b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix5_10b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix5_10b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix5_10b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix5_10b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix9_10b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix9_10b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix9_10b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix9_10b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix9_10b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix9_10b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix9_10b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix9_10b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix9_10b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix9_10b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix14_10b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix14_10b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix14_10b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix14_10b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix14_10b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix14_10b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix14_10b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix14_10b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix14_10b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix14_10b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix18_10b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix18_10b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix18_10b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix18_10b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix18_10b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix18_10b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix18_10b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix18_10b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix18_10b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix18_10b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix22_10b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix22_10b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix22_10b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix22_10b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix22_10b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix22_10b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix22_10b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix22_10b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix22_10b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_fixed_vs_dynamic_pricing_m5/m5_fix22_10b_s9",
+   "validity": "valid",
+   "problems": []
+  }
+ ]
+}
