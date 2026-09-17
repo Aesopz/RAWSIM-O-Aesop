@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HGS-M5 純貪婪版：它怎麼運作</title>
+<style>
+:root{--ink:#12263A;--body:#31424F;--soft:#5D6E7E;--faint:#8A99A6;--paper:#F3F6F9;--card:#FFF;--wash:#E7EEF4;--rule:#D3DDE6;--cost:#B4531A;--cost-bg:#FBEEE4;--val:#0E7C86;--val-bg:#E2F1F2;--warn:#8A6D00;--warn-bg:#FFF6D6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--body);font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;font-size:16.5px;line-height:1.85}
+.wrap{max-width:960px;margin:0 auto;padding:0 28px 120px}
+header{padding:64px 0 32px;border-bottom:1px solid var(--rule)}
+.kicker{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--val);font-weight:600}
+h1{font-size:2.3rem;line-height:1.25;color:var(--ink);margin:.25em 0 .2em}
+.dek{color:var(--soft);font-size:1.05rem;margin:0;max-width:40em}
+.box{margin:28px 0;padding:20px 24px;background:var(--card);border:1px solid var(--rule);border-radius:6px}
+.box.warn{background:var(--warn-bg);border-color:#E8D48A}
+.box.val{background:var(--val-bg);border-color:#BBDDE0}
+.box p{margin:0}
+section{margin:48px 0 0;padding-top:22px;border-top:1px solid var(--rule)}
+h2{font-size:1.5rem;color:var(--ink);margin:0 0 6px}
+h2 .n{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.62em;font-weight:400;color:var(--faint);margin-right:.7em}
+h3{font-size:1.05rem;color:var(--ink);margin:28px 0 10px}
+p{margin:0 0 14px}
+ul,ol{margin:0 0 14px;padding-left:1.4em}
+li{margin:4px 0}
+code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.92em;background:var(--wash);padding:1px 5px;border-radius:3px;color:var(--ink)}
+table{border-collapse:collapse;width:100%;margin:12px 0 20px;font-size:.95em;background:var(--card)}
+th,td{padding:7px 10px;border-bottom:1px solid var(--rule);text-align:right}
+th:first-child,td:first-child{text-align:left}
+thead th{border-top:2px solid var(--ink);border-bottom:1px solid var(--ink);color:var(--ink);font-weight:600}
+tbody tr:last-child td{border-bottom:2px solid var(--ink)}
+.flow{display:grid;gap:10px;margin:16px 0 22px}
+.step{display:grid;grid-template-columns:44px 1fr;gap:12px;align-items:start;padding:12px 16px;background:var(--card);border:1px solid var(--rule);border-radius:6px}
+.step .k{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;color:var(--val);font-size:1.1em;padding-top:2px}
+.step b{color:var(--ink)}
+.step.loop{border-left:4px solid var(--val)}
+.step.out{border-left:4px solid var(--cost)}
+.small{color:var(--soft);font-size:.92em}
+.ex{background:var(--wash);border-radius:6px;padding:14px 18px;margin:12px 0 18px;font-size:.95em}
+.ex .t{font-weight:700;color:var(--ink)}
+kbd{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--card);border:1px solid var(--rule);border-radius:3px;padding:0 5px;font-size:.9em}
+.cost{color:var(--cost);font-weight:600}.valc{color:var(--val);font-weight:600}
+</style>
+</head>
+<body><div class="wrap">
+
+<header>
+<div class="kicker">HGS-M5 · pure greedy · 2026-09-18</div>
+<h1>HGS-M5 純貪婪版：它怎麼運作</h1>
+<p class="dek">一個不需要價格、不需要 Dinkelbach、不需要任何理論保證的線上拆單貪婪法。每個決策只做一件事：反覆拿「現在最值錢的一步」，直到沒有值錢的步為止。</p>
+<div class="box val"><p><strong>一句話</strong>：站上有貨能撿就先撿（一次撿一整條線）；撿完了，若有空車而且某個貨架到站後能立刻多撿到東西，就派最多能撿的那個；距離只在平手時看。拆單不是一個步驟，是這個過程的副產品。</p></div>
+<div class="box warn"><p><strong>狀態</strong>：本頁描述的是 <code>LambdaFixed=10000</code>（λ→∞）、<code>LambdaIterations=0</code>、<code>UpperBoundJump=false</code> 的組態（實驗 <code>2026-09-18_m5_noprice_greedy</code>，seed 0）。正典 M5（Canon v2）仍是含 Dinkelbach 價格的版本。若要以純貪婪版作為報告主線，需補跑 10 seeds 的 M5-pure vs HADGS 正式對照（約 80 分鐘）。</p></div>
+</header>
+
+<section>
+<h2><span class="n">1</span>它拿掉了什麼、留下了什麼</h2>
+<table><thead><tr><th>元件</th><th>正典 M5（含 Dinkelbach）</th><th>純貪婪版</th></tr></thead><tbody>
+<tr><td>價格 λ（公尺／線）</td><td>歷史平均 → Dinkelbach 逐決策更新 → 上界跳躍</td><td><b>無</b>（距離只當平手）</td></tr>
+<tr><td>價格 μ（公尺／單）</td><td>κ·λ</td><td>無；完成一張單記 κ 條線當量（κ = 實測每單線數）</td></tr>
+<tr><td>兌現率 β</td><td>綑綁線／估值線，分層</td><td>保留為次要權重（見 §4）</td></tr>
+<tr><td>draw 移動</td><td>有</td><td><b>有</b></td></tr>
+<tr><td>dispatch 移動（邊際試算）</td><td>有</td><td><b>有</b></td></tr>
+<tr><td>整單 fallback（預算綁定時）</td><td>有</td><td><b>有</b></td></tr>
+<tr><td>外圈 λ 迭代、跳躍、keep-previous</td><td>有（≤5 次）</td><td><b>無</b>（每決策只建一次計畫）</td></tr>
+</tbody></table>
+<p>留下的是<strong>結構</strong>：線級移動、站上存量優先、派車看「能解鎖什麼」。拿掉的是<strong>價格</strong>：什麼時候「不值得派」。純貪婪版只要能多關一條線就派——它沒有「不划算」這個概念。</p>
+</section>
+
+<section>
+<h2><span class="n">2</span>每個決策看到的東西</h2>
+<ul>
+<li><b>帳本</b>：每個揀貨站 s 的空槽數 C<sub>s</sub>；站上與在途貨架對每個 SKU 的可用存量。</li>
+<li><b>待處理訂單</b>：每張單 o 的剩餘線 {(SKU i, 數量 d<sub>o,i</sub>)}。可能已經有部分線在某站被撿走（拆單中的母單）。</li>
+<li><b>候選貨架 P<sub>a</sub></b>：儲位上、未被佔用、含任一需求 SKU 的貨架；只留對需求最有用的前 K=10 個。</li>
+<li><b>空車 R<sub>a</sub></b>：無任務的機器人。</li>
+<li><b>緊急閘門</b>（與 M1G／HADGS 相同）：逾期在即的訂單數 &gt; 空槽數時，只看緊急單。</li>
+</ul>
+<p class="small">程式：<code>GreedyM5Manager.InitializeSnapshot</code>／<code>BuildEpochState</code>。</p>
+</section>
+
+<section>
+<h2><span class="n">3</span>一個決策的流程</h2>
+<div class="flow">
+<div class="step"><div class="k">0</div><div>複製帳本（所有試算都在副本上做，最後一次性提交）。</div></div>
+<div class="step loop"><div class="k">①</div><div><b>列出所有 draw</b>：對每張單的每條線、每個站——站上存量能<em>整條</em>吃下，且該單在該站有槽或已佔槽 → 一個候選。<br>若有候選：<b>拿最值錢的一個</b>（§4），扣帳本，回到 ①。</div></div>
+<div class="step loop"><div class="k">②</div><div><b>沒有 draw 才評 dispatch</b>：對每個候選貨架 × 每個有空槽的站，配最近的空車。分數＝「派了它之後能多做的 draw 總值」，距離只在平手時比。<br>若最好的候選能多關至少一條線：<b>派</b>，扣帳本（該貨架成為在途、其存量進站帳），回到 ①。</div></div>
+<div class="step loop"><div class="k">③</div><div>①② 都沒有可做的，且<b>拆分預算綁定</b>（包裝箱滿或份數只剩一份）：找最便宜、能<em>整單</em>覆蓋一張未拆單的貨架集合，一車一貨架整組派出，回到 ①。否則結束。</div></div>
+<div class="step out"><div class="k">⇒</div><div><b>提交</b>：draw 變成站的揀貨請求（線落在不同站或不同決策 → 自然形成子單）；dispatch 變成機器人取貨任務。等待下一個事件（訂單完成、貨架到站、新訂單）再決策。</div></div>
+</div>
+<p>沒有第二輪。正典 M5 會用這個計畫的 D/V 更新 λ 再重建最多 5 次；純貪婪版建一次就提交。</p>
+</section>
+
+<section>
+<h2><span class="n">4</span>「最值錢」怎麼算</h2>
+<p>所有價值都以<strong>線當量</strong>計：</p>
+<table><thead><tr><th>事件</th><th>價值（線當量）</th><th>說明</th></tr></thead><tbody>
+<tr><td>關閉一條線（整條撿完）</td><td>1 × (1−β)</td><td>β 是「已被許諾的份」，見下</td></tr>
+<tr><td>關閉該單最後一條線（整單完成）</td><td>再加 κ × (1−β)</td><td>κ = 累積關閉線數 ÷ 累積完成單數（大規模 ≈1.6）</td></tr>
+<tr><td>一條線能被站上存量覆蓋但沒槽（許諾）</td><td>β</td><td>估值掃描；派車若讓更多線變成可覆蓋，也算</td></tr>
+<tr><td>行駛距離</td><td>≈0</td><td>λ→∞ 使距離只在線當量平手時決定勝負</td></tr>
+</tbody></table>
+<p><b>draw 的選法</b>：最大線當量優先；平手時偏好<em>不佔新槽</em>的。</p>
+<p><b>dispatch 的選法</b>：對每個候選 (貨架, 站, 車)，把它放進帳本副本、跑一輪 draw，算「有它 − 沒它」的線當量差；取差最大者；差 &gt; 0 才派。這是 M5 唯一的「前瞻」：一步試算，不看更遠。</p>
+<p class="small">β 為何還在：實作上 λ→∞ 只是把價格推到極端，(1−β)／β 的分配仍然存在。它的作用是在「現在關線」與「讓線變成可覆蓋」之間分權重（β 是實測兌現率，大規模 ≈0.17）。要完全拿掉可設 <code>DeltaFixed</code>；本頁描述的組態保留它。</p>
+</section>
+
+<section>
+<h2><span class="n">5</span>逐步範例</h2>
+<div class="ex">
+<div class="t">狀態</div>
+兩站 A、B 各 1 個空槽。訂單 o₁ = {x:2, y:1}，o₂ = {x:1}，o₃ = {z:3}。站 A 存量 x:3；站 B 存量無。儲位上貨架 p₁ = {y:5, z:4}（距 A 30 m、距 B 20 m）、p₂ = {z:10}（距 B 45 m）。一台空車。κ = 1.6。<br><br>
+<div class="t">① draw</div>
+候選：o₁ 的 x 線在 A（2 件，A 有 3）、o₂ 的 x 線在 A（1 件）。o₃ 沒有站有 z。<br>
+o₂ 的 x 線關掉就<em>整單完成</em>：價值 (1 + 1.6)(1−β) &gt; o₁ 的 1·(1−β) → <b>拿 o₂@A</b>。A 剩 x:2、槽 0。<br>
+再列：o₁ 的 x 線在 A 需要槽，A 沒槽了 → 無候選。<br><br>
+<div class="t">② dispatch</div>
+候選 p₁→A：A 無槽，跳過。p₁→B：到站後 B 有 y:5、z:4 → o₁ 的 y 線可關（但 o₁ 的 x 線在 A 沒槽，o₁ 不會完成）、o₃ 的 z 線可關（3 ≤ 4，整單完成）。解鎖 = 1·(1−β) + (1+1.6)(1−β) = 3.6(1−β)。p₂→B：只解鎖 o₃ 的 z 線 = 2.6(1−β)。<br>
+<b>派 p₁→B</b>（解鎖多；距離 20 vs 45 沒用到）。扣帳本：B 槽 0、B 存量 y:5 z:4。<br><br>
+<div class="t">① 再 draw</div>
+o₃@B（z:3，整單）與 o₁@B（y:1）都可，但 B 只有 1 個槽——o₃ 先（價值高）；o₁ 的 y 線等下一個決策。<br><br>
+<div class="t">提交</div>
+o₂ 在 A 撿 x；o₃ 在 B 撿 z（等 p₁ 到）；車去取 p₁ 送 B。<br>
+<b>拆單在哪</b>：o₁ 的 x 線會在下一個決策落在 A（A 空出槽時）、y 線落在 B（p₁ 已在 B）——同一張單兩個站、兩個時點，沒有任何一行程式碼「決定要拆」。
+</div>
+</section>
+
+<section>
+<h2><span class="n">6</span>它保證什麼、不保證什麼</h2>
+<ul>
+<li><b>可行</b>：每一步都檢查槽、存量、空車；提交的計畫一定能執行。</li>
+<li><b>有限步</b>：每一步都消耗槽或存量或空車，決策內迴圈必停。</li>
+<li><b>不保證最優</b>：單期不是、跨期更不是。它沒有目標函數，只有「下一步」。</li>
+<li><b>沒有「不划算」</b>：任何能多關一條線的派車都會做。代價：偶爾派很遠的貨架去救一條線，別的站等；大規模站台閒置 6.7%（含價格版 3.7%）。</li>
+</ul>
+<p>複雜度：每輪 dispatch 評分要對 |P<sub>a</sub>| × |站| 個候選各做一次試算，試算本身是一輪 draw；K=10 截斷把它壓到每決策毫秒級（大規模 2 h 模擬 ≈ 8 分鐘）。</p>
+</section>
+
+<section>
+<h2><span class="n">7</span>它做得怎樣</h2>
+<p>大規模（45 台、12 站、2 h、seed 0）：</p>
+<table><thead><tr><th>政策</th><th>Items</th><th>Orders</th><th>Pile-on</th><th>Trips</th><th>m/line</th><th>EOR (kJ/order)</th><th>Station idle</th></tr></thead><tbody>
+<tr><td>HADGS</td><td>6,528</td><td>2,917</td><td>2.38</td><td>1,224</td><td>39.27</td><td>7.40</td><td>24.5%</td></tr>
+<tr><td><b>M5 純貪婪</b></td><td><b>8,061</b></td><td><b>3,343</b></td><td><b>8.32</b></td><td><b>402</b></td><td><b>21.98</b></td><td><b>3.97</b></td><td><b>6.7%</b></td></tr>
+<tr><td>M5 固定 λ=13</td><td>8,337</td><td>3,450</td><td>7.90</td><td>437</td><td>20.27</td><td>3.53</td><td>3.6%</td></tr>
+<tr><td>M5 動態（Dinkelbach）</td><td>8,328</td><td>3,409</td><td>7.48</td><td>456</td><td>20.78</td><td>3.62</td><td>3.7%</td></tr>
+</tbody></table>
+<p>純貪婪 vs HADGS：件數 <span class="valc">+23.5%</span>、趟次 −67%、每線距離 −44%、每單能耗 −46%。小規模（6 台）四個版本件數差 &lt;0.6%。</p>
+<p><b>它為什麼贏 HADGS</b>：HADGS 一張單只能整批給一個站，且以「能完成幾張單」選貨架，一趟貨架到站平均只服務 2.4 張單。純貪婪 M5 以線為單位：一趟貨架到站可以服務多張單的部分線（pile-on 8.3），站上存量先撿光才叫新貨架，趟次少三分之二。<strong>贏的是結構，不是價格。</strong></p>
+</section>
+
+<section>
+<h2><span class="n">8</span>Future work：把價格加回來（Dinkelbach 融合）</h2>
+<p>純貪婪版沒有「不值得派」的概念。加一個價格 λ（公尺／線）就有了：dispatch 分數變成 <span class="cost">距離</span> − λ × <span class="valc">解鎖線當量</span>，只有解鎖值得那段距離才派。λ 從哪來是問題所在：</p>
+<ul>
+<li><b>固定常數</b>：要事先掃描；本佈局大規模最佳 λ≈13，可得件數 +3.4%、m/line −7.8%、EOR −11%（相對純貪婪，seed 0）。換佈局要重掃。</li>
+<li><b>Dinkelbach 自校準</b>（正典 M5 的做法）：以上一計畫實際達成的公尺／線當下一輪價格，最多 5 輪，加上「沒東西划算時把 λ 抬到最便宜可關線趟次成本」的補價規則。免調參，件數 +3.3%、m/line −5.8%、EOR −9.4%（相對純貪婪）；與最佳常數件數持平、效率輸 1–3%。</li>
+</ul>
+<p>已知的事實與未解的問題（詳見 <code>docs/defense material/2026-09-18-pricing-advantage-belongs-to-m4g/</code>）：</p>
+<ul>
+<li>在精確模型 M4G 上，Dinkelbach 價格<strong>優於每一個</strong>固定常數（距離 15–44%）；在貪婪 M5 上只達到與最佳常數持平。原因：貪婪的邊際試算本身已抑制過度派車，價格能貢獻的空間縮小。</li>
+<li>貪婪下 Dinkelbach 不再有最優性與超線性收斂；剩下的是「比值單調改善、有限步終止、終止比值為最優比值上界」。迭代上限 5→20 結果逐位相同。</li>
+<li>補價規則（上界跳躍）在兩個規模都不可省略（關掉 −24%），但在站台飽和時它是多派車的來源（27% 派車決策、32% 新趟距離）。以<strong>站台飢餓</strong>而非「有空車」為觸發條件，是最直接的改進方向。</li>
+</ul>
+<p>換句話說：純貪婪 M5 已經拿到 M5 對 HADGS 增益的四分之三；價格是剩下的四分之一，而「怎麼定價」在貪婪求解器上仍是開放問題。</p>
+</section>
+
+<section>
+<h2><span class="n">9</span>對照：程式與組態</h2>
+<ul>
+<li>程式：<code>RAWSimO.Core/Control/Defaults/OrderBatching/GreedyM5Manager.cs</code>——<code>BuildPlan</code>（§3）、<code>EnumerateLineMoves</code>／<code>SelectDraw</code>（①）、<code>EvaluateDispatch</code>／<code>DispatchTrialNet</code>（②）、<code>TryWholeOrderCombo</code>（③）、<code>ValuationSweep</code>（β）。</li>
+<li>純貪婪組態：正典 <code>hgs_m5_k10.xconf</code> 加 <code>LambdaFixed=10000</code>、<code>MuFixed=16208</code>、<code>LambdaIterations=0</code>、<code>UpperBoundJump=false</code>（<code>experiments/fast/2026-09-18_m5_noprice_greedy/inputs/</code>）。</li>
+<li>指標定義：<code>docs/REPORTING-STANDARD.md</code> §2–3。</li>
+</ul>
+</section>
+
+</div></body></html>
