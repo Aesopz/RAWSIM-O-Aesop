@@ -73,7 +73,8 @@
 3. **包裝站數敏感度**（純貪婪）：同夾 `fig_pk_sensitivity.png` —— 件數 1 站 −1.5%***；m/line 1 站 +45%***、2 站 +7.6%***、3 站＝無上限。取代 v2 λ 版的包裝站頁。
 4. **M5 運作流程頁（p27）**：用純貪婪版流程——拿掉外圈 λ 迭代與跳躍，保留 ①draw ②dispatch ③fallback；`scripts/slide_p27_hgs_m5.py` 需改參數重出（或用 `docs/2026-09-18-m5-pure-greedy-explained.html` §3 重畫）。
 5. **Future work 頁**：Dinkelbach 融合（HGS-M5-λ）：+2.1% 件、−5.2% m/line、−8.6% EOR；定價優勢屬 M4G（§1.6 那頁併入或相鄰）。
-6. 全份檢查：所有「HGS-M5」字樣 → 若指含價格版改為「HGS-M5-λ」（09-18 前的表都是 λ 版）。
+6. **Heuristic validation 頁**（M5 vs M4G 小規模）改用純貪婪版：`docs/experiments/2026-09-18-small-pure-m5-vs-m4g-fidelity/figures/fig_m5_vs_m4g_small.png`——件數 n.s.、EOR −2～3%*、turnover +7～15%。取代舊的 M5-λ 保真度頁。
+7. 全份檢查：所有「HGS-M5」字樣 → 若指含價格版改為「HGS-M5-λ」（09-18 前的表都是 λ 版）。
 
 ## 2. 模擬：建議明天啟動的批次（依優先序）
 

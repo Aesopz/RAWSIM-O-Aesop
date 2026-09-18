@@ -1,0 +1,306 @@
+{
+ "verified": "2026-09-18T17:48:43",
+ "canon_version": 2,
+ "runs": [
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m4g_6b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m4g_6b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m4g_6b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m4g_6b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m4g_6b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m4g_6b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m4g_6b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m4g_6b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m4g_6b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m4g_6b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_lambda_6b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_lambda_6b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_lambda_6b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_lambda_6b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_lambda_6b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_lambda_6b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_lambda_6b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_lambda_6b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_lambda_6b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_lambda_6b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_pure_6b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_pure_6b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_pure_6b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_pure_6b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_pure_6b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_pure_6b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_pure_6b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_pure_6b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_pure_6b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_pure_6b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m4g_10b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m4g_10b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m4g_10b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m4g_10b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m4g_10b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m4g_10b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m4g_10b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m4g_10b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m4g_10b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m4g_10b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_lambda_10b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_lambda_10b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_lambda_10b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_lambda_10b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_lambda_10b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_lambda_10b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_lambda_10b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_lambda_10b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_lambda_10b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_lambda_10b_s9",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_pure_10b_s0",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_pure_10b_s1",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_pure_10b_s2",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_pure_10b_s3",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_pure_10b_s4",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_pure_10b_s5",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_pure_10b_s6",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_pure_10b_s7",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_pure_10b_s8",
+   "validity": "valid",
+   "problems": []
+  },
+  {
+   "run_id": "2026-09-18_small_pure_m5_vs_m4g_fidelity/m5_pure_10b_s9",
+   "validity": "valid",
+   "problems": []
+  }
+ ]
+}

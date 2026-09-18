@@ -1,0 +1,191 @@
+{
+ "id": "2026-09-18_small_pure_m5_vs_m4g_fidelity",
+ "kind": "formal",
+ "question": "純貪婪 HGS-M5（無價格）在小規模是否仍忠實追隨 M4G（精確解）？",
+ "motivation": "主線改為純貪婪 HGS-M5；原保真度（M5-λ vs M4G，差 <0.2%）不再對應主線政策。以純貪婪版重做 6b/10b × 10 seeds；M4G 與 M5-λ 沿用 2026-09-15_canon_v1_small_split_limit_fidelity（guard 逐位）。",
+ "scenario_confirmed_by_user": true,
+ "arms": [
+  {
+   "label": "m4g_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "Canon/small/m4g.xconf",
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "reuse_from": {
+    "experiment": "2026-09-15_canon_v1_small_split_limit_fidelity",
+    "arm": "m4g_6b"
+   },
+   "display": "M4G"
+  },
+  {
+   "label": "m5_lambda_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "Canon/small/hgs_m5.xconf",
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "reuse_from": {
+    "experiment": "2026-09-15_canon_v1_small_split_limit_fidelity",
+    "arm": "m5_6b"
+   },
+   "display": "HGS-M5-λ"
+  },
+  {
+   "label": "m5_pure_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m5_pure_6b.xconf",
+   "templates": {
+    "xconf": "Canon/small/hgs_m5.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "LambdaIterations",
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "display": "HGS-M5"
+  },
+  {
+   "label": "m4g_10b",
+   "xlayo": "Canon/small/small_10b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "Canon/small/m4g.xconf",
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "reuse_from": {
+    "experiment": "2026-09-15_canon_v1_small_split_limit_fidelity",
+    "arm": "m4g_10b"
+   },
+   "display": "M4G"
+  },
+  {
+   "label": "m5_lambda_10b",
+   "xlayo": "Canon/small/small_10b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "Canon/small/hgs_m5.xconf",
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "reuse_from": {
+    "experiment": "2026-09-15_canon_v1_small_split_limit_fidelity",
+    "arm": "m5_10b"
+   },
+   "display": "HGS-M5-λ"
+  },
+  {
+   "label": "m5_pure_10b",
+   "xlayo": "Canon/small/small_10b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m5_pure_10b.xconf",
+   "templates": {
+    "xconf": "Canon/small/hgs_m5.xconf"
+   },
+   "changed": [
+    "LambdaFixed",
+    "MuFixed",
+    "LambdaIterations",
+    "UpperBoundJump"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "display": "HGS-M5"
+  }
+ ],
+ "comparisons": [
+  {
+   "a": "m4g_6b",
+   "b": "m5_pure_6b",
+   "kind": "fidelity",
+   "variable": "solver: exact MILP -> pure greedy"
+  },
+  {
+   "a": "m5_lambda_6b",
+   "b": "m5_pure_6b",
+   "kind": "ablation",
+   "variable": "remove Dinkelbach price"
+  },
+  {
+   "a": "m4g_10b",
+   "b": "m5_pure_10b",
+   "kind": "fidelity",
+   "variable": "solver: exact MILP -> pure greedy"
+  },
+  {
+   "a": "m5_lambda_10b",
+   "b": "m5_pure_10b",
+   "kind": "ablation",
+   "variable": "remove Dinkelbach price"
+  }
+ ],
+ "equivalent_dlls": {
+  "guard": "2026-09-16_pkwhole_final",
+  "sha256": [
+   "94a44bdb4844fea74934bfe1d0db3a0c2ea11971cb6fe05084b23dc09159120d",
+   "2b11c291972a376685b86cf4f825087ac7794cc384f024a138e7fbbc4c76b676"
+  ],
+  "note": "v1 Release vs v2 Release: differ only by PackingFullWholeOrderFallback, which is inert when no budget binds; guard pk1_flagoff bit-identical to v1 output"
+ }
+}
