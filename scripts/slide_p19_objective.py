@@ -73,8 +73,8 @@ def arrow_down(x, y1, y2):
 X, W = 0.6, 8.9
 steps = [
     (NAVY_FILL, NAVY, "Why a ratio?",
-     [("text", "The KPIs we report are ratios: energy per order, metres per line. Optimise the ratio we report.", 14, BLACK, False),
-      ("math", "min  D / P        D = metres,  P = line-equivalents", 18, NAVY, True)]),
+     [("text", "Every dispatch spends travel (D, metres) and earns fulfilment (P, lines closed; an order counts κ lines). Efficiency is cost per unit earned.", 14, BLACK, False),
+      ("math", "min  D / P        metres per line   ≡   lines per metre", 18, NAVY, True)]),
     (NAVY_FILL, NAVY, "Why not a weighted sum?",
      [("math", "min  D − w·P   needs w, a metre-per-line weight set by hand.", 15, BLACK, False),
       ("text", "w drifts with fleet size and station load: that is tuning, not modelling.", 14, BLACK, False)]),
@@ -85,7 +85,7 @@ steps = [
      [("math", "λ_{k+1} = D(x_{k}) / P(x_{k})     the ratio the last plan achieved", 17, BLACK, False),
       ("text", "λ falls monotonically to λ*; at λ* the best plan breaks even. λ is an output with units: metres per line.", 14, BLACK, False)]),
 ]
-y, h, gap = 1.8, 1.55, 0.38
+y, h, gap = 1.8, 1.6, 0.34
 for k, (fill, edge, head, body) in enumerate(steps):
     card(X, y, W, h, fill, edge)
     textbox(X + 0.1, y + 0.05, W - 0.2, h - 0.1, [("text", head, 16, edge, True)] + body)
