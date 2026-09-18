@@ -1,12 +1,12 @@
 # 2026-09-18_small_pure_m5_vs_m4g_fidelity
 
 - 類別：正式實驗（10 seeds）
-- 產生：2026-09-18T17:55:17・正典 v2・DLL 94a44bdb4844・git retro
-- 場次狀態：valid=60
+- 產生：2026-09-18T17:59:43・正典 v2・DLL 94a44bdb4844・git retro
+- 場次狀態：valid=80
 
 ## 為何做這組實驗
 
-**問題**：純貪婪 HGS-M5（無價格）在小規模是否仍忠實追隨 M4G（精確解）？
+**問題**：純貪婪 HGS-M5 在小規模對 M4G（精確解）與 M1G（Jiao 基準）的表現？（三臂）
 
 **動機**：主線改為純貪婪 HGS-M5；原保真度（M5-λ vs M4G，差 <0.2%）不再對應主線政策。以純貪婪版重做 6b/10b × 10 seeds；M4G 與 M5-λ 沿用 2026-09-15_canon_v1_small_split_limit_fidelity（guard 逐位）。
 
@@ -14,22 +14,26 @@
 
 - **m4g_6b**：m4g.xconf・M4GConfiguration・seeds [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
   - 6 bots・2 h · 10 seeds · 2 Pstations · 2 Rstations · 100 SKUs · 100 backlog · 100 pods / 120 cells · cap 100 · 70% stock
-- **m5_lambda_6b**：hgs_m5.xconf・GreedyM5Configuration・seeds [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-  - 6 bots・2 h · 10 seeds · 2 Pstations · 2 Rstations · 100 SKUs · 100 backlog · 100 pods / 120 cells · cap 100 · 70% stock
 - **m5_pure_6b**：m5_pure_6b.xconf・GreedyM5Configuration・seeds [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
   - 6 bots・2 h · 10 seeds · 2 Pstations · 2 Rstations · 100 SKUs · 100 backlog · 100 pods / 120 cells · cap 100 · 70% stock
   - 相對 `Canon/small/hgs_m5.xconf`：`-    <LambdaFixed>0</LambdaFixed>`；`+    <LambdaFixed>10000</LambdaFixed>`；`+    <LambdaIterations>0</LambdaIterations>`；`+    <MuFixed>16208</MuFixed>`；`-    <UpperBoundJump>true</UpperBoundJump>`；`+    <UpperBoundJump>false</UpperBoundJump>`
 - **m4g_10b**：m4g.xconf・M4GConfiguration・seeds [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
   - 10 bots・2 h · 10 seeds · 2 Pstations · 2 Rstations · 100 SKUs · 100 backlog · 100 pods / 120 cells · cap 100 · 70% stock
-- **m5_lambda_10b**：hgs_m5.xconf・GreedyM5Configuration・seeds [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-  - 10 bots・2 h · 10 seeds · 2 Pstations · 2 Rstations · 100 SKUs · 100 backlog · 100 pods / 120 cells · cap 100 · 70% stock
 - **m5_pure_10b**：m5_pure_10b.xconf・GreedyM5Configuration・seeds [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
   - 10 bots・2 h · 10 seeds · 2 Pstations · 2 Rstations · 100 SKUs · 100 backlog · 100 pods / 120 cells · cap 100 · 70% stock
   - 相對 `Canon/small/hgs_m5.xconf`：`-    <LambdaFixed>0</LambdaFixed>`；`+    <LambdaFixed>10000</LambdaFixed>`；`+    <LambdaIterations>0</LambdaIterations>`；`+    <MuFixed>16208</MuFixed>`；`-    <UpperBoundJump>true</UpperBoundJump>`；`+    <UpperBoundJump>false</UpperBoundJump>`
+- **m1g_6b**：m1g.xconf・M1GConfiguration・seeds [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  - 6 bots・2 h · 10 seeds · 2 Pstations · 2 Rstations · 100 SKUs · 100 backlog · 100 pods / 120 cells · cap 100 · 70% stock
+- **m1g_10b**：m1g.xconf・M1GConfiguration・seeds [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  - 10 bots・2 h · 10 seeds · 2 Pstations · 2 Rstations · 100 SKUs · 100 backlog · 100 pods / 120 cells · cap 100 · 70% stock
 
 比較：
 - m5_pure_6b vs m4g_6b（fidelity；變數 solver: exact MILP -> pure greedy）
 - m5_pure_10b vs m4g_10b（fidelity；變數 solver: exact MILP -> pure greedy）
+- m5_pure_6b vs m1g_6b（benchmark；變數 policy: M1G -> HGS-M5）
+- m4g_6b vs m1g_6b（benchmark；變數 policy: M1G -> M4G）
+- m5_pure_10b vs m1g_10b（benchmark；變數 policy: M1G -> HGS-M5）
+- m4g_10b vs m1g_10b（benchmark；變數 policy: M1G -> M4G）
 
 ## 結果
 
@@ -37,11 +41,11 @@
 2 h · 10 seeds · 2 Pstations · 2 Rstations · 100 SKUs · 100 backlog · 100 pods / 120 cells · cap 100 · 70% stock
 policy,bots,Items,Lines,Orders,Pile-on,Trips,Trips/Orders,m/Line,EOR(kJ/order),TurnoverMedian(s),StationIdle(%)
 m4g_6b,6b,1419.9,946.1,599.1,5.338,112.3,0.1875,9.37,1.190,830.8,1.45
-m5_lambda_6b,6b,1422.2,931.2,584.0,5.231,111.7,0.1913,9.40,1.203,916.9,1.30
 m5_pure_6b,6b,1421.1,930.9,593.0,5.873,101.0,0.1703,9.40,1.165,890.7,1.39
 m4g_10b,10b,1428.7,952.2,603.5,5.118,118.0,0.1956,10.35,1.317,787.8,0.86
-m5_lambda_10b,10b,1430.3,934.2,588.1,5.081,115.8,0.1970,10.18,1.312,955.2,0.74
 m5_pure_10b,10b,1428.6,937.9,593.9,5.681,104.6,0.1762,10.26,1.281,902.2,0.87
+m1g_6b,6b,1242.3,806.9,574.9,3.261,176.3,0.3068,14.86,1.696,324.5,13.78
+m1g_10b,10b,1415.6,917.9,642.7,3.018,213.1,0.3317,16.77,1.980,373.6,1.76
 
 paired m5_pure_6b vs m4g_6b (delta% = (mean_b - mean_a)/mean_a; n=10)
 stat,Items,Lines,Orders,Pile-on,Trips,Trips/Orders,m/Line,EOR(kJ/order),TurnoverMedian(s),StationIdle(%)
@@ -55,7 +59,31 @@ pct,−0.01,−1.50,−1.59,+11.02,−11.36,−9.92,−0.90,−2.76,+14.52,+1.27
 p,.904,.001,.014,< .001,< .001,< .001,.310,.035,.007,.831
 sig,,**,*,***,***,***,,*,**,
 
-excel cross-check: {"status": "passed", "checks": 160, "rel_tol": 1e-09}
+paired m5_pure_6b vs m1g_6b (delta% = (mean_b - mean_a)/mean_a; n=10)
+stat,Items,Lines,Orders,Pile-on,Trips,Trips/Orders,m/Line,EOR(kJ/order),TurnoverMedian(s),StationIdle(%)
+pct,+14.39,+15.37,+3.15,+80.12,−42.71,−44.48,−36.75,−31.31,+174.49,−89.89
+p,< .001,< .001,.001,< .001,< .001,< .001,< .001,< .001,< .001,< .001
+sig,***,***,**,***,***,***,***,***,***,***
+
+paired m4g_6b vs m1g_6b (delta% = (mean_b - mean_a)/mean_a; n=10)
+stat,Items,Lines,Orders,Pile-on,Trips,Trips/Orders,m/Line,EOR(kJ/order),TurnoverMedian(s),StationIdle(%)
+pct,+14.30,+17.25,+4.21,+63.69,−36.30,−38.88,−36.92,−29.86,+156.03,−89.45
+p,< .001,< .001,.003,< .001,< .001,< .001,< .001,< .001,< .001,< .001
+sig,***,***,**,***,***,***,***,***,***,***
+
+paired m5_pure_10b vs m1g_10b (delta% = (mean_b - mean_a)/mean_a; n=10)
+stat,Items,Lines,Orders,Pile-on,Trips,Trips/Orders,m/Line,EOR(kJ/order),TurnoverMedian(s),StationIdle(%)
+pct,+0.92,+2.18,−7.59,+88.28,−50.92,−46.89,−38.84,−35.32,+141.48,−50.89
+p,.027,.002,< .001,< .001,< .001,< .001,< .001,< .001,< .001,.029
+sig,*,**,***,***,***,***,***,***,***,*
+
+paired m4g_10b vs m1g_10b (delta% = (mean_b - mean_a)/mean_a; n=10)
+stat,Items,Lines,Orders,Pile-on,Trips,Trips/Orders,m/Line,EOR(kJ/order),TurnoverMedian(s),StationIdle(%)
+pct,+0.93,+3.74,−6.10,+69.59,−44.63,−41.04,−38.29,−33.49,+110.86,−51.51
+p,.032,< .001,< .001,< .001,< .001,< .001,< .001,< .001,< .001,.032
+sig,*,***,***,***,***,***,***,***,***,*
+
+excel cross-check: {"status": "passed", "checks": 240, "rel_tol": 1e-09}
 ```
 
 ## 分析（Claude 當下判讀）

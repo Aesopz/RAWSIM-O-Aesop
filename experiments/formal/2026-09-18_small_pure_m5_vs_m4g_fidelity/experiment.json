@@ -1,7 +1,7 @@
 {
  "id": "2026-09-18_small_pure_m5_vs_m4g_fidelity",
  "kind": "formal",
- "question": "純貪婪 HGS-M5（無價格）在小規模是否仍忠實追隨 M4G（精確解）？",
+ "question": "純貪婪 HGS-M5 在小規模對 M4G（精確解）與 M1G（Jiao 基準）的表現？（三臂）",
  "motivation": "主線改為純貪婪 HGS-M5；原保真度（M5-λ vs M4G，差 <0.2%）不再對應主線政策。以純貪婪版重做 6b/10b × 10 seeds；M4G 與 M5-λ 沿用 2026-09-15_canon_v1_small_split_limit_fidelity（guard 逐位）。",
  "scenario_confirmed_by_user": true,
  "arms": [
@@ -27,29 +27,6 @@
     "arm": "m4g_6b"
    },
    "display": "M4G"
-  },
-  {
-   "label": "m5_lambda_6b",
-   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
-   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
-   "xconf": "Canon/small/hgs_m5.xconf",
-   "seeds": [
-    0,
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9
-   ],
-   "reuse_from": {
-    "experiment": "2026-09-15_canon_v1_small_split_limit_fidelity",
-    "arm": "m5_6b"
-   },
-   "display": "HGS-M5-λ"
   },
   {
    "label": "m5_pure_6b",
@@ -103,29 +80,6 @@
    "display": "M4G"
   },
   {
-   "label": "m5_lambda_10b",
-   "xlayo": "Canon/small/small_10b_2p_2r.xlayo",
-   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
-   "xconf": "Canon/small/hgs_m5.xconf",
-   "seeds": [
-    0,
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9
-   ],
-   "reuse_from": {
-    "experiment": "2026-09-15_canon_v1_small_split_limit_fidelity",
-    "arm": "m5_10b"
-   },
-   "display": "HGS-M5-λ"
-  },
-  {
    "label": "m5_pure_10b",
    "xlayo": "Canon/small/small_10b_2p_2r.xlayo",
    "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
@@ -152,6 +106,72 @@
     9
    ],
    "display": "HGS-M5"
+  },
+  {
+   "label": "m1g_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "Canon/small/m1g.xconf",
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "reuse_from": {
+    "legacy": {
+     "0": "out/p5_m1g_6_s0",
+     "1": "out/p5_m1g_6_s1",
+     "2": "out/p5_m1g_6_s2",
+     "3": "out/p5_m1g_6_s3",
+     "4": "out/p5_m1g_6_s4",
+     "5": "out/tau10_m1g_6_s5",
+     "6": "out/tau10_m1g_6_s6",
+     "7": "out/tau10_m1g_6_s7",
+     "8": "out/tau10_m1g_6_s8",
+     "9": "out/tau10_m1g_6_s9"
+    }
+   },
+   "display": "M1G"
+  },
+  {
+   "label": "m1g_10b",
+   "xlayo": "Canon/small/small_10b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "Canon/small/m1g.xconf",
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "reuse_from": {
+    "legacy": {
+     "0": "out/p5_m1g_10_s0",
+     "1": "out/p5_m1g_10_s1",
+     "2": "out/p5_m1g_10_s2",
+     "3": "out/p5_m1g_10_s3",
+     "4": "out/p5_m1g_10_s4",
+     "5": "out/tau10_m1g_10_s5",
+     "6": "out/tau10_m1g_10_s6",
+     "7": "out/tau10_m1g_10_s7",
+     "8": "out/tau10_m1g_10_s8",
+     "9": "out/tau10_m1g_10_s9"
+    }
+   },
+   "display": "M1G"
   }
  ],
  "comparisons": [
@@ -166,6 +186,30 @@
    "b": "m5_pure_10b",
    "kind": "fidelity",
    "variable": "solver: exact MILP -> pure greedy"
+  },
+  {
+   "a": "m1g_6b",
+   "b": "m5_pure_6b",
+   "kind": "benchmark",
+   "variable": "policy: M1G -> HGS-M5"
+  },
+  {
+   "a": "m1g_6b",
+   "b": "m4g_6b",
+   "kind": "benchmark",
+   "variable": "policy: M1G -> M4G"
+  },
+  {
+   "a": "m1g_10b",
+   "b": "m5_pure_10b",
+   "kind": "benchmark",
+   "variable": "policy: M1G -> HGS-M5"
+  },
+  {
+   "a": "m1g_10b",
+   "b": "m4g_10b",
+   "kind": "benchmark",
+   "variable": "policy: M1G -> M4G"
   }
  ],
  "equivalent_dlls": {
