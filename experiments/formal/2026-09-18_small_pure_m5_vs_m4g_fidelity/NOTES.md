@@ -1,7 +1,7 @@
 # 2026-09-18_small_pure_m5_vs_m4g_fidelity
 
 - 類別：正式實驗（10 seeds）
-- 產生：2026-09-18T17:48:54・正典 v2・DLL 94a44bdb4844・git retro
+- 產生：2026-09-18T17:55:17・正典 v2・DLL 94a44bdb4844・git retro
 - 場次狀態：valid=60
 
 ## 為何做這組實驗
@@ -29,9 +29,7 @@
 
 比較：
 - m5_pure_6b vs m4g_6b（fidelity；變數 solver: exact MILP -> pure greedy）
-- m5_pure_6b vs m5_lambda_6b（ablation；變數 remove Dinkelbach price）
 - m5_pure_10b vs m4g_10b（fidelity；變數 solver: exact MILP -> pure greedy）
-- m5_pure_10b vs m5_lambda_10b（ablation；變數 remove Dinkelbach price）
 
 ## 結果
 
@@ -51,31 +49,18 @@ pct,+0.08,−1.61,−1.02,+10.04,−10.06,−9.17,+0.27,−2.08,+7.21,−4.11
 p,.695,.006,.114,< .001,< .001,< .001,.764,.047,.024,.774
 sig,,**,,***,***,***,,*,*,
 
-paired m5_pure_6b vs m5_lambda_6b (delta% = (mean_b - mean_a)/mean_a; n=10)
-stat,Items,Lines,Orders,Pile-on,Trips,Trips/Orders,m/Line,EOR(kJ/order),TurnoverMedian(s),StationIdle(%)
-pct,−0.08,−0.03,+1.54,+12.29,−9.58,−10.94,−0.03,−3.19,−2.86,+7.31
-p,.634,.856,.009,< .001,< .001,< .001,.976,.016,.246,.543
-sig,,,**,***,***,***,,*,,
-
 paired m5_pure_10b vs m4g_10b (delta% = (mean_b - mean_a)/mean_a; n=10)
 stat,Items,Lines,Orders,Pile-on,Trips,Trips/Orders,m/Line,EOR(kJ/order),TurnoverMedian(s),StationIdle(%)
 pct,−0.01,−1.50,−1.59,+11.02,−11.36,−9.92,−0.90,−2.76,+14.52,+1.27
 p,.904,.001,.014,< .001,< .001,< .001,.310,.035,.007,.831
 sig,,**,*,***,***,***,,*,**,
 
-paired m5_pure_10b vs m5_lambda_10b (delta% = (mean_b - mean_a)/mean_a; n=10)
-stat,Items,Lines,Orders,Pile-on,Trips,Trips/Orders,m/Line,EOR(kJ/order),TurnoverMedian(s),StationIdle(%)
-pct,−0.12,+0.40,+0.99,+11.82,−9.67,−10.55,+0.72,−2.38,−5.55,+17.86
-p,< .001,.029,.002,< .001,< .001,< .001,.293,.008,.114,< .001
-sig,***,*,**,***,***,***,,**,,***
-
-excel cross-check: {"status": "passed", "checks": 200, "rel_tol": 1e-09}
+excel cross-check: {"status": "passed", "checks": 160, "rel_tol": 1e-09}
 ```
 
 ## 分析（Claude 當下判讀）
 
 **結論**：純貪婪 HGS-M5 在小規模與 M4G（精確解）件數持平（6b +0.08、10b −0.01，n.s.），且效率更好：EOR −2.1%*／−2.8%*、trips −10%***／−11%***、pile-on +10%***／+11%***；代價 turnover +7.2%*／+14.5%**、lines −1.5～−1.6%**。閒置無差。
-**vs HGS-M5-λ**：件數 −0.1（6b n.s.、10b −0.12%***），EOR −3.2%*／−2.4%**，pile-on +12%***——拿掉價格在小規模反而更省。
 主線保真度主張：「純貪婪 HGS-M5 件數與精確解無差、能耗更低 2–3%、以週轉時間 +7～15% 為代價」。
 可信度：10 seeds、雙尾配對 t、excel 交叉驗證通過；M4G／M5-λ 沿用 guard 逐位的既有 run。
-圖：figures/fig_m5_vs_m4g_small.png、fig_m5_vs_m5lambda_small.png（F1–F12）。
+圖：figures/fig_m5_vs_m4g_small.png（F1–F12；標題 HGS-M5 vs. M4G (Small Scale)）。HGS-M5-λ 不進論文，僅保留為 arm 供對照，不出圖。

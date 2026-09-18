@@ -162,22 +162,10 @@
    "variable": "solver: exact MILP -> pure greedy"
   },
   {
-   "a": "m5_lambda_6b",
-   "b": "m5_pure_6b",
-   "kind": "ablation",
-   "variable": "remove Dinkelbach price"
-  },
-  {
    "a": "m4g_10b",
    "b": "m5_pure_10b",
    "kind": "fidelity",
    "variable": "solver: exact MILP -> pure greedy"
-  },
-  {
-   "a": "m5_lambda_10b",
-   "b": "m5_pure_10b",
-   "kind": "ablation",
-   "variable": "remove Dinkelbach price"
   }
  ],
  "equivalent_dlls": {
