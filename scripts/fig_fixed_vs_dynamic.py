@@ -95,13 +95,14 @@ for bots in FLEETS:
     plt.close(fig)
 
 # ---------------------------------------------------------------- Figure B: delta on seven measures, one figure per fleet
-measures = [("Items", "Items handled", 1), ("m/Line", "Distance per line", 1), ("Pile-on", "Pile-on", 1),
+# Energy per order dominates distance per line (user rule 2026-09-18): distance column dropped.
+measures = [("Items", "Items handled", 1), ("Pile-on", "Pile-on", 1),
             ("EOR(kJ/order)", "Energy per order", 1), ("Trips", "Pod trips", 1), ("TurnoverMedian(s)", "Turnover time (median)", 1),
             ("StationIdle(%)", "Station idle", 1)]
 for bots in FLEETS:
     dyn, fixed = arms_for(bots)
     lams = [lam_of(l) for l in fixed]
-    fig, axes = plt.subplots(1, len(measures), figsize=(13.5, 3.2))
+    fig, axes = plt.subplots(1, len(measures), figsize=(12.0, 3.2))
     plt.subplots_adjust(top=0.80, bottom=0.18, left=0.06, right=0.99, wspace=0.55)
     for c, (key, title, _) in enumerate(measures):
         ax = axes[c]
@@ -125,7 +126,7 @@ for bots in FLEETS:
         if c == 0: ax.set_ylabel("Fixed λ", fontsize=8)
         ax.set_xlabel("Difference from dynamic (pp)" if key == "StationIdle(%)" else "Difference from dynamic (%)", fontsize=8)
         ax.tick_params(labelsize=7)
-    apa.furniture(fig, None, "Fixed vs. Dynamic Exchange Rate: Seven Measures (%d Robots)" % bots, note=None, top=0.97)
+    apa.furniture(fig, None, "Fixed vs. Dynamic Exchange Rate: Six Measures (%d Robots)" % bots, note=None, top=0.97)
     apa.save(fig, os.path.join(out, "figB_delta_by_measure_%db.png" % bots), provenance=PROV)
     plt.close(fig)
 print("figures ->", out)

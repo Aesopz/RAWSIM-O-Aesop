@@ -38,9 +38,10 @@ def ci95(x):
 levels = sorted(((int(m.group(1)), lab) for lab in S["per_seed"] for m in [re.fullmatch(rx, lab)] if m), key=lambda t: t[0])
 labels = [lab for _, lab in levels] + [base_arm]
 ticks = ["%d" % lv for lv, _ in levels] + ["∞"]
-measures = [("Items", "Items handled"), ("m/Line", "Distance per line (m)"), ("EOR(kJ/order)", "Energy per order (kJ)")]
+# Energy per order dominates distance per line (user rule 2026-09-18): show EOR only.
+measures = [("Items", "Items handled"), ("EOR(kJ/order)", "Energy per order (kJ)")]
 
-fig, axes = plt.subplots(1, 3, figsize=(10.5, 3.6))
+fig, axes = plt.subplots(1, 2, figsize=(7.4, 3.6))
 plt.subplots_adjust(top=0.84, bottom=0.18, left=0.08, right=0.98, wspace=0.42)
 for ax, (key, ylab) in zip(axes, measures):
     means = [per_seed(l, key).mean() for l in labels]; cis = [ci95(per_seed(l, key)) for l in labels]

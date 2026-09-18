@@ -252,7 +252,7 @@ Note. 2 h, 10 seeds, 2 pick stations, ...       ← Note. 斜體，精簡
 
 表格外可補充指標方向：Items、Lines、Orders、Pile-on、Trips 通常以增加為正向；Trips/Orders、m/Line、EOR、Turnover 與 Station idle 通常以降低為正向。但表格中的正負號只表示數值變化，不直接寫成好／差。
 
-### 4.2 圖（F1–F11，2026-09-17 使用者定案版）
+### 4.2 圖（F1–F12，2026-09-18 使用者定案版）
 
 沿用 `docs/defense material/figures/apa.py`：`apply_style()`、`furniture()`、`place_labels()`、`errorbar_segments()`、`check_axes()`、`save()`。**每一條都是硬規，出圖後必須用 Read 看圖逐條核對，不能只信程式跑完。**
 
@@ -268,6 +268,7 @@ Note. 2 h, 10 seeds, 2 pick stations, ...       ← Note. 斜體，精簡
 | F8 | **圖內禁止**：中文、emoji、內部代號（gc_、s0、檔名、旗標名）、未定義縮寫、判讀文字（"better"、"collapse"）。 | 看圖核對 |
 | F9 | **輸出**：PNG（≥300 dpi）＋PDF（`pdf.fonttype=42` 字型內嵌），存在實驗夾 `figures/`，並複製到 `docs/experiments/<主題>/figures/`。 | `apa.save()` |
 | F11 | **不編號、主題式短標題**（2026-09-17）：圖上**不放「Figure N」**（投影片順序會變動；編號屬於放圖的文件），除非使用者明確要求。標題必須是**一看就知道數據主題**的短名（≤10 個英文字，例：*Fixed vs. Dynamic Exchange Rate: Seven Measures*），禁止詮釋性長句（結論、意義由使用者口頭講）。 | `apa.furniture(fig, None, "<短主題>")`；超過 10 字直接報錯 |
+| F12 | **圖中只放 EOR，不放每線／每單距離**（2026-09-18 使用者定案：能耗指標統治距離指標，兩者共線 cv 1.6%）。距離只在「總距離 vs 件數」散佈圖（figA）作為軸出現；長條／曲線圖一律用 Energy per order。表格仍保留 m/line 欄。 | 圖腳本的 measures 不含 m/Line |
 | F10 | **資料時效標記**：每張圖必附 `<檔名>.provenance.json`（實驗 id、run id、正典版本、產圖日期、來源檔）。當來源 run 被標為 `superseded`、或正典版本已升，`scripts/fig_stale_check.py` 會在圖旁寫 `STALE.md` 並列出原因；**過期圖不得再交付**，要重跑圖腳本或在交付時明說「此圖依 Canon vN，已過期」。 | `apa.save(fig, path, provenance=…)`；`python scripts/fig_stale_check.py` |
 
 ### 4.3 註解語言原則
