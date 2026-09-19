@@ -74,7 +74,8 @@
 4. **M5 運作流程頁（p27）**：用純貪婪版流程——拿掉外圈 λ 迭代與跳躍，保留 ①draw ②dispatch ③fallback；`scripts/slide_p27_hgs_m5.py` 需改參數重出（或用 `docs/2026-09-18-m5-pure-greedy-explained.html` §3 重畫）。
 5. **Future work 頁**：Dinkelbach 融合（HGS-M5-λ）：+2.1% 件、−5.2% m/line、−8.6% EOR；定價優勢屬 M4G（§1.6 那頁併入或相鄰）。
 6. **Heuristic validation 頁**（M5 vs M4G 小規模）改用純貪婪版：`docs/experiments/2026-09-18-small-pure-m5-vs-m4g-fidelity/figures/fig_m5_vs_m4g_small.png`——件數 n.s.、EOR −2～3%*、turnover +7～15%。取代舊的 M5-λ 保真度頁。
-7. 全份檢查：所有「HGS-M5」字樣 → 若指含價格版改為「HGS-M5-λ」（09-18 前的表都是 λ 版）。
+7. **Appendix WS 頁加 2×2 小表**：{拆／不拆}×{距離有／無}，m/line 與 EOR 兩列——WS₀−WS：+5.3**／+4.0*、+3.4*／+2.6；WS-NS₀−WS-NS：+2.5*／+4.5***、+0.9／+3.2***。結論一句：距離權重在 Jiao 加權和中僅值 2–5%。資料 `docs/experiments/2026-09-19-small-ws-ns-no-distance/`、`2026-09-16-m4g-ws-no-distance/`。
+8. 全份檢查：所有「HGS-M5」字樣 → 若指含價格版改為「HGS-M5-λ」（09-18 前的表都是 λ 版）。
 
 ## 2. 模擬：建議明天啟動的批次（依優先序）
 
