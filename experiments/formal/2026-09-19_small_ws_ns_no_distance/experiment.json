@@ -1,0 +1,153 @@
+{
+ "id": "2026-09-19_small_ws_ns_no_distance",
+ "kind": "formal",
+ "question": "不拆單（整單承諾）下，Jiao 加權和目標式拿掉距離項差多少？（M4G-WS-NS₀ vs M4G-WS-NS）",
+ "motivation": "拆單情境已知拿掉距離項代價小（WS₀ vs WS：m/line +4–5%、EOR +3%）。補不拆單情境，完成 {距離有/無}×{拆/不拆} 2×2，回答『Jiao 目標式中距離項的作用是否被 1000 空槽罰則壓死』。對照臂沿用 2026-09-16_m4g_ws_ns_vs_ns。",
+ "scenario_confirmed_by_user": true,
+ "arms": [
+  {
+   "label": "m4g_ws_ns_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_ws_ns.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "OrderAtomicNoSplit",
+    "OrderAtomicCanonPrices",
+    "LegacyObjective",
+    "LegacyOrderReward",
+    "LegacyIdleSlotWeight",
+    "LegacyRewardValuation"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "reuse_from": {
+    "experiment": "2026-09-16_m4g_ws_ns_vs_ns",
+    "arm": "m4g_ws_ns_6b"
+   },
+   "display": "M4G-WS-NS"
+  },
+  {
+   "label": "m4g_ws_ns0_6b",
+   "xlayo": "Canon/small/small_6b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_ws_ns0.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "OrderAtomicNoSplit",
+    "OrderAtomicCanonPrices",
+    "LegacyObjective",
+    "LegacyOrderReward",
+    "LegacyIdleSlotWeight",
+    "LegacyRewardValuation",
+    "LegacyDistanceWeight"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "display": "M4G-WS-NS₀"
+  },
+  {
+   "label": "m4g_ws_ns_10b",
+   "xlayo": "Canon/small/small_10b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_ws_ns.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "OrderAtomicNoSplit",
+    "OrderAtomicCanonPrices",
+    "LegacyObjective",
+    "LegacyOrderReward",
+    "LegacyIdleSlotWeight",
+    "LegacyRewardValuation"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "reuse_from": {
+    "experiment": "2026-09-16_m4g_ws_ns_vs_ns",
+    "arm": "m4g_ws_ns_10b"
+   },
+   "display": "M4G-WS-NS"
+  },
+  {
+   "label": "m4g_ws_ns0_10b",
+   "xlayo": "Canon/small/small_10b_2p_2r.xlayo",
+   "xsett": "Canon/small/small_fill100_mu100_2h_inv70.xsett",
+   "xconf": "inputs/m4g_ws_ns0.xconf",
+   "templates": {
+    "xconf": "Canon/small/m4g.xconf"
+   },
+   "changed": [
+    "OrderAtomicNoSplit",
+    "OrderAtomicCanonPrices",
+    "LegacyObjective",
+    "LegacyOrderReward",
+    "LegacyIdleSlotWeight",
+    "LegacyRewardValuation",
+    "LegacyDistanceWeight"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "display": "M4G-WS-NS₀"
+  }
+ ],
+ "comparisons": [
+  {
+   "a": "m4g_ws_ns_6b",
+   "b": "m4g_ws_ns0_6b",
+   "kind": "ablation",
+   "variable": "LegacyDistanceWeight 1 -> 0 (no split)"
+  },
+  {
+   "a": "m4g_ws_ns_10b",
+   "b": "m4g_ws_ns0_10b",
+   "kind": "ablation",
+   "variable": "LegacyDistanceWeight 1 -> 0 (no split)"
+  }
+ ]
+}
