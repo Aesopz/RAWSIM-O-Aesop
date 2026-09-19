@@ -82,10 +82,11 @@ steps = [
      [("text", "D / P over binary variables is nonlinear; no MILP solver takes it.", 14, BLACK, False),
       ("math", "F(λ) = min  D − λ·P        F(λ*) = 0   ⇔   λ* = min D / P", 18, ORANGE, True)]),
     (ORANGE_FILL, ORANGE, "Why it works",
-     [("math", "λ_{k+1} = D(x_{k}) / P(x_{k})     the ratio the last plan achieved", 17, BLACK, False),
-      ("text", "λ falls monotonically to λ*; at λ* the best plan breaks even. λ is an output with units: metres per line.", 14, BLACK, False)]),
+     [("math", "λ_{k+1} = D(x_{k}) / P(x_{k})     the ratio the last plan achieved; λ falls until the best plan breaks even.", 15, BLACK, False),
+      ("text", "λ* = min D/P: the exchange rate at which the best plan earns zero surplus — the fewest metres per line this epoch can achieve, i.e. the marginal price of a line now.", 13, BLACK, False),
+      ("text", "Objective = 0 at λ*: every dispatched trip pays for itself and no plan beats it. Kept: the trips with metres-per-line ≤ λ*; dearer ones wait for a later epoch.", 13, BLACK, False)]),
 ]
-y, h, gap = 1.8, 1.6, 0.34
+y, h, gap = 1.75, 1.66, 0.3
 for k, (fill, edge, head, body) in enumerate(steps):
     card(X, y, W, h, fill, edge)
     textbox(X + 0.1, y + 0.05, W - 0.2, h - 0.1, [("text", head, 16, edge, True)] + body)
